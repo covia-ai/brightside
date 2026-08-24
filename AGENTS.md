@@ -4,6 +4,16 @@ Instructions for AI coding agents working in this repository. The workspace
 root (`../AGENTS.md`) sets the cross-repo rules (GitHub identities, British
 English); this file adds what is specific to BrightSide.
 
+## Purpose
+
+BrightSide exists to **demonstrate the power of the Covia Grid and lattice
+technology as a personal agent**. It is a showcase: a single desktop app that
+puts a full Covia venue — engine, adapters, lattice-backed persistent state,
+agent framework, MCP/A2A/HTTP surface — on someone's own machine, under their
+own identity, and lets them talk to an agent running on it. Design choices
+should favour showing that platform off (real venue, real agents, real lattice
+state, real federation potential) over hiding it behind a generic chat UI.
+
 ## What this is
 
 BrightSide is a Swing/FlatLaf desktop application that runs a Covia venue
@@ -42,6 +52,16 @@ window that talks to an agent on that venue. Single Maven module,
   `venue` map over BrightSide's defaults key-for-key and passes it straight
   to `VenueServer.launch`, so new venue options need no BrightSide change.
   Anything the file omits must have a default; an empty `{}` is valid.
+- **The user is a named venue principal, not the venue.** The chat window
+  acts as `<venueDID>:u:<name>` (`Identity`) — the same suffix convention as
+  Covia's `<venueDID>:public`. The name is chosen at a first-launch screen
+  (`IdentityDialog`) and stored in `~/.brightside/identity.json`, separate
+  from the hand-edited `config.json`. Chatting as a distinct user (not the
+  venue DID) makes Covia attribute turns as coming from the agent's *owner*,
+  not from "the venue operator"; `ChatSession.ATTRIBUTION_GUIDANCE` tells the
+  agent to treat those venue notes as infrastructure. Because the user is not
+  the venue principal, the API key must sit in the venue's `secrets.public`
+  store (what `resolveSecret` falls back to), not `secrets.venue`.
 - **Chat goes through the agent framework** (`v/ops/agent/create|update|
   info|chat` via `LocalVenue`), not through a private LLM call, so what the
   window shows is what any other client of the venue would see.

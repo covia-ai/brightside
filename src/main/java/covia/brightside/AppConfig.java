@@ -72,6 +72,7 @@ public final class AppConfig {
 		{
 			// BrightSide configuration — edit and restart BrightSide to apply.
 			// Every key is optional; delete this file to restore the defaults.
+			// Your chosen name lives separately in identity.json (not here).
 
 			// Look and feel: "dark" or "light"
 			"theme": "dark",
@@ -83,10 +84,14 @@ public final class AppConfig {
 			"venue": {
 				"name": "BrightSide Venue",
 				"port": 8085
+				// The model needs an API key. Either export ANTHROPIC_API_KEY before
+				// launching, or provision it into the venue's shared secret store here
+				// (loopback-only venue — do not commit this file):
+				// ,"secrets": { "public": { "ANTHROPIC_API_KEY": "sk-ant-..." } }
 			},
 
 			// The agent the chat window talks to. Created on first use at
-			// <venue DID>/g/<agentId>; the settings below are re-applied on startup.
+			// <your DID>/g/<agentId>; the settings below are re-applied on startup.
 			"chat": {
 				"agentId": "brightside",
 				"operation": "v/ops/llmagent/chat",

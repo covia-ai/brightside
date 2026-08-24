@@ -50,9 +50,10 @@ class EmbeddedVenueTest {
 			assertEquals(AppConfig.DEFAULT_VENUE_NAME, v.name());
 			assertEquals("http://127.0.0.1:" + port + "/", v.url());
 
-			// The in-process client chats against the live venue...
-			ChatSession chat = new ChatSession(v.venue(), new AppConfig.Chat("bs-venue",
-				AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo.", 30));
+			// A named local user (u:tester) chats against the live venue...
+			String userDID = Identity.of("tester").userDID(v.did());
+			ChatSession chat = new ChatSession(v.clientAs(userDID), new AppConfig.Chat("bs-venue",
+				AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo.", 30), "u:tester");
 			assertTrue(chat.send("ping").text().contains("ping"));
 
 			// ...and the HTTP surface is listening on loopback.

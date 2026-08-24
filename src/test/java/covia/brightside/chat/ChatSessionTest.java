@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
 import covia.brightside.AppConfig;
+import covia.brightside.Identity;
 import covia.venue.Config;
 import covia.venue.Engine;
 import covia.venue.LocalVenue;
@@ -27,8 +28,9 @@ class ChatSessionTest {
 	static void boot() {
 		engine = Engine.createTemp(Maps.of(Config.USERS, Maps.of(Config.AUTO_CREATE, true)));
 		Engine.addDemoAssets(engine);
+		// Act as a named local user sub-principal of the venue, as BrightSide does.
 		venue = LocalVenue.create(engine);
-		venue.setUser("did:key:z6Mk-test-brightside");
+		venue.setUser(Identity.of("tester").userDID(engine.getDIDString().toString()));
 	}
 
 	@AfterAll

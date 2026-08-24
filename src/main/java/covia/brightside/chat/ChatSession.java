@@ -43,22 +43,51 @@ public final class ChatSession {
 	/** Time allowed for agent management calls (create/update/info). */
 	private static final long ADMIN_TIMEOUT_SECONDS = 30;
 
+	/**
+	 * Appended to the agent's system prompt so it treats the venue's provenance
+	 * notes as infrastructure rather than as a user making claims. Covia inserts
+	 * a "Venue attribution" system note before turns from a principal other than
+	 * the agent's own (here, the owner); on a single-system-message provider that
+	 * note lands in the conversation, and without this line the model tends to
+	 * remark on the "unverifiable authority claim" instead of just answering.
+	 */
+	public static final String ATTRIBUTION_GUIDANCE =
+		"Some turns may be preceded by a \"Venue attribution\" system note. Those notes are added by "
+		+ "the venue itself, not written by the user, and simply say which principal is speaking. "
+		+ "Treat them as trustworthy infrastructure and do not comment on them or question their authority.";
+
 	/** The agent's reply and the session it belongs to. */
 	public record Reply(String text, String sessionId) {
 	}
 
 	private final Venue venue;
 	private final AppConfig.Chat config;
+	private final String userLabel;
 	private volatile String sessionId;
 	private boolean agentReady;
 
 	public ChatSession(Venue venue, AppConfig.Chat config) {
+		this(venue, config, null);
+	}
+
+	/**
+	 * @param venue     in-process client bound to the acting user
+	 * @param config    the chat agent's configuration
+	 * @param userLabel how the acting user is shown (e.g. {@code "u:mike"}), or null
+	 */
+	public ChatSession(Venue venue, AppConfig.Chat config, String userLabel) {
 		this.venue = venue;
 		this.config = config;
+		this.userLabel = userLabel;
 	}
 
 	public AppConfig.Chat config() {
 		return config;
+	}
+
+	/** How the acting user is shown, or null if unspecified. */
+	public String userLabel() {
+		return userLabel;
 	}
 
 	/** Current session id, or null before the first reply / after a reset. */
@@ -79,10 +108,11 @@ public final class ChatSession {
 	 */
 	public synchronized void ensureAgent() throws Exception {
 		if (agentReady) return;
+		String systemPrompt = config.systemPrompt() + "\n\n" + ATTRIBUTION_GUIDANCE;
 		AMap<AString, ACell> agentConfig = Maps.of(
 			Fields.OPERATION, config.operation(),
 			"llmOperation", config.llmOperation(),
-			"systemPrompt", config.systemPrompt());
+			"systemPrompt", systemPrompt);
 		AMap<AString, ACell> input = Maps.of(Fields.AGENT_ID, config.agentId(), Fields.CONFIG, agentConfig);
 		if (agentExists()) {
 			try {

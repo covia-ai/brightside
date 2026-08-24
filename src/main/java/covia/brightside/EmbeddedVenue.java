@@ -5,6 +5,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
+import covia.grid.Venue;
 import covia.venue.Engine;
 import covia.venue.LocalVenue;
 import covia.venue.server.VenueServer;
@@ -12,21 +13,18 @@ import covia.venue.server.VenueServer;
 /**
  * The Covia venue running inside the BrightSide process.
  *
- * <p>Wraps a {@link VenueServer} (the full venue: engine, adapters, HTTP/MCP
- * surface on the configured port) and a {@link LocalVenue} — the in-process
- * client the chat window uses, so a conversation never leaves the JVM. The
- * desktop user acts as the venue's own principal: agents and state live under
- * the venue DID.
+ * <p>Wraps a {@link VenueServer} — the full venue: engine, adapters, HTTP/MCP
+ * surface on the configured port. {@link #clientAs} mints an in-process
+ * {@link LocalVenue} client bound to a chosen principal, so a conversation
+ * runs entirely inside the JVM under the identity the user picked.
  */
 public final class EmbeddedVenue implements AutoCloseable {
 
 	private final VenueServer server;
-	private final LocalVenue venue;
 	private final AtomicBoolean closed = new AtomicBoolean();
 
-	private EmbeddedVenue(VenueServer server, LocalVenue venue) {
+	private EmbeddedVenue(VenueServer server) {
 		this.server = server;
-		this.venue = venue;
 	}
 
 	/**
@@ -35,20 +33,22 @@ public final class EmbeddedVenue implements AutoCloseable {
 	 * once it is serving.
 	 */
 	public static EmbeddedVenue launch(AMap<AString, ACell> config) {
-		VenueServer server = VenueServer.launch(config);
-		Engine engine = server.getEngine();
-		LocalVenue local = LocalVenue.create(engine);
-		local.setUser(engine.getDIDString());
-		return new EmbeddedVenue(server, local);
+		return new EmbeddedVenue(VenueServer.launch(config));
 	}
 
 	public Engine engine() {
 		return server.getEngine();
 	}
 
-	/** In-process client acting as the venue principal. */
-	public LocalVenue venue() {
-		return venue;
+	/**
+	 * A trusted in-process client acting as {@code userDID}. With
+	 * {@code users.autoCreate} the user is registered on first use, so a
+	 * freshly chosen {@code <venueDID>:u:<name>} principal just works.
+	 */
+	public Venue clientAs(String userDID) {
+		LocalVenue local = LocalVenue.create(engine());
+		local.setUser(userDID);
+		return local;
 	}
 
 	public int port() {

@@ -27,6 +27,7 @@ import javax.swing.WindowConstants;
 import covia.brightside.AppConfig;
 import covia.brightside.BrightSide;
 import covia.brightside.EmbeddedVenue;
+import covia.brightside.Identity;
 import covia.brightside.chat.ChatSession;
 
 /**
@@ -41,6 +42,10 @@ public final class MainWindow extends JFrame {
 	private final ChatPanel chatPanel = new ChatPanel();
 	private final JLabel status = new JLabel(" ");
 	private JMenuItem openVenueItem;
+	private JMenuItem switchUserItem;
+
+	private EmbeddedVenue venue; // set once the venue is up
+	private Identity identity;
 
 	public MainWindow(BrightSide app) {
 		super(BrightSide.APP_NAME);
@@ -75,6 +80,10 @@ public final class MainWindow extends JFrame {
 		JMenu file = new JMenu("File");
 		file.setMnemonic(KeyEvent.VK_F);
 		file.add(item("New conversation", KeyStroke.getKeyStroke(KeyEvent.VK_N, shortcut), e -> app.newConversation()));
+		switchUserItem = item("Switch user…", null, e -> app.switchUser());
+		switchUserItem.setEnabled(false);
+		file.add(switchUserItem);
+		file.addSeparator();
 		openVenueItem = item("Open venue in browser", null, e -> app.openVenueInBrowser());
 		openVenueItem.setEnabled(false);
 		file.add(openVenueItem);
@@ -119,13 +128,31 @@ public final class MainWindow extends JFrame {
 		chatPanel.appendSystem(text);
 	}
 
-	/** The venue is up: enable the venue actions and connect the chat. */
-	public void venueReady(EmbeddedVenue venue, ChatSession session) {
+	/** The venue is up: enable the venue actions and connect the first chat. */
+	public void venueReady(EmbeddedVenue venue, ChatSession session, Identity identity) {
+		this.venue = venue;
+		this.identity = identity;
 		openVenueItem.setEnabled(true);
-		setStatus(venue.name() + "   ·   " + venue.url() + "   ·   " + venue.did());
+		switchUserItem.setEnabled(true);
+		updateStatus();
 		chatPanel.setSession(session);
-		chatPanel.appendSystem("Venue ready at " + venue.url() + ". Chatting with agent '"
-			+ session.config().agentId() + "' via " + session.config().llmOperation() + ".");
+		chatPanel.appendSystem("Venue ready at " + venue.url() + ". You are " + identity.label()
+			+ ", chatting with agent '" + session.config().agentId() + "' via " + session.config().llmOperation() + ".");
+	}
+
+	/** The acting user changed: rebind the chat and note it. */
+	public void userChanged(ChatSession session, Identity identity) {
+		this.identity = identity;
+		updateStatus();
+		chatPanel.setSession(session);
+		chatPanel.appendSystem("Now chatting as " + identity.label() + ".");
+	}
+
+	private void updateStatus() {
+		if (venue == null) return;
+		String who = (identity != null) ? identity.label() + "   ·   " : "";
+		setStatus(who + venue.name() + "   ·   " + venue.url() + "   ·   " + venue.did());
+		setTitle((identity != null) ? BrightSide.APP_NAME + " — " + identity.label() : BrightSide.APP_NAME);
 	}
 
 	public void venueFailed(Throwable t) {
