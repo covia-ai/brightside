@@ -17,7 +17,6 @@ import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.joran.JoranConfigurator;
 import convex.core.util.Shutdown;
 import covia.brightside.chat.ChatSession;
-import covia.brightside.ui.IdentityDialog;
 import covia.brightside.ui.LAF;
 import covia.brightside.ui.MainWindow;
 import covia.brightside.ui.TrayManager;
@@ -48,6 +47,7 @@ public final class BrightSide {
 	private MainWindow window; // event thread only
 	private TrayManager tray; // event thread only
 	private final AtomicBoolean exiting = new AtomicBoolean();
+	private final AtomicBoolean chatStarted = new AtomicBoolean();
 
 	BrightSide(AppConfig config, Path configPath) {
 		this.config = config;
@@ -75,13 +75,20 @@ public final class BrightSide {
 		new BrightSide(config, path).start();
 	}
 
-	/** Shows the window, then brings the venue up in the background. */
+	/**
+	 * Shows the window — the welcome screen for a new person, or the chat
+	 * (starting up) for a returning one — then brings the venue up in the
+	 * background. The person can be typing their name while it starts.
+	 */
 	void start() {
+		Identity saved = Identity.load(config.home());
+		identity = saved;
+		boolean welcome = (saved == null);
+		String prefill = welcome ? Identity.suggestName() : null;
 		try {
 			SwingUtilities.invokeAndWait(() -> {
 				tray = TrayManager.install(this);
-				window = new MainWindow(this);
-				window.setStatus("Starting venue on port " + config.port() + "…");
+				window = new MainWindow(this, welcome, prefill);
 				window.setVisible(true);
 			});
 		} catch (Exception e) {
@@ -100,51 +107,87 @@ public final class BrightSide {
 			EmbeddedVenue v = EmbeddedVenue.launch(config.venueConfig());
 			venue = v;
 			log.info("Venue '{}' ready at {} as {}", v.name(), v.url(), v.did());
-			Identity id = resolveIdentity();
-			identity = id;
-			startChat(v, id, true);
+			onVenueReady();
 		} catch (Throwable t) {
 			log.error("Venue failed to start", t);
-			SwingUtilities.invokeLater(() -> window.venueFailed(t));
+			SwingUtilities.invokeLater(() -> window.startupFailed(t));
 		}
 	}
 
 	/**
-	 * The saved identity, or the name the user chooses at the first-launch
-	 * screen (falling back to a suggestion if they dismiss it). Runs on the
-	 * venue thread; the picker is shown on the event thread.
+	 * The venue is up. A returning person (name already known) — or a new one
+	 * who typed their name while it booted — starts chatting now; otherwise we
+	 * wait for {@link #submitName}.
 	 */
-	private Identity resolveIdentity() {
-		Identity saved = Identity.load(config.home());
-		if (saved != null) {
-			log.info("Using saved identity {}", saved.label());
-			return saved;
+	private void onVenueReady() {
+		// Install BrightSide's default skills into v/ (venue-principal write),
+		// before any agent that pins them is created.
+		try {
+			DefaultSkills.seed(venue.clientAs(venue.did()));
+		} catch (Exception e) {
+			log.warn("Could not seed default skills", e);
 		}
-		Identity chosen = promptForName("Welcome to " + APP_NAME,
-			"Choose a name for yourself on this venue:", Identity.suggestName());
-		if (chosen == null) chosen = Identity.of(Identity.suggestName());
-		persistIdentity(chosen);
-		return chosen;
+		Identity id = identity;
+		if (id != null) startChatOnce(venue, id);
 	}
 
-	/** Shows the name picker on the event thread and blocks for the answer. */
-	private Identity promptForName(String title, String prompt, String initial) {
-		Identity[] out = new Identity[1];
+	/**
+	 * The person entered a name on the welcome screen. Saves it, then either
+	 * starts chatting (first time) or rebinds the chat to the new name (a
+	 * later change). Called on the event thread from {@link MainWindow}.
+	 */
+	public void submitName(String rawName) {
+		Identity id;
 		try {
-			SwingUtilities.invokeAndWait(() -> out[0] = IdentityDialog.ask(window, title, prompt, initial));
-		} catch (Exception e) {
-			log.warn("Name picker failed: {}", e.toString());
+			id = Identity.of(rawName);
+		} catch (IllegalArgumentException e) {
+			window.welcomeBusy(null); // clear any busy state; the panel shows its own error
+			return;
 		}
-		return out[0];
+		boolean changing = chatStarted.get();
+		identity = id;
+		persistIdentity(id);
+		EmbeddedVenue v = venue;
+		if (changing) {
+			startChatBackground(v, id, false);
+		} else if (v != null) {
+			startChatOnce(v, id);
+		} else {
+			// Venue still booting; onVenueReady() will pick this name up.
+			window.welcomeBusy("Getting everything ready…");
+		}
+	}
+
+	/** Cancel a name change and return to the chat. */
+	public void cancelNameChange() {
+		window.showChatCard();
+	}
+
+	/** Open the name screen so the person can change how they're addressed. */
+	public void changeName() {
+		if (venue == null) return;
+		window.promptChangeName(identity != null ? identity.name() : Identity.suggestName());
 	}
 
 	private void persistIdentity(Identity id) {
 		try {
 			id.save(config.home());
-			log.info("Saved identity {} to {}", id.label(), config.home().resolve(Identity.FILE_NAME));
+			log.info("Saved name '{}' to {}", id.name(), config.home().resolve(Identity.FILE_NAME));
 		} catch (IOException e) {
-			log.warn("Could not save identity", e);
+			log.warn("Could not save the chosen name", e);
 		}
+	}
+
+	/** Starts the first chat exactly once, whichever of name/venue arrives last. */
+	private void startChatOnce(EmbeddedVenue v, Identity id) {
+		if (v == null || id == null) return;
+		if (chatStarted.compareAndSet(false, true)) startChatBackground(v, id, true);
+	}
+
+	private void startChatBackground(EmbeddedVenue v, Identity id, boolean firstStart) {
+		Thread t = new Thread(() -> startChat(v, id, firstStart), "brightside-chat");
+		t.setDaemon(true);
+		t.start();
 	}
 
 	/** Binds a chat session to {@code id}'s principal and readies its agent. */
@@ -154,9 +197,9 @@ public final class BrightSide {
 		chat = session;
 		log.info("Chatting as {} ({})", id.label(), userDID);
 		SwingUtilities.invokeLater(() -> {
-			if (firstStart) window.venueReady(v, session, id);
+			if (firstStart) window.showChat(v, session, id);
 			else window.userChanged(session, id);
-			if (tray != null) tray.setTooltip(APP_NAME + " — " + id.label() + "\n" + v.name() + " on port " + v.port());
+			if (tray != null) tray.setTooltip(APP_NAME + " — " + id.name());
 		});
 		// Create/refresh the agent now, so the first message is quick and any
 		// configuration problem shows up straight away.
@@ -164,7 +207,8 @@ public final class BrightSide {
 			session.ensureAgent();
 		} catch (Exception e) {
 			log.warn("Chat agent not ready", e);
-			SwingUtilities.invokeLater(() -> window.showSystemMessage("Chat agent not ready: " + e.getMessage()));
+			SwingUtilities.invokeLater(() -> window.showSystemMessage(
+				"I'm having trouble getting ready: " + e.getMessage()));
 		}
 	}
 
@@ -212,39 +256,31 @@ public final class BrightSide {
 		ChatSession c = chat;
 		if (c == null) return;
 		c.reset();
-		SwingUtilities.invokeLater(() -> window.showSystemMessage("New conversation started."));
+		SwingUtilities.invokeLater(() -> window.showSystemMessage("Started a new chat."));
 	}
 
-	/**
-	 * Asks for a name and, if it changed, rebinds the chat to that user. The
-	 * picker is modal on the event thread (this is called from a menu action);
-	 * the rebind, which touches the venue, runs on a background thread.
-	 */
-	public void switchUser() {
-		EmbeddedVenue v = venue;
-		if (v == null) return;
-		Identity current = identity;
-		Identity chosen = IdentityDialog.ask(window, "Switch user",
-			"Choose a name for yourself on this venue:",
-			(current != null) ? current.name() : Identity.suggestName());
-		if (chosen == null || chosen.equals(current)) return;
-		identity = chosen;
-		persistIdentity(chosen);
-		window.showSystemMessage("Switching to " + chosen.label() + "…");
-		Thread t = new Thread(() -> startChat(v, chosen, false), "brightside-switch-user");
-		t.setDaemon(true);
-		t.start();
-	}
-
-	public void openVenueInBrowser() {
+	/** Opens the venue's own web dashboard (Advanced menu — a demo/diagnostics surface). */
+	public void openDashboard() {
 		EmbeddedVenue v = venue;
 		if (v == null) return;
 		String url = v.url();
-		desktop("open " + url, d -> d.browse(URI.create(url)));
+		desktop("open the dashboard", d -> d.browse(URI.create(url)));
 	}
 
 	public void openConfigFile() {
-		desktop("open " + configPath, d -> d.open(configPath.toFile()));
+		desktop("open the settings file", d -> d.open(configPath.toFile()));
+	}
+
+	public void openLogsFolder() {
+		Path logs = config.home().resolve("logs");
+		desktop("open the logs folder", d -> {
+			try {
+				java.nio.file.Files.createDirectories(logs);
+			} catch (IOException ignored) {
+				// best effort; open will simply fail if it truly cannot be created
+			}
+			d.open(logs.toFile());
+		});
 	}
 
 	@FunctionalInterface

@@ -10,11 +10,13 @@ agent** — a full venue (engine, adapters, lattice-backed state, agent framewor
 MCP/A2A/HTTP surface) running on your own machine, under your own identity.
 
 - Swing UI with [FlatLaf](https://www.formdev.com/flatlaf/) (dark by default, light available)
+- A warm first-run welcome ("What should I call you?") — no jargon on the everyday screens
 - Embedded Covia venue: full engine, all built-in adapters, HTTP/MCP endpoint on `localhost`
-- You are a named venue user — pick a name at first launch and you become `u:<name>` on the venue
+- Your own private assistant with a **memory** (`n/memory`) that persists across chats
+- Its persona is a **Covia skill** (`v/skills/brightside/introduction`); grow your own skills in `w/skills`
 - Chat window talking to your own agent on that venue, entirely in-process
-- Tray icon with Show / Open venue in browser / Exit; minimise and close go to the tray
-- Persistent venue store and identity under `~/.brightside/`
+- Tray icon; minimise and close go to the tray. Technical bits (dashboard, identity, logs) live under **Advanced**
+- Persistent state under `~/.brightside/`
 
 ## Requirements
 
@@ -75,30 +77,33 @@ before launching, or store it in the venue's secret store — the `secrets.publi
 block above, which every local user resolves from.  For an offline smoke test
 set `"llmOperation": "v/test/ops/llm"` — an echo bot.
 
-Edit the file and restart BrightSide to apply changes. *File → Open
-configuration file* opens it in your editor. Logs go to `~/.brightside/logs/`.
+Edit the file and restart BrightSide to apply changes. *Advanced → Open
+settings file* opens it in your editor. Logs go to `~/.brightside/logs/`.
 
-## Your identity
+## Your name
 
-At first launch BrightSide asks you to choose a name. That name makes you a
-principal on your own venue — `u:mike` is the DID `<venueDID>:u:mike`, and your
-agent lives at `<venueDID>:u:mike/g/brightside`. The name is saved in
+At first launch BrightSide asks *"What should I call you?"* — that's all you
+need to give it. Behind the scenes the name makes you a principal on your own
+venue (`u:<name>`, the DID `<venueDID>:u:<name>`, with your agent at
+`<venueDID>:u:<name>/g/brightside`), which is what makes the venue treat your
+messages as coming from the assistant's owner — you. You only ever see the
+name; the technical identity lives in **Help → About**. The name is saved in
 `~/.brightside/identity.json` (separate from `config.json`); change it any time
-with **File → Switch user…**. Chatting as a real user (rather than as the venue
-itself) is what makes the venue treat your messages as coming from the agent's
-owner — you.
+with **File → Change my name…**.
 
 ## Using it
 
 - Type a message and press **Enter** to send (**Shift+Enter** for a newline).
-- **File → New conversation** starts a fresh session with the agent.
-- **File → Switch user…** changes who you are on the venue (`u:<name>`).
-- **File → Open venue in browser** opens the venue's web UI, API docs
-  (`/swagger`) and MCP endpoint.
+- **File → New chat** starts a fresh conversation.
+- **File → Change my name…** changes how the assistant addresses you.
+- **Advanced → Open dashboard in browser** opens the venue's web UI, API docs
+  (`/swagger`) and MCP endpoint — the platform behind the assistant.
+- **Advanced** also has *Open settings file* and *Open logs folder*; **Help →
+  About** shows the local address and identity.
 - Minimising or closing the window hides it to the tray; click the tray icon
-  to bring it back. **Exit** (tray menu or File menu) stops the venue.
+  to bring it back. **Quit** (tray menu or File menu) stops it.
 - Without a system tray (headless-ish desktops, or `BRIGHTSIDE_NO_TRAY=1`)
-  the window behaves normally and closing it exits.
+  the window behaves normally and closing it quits.
 
 ## Project layout
 
@@ -107,10 +112,13 @@ src/main/java/covia/brightside/
 ├── BrightSide.java        entry point and application controller
 ├── AppConfig.java         ~/.brightside/config.json (JSON5) and defaults
 ├── Identity.java          the u:<name> user; ~/.brightside/identity.json
+├── DefaultSkills.java     seeds v/skills/brightside/… (the introduction skill)
 ├── EmbeddedVenue.java     VenueServer + per-user in-process LocalVenue client
-├── chat/ChatSession.java  agent:create / agent:chat conversation
-└── ui/                    LAF, MainWindow, ChatPanel, IdentityDialog, TrayManager, Icons
+├── chat/ChatSession.java  agent config (skills, n/memory) + agent:chat
+└── ui/                    LAF, MainWindow, WelcomePanel, ChatPanel, TrayManager, Icons
+src/main/resources/brightside/introduction.md   the introduction skill body
 src/main/resources/brightside/logback.xml
+docs/DESIGN.md             product design guidelines
 src/test/java/…            unit tests (boot temporary venue engines; headless)
 ```
 

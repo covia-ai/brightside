@@ -12,10 +12,12 @@ import convex.core.data.AMap;
 import convex.core.data.AString;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
+import convex.core.data.Vectors;
 import convex.core.lang.RT;
 import convex.core.util.JSON;
 import covia.api.Fields;
 import covia.brightside.AppConfig;
+import covia.brightside.DefaultSkills;
 import covia.grid.Job;
 import covia.grid.Venue;
 
@@ -42,6 +44,12 @@ public final class ChatSession {
 
 	/** Time allowed for agent management calls (create/update/info). */
 	private static final long ADMIN_TIMEOUT_SECONDS = 30;
+
+	/** The assistant's private memory lives in its scratch namespace. */
+	public static final String MEMORY_PATH = "n/memory";
+	/** The user's own skills — discoverable, theirs to grow. */
+	public static final String USER_SKILLSET = "w/skills";
+	private static final String MEMORY_OP = "v/ops/memory";
 
 	/**
 	 * Appended to the agent's system prompt so it treats the venue's provenance
@@ -112,7 +120,19 @@ public final class ChatSession {
 		AMap<AString, ACell> agentConfig = Maps.of(
 			Fields.OPERATION, config.operation(),
 			"llmOperation", config.llmOperation(),
-			"systemPrompt", systemPrompt);
+			"systemPrompt", systemPrompt,
+			"defaultTools", false,
+			// The memory tool, so the assistant can record and revise what it knows.
+			"tools", Vectors.of(Strings.create(MEMORY_OP)),
+			// Pin the assistant's memory (n/memory) into every turn's context.
+			"context", Vectors.of(Maps.of(
+				"op", MEMORY_OP,
+				"input", Maps.of("command", "recall", "path", MEMORY_PATH),
+				"label", "Your private memory of the user — edit with path " + MEMORY_PATH)),
+			// Always-loaded introduction skill, plus the user's own skillset to grow.
+			"loads", Maps.of(DefaultSkills.INTRODUCTION,
+				Maps.of("skill", true, "budget", 4000L, "label", "introduction")),
+			"skillsets", Vectors.of(Strings.create(USER_SKILLSET)));
 		AMap<AString, ACell> input = Maps.of(Fields.AGENT_ID, config.agentId(), Fields.CONFIG, agentConfig);
 		if (agentExists()) {
 			try {

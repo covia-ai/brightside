@@ -65,6 +65,14 @@ window that talks to an agent on that venue. Single Maven module,
 - **Chat goes through the agent framework** (`v/ops/agent/create|update|
   info|chat` via `LocalVenue`), not through a private LLM call, so what the
   window shows is what any other client of the venue would see.
+- **Skills and memory, by namespace.** BrightSide's shipped skills (e.g.
+  `introduction`, `DefaultSkills`) are seeded into `v/skills/brightside/…` as
+  the venue principal (only the venue may write `v/`) and pinned into the agent
+  via `config.loads`. The user's own skills live in `w/skills` (a declared
+  skillset). The assistant's memory and scratch live in `n/` (`n/memory`,
+  pinned via a `v/ops/memory` recall context entry, with the `v/ops/memory`
+  tool so it can write). Introductory persona content is a **skill**, not
+  system-prompt prose — the prompt stays small. See `docs/DESIGN.md`.
 - **Packaging.** The runnable jar is built by `maven-shade-plugin` with the
   services transformer (Jetty/Javalin/LangChain4j rely on
   `META-INF/services`) and drops `openapi-plugin/**` from

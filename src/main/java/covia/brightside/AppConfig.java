@@ -58,8 +58,11 @@ public final class AppConfig {
 	/** Test LLM that echoes the last user message — an offline chat backend. */
 	public static final String ECHO_LLM_OPERATION = "v/test/ops/llm";
 	public static final String DEFAULT_SYSTEM_PROMPT =
-		"You are BrightSide, a friendly desktop assistant running inside the user's own Covia venue. "
-		+ "Be concise and helpful.";
+		"You are BrightSide, a private personal AI assistant running on the user's own computer, "
+		+ "powered by the Covia Grid (keep that under the hood unless they ask). Be warm, concise and "
+		+ "genuinely helpful, and use the user's name naturally rather than in every message. Follow "
+		+ "your loaded skills, and use your memory to recall and quietly record useful things about the "
+		+ "user across conversations.";
 	public static final long DEFAULT_TIMEOUT_SECONDS = 120;
 
 	/** Chat settings: which agent the window talks to and how it is configured. */
@@ -99,7 +102,9 @@ public final class AppConfig {
 				// environment (e.g. ANTHROPIC_API_KEY) or in the venue's secret store.
 				// Use "v/test/ops/llm" for an offline echo bot.
 				"llmOperation": "v/models/anthropic/claude-sonnet-5",
-				"systemPrompt": "You are BrightSide, a friendly desktop assistant running inside the user's own Covia venue. Be concise and helpful.",
+				// How the assistant should behave. Leave it out to use BrightSide's
+				// default persona (a warm, private personal assistant).
+				// "systemPrompt": "You are BrightSide, ...",
 				// Seconds to wait for a reply before giving up
 				"timeout": 120
 			}

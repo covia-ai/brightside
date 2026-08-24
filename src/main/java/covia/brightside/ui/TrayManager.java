@@ -51,8 +51,8 @@ public final class TrayManager {
 			MenuItem show = new MenuItem("Show " + BrightSide.APP_NAME);
 			show.addActionListener(e -> app.showWindow());
 			menu.add(show);
-			MenuItem open = new MenuItem("Open venue in browser");
-			open.addActionListener(e -> app.openVenueInBrowser());
+			MenuItem open = new MenuItem("Open dashboard in browser");
+			open.addActionListener(e -> app.openDashboard());
 			menu.add(open);
 			menu.addSeparator();
 			MenuItem exit = new MenuItem("Exit");
