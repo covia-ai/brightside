@@ -1,0 +1,22 @@
+# Build output
+/target/
+
+# IDE / editor
+/.idea/
+/*.iml
+/.vscode/
+/.settings/
+/.project
+/.classpath
+/.factorypath
+
+# Agent tooling (settings.json is shared; everything else is personal)
+CLAUDE.local.md
+/.claude/*
+!/.claude/settings.json
+
+# Local scratch: personal configs, stores, keys, logs
+/dev/
+*.etch
+*.key
+*.log

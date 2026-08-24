@@ -1,0 +1,151 @@
+package covia.brightside.chat;
+
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import convex.core.data.ACell;
+import convex.core.data.AMap;
+import convex.core.data.AString;
+import convex.core.data.Maps;
+import convex.core.data.Strings;
+import convex.core.lang.RT;
+import convex.core.util.JSON;
+import covia.api.Fields;
+import covia.brightside.AppConfig;
+import covia.grid.Job;
+import covia.grid.Venue;
+
+/**
+ * One conversation with the configured chat agent on a venue.
+ *
+ * <p>Uses the venue's agent framework directly: the agent is created (or its
+ * configuration re-applied) with {@code agent:create} / {@code agent:update},
+ * and each message is an {@code agent:chat} call that returns the agent's
+ * reply and the session id. The session id is echoed on later messages so the
+ * agent keeps the conversation history; {@link #reset()} starts a new one.
+ *
+ * <p>Calls block until the agent replies — use from a worker thread, never
+ * the Swing event thread.
+ */
+public final class ChatSession {
+
+	private static final Logger log = LoggerFactory.getLogger(ChatSession.class);
+
+	private static final String OP_CREATE = "v/ops/agent/create";
+	private static final String OP_UPDATE = "v/ops/agent/update";
+	private static final String OP_INFO = "v/ops/agent/info";
+	private static final String OP_CHAT = "v/ops/agent/chat";
+
+	/** Time allowed for agent management calls (create/update/info). */
+	private static final long ADMIN_TIMEOUT_SECONDS = 30;
+
+	/** The agent's reply and the session it belongs to. */
+	public record Reply(String text, String sessionId) {
+	}
+
+	private final Venue venue;
+	private final AppConfig.Chat config;
+	private volatile String sessionId;
+	private boolean agentReady;
+
+	public ChatSession(Venue venue, AppConfig.Chat config) {
+		this.venue = venue;
+		this.config = config;
+	}
+
+	public AppConfig.Chat config() {
+		return config;
+	}
+
+	/** Current session id, or null before the first reply / after a reset. */
+	public String sessionId() {
+		return sessionId;
+	}
+
+	/** Forget the current session; the next message starts a new conversation. */
+	public void reset() {
+		sessionId = null;
+	}
+
+	/**
+	 * Makes sure the chat agent exists with the configured operation, model
+	 * and system prompt. Creates it on first use; on later runs (persistent
+	 * venue store) re-applies the configuration, keeping the agent's history.
+	 * Idempotent per session object.
+	 */
+	public synchronized void ensureAgent() throws Exception {
+		if (agentReady) return;
+		AMap<AString, ACell> agentConfig = Maps.of(
+			Fields.OPERATION, config.operation(),
+			"llmOperation", config.llmOperation(),
+			"systemPrompt", config.systemPrompt());
+		AMap<AString, ACell> input = Maps.of(Fields.AGENT_ID, config.agentId(), Fields.CONFIG, agentConfig);
+		if (agentExists()) {
+			try {
+				run(OP_UPDATE, input, ADMIN_TIMEOUT_SECONDS);
+				log.info("Applied configuration to chat agent '{}'", config.agentId());
+			} catch (Exception e) {
+				// e.g. the agent is mid-cycle; the previous configuration stands.
+				log.warn("Could not apply configuration to agent '{}': {}", config.agentId(), e.getMessage());
+			}
+		} else {
+			run(OP_CREATE, input, ADMIN_TIMEOUT_SECONDS);
+			log.info("Created chat agent '{}' ({} via {})", config.agentId(), config.operation(), config.llmOperation());
+		}
+		agentReady = true;
+	}
+
+	private boolean agentExists() {
+		try {
+			return run(OP_INFO, Maps.of(Fields.AGENT_ID, config.agentId()), ADMIN_TIMEOUT_SECONDS) != null;
+		} catch (Exception e) {
+			return false;
+		}
+	}
+
+	/** Sends one user message and waits for the agent's reply. */
+	public Reply send(String message) throws Exception {
+		ensureAgent();
+		AMap<AString, ACell> input = Maps.of(Fields.AGENT_ID, config.agentId(), Fields.MESSAGE, message);
+		String sid = sessionId;
+		if (sid != null) input = input.assoc(Fields.SESSION_ID, Strings.create(sid));
+
+		ACell result = run(OP_CHAT, input, config.timeoutSeconds());
+		AString newSid = RT.ensureString(RT.getIn(result, Fields.SESSION_ID));
+		if (newSid != null) sessionId = newSid.toString();
+		return new Reply(render(RT.getIn(result, Fields.RESPONSE)), sessionId);
+	}
+
+	/**
+	 * Invokes an operation and waits for its result. A failed job surfaces as
+	 * its underlying exception; a timeout cancels the job so a chat session's
+	 * in-flight slot is released for the next message.
+	 */
+	private ACell run(String operation, ACell input, long timeoutSeconds) throws Exception {
+		Job job = venue.invoke(operation, input).get(ADMIN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		try {
+			return job.future().get(timeoutSeconds, TimeUnit.SECONDS);
+		} catch (ExecutionException e) {
+			Throwable cause = (e.getCause() != null) ? e.getCause() : e;
+			throw (cause instanceof Exception ex) ? ex : new RuntimeException(cause);
+		} catch (TimeoutException e) {
+			try {
+				venue.cancelJob(job.getID());
+			} catch (Exception ignored) {
+				// best effort — the job may already have finished
+			}
+			throw new TimeoutException("No reply from " + operation + " within " + timeoutSeconds + "s");
+		}
+	}
+
+	/** Renders an agent response for display: strings verbatim, anything else as JSON. */
+	public static String render(ACell response) {
+		if (response == null) return "";
+		if (response instanceof AString s) return s.toString();
+		return JSON.toStringPretty(response);
+	}
+}
