@@ -62,9 +62,8 @@ window that talks to an agent on that venue. Single Maven module,
 
 ## Git
 
-- Remote: `https://github.com/Covia-Dev/brightside`. `Covia-Dev` is a
-  GitHub *user* account, not an org, so pushes need either that account's
-  credentials or a collaborator account; see the workspace `AGENTS.md` for
-  the per-repo credential-helper setup.
+- Remote: `https://github.com/covia-ai/brightside` (the covia-ai org). Push as
+  `mikera` through the per-repo credential-helper override described in the
+  workspace `AGENTS.md`.
 - Commit as the repo's local `user.name`/`user.email` (check
   `git config --local`); use `gh` as `brittleboye` for issues and PRs.

@@ -11,7 +11,7 @@
 
 	<name>BrightSide</name>
 	<description>BrightSide — a Covia desktop companion: an embedded Covia venue with a chat window, living in the system tray.</description>
-	<url>https://github.com/Covia-Dev/brightside</url>
+	<url>https://github.com/covia-ai/brightside</url>
 
 	<licenses>
 		<license>
@@ -30,9 +30,9 @@
 	</developers>
 
 	<scm>
-		<connection>scm:git:git://github.com/Covia-Dev/brightside.git</connection>
-		<developerConnection>scm:git:ssh://github.com:Covia-Dev/brightside.git</developerConnection>
-		<url>https://github.com/Covia-Dev/brightside</url>
+		<connection>scm:git:git://github.com/covia-ai/brightside.git</connection>
+		<developerConnection>scm:git:ssh://github.com:covia-ai/brightside.git</developerConnection>
+		<url>https://github.com/covia-ai/brightside</url>
 	</scm>
 
 	<properties>
