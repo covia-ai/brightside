@@ -20,6 +20,7 @@ import org.junit.jupiter.api.io.TempDir;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
+import convex.core.data.Maps;
 import convex.core.data.Strings;
 import convex.core.data.prim.CVMLong;
 import covia.api.Fields;
@@ -118,6 +119,46 @@ class SessionHistoryTest {
 	private static boolean hasUserMessage(SessionHistory.Snapshot snap, String needle) {
 		return snap.items().stream().anyMatch(it -> it instanceof SessionHistory.Message m
 			&& m.role().equals("user") && m.text().contains(needle));
+	}
+
+	@Test
+	void renamesAndDeletesSessions() throws Exception {
+		String userDID = Identity.of("editor").userDID(venue.did());
+		Venue client = venue.clientAs(userDID);
+		AppConfig.Chat chat = new AppConfig.Chat("edit-agent",
+			AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo the user.", 30);
+		ChatSession s = new ChatSession(client, chat, "Editor");
+		String keep = s.send("keep this one").sessionId();
+		s.reset();
+		String drop = s.send("delete this one").sessionId();
+
+		// Rename: a set title is shown in place of the first-message title.
+		invoke(client, "v/ops/agent/rename-session",
+			Maps.of("agentId", "edit-agent", "sessionId", keep, "title", "My renamed chat"));
+		assertEquals("My renamed chat", titleOf(client, "edit-agent", keep));
+
+		// Clearing the title (omit it) reverts to the auto-derived label.
+		invoke(client, "v/ops/agent/rename-session",
+			Maps.of("agentId", "edit-agent", "sessionId", keep));
+		assertTrue(titleOf(client, "edit-agent", keep).contains("keep this one"));
+
+		// Delete: the session is gone from the list; the other remains.
+		invoke(client, "v/ops/agent/delete-session",
+			Maps.of("agentId", "edit-agent", "sessionId", drop));
+		List<SessionHistory.Session> list = SessionHistory.listSessions(client, "edit-agent");
+		assertTrue(list.stream().anyMatch(x -> x.sessionId().equals(keep)), "kept session remains");
+		assertFalse(list.stream().anyMatch(x -> x.sessionId().equals(drop)), "deleted session is gone");
+	}
+
+	private static String titleOf(Venue client, String agentId, String sessionId) {
+		return SessionHistory.listSessions(client, agentId).stream()
+			.filter(x -> x.sessionId().equals(sessionId))
+			.map(SessionHistory.Session::title).findFirst().orElse(null);
+	}
+
+	private static void invoke(Venue client, String op, ACell input) throws Exception {
+		var job = client.invoke(op, input).get(30, java.util.concurrent.TimeUnit.SECONDS);
+		job.future().get(30, java.util.concurrent.TimeUnit.SECONDS);
 	}
 
 	@Test

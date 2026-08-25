@@ -91,6 +91,21 @@ public final class MainWindow extends JFrame {
 			public void onSelectSession(String sessionId) {
 				app.openSession(sessionId);
 			}
+
+			@Override
+			public void onRenameSession(String sessionId, String newTitle) {
+				app.renameSession(sessionId, newTitle);
+			}
+
+			@Override
+			public void onCopyTranscript(String sessionId) {
+				app.copyTranscript(sessionId);
+			}
+
+			@Override
+			public void onDeleteSession(String sessionId) {
+				app.deleteSession(sessionId);
+			}
 		});
 
 		JPanel chatCard = new JPanel(new BorderLayout());

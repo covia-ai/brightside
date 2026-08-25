@@ -6,11 +6,20 @@ import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
+
+import convex.core.data.ACell;
+import convex.core.data.AMap;
+import convex.core.data.AString;
+import convex.core.data.Maps;
+import convex.core.data.Strings;
+import covia.grid.Job;
+import covia.grid.Venue;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -291,6 +300,92 @@ public final class BrightSide {
 		}, "brightside-open-session");
 		t.setDaemon(true);
 		t.start();
+	}
+
+	/** Set or clear a conversation's title (empty/blank clears it back to auto). */
+	public void renameSession(String sessionId, String title) {
+		Venue c = client;
+		String aid = agentId;
+		if (c == null || aid == null || sessionId == null) return;
+		Thread t = new Thread(() -> {
+			try {
+				AMap<AString, ACell> input = Maps.of("agentId", aid, "sessionId", sessionId);
+				if (title != null && !title.isBlank()) {
+					input = input.assoc(Strings.create("title"), Strings.create(title.trim()));
+				}
+				invokeOp(c, "v/ops/agent/rename-session", input);
+			} catch (Exception e) {
+				log.warn("Could not rename session {}: {}", sessionId, e.toString());
+				SwingUtilities.invokeLater(() -> window.showSystemMessage("Sorry — I couldn't rename that conversation."));
+				return;
+			}
+			List<SessionHistory.Session> list = SessionHistory.listSessions(c, aid);
+			SwingUtilities.invokeLater(() -> {
+				sessions = list;
+				window.setConversations(list, viewedSessionId);
+			});
+		}, "brightside-rename-session");
+		t.setDaemon(true);
+		t.start();
+	}
+
+	/** Copy a past conversation's transcript to the clipboard as plain text. */
+	public void copyTranscript(String sessionId) {
+		Venue c = client;
+		String aid = agentId;
+		if (c == null || aid == null || sessionId == null) return;
+		Thread t = new Thread(() -> {
+			SessionHistory.Snapshot snap = SessionHistory.load(c, aid, sessionId);
+			if (snap == null) {
+				SwingUtilities.invokeLater(() -> window.showSystemMessage("Sorry — I couldn't read that conversation."));
+				return;
+			}
+			String text = SessionHistory.plainText(snap.items());
+			SwingUtilities.invokeLater(() -> {
+				java.awt.Toolkit.getDefaultToolkit().getSystemClipboard()
+					.setContents(new java.awt.datatransfer.StringSelection(text), null);
+				window.showSystemMessage("Copied that conversation to the clipboard.");
+			});
+		}, "brightside-copy-transcript");
+		t.setDaemon(true);
+		t.start();
+	}
+
+	/** Delete a conversation. If it was the one on screen, drop back to a new chat. */
+	public void deleteSession(String sessionId) {
+		Venue c = client;
+		String aid = agentId;
+		ChatSession s = chat;
+		if (c == null || aid == null || sessionId == null) return;
+		Thread t = new Thread(() -> {
+			try {
+				invokeOp(c, "v/ops/agent/delete-session", Maps.of("agentId", aid, "sessionId", sessionId));
+			} catch (Exception e) {
+				log.warn("Could not delete session {}: {}", sessionId, e.toString());
+				SwingUtilities.invokeLater(() -> window.showSystemMessage("Sorry — I couldn't delete that conversation."));
+				return;
+			}
+			boolean wasViewed = sessionId.equals(viewedSessionId);
+			List<SessionHistory.Session> list = SessionHistory.listSessions(c, aid);
+			SwingUtilities.invokeLater(() -> {
+				sessions = list;
+				if (wasViewed) {
+					if (s != null) s.reset();
+					viewedSessionId = null;
+					window.clearChat();
+					window.showSystemMessage("Conversation deleted.");
+				}
+				window.setConversations(list, viewedSessionId);
+			});
+		}, "brightside-delete-session");
+		t.setDaemon(true);
+		t.start();
+	}
+
+	/** Invokes a venue operation and waits for it to finish (worker thread only). */
+	private static void invokeOp(Venue client, String operation, AMap<AString, ACell> input) throws Exception {
+		Job job = client.invoke(operation, input).get(30, TimeUnit.SECONDS);
+		job.future().get(30, TimeUnit.SECONDS);
 	}
 
 	public AppConfig config() {

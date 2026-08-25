@@ -102,7 +102,13 @@ window that talks to an agent on that venue. Single Maven module,
   reopen a specific one. *New conversation* (the switcher button, or *File → New
   chat*) resets the session so the next message mints a fresh one — it joins the
   switcher once its first message lands. `BrightSide.openSession` resumes a
-  chosen past session and continues it. Crucially the watcher is **viewed-session
+  chosen past session and continues it. Right-clicking a conversation offers
+  *Open*, *Rename…*, *Copy transcript* and *Delete*: rename/delete go through the
+  owner-callable `v/ops/agent/rename-session` / `v/ops/agent/delete-session` (the
+  acting user has `AGENT_WRITE` over their own agent), a set title lives at the
+  session's `meta.title` and shows in place of the first-message label, and
+  *Copy transcript* is pure client-side (`SessionHistory.plainText`); deleting
+  the on-screen conversation drops back to a fresh chat. Crucially the watcher is **viewed-session
   aware**: it hands `BrightSide.onAgentChanged` the changed agent record and the
   controller re-renders `viewedSessionId` (the session on screen), not always the
   latest — so a background update to another session never yanks you off the one

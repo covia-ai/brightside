@@ -14,6 +14,7 @@ import convex.core.data.AString;
 import convex.core.data.AVector;
 import convex.core.data.MapEntry;
 import convex.core.data.Maps;
+import convex.core.data.Strings;
 import convex.core.data.prim.CVMBool;
 import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
@@ -144,7 +145,8 @@ public final class SessionHistory {
 				MapEntry<ACell, ACell> entry = sessions.entryAt(i);
 				AVector<ACell> conversation = conversationOf(entry.getValue());
 				if (conversation == null || conversation.isEmpty()) continue;
-				out.add(new Session(sidHex(entry.getKey()), titleOf(conversation), latestTurnTs(conversation)));
+				out.add(new Session(sidHex(entry.getKey()),
+					sessionTitle(entry.getValue(), conversation), latestTurnTs(conversation)));
 			}
 		}
 		out.sort((a, b) -> Long.compare(b.lastTs(), a.lastTs()));
@@ -189,6 +191,28 @@ public final class SessionHistory {
 		}
 		List<Item> items = (bestConversation != null) ? project(bestConversation) : List.of();
 		return new Snapshot(record, bestSid, items);
+	}
+
+	/** A session's display title: its set {@code meta.title}, else the first user message. */
+	private static String sessionTitle(ACell session, AVector<ACell> conversation) {
+		AMap<ACell, ACell> meta = asMap(RT.getIn(session, "meta"));
+		if (meta != null) {
+			String title = str(meta.get(Strings.create("title")));
+			if (notBlank(title)) return firstLine(title);
+		}
+		return titleOf(conversation);
+	}
+
+	/** The conversation as plain text ("You:" / "Brightside:" turns) — for copying out. */
+	public static String plainText(List<Item> items) {
+		StringBuilder sb = new StringBuilder();
+		for (Item it : items) {
+			if (it instanceof Message m) {
+				String who = ROLE_USER.equals(m.role()) ? "You" : "Brightside";
+				sb.append(who).append(": ").append(m.text()).append("\n\n");
+			}
+		}
+		return sb.toString().stripTrailing();
 	}
 
 	/** A session's title: its first non-blank user message, first line, truncated. */

@@ -16,7 +16,10 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
+import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 
 import covia.brightside.SessionHistory;
@@ -34,11 +37,18 @@ import covia.brightside.ui.LAF;
 @SuppressWarnings("serial")
 public final class ConversationList extends JPanel {
 
-	/** Reports the user's intent; the app performs the switch. */
+	/** Reports the user's intent; the app performs the action. */
 	public interface Listener {
 		void onNewConversation();
 
 		void onSelectSession(String sessionId);
+
+		/** New title, or empty/blank to clear back to the auto-derived one. */
+		void onRenameSession(String sessionId, String newTitle);
+
+		void onCopyTranscript(String sessionId);
+
+		void onDeleteSession(String sessionId);
 	}
 
 	private static final int WIDTH = 240;
@@ -107,11 +117,63 @@ public final class ConversationList extends JPanel {
 		Row row = new Row(s, selected);
 		row.addMouseListener(new MouseAdapter() {
 			@Override
+			public void mousePressed(MouseEvent e) {
+				maybePopup(e);
+			}
+
+			@Override
+			public void mouseReleased(MouseEvent e) {
+				maybePopup(e);
+			}
+
+			@Override
 			public void mouseClicked(MouseEvent e) {
-				if (!s.sessionId().equals(selectedId)) listener.onSelectSession(s.sessionId());
+				if (!e.isPopupTrigger() && !s.sessionId().equals(selectedId)) {
+					listener.onSelectSession(s.sessionId());
+				}
+			}
+
+			private void maybePopup(MouseEvent e) {
+				if (e.isPopupTrigger()) menuFor(s).show(row, e.getX(), e.getY());
 			}
 		});
 		return row;
+	}
+
+	/** The right-click menu for one conversation. */
+	private JPopupMenu menuFor(SessionHistory.Session s) {
+		String sid = s.sessionId();
+		JPopupMenu menu = new JPopupMenu();
+
+		JMenuItem open = new JMenuItem("Open");
+		open.setEnabled(!sid.equals(selectedId));
+		open.addActionListener(e -> listener.onSelectSession(sid));
+		menu.add(open);
+
+		JMenuItem rename = new JMenuItem("Rename…");
+		rename.addActionListener(e -> {
+			Object input = JOptionPane.showInputDialog(this, "Rename this conversation:",
+				"Rename conversation", JOptionPane.PLAIN_MESSAGE, null, null, s.title());
+			if (input != null) listener.onRenameSession(sid, input.toString().trim());
+		});
+		menu.add(rename);
+
+		JMenuItem copy = new JMenuItem("Copy transcript");
+		copy.addActionListener(e -> listener.onCopyTranscript(sid));
+		menu.add(copy);
+
+		menu.addSeparator();
+
+		JMenuItem delete = new JMenuItem("Delete");
+		delete.addActionListener(e -> {
+			int choice = JOptionPane.showConfirmDialog(this,
+				"Delete this conversation? This can't be undone.",
+				"Delete conversation", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
+			if (choice == JOptionPane.OK_OPTION) listener.onDeleteSession(sid);
+		});
+		menu.add(delete);
+
+		return menu;
 	}
 
 	/** A relative "3 min ago" / "yesterday" / date label for the last-active time. */
