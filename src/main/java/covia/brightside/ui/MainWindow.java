@@ -26,6 +26,7 @@ import javax.swing.UIManager;
 import javax.swing.WindowConstants;
 
 import covia.brightside.BrightSide;
+import covia.brightside.ConversationStore;
 import covia.brightside.EmbeddedVenue;
 import covia.brightside.Identity;
 import covia.brightside.chat.ChatSession;
@@ -173,26 +174,42 @@ public final class MainWindow extends JFrame {
 	// State transitions (event thread)
 	// ------------------------------------------------------------------
 
-	/** Everything is ready: show the chat and greet the person by name. */
-	public void showChat(EmbeddedVenue venue, ChatSession session, Identity identity) {
+	/** Everything is ready: show the chat, reopening the last conversation. */
+	public void showChat(EmbeddedVenue venue, ChatSession session, Identity identity, ConversationStore store) {
 		this.venue = venue;
 		this.identity = identity;
 		dashboardItem.setEnabled(true);
 		changeNameItem.setEnabled(true);
 		updateWho();
-		chatPanel.setSession(session);
-		chatPanel.appendSystem("Hi " + identity.name()
-			+ " — I'm BrightSide, ready whenever you are. Ask me anything.");
+		bindConversation(session, store);
+		if (store.isEmpty()) {
+			chatPanel.appendSystem("Hi " + identity.name()
+				+ " — I'm Brightside, ready whenever you are. Ask me anything.");
+		} else {
+			chatPanel.appendSystem("Welcome back, " + identity.name() + ".");
+		}
 		show(CARD_CHAT);
 	}
 
-	/** The name changed: rebind the chat and note it. */
-	public void userChanged(ChatSession session, Identity identity) {
+	/** The name changed: rebind the chat to that user and their conversation. */
+	public void userChanged(ChatSession session, Identity identity, ConversationStore store) {
 		this.identity = identity;
 		updateWho();
-		chatPanel.setSession(session);
+		bindConversation(session, store);
 		chatPanel.appendSystem("Okay — I'll call you " + identity.name() + " from now on.");
 		show(CARD_CHAT);
+	}
+
+	/** Connect the panel to the session and persist each turn to the store. */
+	private void bindConversation(ChatSession session, ConversationStore store) {
+		chatPanel.setSink((role, text) -> store.record(role, text, session.sessionId()));
+		chatPanel.restore(store.messages());
+		chatPanel.setSession(session);
+	}
+
+	/** Clear the transcript for a new chat. */
+	public void clearChat() {
+		chatPanel.clearMessages();
 	}
 
 	/** Show the name screen so the person can change how they're addressed. */

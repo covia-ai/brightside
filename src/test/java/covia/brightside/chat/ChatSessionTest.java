@@ -62,6 +62,26 @@ class ChatSessionTest {
 	}
 
 	@Test
+	void resumeContinuesAnExistingSession() throws Exception {
+		ChatSession first = new ChatSession(venue, echoChat("bs-resume"));
+		String sid = first.send("opening line").sessionId();
+		assertNotNull(sid);
+
+		// A fresh session object (as on restart) that resumes the saved id.
+		ChatSession resumed = new ChatSession(venue, echoChat("bs-resume"));
+		resumed.resume(sid);
+		assertEquals(sid, resumed.send("continued").sessionId(), "same conversation continues");
+	}
+
+	@Test
+	void resumeFallsBackWhenSessionIsUnknown() throws Exception {
+		ChatSession s = new ChatSession(venue, echoChat("bs-resume-bad"));
+		s.resume("00000000000000000000000000000000"); // never minted
+		ChatSession.Reply reply = s.send("hello");
+		assertNotNull(reply.sessionId(), "falls back to a fresh session instead of failing");
+	}
+
+	@Test
 	void ensureAgentIsIdempotentAcrossSessions() throws Exception {
 		ChatSession a = new ChatSession(venue, echoChat("bs-shared"));
 		a.ensureAgent();

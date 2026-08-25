@@ -72,6 +72,7 @@ public final class ChatSession {
 	private final AppConfig.Chat config;
 	private final String userName;
 	private volatile String sessionId;
+	private boolean pendingResume;
 	private boolean agentReady;
 
 	public ChatSession(Venue venue, AppConfig.Chat config) {
@@ -107,6 +108,17 @@ public final class ChatSession {
 	/** Forget the current session; the next message starts a new conversation. */
 	public void reset() {
 		sessionId = null;
+		pendingResume = false;
+	}
+
+	/**
+	 * Continue a previous conversation (e.g. reopened on restart). The id is
+	 * used on the next message; if the venue no longer knows it, {@link #send}
+	 * quietly falls back to a new session.
+	 */
+	public void resume(String sessionId) {
+		this.sessionId = sessionId;
+		this.pendingResume = (sessionId != null);
 	}
 
 	/**
@@ -168,6 +180,24 @@ public final class ChatSession {
 	/** Sends one user message and waits for the agent's reply. */
 	public Reply send(String message) throws Exception {
 		ensureAgent();
+		try {
+			Reply reply = sendOnce(message);
+			pendingResume = false;
+			return reply;
+		} catch (Exception e) {
+			// A resumed session the venue no longer knows: drop it and retry once.
+			if (pendingResume) {
+				log.warn("Could not continue the previous conversation ({}); starting a new one",
+					e.getMessage());
+				pendingResume = false;
+				sessionId = null;
+				return sendOnce(message);
+			}
+			throw e;
+		}
+	}
+
+	private Reply sendOnce(String message) throws Exception {
 		AMap<AString, ACell> input = Maps.of(Fields.AGENT_ID, config.agentId(), Fields.MESSAGE, message);
 		String sid = sessionId;
 		if (sid != null) input = input.assoc(Fields.SESSION_ID, Strings.create(sid));

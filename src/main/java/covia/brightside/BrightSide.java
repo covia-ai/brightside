@@ -43,6 +43,7 @@ public final class BrightSide {
 	private final Path configPath;
 	private volatile EmbeddedVenue venue;
 	private volatile ChatSession chat;
+	private volatile ConversationStore conversation;
 	private volatile Identity identity;
 	private MainWindow window; // event thread only
 	private TrayManager tray; // event thread only
@@ -189,10 +190,14 @@ public final class BrightSide {
 		String userDID = id.userDID(v.did());
 		ChatSession session = new ChatSession(v.clientAs(userDID), config.chat(), id.name());
 		chat = session;
-		log.info("Chatting as {} ({})", id.label(), userDID);
+		// Reopen this user's last conversation and continue its agent session.
+		ConversationStore store = ConversationStore.load(config.home(), id.slug());
+		conversation = store;
+		session.resume(store.sessionId());
+		log.info("Chatting as {} ({}) — {} saved message(s)", id.label(), userDID, store.messages().size());
 		SwingUtilities.invokeLater(() -> {
-			if (firstStart) window.showChat(v, session, id);
-			else window.userChanged(session, id);
+			if (firstStart) window.showChat(v, session, id, store);
+			else window.userChanged(session, id, store);
 			if (tray != null) tray.setTooltip(APP_NAME + " — " + id.name());
 		});
 		// Create/refresh the agent now, so the first message is quick and any
@@ -250,7 +255,12 @@ public final class BrightSide {
 		ChatSession c = chat;
 		if (c == null) return;
 		c.reset();
-		SwingUtilities.invokeLater(() -> window.showSystemMessage("Started a new chat."));
+		ConversationStore store = conversation;
+		if (store != null) store.clear();
+		SwingUtilities.invokeLater(() -> {
+			window.clearChat();
+			window.showSystemMessage("Started a new chat.");
+		});
 	}
 
 	/** Opens the venue's own web dashboard (Advanced menu — a demo/diagnostics surface). */

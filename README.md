@@ -9,7 +9,8 @@ Its purpose is to **show off the Covia Grid and lattice technology as a personal
 agent** — a full venue (engine, adapters, lattice-backed state, agent framework,
 MCP/A2A/HTTP surface) running on your own machine, under your own identity.
 
-- Swing UI with [FlatLaf](https://www.formdev.com/flatlaf/) (dark by default, light available)
+- Modern Swing UI — [FlatLaf](https://www.formdev.com/flatlaf/) macOS-style themes, a purple accent and rounded **chat bubbles** (dark by default, light available)
+- **Reopens your last conversation on restart** — transcript restored and the assistant's session continued
 - A warm first-run welcome ("What should I call you?") — no jargon on the everyday screens
 - Embedded Covia venue: full engine, all built-in adapters, HTTP/MCP endpoint on `localhost`
 - Your own private assistant with a **memory** (`n/memory`) that persists across chats
@@ -113,6 +114,7 @@ src/main/java/covia/brightside/
 ├── BrightSide.java        entry point and application controller
 ├── AppConfig.java         ~/.brightside/config.json (JSON5) and defaults
 ├── Identity.java          the u:<name> user; ~/.brightside/identity.json
+├── ConversationStore.java the last conversation; ~/.brightside/conversations/<slug>.json
 ├── BrightsideAdapter.java  Covia adapter: brightside:info + v/skills/brightside/… skills
 ├── EmbeddedVenue.java     VenueServer + per-user in-process LocalVenue client
 ├── chat/ChatSession.java  agent config (skills, n/memory) + agent:chat

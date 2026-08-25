@@ -65,6 +65,19 @@ window that talks to an agent on that venue. Single Maven module,
 - **Chat goes through the agent framework** (`v/ops/agent/create|update|
   info|chat` via `LocalVenue`), not through a private LLM call, so what the
   window shows is what any other client of the venue would see.
+- **Look and feel.** `LAF` installs FlatLaf's macOS-style themes
+  (`FlatMacDarkLaf`/`FlatMacLightLaf`) with a purple accent and rounded
+  geometry — keep it modern. `ChatPanel` renders real **bubbles** (a scrolling
+  column of rounded `Bubble`s: user right/accent, assistant left/surface),
+  not a plain text pane.
+- **The last conversation reopens on restart.** `ConversationStore`
+  (`~/.brightside/conversations/<slug>.json`, per user) keeps the displayed
+  transcript and the agent session id; on start `startChat` restores the
+  transcript and `ChatSession.resume(sessionId)` continues the same agent
+  session (falling back to a new one if the venue no longer knows it, so a
+  stale id never blocks chatting). The venue's session store remains the
+  source of truth for the model's context; this is a display/continuity
+  mirror. *File → New chat* clears it.
 - **`BrightsideAdapter` is the venue extension.** A real Covia `AAdapter`
   (`covia.brightside.BrightsideAdapter`), registered on the embedded engine in
   `EmbeddedVenue.launch`. Its `installAssets()` installs the shipped skills
