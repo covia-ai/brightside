@@ -1,139 +1,264 @@
-# Brightside
+<div align="center">
 
-**Brightside** is your own **self-sovereign personal agent** — a capable
-assistant that runs privately on your own computer, under your own identity. It
-remembers what matters to you, grows new abilities as you need them, and answers
-to you alone; your data and everything it remembers stay on your machine.
+# ☀️ Brightside
 
-Under the hood it's a JVM desktop app that runs a full [Covia](https://covia.ai)
-venue *inside the process* and puts a chat window in front of it. Minimise or
-close the window and the agent keeps running from a system-tray icon; **Exit**
-flushes its state and stops it. Covia — an in-process engine, adapters,
-lattice-backed state, an agent framework and an MCP/A2A/HTTP surface — is the
-remarkable technology that makes a private, extensible personal agent possible;
-most of the time you won't need to think about it.
+**Your own agent. On your own machine. Under your own identity.**
 
-- Modern Swing UI — [FlatLaf](https://www.formdev.com/flatlaf/) macOS-style themes, a purple accent and rounded **chat bubbles** as separate components (right-click to copy a message or the conversation; dark by default, light available)
-- **Reopens your last conversation on restart** — read from the venue's live agent session (no local copy), and continued
-- **Detects changes with an in-process lattice value compare** — the app reads the agent value straight from the lattice (no polling jobs) and refreshes when it changes (File → Refresh forces it)
-- A warm first-run welcome ("What should I call you?") — no jargon on the everyday screens
-- Embedded Covia venue: full engine, all built-in adapters, HTTP/MCP endpoint on `localhost`
-- Your own private assistant with a **memory** (`n/memory`) that persists across chats
-- Its persona is a **Covia skill** (`v/skills/brightside/introduction`)
-- **It can teach itself** — author new skills into `w/skills` (a gated `skill-authoring` ability)
-- **Tool use is tucked into an expandable chip** — the final reply shows; click to see the steps
-- Chat window talking to your own agent on that venue, entirely in-process
-- Tray icon; minimise and close go to the tray. Technical bits (dashboard, identity, logs) live under **Advanced**
-- Persistent state under `~/.brightside/`
+*And it writes its own skills.*
 
-## Requirements
+[![Licence: EPL 2.0](https://img.shields.io/badge/licence-EPL--2.0-blue.svg)](LICENSE)
+[![Java 21+](https://img.shields.io/badge/Java-21%2B-orange.svg)](https://adoptium.net/)
+[![Built on Covia](https://img.shields.io/badge/built%20on-Covia%20Grid-7c4dff.svg)](https://covia.ai)
+[![Status: early preview](https://img.shields.io/badge/status-early%20preview-yellow.svg)](#roadmap)
 
-- Java 21+ (JDK)
-- Maven 3.7+
-- Covia `0.9.5` (a release) — it resolves from Maven Central once published. To
-  build against a local Covia checkout instead, install it first; Covia depends
-  on Convex, so build Convex first:
+</div>
+
+---
+
+Brightside is a **self-sovereign personal agent**: a capable assistant that runs
+privately on your own computer, under an identity that belongs to you. There is
+no account to create, no server to trust, no telemetry. Your conversations, your
+agent's memory and every skill it learns live in a folder on your disk that you
+can read, back up or delete.
+
+It is not a wrapper around a chat box. Brightside runs a full
+[Covia](https://covia.ai) venue — engine, tools, lattice-backed state, an agent
+framework and an MCP/A2A/HTTP surface — *inside its own process*, and puts a
+quiet desktop app in front of it. That is what lets a personal agent do the
+things personal agents are supposed to do: remember you, reach for real tools,
+and **grow new abilities it writes for itself**.
+
+<div align="center">
+
+<!-- Drop a screenshot at docs/images/screenshot.png -->
+<img src="docs/images/screenshot.png" alt="Brightside chat window" width="820">
+
+</div>
+
+## Why Brightside
+
+**It's yours.** Your agent is a principal on your own venue — `u:<your name>` —
+and it answers to that identity alone. State lives under `~/.brightside/`. The
+venue binds to loopback only. The only thing that leaves your machine is the
+model call you asked for, to the provider whose key you supplied.
+
+**It grows.** Most assistants are frozen at the shape their vendor shipped.
+Brightside's abilities are **Covia skills** — data, not code — and the agent can
+author new ones into its own `w/skills` namespace. Ask it to learn how you like
+your weekly report written, and it can capture that as a skill it loads next
+time. Even its own persona is a skill you can edit.
+
+**Power stays gated, not absent.** Only read-only tools and memory are always
+on. Writing, HTTP, files, other agents — each arrives by loading the skill that
+grants it, so capability is deliberate rather than ambient. The skill that
+grants the write tool is itself gated behind the skill that explains growing.
+
+**It remembers.** A private memory (`n/memory`) persists across conversations,
+so it feels like *your* assistant instead of a stranger every morning. Every
+past conversation stays switchable, searchable by the agent itself, and
+inspectable down to the exact bytes the model saw.
+
+**No jargon in the way.** The everyday screens say "your assistant", "your
+name", "memory". The venue, the DID, the dashboard, the API docs and the raw
+model context are all still there — one click away, under **Advanced**.
+
+## Quick start
+
+You need **Java 21+** and **Maven 3.7+**.
+
+```bash
+git clone https://github.com/covia-ai/brightside.git
+cd brightside
+export ANTHROPIC_API_KEY=sk-ant-...     # or store it in the venue's secret store
+mvn package
+java -jar target/brightside.jar
+```
+
+On first launch Brightside asks *"What should I call you?"* — that is the whole
+of onboarding. Type, press **Enter**, and you are talking to your agent.
+
+No API key to hand? Set `"llmOperation": "v/test/ops/llm"` in
+`~/.brightside/config.json` for an offline echo bot, enough to see the app work
+end to end.
+
+<details>
+<summary><b>Building against a local Covia checkout</b></summary>
+
+Brightside depends on the Covia `0.9.5` release, which resolves from Maven
+Central. To build against local checkouts instead — Covia depends on Convex, so
+Convex first:
 
 ```bash
 cd ../convex && mvn clean install -DskipTests
 cd ../covia  && mvn clean install -DskipTests
 ```
 
-## Build and run
+If the build cannot resolve `ai.covia:venue`, that is why.
+</details>
 
-```bash
-mvn package                       # compiles, runs the tests, builds target/brightside.jar
-java -jar target/brightside.jar   # run it
-mvn exec:java                     # or run straight from the build
+## Highlights
+
+- **Runs entirely in one process** — embedded Covia engine, every built-in
+  adapter, and an MCP endpoint at `http://127.0.0.1:8085/mcp` that other tools
+  can talk to
+- **Self-authoring skills** — a gated `skill-authoring` ability lets the agent
+  write new skills into `w/skills`, where they become discoverable to itself
+- **Persistent memory** — `n/memory`, kept quietly, across every conversation
+- **Every conversation, switchable** — a sidebar of past sessions with rename,
+  delete and copy-transcript; the agent can read its own history when you ask
+  what you discussed last week
+- **Tool use in the open, but out of the way** — the final reply is what you
+  see; one click expands each tool call with its input and result
+- **"What the assistant sees"** — a context inspector showing the exact model
+  input for a session: assembled messages, pinned memory, loaded skill bodies,
+  the tool palette, raw within-cycle turns, token accounting
+- **Live state, no polling jobs** — the app compares immutable lattice values
+  in-process to notice changes, so refresh is near-free and silent
+- **A proper desktop app** — [FlatLaf](https://www.formdev.com/flatlaf/)
+  macOS-style themes, bundled Lato, rounded chat bubbles, dark by default; it
+  minimises to the system tray and keeps running
+- **Configuration is data** — an empty `{}` config is valid; every venue option
+  Covia understands can be set without a Brightside change
+
+## How it works
+
+```
+┌──────────────────────────────────────────────┐
+│  Brightside (one JVM process)                │
+│                                              │
+│   Swing UI  ──►  LocalVenue client           │
+│                     │  as u:<your name>      │
+│                     ▼                        │
+│   ┌────────────────────────────────────────┐ │
+│   │  Embedded Covia venue                  │ │
+│   │  engine · adapters · agent framework   │ │
+│   │  lattice state → ~/.brightside/…etch   │ │
+│   │  HTTP/MCP/A2A on 127.0.0.1             │ │
+│   └────────────────────────────────────────┘ │
+└──────────────────────────────────────────────┘
+                     │
+                     ▼  only your model calls
+              your LLM provider
 ```
 
-`java -jar target/brightside.jar path/to/config.json` runs with a specific
-configuration file (its directory becomes the data directory).
+The chat window is a *client* of the venue, not a privileged insider: it acts as
+your named principal and goes through the same agent operations any other client
+would. Anything the window can do, an MCP client on your machine can do too.
+
+Namespaces do the separating: `v/skills/brightside/…` holds the skills
+Brightside ships, `w/skills` is where your agent writes its own, and `n/` is
+private scratch including memory. Only the venue writes `v/`.
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the project layout and the
+design rules behind it, and [docs/DESIGN.md](docs/DESIGN.md) for the product
+principles.
+
+## Using it
+
+| | |
+|---|---|
+| **Enter** / **Shift+Enter** | send / newline |
+| **File → New chat** | start a fresh conversation |
+| **File → Change my name…** | change how the assistant addresses you |
+| **File → Refresh** | force an immediate state compare |
+| **Advanced → Open dashboard in browser** | the venue's web UI, `/swagger`, MCP endpoint |
+| **Advanced → Open settings file / logs folder** | `config.json`, `~/.brightside/logs/` |
+| **Help → About** | local address and your technical identity |
+| Right-click a message | copy the message or the whole conversation |
+| Right-click a conversation | open, rename, copy transcript, delete, inspect context |
+
+Minimising or closing hides the window to the tray; the agent keeps running.
+**Quit** stops it and flushes state. Without a system tray (or with
+`BRIGHTSIDE_NO_TRAY=1`) closing the window quits.
 
 ## Configuration
 
 On first launch Brightside writes `~/.brightside/config.json` — JSON5, with
-comments — and every key in it is optional:
+comments — and **every key in it is optional**:
 
 ```json5
 {
   "theme": "dark",                      // or "light"
-  "venue": {                            // a Covia venue config map
-    "name": "Brightside Venue",
-    "port": 8085
-  },
+  "venue": { "name": "Brightside Venue", "port": 8085 },
   "chat": {
-    "agentId": "brightside",            // agent at <venue DID>/g/brightside
-    "operation": "v/ops/llmagent/chat", // transition operation
+    "agentId": "brightside",
     "llmOperation": "v/models/anthropic/claude-sonnet-5",
-    "systemPrompt": "You are Brightside, ...",
-    "timeout": 120                      // seconds to wait for a reply
+    "timeout": 120
   }
 }
 ```
 
-**`venue`** accepts any key the Covia venue runtime understands (`mcp`, `a2a`,
-`adapters`, `modules`, `auth`, `store`, …); each key you set replaces
-Brightside's default for that key. The defaults bind to `127.0.0.1`, keep a
-persistent store at `~/.brightside/venue.etch` (with the venue's identity seed
-in `venue.key` beside it — delete both together to reset), auto-create users
-and enable the MCP endpoint at `http://127.0.0.1:8085/mcp`.
+Edit it and restart. The full reference — every venue key, the secret store, the
+agent config, where state and keys live and how to reset them — is in
+[docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 
-**`chat`** describes the agent the window talks to. It is created on first use
-and its configuration re-applied on every start (history is kept). The default
-model operation needs an API key: put `ANTHROPIC_API_KEY` in the environment
-before launching, or store it in the venue's secret store — the `secrets.public`
-block above, which every local user resolves from.  For an offline smoke test
-set `"llmOperation": "v/test/ops/llm"` — an echo bot.
+## FAQ
 
-Edit the file and restart Brightside to apply changes. *Advanced → Open
-settings file* opens it in your editor. Logs go to `~/.brightside/logs/`.
+**Which models can I use?** Any model operation the embedded venue exposes.
+The default is Anthropic's Claude via `v/models/anthropic/claude-sonnet-5`;
+change `chat.llmOperation` to point at another. The venue's adapters are what
+determine the menu, not Brightside.
 
-## Your name
+**Does it phone home?** No. Brightside has no telemetry, no accounts and no
+Covia-hosted dependency. The venue binds to `127.0.0.1`. The only outbound
+traffic is the model call you configured, to the provider whose key you gave it.
 
-At first launch Brightside asks *"What should I call you?"* — that's all you
-need to give it. Behind the scenes the name makes you a principal on your own
-venue (`u:<name>`, the DID `<venueDID>:u:<name>`, with your agent at
-`<venueDID>:u:<name>/g/brightside`), which is what makes the venue treat your
-messages as coming from the assistant's owner — you. You only ever see the
-name; the technical identity lives in **Help → About**. The name is saved in
-`~/.brightside/identity.json` (separate from `config.json`); change it any time
-with **File → Change my name…**.
+**Where is my data?** `~/.brightside/` — `venue.etch` (the lattice store, which
+holds conversations, memory and skills), `venue.key` (the venue's identity
+seed), `identity.json` (your name), `config.json` and `logs/`. Back the folder
+up; delete it to start over. Delete `venue.etch` and `venue.key` **together** if
+you want a clean venue.
 
-## Using it
+**Can it run fully offline?** The app, the venue, your memory and your skills
+are all local and work with no network. The *model* is the exception: point
+`chat.llmOperation` at a local model operation to close that last gap, or at
+`v/test/ops/llm` for an echo bot.
 
-- Type a message and press **Enter** to send (**Shift+Enter** for a newline).
-- **File → New chat** starts a fresh conversation.
-- **File → Change my name…** changes how the assistant addresses you.
-- **Advanced → Open dashboard in browser** opens the venue's web UI, API docs
-  (`/swagger`) and MCP endpoint — the platform behind the assistant.
-- **Advanced** also has *Open settings file* and *Open logs folder*; **Help →
-  About** shows the local address and identity.
-- Minimising or closing the window hides it to the tray; click the tray icon
-  to bring it back. **Quit** (tray menu or File menu) stops it.
-- Without a system tray (headless-ish desktops, or `BRIGHTSIDE_NO_TRAY=1`)
-  the window behaves normally and closing it quits.
+**Is my agent reachable from other tools?** Yes — that is rather the point. The
+venue exposes HTTP, MCP and A2A on loopback. See the debugging notes in
+[AGENTS.md](AGENTS.md) for how to mint a token and act as your own user.
 
-## Project layout
+**Is this production-ready?** Not yet — see the status badge. It is an early
+preview: usable every day, still moving quickly, and pre-1.0 in the way that
+implies.
 
+## Roadmap
+
+- **Federation** — the point of a venue is that it can meet other venues.
+  Sharing a skill, delegating to a friend's agent, or reaching a remote tool
+  without giving up ownership of your own state.
+- **Module adapters in-process** — Telegram, Discord and the rest, so your agent
+  can meet you where you already are ([Covia #410](https://github.com/covia-ai/covia/issues/410))
+- **Native packaging** — signed installers per platform instead of `java -jar`
+- **Richer message kinds** — images, cards and structured tool output as
+  first-class rows in the transcript
+- **Local model paths** — a genuinely offline default
+- **Skill sharing** — import, export and review skills your agent wrote
+
+Ideas and disagreement are welcome — open an issue.
+
+## Contributing
+
+Contributions are very welcome, especially at this stage.
+
+```bash
+mvn test      # unit tests; they boot real venue engines, headless
+mvn package   # → target/brightside.jar
+mvn exec:java # run from the build
 ```
-src/main/java/covia/brightside/
-├── BrightSide.java        entry point and application controller
-├── AppConfig.java         ~/.brightside/config.json (JSON5) and defaults
-├── Identity.java          the u:<name> user; ~/.brightside/identity.json
-├── SessionHistory.java    reads the live conversation from the venue agent session
-├── ConversationWatcher.java  in-process .equals-compares the agent value to refresh on change
-├── BrightsideAdapter.java  Covia adapter: brightside:info + v/skills/brightside/… skills
-├── EmbeddedVenue.java     VenueServer + per-user in-process LocalVenue client
-├── chat/ChatSession.java  agent config (skills, n/memory) + agent:chat
-└── ui/                    LAF, MainWindow, WelcomePanel, ChatPanel, TrayManager, Icons
-src/main/resources/brightside/skills/*.json      shipped skill assets (introduction, skills, skill-authoring)
-src/main/resources/adapters/brightside/info.json brightside:info operation
-src/main/resources/brightside/logback.xml
-docs/DESIGN.md             product design guidelines
-src/test/java/…            unit tests (boot temporary venue engines; headless)
-```
+
+- `master` is the integration branch; `develop` is the day-to-day working
+  branch. Branch from `develop` and PR into it.
+- Tests run headless and must never put a window or a tray icon on anyone's
+  desktop. The chat tests use `v/test/ops/llm`, so they need no API key.
+- British English in comments, UI text and docs. Tabs for indentation in Java
+  and XML, matching Covia.
+- [AGENTS.md](AGENTS.md) is the canonical guide for both humans and AI coding
+  agents working in this repository — read it before a first PR. The design
+  rules there explain *why* things are the way they are.
 
 ## Licence
 
 Eclipse Public License 2.0 — see [LICENSE](LICENSE).
+
+Built on the [Covia Grid](https://covia.ai) and [Convex](https://convex.world).
