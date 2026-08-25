@@ -49,6 +49,9 @@ public final class ConversationList extends JPanel {
 
 		void onCopyTranscript(String sessionId);
 
+		/** Show what the assistant's model actually receives for this conversation. */
+		void onInspectSession(String sessionId);
+
 		void onDeleteSession(String sessionId);
 	}
 
@@ -156,6 +159,10 @@ public final class ConversationList extends JPanel {
 		JMenuItem copy = new JMenuItem("Copy transcript");
 		copy.addActionListener(e -> listener.onCopyTranscript(sid));
 		menu.add(copy);
+
+		JMenuItem info = new JMenuItem("What the assistant sees…");
+		info.addActionListener(e -> listener.onInspectSession(sid));
+		menu.add(info);
 
 		menu.addSeparator();
 

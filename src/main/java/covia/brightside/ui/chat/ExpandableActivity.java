@@ -10,8 +10,11 @@ import java.util.function.Consumer;
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.JLabel;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JTextArea;
+import javax.swing.SwingUtilities;
 
 import covia.brightside.SessionHistory;
 
@@ -60,7 +63,7 @@ final class ExpandableActivity extends JPanel {
 		header.addMouseListener(new MouseAdapter() {
 			@Override
 			public void mousePressed(MouseEvent e) {
-				toggle();
+				if (SwingUtilities.isLeftMouseButton(e)) toggle();
 			}
 		});
 		updateHeader();
@@ -136,11 +139,13 @@ final class ExpandableActivity extends JPanel {
 	 *  body revealing the call's input arguments and its result. */
 	private final class ToolStep extends JPanel {
 
+		private final SessionHistory.Step step;
 		private final JLabel chevron;
 		private final JPanel detail;
 		private boolean open;
 
 		ToolStep(SessionHistory.Step s) {
+			this.step = s;
 			setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 			setOpaque(false);
 			setAlignmentX(LEFT_ALIGNMENT);
@@ -161,16 +166,23 @@ final class ExpandableActivity extends JPanel {
 			headerRow.add(chevron);
 			headerRow.add(status);
 			headerRow.add(name);
-			MouseAdapter toggle = new MouseAdapter() {
+			// Left-click toggles; right-click offers copy actions (not a toggle).
+			MouseAdapter mouse = new MouseAdapter() {
 				@Override
 				public void mousePressed(MouseEvent e) {
-					toggle();
+					if (e.isPopupTrigger()) menu().show(e.getComponent(), e.getX(), e.getY());
+					else if (SwingUtilities.isLeftMouseButton(e)) toggle();
+				}
+
+				@Override
+				public void mouseReleased(MouseEvent e) {
+					if (e.isPopupTrigger()) menu().show(e.getComponent(), e.getX(), e.getY());
 				}
 			};
-			headerRow.addMouseListener(toggle);
-			chevron.addMouseListener(toggle);
-			status.addMouseListener(toggle);
-			name.addMouseListener(toggle);
+			headerRow.addMouseListener(mouse);
+			chevron.addMouseListener(mouse);
+			status.addMouseListener(mouse);
+			name.addMouseListener(mouse);
 
 			detail = new JPanel();
 			detail.setLayout(new BoxLayout(detail, BoxLayout.Y_AXIS));
@@ -198,9 +210,39 @@ final class ExpandableActivity extends JPanel {
 			relayout();
 		}
 
+		/** Right-click menu: copy this tool call's input, result, or both. */
+		private JPopupMenu menu() {
+			JPopupMenu m = new JPopupMenu();
+			boolean hasInput = step.call() != null && !step.call().isBlank();
+			boolean hasResult = step.detail() != null && !step.detail().isBlank();
+			if (hasInput) m.add(item("Copy input", step.call()));
+			if (hasResult) m.add(item("Copy result", step.detail()));
+			if (hasInput && hasResult) m.add(item("Copy input & result", combined()));
+			if (m.getComponentCount() == 0) m.add(item("Copy tool name", step.title()));
+			return m;
+		}
+
+		private JMenuItem item(String label, String text) {
+			JMenuItem i = new JMenuItem(label);
+			i.addActionListener(e -> copy(text));
+			return i;
+		}
+
+		private String combined() {
+			StringBuilder sb = new StringBuilder(step.title()).append('\n');
+			if (step.call() != null && !step.call().isBlank()) sb.append("\nInput:\n").append(step.call());
+			if (step.detail() != null && !step.detail().isBlank()) sb.append("\nResult:\n").append(step.detail());
+			return sb.toString();
+		}
+
 		@Override
 		public Dimension getMaximumSize() {
 			return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
 		}
+	}
+
+	private static void copy(String text) {
+		java.awt.Toolkit.getDefaultToolkit().getSystemClipboard()
+			.setContents(new java.awt.datatransfer.StringSelection(text), null);
 	}
 }

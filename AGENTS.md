@@ -24,7 +24,7 @@ window that talks to an agent on that venue. Single Maven module,
 ## Build and test
 
 - Requires Java 21+, Maven 3.7+ and a locally installed Covia
-  `0.10.0-SNAPSHOT` (`../convex` then `../covia`, `mvn install`). Covia
+  `0.9.5-SNAPSHOT` (`../convex` then `../covia`, `mvn install`). Covia
   snapshots are not on Maven Central; if the build cannot resolve
   `ai.covia:venue`, that is the reason.
 - `mvn package` → `target/brightside.jar` (shaded, runnable). `mvn test` for
@@ -130,9 +130,21 @@ window that talks to an agent on that venue. Single Maven module,
   collapsed "N tool steps" chip; expanding it lists each tool as its **own**
   expandable row (tick/cross + name) that opens to show its Input and Result. So
   the final reply is what shows by default, with the tool use one or two clicks
-  away; narration and results are selectable (`SelectableText`). Disclosure
+  away; narration and results are selectable (`SelectableText`), and
+  right-clicking a tool row offers *Copy input* / *Copy result*. Disclosure
   chevrons and the tick/cross are **painted** (`ChatIcons`), not glyphs, because
   the UI font (Lato) has no ▸/▾/✓/✕. New item kinds go here.
+- **The context inspector — "what the assistant sees".** Right-clicking a
+  conversation offers an inspector (`covia.brightside.ui.inspect.ContextInspector`,
+  its own package to grow into) showing the *exact* model input for that session,
+  read via `AgentContext` → `v/ops/agent/context` (owner-callable, `CRUD_READ`;
+  it assembles the same `Spec` a live turn would, without calling the model).
+  Tabs: Overview (model, byte budget, session token usage), Context (every
+  assembled message — identity, the `[Skills]` index, pinned memory, each loaded
+  skill body, the conversation), Tools (the offered palette with provenance and
+  the unavailable ones), Skills (the loaded entries + accounting), and Raw. Note
+  session ids are bare hex (`toHexString()`, no `0x`) — the agent ops reject a
+  `0x` prefix.
 - **Change detection is a lattice value compare.** `ConversationWatcher` polls
   the agent value (`SessionHistory.loadLatest`) every few seconds while the chat
   is showing and compares it with `.equals` to the last one shown — lattice

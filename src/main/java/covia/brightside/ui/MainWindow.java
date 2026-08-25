@@ -15,6 +15,7 @@ import java.awt.event.WindowEvent;
 import javax.swing.BorderFactory;
 import javax.swing.ImageIcon;
 import javax.swing.JComponent;
+import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
@@ -100,6 +101,11 @@ public final class MainWindow extends JFrame {
 			@Override
 			public void onCopyTranscript(String sessionId) {
 				app.copyTranscript(sessionId);
+			}
+
+			@Override
+			public void onInspectSession(String sessionId) {
+				app.showSessionInfo(sessionId);
 			}
 
 			@Override
@@ -253,6 +259,16 @@ public final class MainWindow extends JFrame {
 	/** Show a chosen past conversation's transcript (a definite switch, not a poll). */
 	public void showConversation(List<SessionHistory.Item> turns) {
 		chatPanel.restore(turns);
+	}
+
+	/** Open a (non-modal) inspector showing exactly what the model receives for a conversation. */
+	public void showContextInfo(covia.brightside.AgentContext.Report report, String title) {
+		JDialog dialog = new JDialog(this, "What the assistant sees — " + title, false);
+		dialog.setContentPane(new covia.brightside.ui.inspect.ContextInspector(report));
+		dialog.setSize(940, 720);
+		dialog.setMinimumSize(new Dimension(640, 460));
+		dialog.setLocationRelativeTo(this);
+		dialog.setVisible(true);
 	}
 
 	/** True while the chat is on screen — the watcher only polls then. */

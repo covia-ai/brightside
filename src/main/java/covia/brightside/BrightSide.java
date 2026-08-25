@@ -351,6 +351,30 @@ public final class BrightSide {
 		t.start();
 	}
 
+	/** Show the full context the assistant's model receives for a conversation. */
+	public void showSessionInfo(String sessionId) {
+		Venue c = client;
+		String aid = agentId;
+		if (c == null || aid == null || sessionId == null) return;
+		String title = titleOf(sessionId);
+		Thread t = new Thread(() -> {
+			AgentContext.Report report = AgentContext.load(c, aid, sessionId);
+			SwingUtilities.invokeLater(() -> {
+				if (report == null) window.showSystemMessage("Sorry — I couldn't read the context for that conversation.");
+				else window.showContextInfo(report, title);
+			});
+		}, "brightside-session-info");
+		t.setDaemon(true);
+		t.start();
+	}
+
+	private String titleOf(String sessionId) {
+		return sessions.stream()
+			.filter(s -> sessionId.equals(s.sessionId()))
+			.map(SessionHistory.Session::title)
+			.findFirst().orElse("this conversation");
+	}
+
 	/** Delete a conversation. If it was the one on screen, drop back to a new chat. */
 	public void deleteSession(String sessionId) {
 		Venue c = client;
