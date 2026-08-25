@@ -6,13 +6,21 @@ English); this file adds what is specific to Brightside.
 
 ## Purpose
 
-Brightside exists to **demonstrate the power of the Covia Grid and lattice
-technology as a personal agent**. It is a showcase: a single desktop app that
-puts a full Covia venue — engine, adapters, lattice-backed persistent state,
-agent framework, MCP/A2A/HTTP surface — on someone's own machine, under their
-own identity, and lets them talk to an agent running on it. Design choices
-should favour showing that platform off (real venue, real agents, real lattice
-state, real federation potential) over hiding it behind a generic chat UI.
+Brightside is a **powerful, self-sovereign personal agent** — a real product
+that helps its owner get real things done, not a demo. It runs privately on the
+person's own computer, under their own identity; it remembers what matters to
+them, grows new abilities as they need them, and answers to them alone. Their
+data and everything it remembers stay on their machine. That is the point.
+
+It happens to be built on genuinely remarkable technology — the Covia Grid: an
+in-process venue (engine, adapters, lattice-backed persistent state, an agent
+framework, an MCP/A2A/HTTP surface) — and that is what makes a private,
+extensible, and (in time) federatable personal agent possible on ordinary
+hardware. But Covia is the means, not the message. Design for the owner's real
+needs — usefulness, privacy, trust, control — and let the power underneath serve
+those, kept out of the way until it's wanted: the everyday screens carry no
+jargon (no "venue", "agent", "DID"), while the full technical surface stays
+available under Advanced and Help → About for those who want it.
 
 ## What this is
 
@@ -23,10 +31,10 @@ window that talks to an agent on that venue. Single Maven module,
 
 ## Build and test
 
-- Requires Java 21+, Maven 3.7+ and a locally installed Covia
-  `0.9.5-SNAPSHOT` (`../convex` then `../covia`, `mvn install`). Covia
-  snapshots are not on Maven Central; if the build cannot resolve
-  `ai.covia:venue`, that is the reason.
+- Requires Java 21+, Maven 3.7+ and Covia `0.9.5` (a release — resolves from
+  Maven Central once published; otherwise install it locally with `../convex`
+  then `../covia`, `mvn install`). If the build cannot resolve `ai.covia:venue`,
+  that is why.
 - `mvn package` → `target/brightside.jar` (shaded, runnable). `mvn test` for
   the tests alone. `mvn exec:java` runs the app from the build.
 - Tests boot real venue engines (`Engine.createTemp`, `VenueServer.launch`

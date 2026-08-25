@@ -1,17 +1,21 @@
 # Brightside
 
-**Brightside** is a Covia desktop companion: a JVM application that runs a
-[Covia](https://covia.ai) venue *inside the process* and puts a chat window in
-front of it. Minimise or close the window and the venue keeps running from a
-system-tray icon; **Exit** flushes its state and stops it.
+**Brightside** is your own **self-sovereign personal agent** — a capable
+assistant that runs privately on your own computer, under your own identity. It
+remembers what matters to you, grows new abilities as you need them, and answers
+to you alone; your data and everything it remembers stay on your machine.
 
-Its purpose is to **show off the Covia Grid and lattice technology as a personal
-agent** — a full venue (engine, adapters, lattice-backed state, agent framework,
-MCP/A2A/HTTP surface) running on your own machine, under your own identity.
+Under the hood it's a JVM desktop app that runs a full [Covia](https://covia.ai)
+venue *inside the process* and puts a chat window in front of it. Minimise or
+close the window and the agent keeps running from a system-tray icon; **Exit**
+flushes its state and stops it. Covia — an in-process engine, adapters,
+lattice-backed state, an agent framework and an MCP/A2A/HTTP surface — is the
+remarkable technology that makes a private, extensible personal agent possible;
+most of the time you won't need to think about it.
 
 - Modern Swing UI — [FlatLaf](https://www.formdev.com/flatlaf/) macOS-style themes, a purple accent and rounded **chat bubbles** as separate components (right-click to copy a message or the conversation; dark by default, light available)
 - **Reopens your last conversation on restart** — read from the venue's live agent session (no local copy), and continued
-- **Detects changes with a lattice value compare** — the UI watches the agent value and refreshes when it changes (File → Refresh forces it)
+- **Detects changes with an in-process lattice value compare** — the app reads the agent value straight from the lattice (no polling jobs) and refreshes when it changes (File → Refresh forces it)
 - A warm first-run welcome ("What should I call you?") — no jargon on the everyday screens
 - Embedded Covia venue: full engine, all built-in adapters, HTTP/MCP endpoint on `localhost`
 - Your own private assistant with a **memory** (`n/memory`) that persists across chats
@@ -26,8 +30,9 @@ MCP/A2A/HTTP surface) running on your own machine, under your own identity.
 
 - Java 21+ (JDK)
 - Maven 3.7+
-- A local build of Covia `0.10.0-SNAPSHOT` — snapshots are not published to
-  Maven Central. Covia depends on Convex, so build Convex first:
+- Covia `0.9.5` (a release) — it resolves from Maven Central once published. To
+  build against a local Covia checkout instead, install it first; Covia depends
+  on Convex, so build Convex first:
 
 ```bash
 cd ../convex && mvn clean install -DskipTests
@@ -117,7 +122,7 @@ src/main/java/covia/brightside/
 ├── AppConfig.java         ~/.brightside/config.json (JSON5) and defaults
 ├── Identity.java          the u:<name> user; ~/.brightside/identity.json
 ├── SessionHistory.java    reads the live conversation from the venue agent session
-├── ConversationWatcher.java  polls + .equals-compares the agent value to refresh on change
+├── ConversationWatcher.java  in-process .equals-compares the agent value to refresh on change
 ├── BrightsideAdapter.java  Covia adapter: brightside:info + v/skills/brightside/… skills
 ├── EmbeddedVenue.java     VenueServer + per-user in-process LocalVenue client
 ├── chat/ChatSession.java  agent config (skills, n/memory) + agent:chat

@@ -1,16 +1,19 @@
 # Brightside — Design guidelines
 
-Brightside is a **consumer product** that happens to be powered by the Covia
-Grid. Its job is to make a full Covia venue feel like a friendly personal
-assistant. These are short rules of thumb; when in doubt, favour the person in
-front of the screen over the platform behind it.
+Brightside is a **self-sovereign personal agent** — a real consumer product that
+happens to be powered by the Covia Grid. Its job is to be genuinely useful to the
+person who owns it, privately on their own machine. These are short rules of
+thumb; when in doubt, favour the person in front of the screen over the platform
+behind it.
 
 ## 1. Purpose
 
-Demonstrate the power of the Covia Grid and lattice technology **as a personal
-agent** — a real venue, real agents, real persistent lattice state, all running
-privately on the user's own machine. The platform should be *felt* (it just
-works, it remembers, it's private), not *explained*.
+Be a **powerful personal agent the person owns** — one that solves real problems,
+remembers what matters to them, grows with their needs, and answers to them
+alone, all running privately on their own machine. Covia is the remarkable
+technology that makes this possible, but it is the means, not the message: the
+platform should be *felt* (it just works, it remembers, it's private, it's
+yours), not shown off or explained.
 
 ## 2. Speak like a product, not a platform
 
@@ -25,11 +28,12 @@ works, it remembers, it's private), not *explained*.
 
 ## 3. Hide the machinery, don't remove it
 
-The Covia power is the point — keep it reachable, just not in the way.
+The power underneath is real — keep it reachable for those who want it, just not
+in the way.
 
 - Technical surfaces (the web dashboard, the identity/DID, the local URL, the
   settings file, logs) live under an **Advanced** menu and the **About** box.
-- That's where a curious user or a demo can pull back the curtain and see the
+- That's where a curious or technical user can pull back the curtain and see the
   venue, the grid, the DID. The everyday user never has to.
 
 ## 4. Identity

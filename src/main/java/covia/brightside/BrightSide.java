@@ -483,7 +483,7 @@ public final class BrightSide {
 		});
 	}
 
-	/** Opens the venue's own web dashboard (Advanced menu — a demo/diagnostics surface). */
+	/** Opens the venue's own web dashboard (Advanced menu — a power-user surface). */
 	public void openDashboard() {
 		EmbeddedVenue v = venue;
 		if (v == null) return;
