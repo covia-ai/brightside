@@ -38,6 +38,7 @@ import javax.swing.Scrollable;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
+import javax.swing.Timer;
 import javax.swing.UIManager;
 import javax.swing.text.DefaultEditorKit;
 
@@ -65,6 +66,8 @@ public final class ChatPanel extends JPanel {
 
 	private final List<SessionHistory.Turn> displayed = new ArrayList<>();
 	private JTextArea lastSelectedBubble; // the bubble holding the current selection, if any
+	private Component thinkingRow; // the assistant "typing…" row while a reply is pending
+	private TypingIndicator thinkingIndicator;
 	private volatile ChatSession session;
 	private boolean busy;
 
@@ -202,6 +205,7 @@ public final class ChatPanel extends JPanel {
 		addTurn("user", text);
 		busy = true;
 		setInputEnabled(false);
+		showThinking();
 
 		new SwingWorker<ChatSession.Reply, Void>() {
 			@Override
@@ -213,6 +217,7 @@ public final class ChatPanel extends JPanel {
 			protected void done() {
 				busy = false;
 				setInputEnabled(true);
+				hideThinking();
 				try {
 					addTurn("assistant", get().text());
 				} catch (ExecutionException e) {
@@ -238,6 +243,53 @@ public final class ChatPanel extends JPanel {
 	private static String describe(Throwable t) {
 		String m = t.getMessage();
 		return (m == null || m.isBlank()) ? t.toString() : m;
+	}
+
+	/** Show an animated "typing…" bubble on the assistant side while a reply is pending. */
+	private void showThinking() {
+		if (thinkingRow != null) return;
+		JPanel bubble = roundBubble(assistantBg());
+		bubble.setBorder(BorderFactory.createEmptyBorder(14, 16, 14, 16));
+		thinkingIndicator = new TypingIndicator(muted());
+		bubble.add(thinkingIndicator, BorderLayout.CENTER);
+		JPanel row = new JPanel(new BorderLayout());
+		row.setOpaque(false);
+		row.setBorder(BorderFactory.createEmptyBorder(4, 2, 4, 2));
+		row.add(bubble, BorderLayout.WEST);
+		thinkingRow = row;
+		column.add(row);
+		column.revalidate();
+		scrollToBottom();
+		thinkingIndicator.start();
+	}
+
+	private void hideThinking() {
+		if (thinkingRow == null) return;
+		if (thinkingIndicator != null) {
+			thinkingIndicator.stop();
+			thinkingIndicator = null;
+		}
+		column.remove(thinkingRow);
+		thinkingRow = null;
+		column.revalidate();
+		column.repaint();
+	}
+
+	@SuppressWarnings("serial")
+	private static JPanel roundBubble(Color bg) {
+		JPanel p = new JPanel(new BorderLayout()) {
+			@Override
+			protected void paintComponent(Graphics g) {
+				Graphics2D g2 = (Graphics2D) g.create();
+				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+				g2.setColor(bg);
+				g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
+				g2.dispose();
+				super.paintComponent(g);
+			}
+		};
+		p.setOpaque(false);
+		return p;
 	}
 
 	/** A note from Brightside itself (status, hints) — centred and muted. */
@@ -346,6 +398,53 @@ public final class ChatPanel extends JPanel {
 			Math.round(a.getRed() * (1 - t) + b.getRed() * t),
 			Math.round(a.getGreen() * (1 - t) + b.getGreen() * t),
 			Math.round(a.getBlue() * (1 - t) + b.getBlue() * t));
+	}
+
+	/** A three-dot "typing…" animation. */
+	@SuppressWarnings("serial")
+	private static final class TypingIndicator extends JComponent {
+		private static final int COUNT = 3;
+		private static final int DOT = 8;
+		private static final int GAP = 6;
+
+		private final Color color;
+		private final Timer timer;
+		private int phase;
+
+		TypingIndicator(Color color) {
+			this.color = color;
+			setOpaque(false);
+			setPreferredSize(new Dimension(COUNT * DOT + (COUNT - 1) * GAP, DOT + 6));
+			// COUNT+1 phases: each dot lifts in turn, then a brief rest.
+			timer = new Timer(280, e -> {
+				phase = (phase + 1) % (COUNT + 1);
+				repaint();
+			});
+		}
+
+		void start() {
+			phase = 0;
+			timer.start();
+		}
+
+		void stop() {
+			timer.stop();
+		}
+
+		@Override
+		protected void paintComponent(Graphics g) {
+			Graphics2D g2 = (Graphics2D) g.create();
+			g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+			int y = (getHeight() - DOT) / 2;
+			for (int i = 0; i < COUNT; i++) {
+				boolean active = (i == phase);
+				int alpha = active ? 235 : 110;
+				int lift = active ? 2 : 0;
+				g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), alpha));
+				g2.fillOval(i * (DOT + GAP), y - lift, DOT, DOT);
+			}
+			g2.dispose();
+		}
 	}
 
 	/** The scrolling column of rows; tracks the viewport width so rows can align. */
