@@ -127,7 +127,13 @@ public final class SessionHistory {
 		return ts;
 	}
 
-	/** Keep user turns and completed assistant turns; skip tool scratch / empty. */
+	/**
+	 * Keep user turns and <em>completed</em> assistant turns — the final reply of
+	 * each turn. Skips tool scratch, empty turns, and assistant turns that carry
+	 * tool calls (the intermediate "let me try…" narration before a tool runs),
+	 * mirroring Covia's own safe session projection, so the shown transcript is
+	 * the reply the user saw, not the tool-use steps.
+	 */
 	private static List<Turn> project(AVector<ACell> conversation) {
 		List<Turn> turns = new ArrayList<>();
 		for (long i = 0; i < conversation.count(); i++) {
@@ -136,10 +142,16 @@ public final class SessionHistory {
 			AString content = RT.ensureString(RT.getIn(turn, "content"));
 			if (role == null || content == null || content.toString().isBlank()) continue;
 			String r = role.toString();
-			if (ROLE_USER.equals(r) || ROLE_ASSISTANT.equals(r)) {
+			if (ROLE_USER.equals(r)) {
+				turns.add(new Turn(r, content.toString()));
+			} else if (ROLE_ASSISTANT.equals(r) && !hasToolCalls(turn)) {
 				turns.add(new Turn(r, content.toString()));
 			}
 		}
 		return turns;
+	}
+
+	private static boolean hasToolCalls(ACell turn) {
+		return RT.getIn(turn, "toolCalls") instanceof AVector<?> v && !v.isEmpty();
 	}
 }
