@@ -67,9 +67,12 @@ window that talks to an agent on that venue. Single Maven module,
   window shows is what any other client of the venue would see.
 - **Look and feel.** `LAF` installs FlatLaf's macOS-style themes
   (`FlatMacDarkLaf`/`FlatMacLightLaf`) with a purple accent and rounded
-  geometry — keep it modern. `ChatPanel` renders real **bubbles** (a scrolling
-  column of rounded `Bubble`s: user right/accent, assistant left/surface),
-  not a plain text pane.
+  geometry — keep it modern. `ChatPanel` renders the conversation as bubbles
+  (user right/accent, assistant left/surface) but in a **single selectable
+  `JTextPane`**, not one text component per message, so selection and copy
+  work across the whole conversation. The bubble backgrounds are a rounded
+  `DefaultHighlightPainter` (`BubblePainter`) behind each message's text range;
+  left/right alignment and indents position them.
 - **Brightside runs off the venue's live session state — no local transcript
   copy.** On start `startChat` reads the most recently active conversation
   straight from the agent's session store (`SessionHistory.loadLatest`:
