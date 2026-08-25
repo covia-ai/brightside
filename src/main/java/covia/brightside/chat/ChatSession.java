@@ -17,7 +17,7 @@ import convex.core.lang.RT;
 import convex.core.util.JSON;
 import covia.api.Fields;
 import covia.brightside.AppConfig;
-import covia.brightside.DefaultSkills;
+import covia.brightside.BrightsideSkills;
 import covia.grid.Job;
 import covia.grid.Venue;
 
@@ -134,9 +134,12 @@ public final class ChatSession {
 				"op", MEMORY_OP,
 				"input", Maps.of("command", "recall", "path", MEMORY_PATH),
 				"label", "Your private memory of the user — edit with path " + MEMORY_PATH)),
-			// Always-loaded introduction skill, plus the user's own skillset to grow.
-			"loads", Maps.of(DefaultSkills.INTRODUCTION,
-				Maps.of("skill", true, "budget", 4000L, "label", "introduction")),
+			// Always-loaded: how it introduces itself, and how it grows new skills
+			// (the skills meta-skill gates skill-authoring as a sub-skill). The
+			// user's own skillset is declared so skills it authors become its own.
+			"loads", Maps.of(
+				BrightsideSkills.INTRODUCTION, Maps.of("skill", true, "budget", 4000L, "label", "introduction"),
+				BrightsideSkills.SKILLS, Maps.of("skill", true, "budget", 2000L, "label", "skills")),
 			"skillsets", Vectors.of(Strings.create(USER_SKILLSET)));
 		AMap<AString, ACell> input = Maps.of(Fields.AGENT_ID, config.agentId(), Fields.CONFIG, agentConfig);
 		if (agentExists()) {

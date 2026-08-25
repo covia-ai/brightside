@@ -49,6 +49,12 @@ The Covia power is the point — keep it reachable, just not in the way.
   mechanics.
 - The system prompt stays small: identity, tone, and pointers to skills and
   memory. Detail lives in skills.
+- **It can grow.** The assistant can author its own skills into `w/skills` —
+  that's how it "upgrades" itself. Expose the ability the way a good product
+  gates power: a always-present *skills* skill explains growing abilities and
+  reveals a *skill-authoring* sub-skill, which is the only thing that grants the
+  write tool. So self-improvement is possible and discoverable, but the ability
+  to write isn't loaded until the assistant deliberately reaches for it.
 
 ### Namespaces
 

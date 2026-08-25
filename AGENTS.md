@@ -65,14 +65,22 @@ window that talks to an agent on that venue. Single Maven module,
 - **Chat goes through the agent framework** (`v/ops/agent/create|update|
   info|chat` via `LocalVenue`), not through a private LLM call, so what the
   window shows is what any other client of the venue would see.
-- **Skills and memory, by namespace.** Brightside's shipped skills (e.g.
-  `introduction`, `DefaultSkills`) are seeded into `v/skills/brightside/…` as
-  the venue principal (only the venue may write `v/`) and pinned into the agent
-  via `config.loads`. The user's own skills live in `w/skills` (a declared
-  skillset). The assistant's memory and scratch live in `n/` (`n/memory`,
-  pinned via a `v/ops/memory` recall context entry, with the `v/ops/memory`
-  tool so it can write). Introductory persona content is a **skill**, not
-  system-prompt prose — the prompt stays small. See `docs/DESIGN.md`.
+- **Skills and memory, by namespace.** `BrightsideSkills` seeds the shipped
+  skill library into `v/skills/brightside/…` as the venue principal (only the
+  venue may write `v/`). Two are pinned into the agent via `config.loads`:
+  `introduction` (persona) and `skills` (how it grows). Persona content is a
+  **skill**, not system-prompt prose — the prompt stays small.
+- **Self-authoring, gated hierarchically.** The pinned `skills` meta-skill
+  gates `skill-authoring` as a sub-skill (its `skill.skills` facet), and
+  `skill-authoring` is the only skill whose facet grants the `covia:write`
+  tool. So the assistant can extend itself — it loads `skill-authoring` and
+  writes a new skill into its own `w/skills` (a declared skillset, so authored
+  skills become discoverable) — but the write capability is not in context
+  until it deliberately loads that sub-skill. To ship a new default ability,
+  add a resource + a `writeSkill(...)` call in `BrightsideSkills`.
+- **Memory and scratch** live in `n/`: `n/memory` (recall pinned as a
+  `v/ops/memory` context entry, with the `v/ops/memory` tool so it can write)
+  and other scratch. See `docs/DESIGN.md`.
 - **Packaging.** The runnable jar is built by `maven-shade-plugin` with the
   services transformer (Jetty/Javalin/LangChain4j rely on
   `META-INF/services`) and drops `openapi-plugin/**` from

@@ -13,7 +13,8 @@ MCP/A2A/HTTP surface) running on your own machine, under your own identity.
 - A warm first-run welcome ("What should I call you?") — no jargon on the everyday screens
 - Embedded Covia venue: full engine, all built-in adapters, HTTP/MCP endpoint on `localhost`
 - Your own private assistant with a **memory** (`n/memory`) that persists across chats
-- Its persona is a **Covia skill** (`v/skills/brightside/introduction`); grow your own skills in `w/skills`
+- Its persona is a **Covia skill** (`v/skills/brightside/introduction`)
+- **It can teach itself** — author new skills into `w/skills` (a gated `skill-authoring` ability)
 - Chat window talking to your own agent on that venue, entirely in-process
 - Tray icon; minimise and close go to the tray. Technical bits (dashboard, identity, logs) live under **Advanced**
 - Persistent state under `~/.brightside/`
@@ -112,11 +113,11 @@ src/main/java/covia/brightside/
 ├── BrightSide.java        entry point and application controller
 ├── AppConfig.java         ~/.brightside/config.json (JSON5) and defaults
 ├── Identity.java          the u:<name> user; ~/.brightside/identity.json
-├── DefaultSkills.java     seeds v/skills/brightside/… (the introduction skill)
+├── BrightsideSkills.java  seeds v/skills/brightside/… (introduction, skills, skill-authoring)
 ├── EmbeddedVenue.java     VenueServer + per-user in-process LocalVenue client
 ├── chat/ChatSession.java  agent config (skills, n/memory) + agent:chat
 └── ui/                    LAF, MainWindow, WelcomePanel, ChatPanel, TrayManager, Icons
-src/main/resources/brightside/introduction.md   the introduction skill body
+src/main/resources/brightside/*.md               skill bodies (introduction, skills, skill-authoring)
 src/main/resources/brightside/logback.xml
 docs/DESIGN.md             product design guidelines
 src/test/java/…            unit tests (boot temporary venue engines; headless)

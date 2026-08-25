@@ -120,10 +120,10 @@ public final class BrightSide {
 	 * wait for {@link #submitName}.
 	 */
 	private void onVenueReady() {
-		// Install BrightSide's default skills into v/ (venue-principal write),
+		// Install Brightside's default skills into v/ (venue-principal write),
 		// before any agent that pins them is created.
 		try {
-			DefaultSkills.seed(venue.clientAs(venue.did()));
+			BrightsideSkills.seed(venue.clientAs(venue.did()));
 		} catch (Exception e) {
 			log.warn("Could not seed default skills", e);
 		}
