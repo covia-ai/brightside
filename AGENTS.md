@@ -259,6 +259,18 @@ window that talks to an agent on that venue. Single Maven module,
 - **Memory and scratch** live in `n/`: `n/memory` (recall pinned as a
   `v/ops/memory` context entry, with the `v/ops/memory` tool so it can write)
   and other scratch. See `docs/DESIGN.md`.
+- **Encrypted vault & identity.** One passphrase, hardened with **Argon2id**
+  (`covia.brightside.vault.Vault`, BouncyCastle) over a per-vault `vault.salt`,
+  yields two 32-byte keys: a *vault key* that encrypts the store (Etch v3,
+  ChaCha20 — injected as `{seed, etch:{version:3,cipher,key}}` into the in-memory
+  venue config, never persisted) and a *seed key* that AES-GCM-encrypts the
+  Ed25519 seed to `identity.enc`. Nothing sensitive is written in the clear (no
+  plaintext `venue.key`; API keys go in the store's `SecretStore`, not
+  `config.json`). The identity is a BIP39 recovery phrase (`Mnemonic`, Convex
+  `BIP39`/`SLIP10`) → the same seed, independent of the passphrase. Model
+  providers and their API-key secret names are `covia.brightside.model.Providers`
+  (`v/models/<provider>/<id>`; `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY` for Gemini,
+  …). Full flow, screen mockups and threat model: **`docs/ONBOARDING.md`**.
 - **Packaging.** The runnable jar is built by `maven-shade-plugin` with the
   services transformer (Jetty/Javalin/LangChain4j rely on
   `META-INF/services`) and drops `openapi-plugin/**` from

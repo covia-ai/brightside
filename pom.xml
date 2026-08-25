@@ -43,6 +43,7 @@
 		<!-- Covia venue runtime (the 0.9.5 release). -->
 		<covia.version>0.9.5</covia.version>
 		<flatlaf.version>3.7.2</flatlaf.version>
+		<bouncycastle.version>1.85</bouncycastle.version>
 		<junit.version>6.1.3</junit.version>
 
 		<main.class>covia.brightside.BrightSide</main.class>
@@ -61,6 +62,14 @@
 			<groupId>com.formdev</groupId>
 			<artifactId>flatlaf</artifactId>
 			<version>${flatlaf.version}</version>
+		</dependency>
+
+		<!-- Argon2id passphrase hardening for the encrypted vault. (Also a Covia
+		     transitive dep; pinned here because Brightside uses it directly.) -->
+		<dependency>
+			<groupId>org.bouncycastle</groupId>
+			<artifactId>bcprov-jdk18on</artifactId>
+			<version>${bouncycastle.version}</version>
 		</dependency>
 
 		<dependency>
