@@ -89,6 +89,23 @@ window that talks to an agent on that venue. Single Maven module,
   configured programmatically from `brightside/logback.xml` because the
   venue jar ships a root `logback.xml` of its own.
 
+## Debugging
+
+- **A user's private namespace can only be read in-process, as that user.**
+  Covia is capability-based: reading `u:<name>/w/skills` (or any `w/`, and
+  agent-scoped `n/`) over HTTP is refused without that user's authority —
+  even for the venue's own public principal, and even on loopback. Enabling
+  public/`unrestricted` auth does **not** grant cross-user reads. So the debug
+  path is not the network; it is Brightside itself, which already holds
+  `clientAs(userDID)`.
+- **`"debug": true`** (top-level config) turns on `BrightSide.dumpUserState`:
+  after the agent is ready it reads, in-process as the user, `w/skills`
+  (`covia:list`) and the agent record `g/<agentId>` (`covia:read`, which
+  carries the durable timeline, config and memory) and logs them to
+  `~/.brightside/logs`. Off by default; no network exposure. `n/memory` itself
+  is agent-run scratch and cannot be read out-of-band — inspect it via the
+  agent record.
+
 ## Conventions
 
 - British English in code comments, UI text and docs.

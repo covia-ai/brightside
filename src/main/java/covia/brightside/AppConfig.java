@@ -113,12 +113,14 @@ public final class AppConfig {
 
 	private final Path home;
 	private final String theme;
+	private final boolean debug;
 	private final AMap<AString, ACell> venue;
 	private final Chat chat;
 
 	private AppConfig(AMap<AString, ACell> raw, Path home) {
 		this.home = home;
 		this.theme = string(raw, "theme", DEFAULT_THEME);
+		this.debug = boolValue(raw, "debug", false);
 		this.venue = merge(defaultVenue(home), RT.ensureMap(raw.get(Strings.create("venue"))));
 		AMap<AString, ACell> c = RT.ensureMap(raw.get(Strings.create("chat")));
 		this.chat = new Chat(
@@ -127,6 +129,12 @@ public final class AppConfig {
 			string(c, "llmOperation", DEFAULT_LLM_OPERATION),
 			string(c, "systemPrompt", DEFAULT_SYSTEM_PROMPT),
 			longValue(c, "timeout", DEFAULT_TIMEOUT_SECONDS));
+	}
+
+	/** When true, Brightside logs the user's own skills (and memory) after start,
+	 *  read in-process as the user — a local debugging aid. Off by default. */
+	public boolean debug() {
+		return debug;
 	}
 
 	/**
@@ -193,6 +201,12 @@ public final class AppConfig {
 		if (m == null) return dflt;
 		ACell v = m.get(Strings.create(key));
 		return (v instanceof CVMLong l) ? l.longValue() : dflt;
+	}
+
+	private static boolean boolValue(AMap<AString, ACell> m, String key, boolean dflt) {
+		if (m == null) return dflt;
+		ACell v = m.get(Strings.create(key));
+		return (v instanceof convex.core.data.prim.CVMBool b) ? b.booleanValue() : dflt;
 	}
 
 	/** Data directory (the config file's directory). */
