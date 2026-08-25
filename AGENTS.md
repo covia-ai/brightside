@@ -67,12 +67,19 @@ window that talks to an agent on that venue. Single Maven module,
   window shows is what any other client of the venue would see.
 - **Look and feel.** `LAF` installs FlatLaf's macOS-style themes
   (`FlatMacDarkLaf`/`FlatMacLightLaf`) with a purple accent and rounded
-  geometry — keep it modern. `ChatPanel` renders each message as its **own
-  rounded `Bubble` component** in a scrolling `MessageColumn` (user
-  right/accent, assistant left/surface) — separate components on purpose, so
-  new message kinds (images, cards, tool output) can be added as their own row
-  types. Text in a bubble is selectable but the read-only caret is hidden (no
-  insert cursor); right-click offers *Copy message* / *Copy conversation*
+  geometry — keep it modern. The chat UI lives in its own
+  `covia.brightside.ui.chat` package, one component per file: `ChatPanel` (the
+  container, which owns send/copy), `Bubble` (a rounded, selectable message),
+  `MessageColumn` (the scrolling, width-tracking column), `TypingIndicator`
+  (the "typing…" dots), `ExpandableActivity` (the tool-steps chip) and
+  `ChatStyle` (shared theme-derived colours + HTML-label helpers). `ChatPanel`
+  renders each message as its **own rounded `Bubble` component** in the
+  `MessageColumn` (user right/accent, assistant left/surface) — separate
+  components on purpose, so new message kinds (images, cards, tool output) can
+  be added as their own files/row types. `Bubble` is a dumb display component;
+  selection tracking and the context menu are wired onto its `textArea()` by
+  `ChatPanel`. Text in a bubble is selectable but the read-only caret is hidden
+  (no insert cursor); right-click offers *Copy message* / *Copy conversation*
   (`conversationText()`) to get text out across messages.
 - **Brightside runs off the venue's live session state — no local transcript
   copy.** On start `startChat` reads the most recently active conversation
