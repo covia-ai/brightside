@@ -156,8 +156,9 @@ Brightside ships, `w/skills` is where your agent writes its own, and `n/` is
 private scratch including memory. Only the venue writes `v/`.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the project layout and the
-design rules behind it, and [docs/DESIGN.md](docs/DESIGN.md) for the product
-principles.
+design rules behind it, [docs/DESIGN.md](docs/DESIGN.md) for the product
+principles, and [docs/NETWORK.md](docs/NETWORK.md) for where this is going once
+venues meet other venues.
 
 ## Using it
 
@@ -232,7 +233,8 @@ implies.
 
 - **Federation** — the point of a venue is that it can meet other venues.
   Sharing a skill, delegating to a friend's agent, or reaching a remote tool
-  without giving up ownership of your own state.
+  without giving up ownership of your own state. The target state is written up
+  in [docs/NETWORK.md](docs/NETWORK.md).
 - **Module adapters in-process** — Telegram, Discord and the rest, so your agent
   can meet you where you already are ([Covia #410](https://github.com/covia-ai/covia/issues/410))
 - **Native packaging** — signed installers per platform instead of `java -jar`

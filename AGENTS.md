@@ -56,6 +56,23 @@ window that talks to an agent on that venue. Single Maven module,
 - **Shutdown flushes state.** Exit closes the `VenueServer` before
   `System.exit`; a Convex `Shutdown` hook at `SERVER - 10` covers Ctrl-C and
   SIGTERM, mirroring `MainVenue`. Keep `EmbeddedVenue.close()` idempotent.
+- **Take over from a running instance instead of fighting the store lock.** Two
+  processes can't share `venue.etch`. On launch, `BrightSide.launchVenue` probes
+  the port (`Takeover.isRunning`); if an instance answers it prompts *Take Over /
+  Cancel*, and on Take Over asks the running one to stop cleanly over the venue's
+  own HTTP surface — the `brightside:shutdown` op — then waits for the store to
+  free before starting. **The control channel is the venue's embedded Javalin;
+  the instruction is a plain shutdown; auth is venue-signed.** Both instances
+  share `~/.brightside/venue.key`, so the newcomer reads the running venue's DID
+  from `/api/v1/status` and mints a venue-signed token (iss = sub = that DID) —
+  the venue trusts JWTs it signed itself and authenticates the bearer as the
+  operator. `BrightsideAdapter.handleShutdown` gates on
+  `ctx.getCallerDID().equals(engine.getDIDString())` (the `auth:whoami`
+  "internal" test) and runs the `onShutdown` callback wired by
+  `EmbeddedVenue.launch(config, this::exit)` — a clean `exit()`, so the store
+  flushes. This is *not* `venue/restart` (a successor-jar relaunch): the newcomer
+  is already up and just needs the incumbent to step aside, and it must work from
+  an IDE launch with no jar.
 - **Configuration is data, not code.** `AppConfig` merges the user's
   `venue` map over Brightside's defaults key-for-key and passes it straight
   to `VenueServer.launch`, so new venue options need no Brightside change.

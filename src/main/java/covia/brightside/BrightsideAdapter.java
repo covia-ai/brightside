@@ -8,6 +8,7 @@ import convex.core.data.AString;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
 import convex.core.data.Vectors;
+import convex.core.data.prim.CVMBool;
 import covia.adapter.AAdapter;
 import covia.venue.RequestContext;
 
@@ -20,6 +21,9 @@ import covia.venue.RequestContext;
  *
  * <ul>
  *   <li>{@code brightside:info} — app and venue diagnostics.</li>
+ *   <li>{@code brightside:shutdown} — clean process shutdown, venue-operator
+ *       only, so a newly launched instance can take over (see
+ *       {@link covia.brightside.Takeover}).</li>
  * </ul>
  *
  * <p>Add further Brightside operations by adding a {@code brightside/<op>.json}
@@ -32,6 +36,18 @@ public class BrightsideAdapter extends AAdapter {
 	private static final AString K_VENUE = Strings.intern("venue");
 	private static final AString K_DID = Strings.intern("did");
 	private static final AString K_SKILLS = Strings.intern("skills");
+	private static final AString K_ACCEPTED = Strings.intern("accepted");
+
+	/** Runs to shut the app down cleanly (flush venue + exit); null off the desktop. */
+	private final Runnable onShutdown;
+
+	public BrightsideAdapter() {
+		this(null);
+	}
+
+	public BrightsideAdapter(Runnable onShutdown) {
+		this.onShutdown = onShutdown;
+	}
 
 	@Override
 	public String getName() {
@@ -47,6 +63,7 @@ public class BrightsideAdapter extends AAdapter {
 	@Override
 	protected void installAssets() {
 		installAsset("brightside/info", "/adapters/brightside/info.json");
+		installAsset("brightside/shutdown", "/adapters/brightside/shutdown.json");
 	}
 
 	@Override
@@ -55,8 +72,39 @@ public class BrightsideAdapter extends AAdapter {
 		if ("info".equals(op)) {
 			return CompletableFuture.completedFuture(buildInfo());
 		}
+		if ("shutdown".equals(op)) {
+			return handleShutdown(ctx);
+		}
 		return CompletableFuture.failedFuture(
 			new IllegalArgumentException("Unknown brightside operation: " + op));
+	}
+
+	/**
+	 * Clean process shutdown, restricted to the venue operator: the caller must
+	 * authenticate as the venue's own DID (a venue-signed token — the same trust
+	 * path {@code auth:whoami} reports as "internal"). Schedules the shutdown just
+	 * after acknowledging, so the caller gets a clean response before we exit.
+	 */
+	private CompletableFuture<ACell> handleShutdown(RequestContext ctx) {
+		AString caller = (ctx != null) ? ctx.getCallerDID() : null;
+		AString venueDID = engine.getDIDString();
+		if (caller == null || venueDID == null || !caller.equals(venueDID)) {
+			return CompletableFuture.failedFuture(
+				new IllegalStateException("brightside:shutdown requires venue operator authority"));
+		}
+		if (onShutdown != null) {
+			Thread t = new Thread(() -> {
+				try {
+					Thread.sleep(300);
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+				}
+				onShutdown.run();
+			}, "brightside-shutdown");
+			t.setDaemon(true);
+			t.start();
+		}
+		return CompletableFuture.completedFuture(Maps.of(K_ACCEPTED, CVMBool.TRUE));
 	}
 
 	private AMap<AString, ACell> buildInfo() {

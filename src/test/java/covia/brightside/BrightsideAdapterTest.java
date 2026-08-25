@@ -2,12 +2,15 @@ package covia.brightside;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
+
+import convex.core.data.prim.CVMBool;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -65,6 +68,22 @@ class BrightsideAdapterTest {
 		assertEquals(Strings.create(venue.did()), RT.getIn(result, "did"));
 		assertNotNull(RT.getIn(result, "version"), "reports a version");
 		assertTrue(RT.getIn(result, "skills").toString().contains("introduction"));
+	}
+
+	@Test
+	void shutdownIsVenueOperatorOnly() throws Exception {
+		// The operator (a caller authenticated as the venue's own DID) is accepted.
+		// This test venue is launched without a shutdown callback, so nothing exits.
+		Venue operator = venue.clientAs(venue.did());
+		Job accepted = operator.invoke("v/ops/brightside/shutdown", Maps.empty()).get(5, TimeUnit.SECONDS);
+		assertEquals(CVMBool.TRUE, RT.getIn(accepted.future().get(5, TimeUnit.SECONDS), "accepted"));
+
+		// A normal user is rejected.
+		String userDID = Identity.of("intruder").userDID(venue.did());
+		Job denied = venue.clientAs(userDID).invoke("v/ops/brightside/shutdown", Maps.empty())
+			.get(5, TimeUnit.SECONDS);
+		assertThrows(Exception.class, () -> denied.future().get(5, TimeUnit.SECONDS),
+			"a non-operator cannot shut the process down");
 	}
 
 	@Test

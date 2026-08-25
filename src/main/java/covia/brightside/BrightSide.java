@@ -121,7 +121,15 @@ public final class BrightSide {
 
 	private void launchVenue() {
 		try {
-			EmbeddedVenue v = EmbeddedVenue.launch(config.venueConfig());
+			// Another instance already holds the venue store? Offer to take over
+			// (ask it to shut down cleanly) rather than fail on the store lock.
+			int port = config.port();
+			if (Takeover.isRunning(port) && !takeOver(port)) {
+				log.info("Another Brightside instance is running and takeover was cancelled; exiting");
+				System.exit(0);
+				return;
+			}
+			EmbeddedVenue v = EmbeddedVenue.launch(config.venueConfig(), this::exit);
 			venue = v;
 			log.info("Venue '{}' ready at {} as {}", v.name(), v.url(), v.did());
 			onVenueReady();
@@ -129,6 +137,39 @@ public final class BrightSide {
 			log.error("Venue failed to start", t);
 			SwingUtilities.invokeLater(() -> window.startupFailed(t));
 		}
+	}
+
+	/**
+	 * Prompts (Take Over / Cancel); on Take Over, asks the running instance to
+	 * shut down cleanly and waits for it to release the store. Returns true to
+	 * proceed with launch, false to cancel this instance.
+	 */
+	private boolean takeOver(int port) throws Exception {
+		if (!confirmTakeover()) return false;
+		log.info("Taking over from a running Brightside instance on port {}", port);
+		Takeover.requestShutdown(port, Takeover.venueDID(port), config.home().resolve("venue.key"));
+		if (!Takeover.waitUntilDown(port, 20_000)) {
+			throw new IllegalStateException("the previous instance did not shut down in time");
+		}
+		return true;
+	}
+
+	private boolean confirmTakeover() {
+		boolean[] takeOver = { false };
+		try {
+			SwingUtilities.invokeAndWait(() -> {
+				Object[] options = { "Take Over", "Cancel" };
+				int choice = JOptionPane.showOptionDialog(window,
+					"Brightside is already running on this computer.\n\nTake over from it?",
+					APP_NAME, JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE,
+					null, options, options[0]);
+				takeOver[0] = (choice == JOptionPane.OK_OPTION);
+			});
+		} catch (Exception e) {
+			log.warn("Takeover prompt failed; cancelling", e);
+			return false;
+		}
+		return takeOver[0];
 	}
 
 	/**
