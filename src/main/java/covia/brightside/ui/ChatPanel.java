@@ -163,6 +163,11 @@ public final class ChatPanel extends JPanel {
 
 	/** Re-render only if the live turns differ from what's shown (avoids flicker). */
 	public void refreshTo(List<SessionHistory.Turn> live) {
+		// While a send is in flight the message sits in the agent's pending queue
+		// before it's minted into the conversation, so a mid-flight read wouldn't
+		// yet include it — don't clobber the optimistic bubble. The reply's own
+		// re-read reconciles once it lands.
+		if (busy) return;
 		if (live.equals(displayed)) return;
 		restore(live);
 	}
