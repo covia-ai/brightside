@@ -14,26 +14,29 @@ import convex.core.data.AString;
 import convex.core.data.AVector;
 import convex.core.data.MapEntry;
 import convex.core.data.Maps;
+import convex.core.data.prim.CVMBool;
 import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
+import convex.core.util.JSON;
 import covia.grid.Job;
 import covia.grid.Venue;
 
 /**
  * Reads the assistant's conversation from the venue's <b>live agent session
- * state</b> — the single source of truth — rather than a local copy. On start
- * Brightside reopens the most recently active session and renders it, and a
- * {@link ConversationWatcher} re-reads it to detect changes.
+ * state</b> — the single source of truth — and projects it for display.
  *
  * <p>The agent record ({@code g/<agentId>}) holds a {@code sessions} index; each
  * session's {@code frames[0].conversation} is the turn list ({@code role} /
- * {@code content}). This projects the user and completed-assistant turns, the
- * same view the model keeps (tool scratch and empty tool-call turns skipped).
+ * {@code content} / {@code toolCalls}). This projects an ordered list of
+ * {@link Item}s: user and final-assistant {@link Message}s, plus an
+ * {@link Activity} group (the intermediate "let me try…" narration and the tool
+ * calls/results) between a question and its answer — so a turn's tool use is
+ * hidden by default but available to expand.
  *
  * <p>Change detection is a plain lattice value compare: the {@link Snapshot}
  * carries the agent value cell, and lattice values are immutable and
- * content-addressed, so {@code agentValue().equals(previous)} is a cheap way to
- * tell whether anything changed.
+ * content-addressed, so {@code agentValue().equals(previous)} tells cheaply
+ * whether anything changed.
  *
  * <p>Reads the {@code AgentState} schema directly (public field names) because
  * the purpose-built {@code agent:sessionRead} projection is restricted to an
@@ -46,17 +49,35 @@ public final class SessionHistory {
 	private static final long TIMEOUT_SECONDS = 30;
 	private static final String ROLE_USER = "user";
 	private static final String ROLE_ASSISTANT = "assistant";
+	private static final String ROLE_TOOL = "tool";
 
-	/** A displayed turn. */
-	public record Turn(String role, String text) {
+	/** A rendered transcript item: a {@link Message} bubble or an {@link Activity} group. */
+	public sealed interface Item permits Message, Activity {
+	}
+
+	/** A chat message. {@code role} is {@code "user"} or {@code "assistant"}. */
+	public record Message(String role, String text) implements Item {
+	}
+
+	/** The tool-use steps of one turn, shown collapsed and expandable. */
+	public record Activity(List<Step> steps) implements Item {
+	}
+
+	/**
+	 * One step within an {@link Activity}: either the assistant's narration
+	 * ({@code tool=false}, text in {@code detail}) or a tool call/result
+	 * ({@code tool=true}, {@code title} = tool name, {@code detail} = result,
+	 * {@code error} = whether it failed).
+	 */
+	public record Step(boolean tool, String title, String detail, boolean error) {
 	}
 
 	/**
 	 * The agent value at read time, the most-recently-active session id, and its
-	 * projected transcript. Compare {@link #agentValue} across reads
-	 * ({@code .equals}) to tell whether anything changed.
+	 * projected items. Compare {@link #agentValue} across reads ({@code .equals})
+	 * to tell whether anything changed.
 	 */
-	public record Snapshot(ACell agentValue, String sessionId, List<Turn> turns) {
+	public record Snapshot(ACell agentValue, String sessionId, List<Item> items) {
 	}
 
 	private SessionHistory() {
@@ -65,8 +86,7 @@ public final class SessionHistory {
 	/**
 	 * Reads the agent record and projects its most recently active conversation.
 	 * Returns {@code null} only when the agent has no record yet or the read
-	 * fails; an existing agent with no sessions returns an empty transcript (so
-	 * a watcher still has a value to compare).
+	 * fails; an existing agent with no sessions returns an empty transcript.
 	 */
 	public static Snapshot loadLatest(Venue client, String agentId) {
 		try {
@@ -93,8 +113,8 @@ public final class SessionHistory {
 					}
 				}
 			}
-			List<Turn> turns = (bestConversation != null) ? project(bestConversation) : List.of();
-			return new Snapshot(record, bestSid, turns);
+			List<Item> items = (bestConversation != null) ? project(bestConversation) : List.of();
+			return new Snapshot(record, bestSid, items);
 		} catch (Exception e) {
 			log.warn("Could not read live conversation for {}: {}", agentId, e.toString());
 			return null;
@@ -128,30 +148,71 @@ public final class SessionHistory {
 	}
 
 	/**
-	 * Keep user turns and <em>completed</em> assistant turns — the final reply of
-	 * each turn. Skips tool scratch, empty turns, and assistant turns that carry
-	 * tool calls (the intermediate "let me try…" narration before a tool runs),
-	 * mirroring Covia's own safe session projection, so the shown transcript is
-	 * the reply the user saw, not the tool-use steps.
+	 * Projects the raw conversation into display items: user and final-assistant
+	 * messages, with the intermediate narration + tool steps of a turn grouped
+	 * into an {@link Activity} placed just before the turn's final reply.
 	 */
-	private static List<Turn> project(AVector<ACell> conversation) {
-		List<Turn> turns = new ArrayList<>();
+	private static List<Item> project(AVector<ACell> conversation) {
+		List<Item> items = new ArrayList<>();
+		List<Step> pending = new ArrayList<>();
 		for (long i = 0; i < conversation.count(); i++) {
 			ACell turn = conversation.get(i);
-			AString role = RT.ensureString(RT.getIn(turn, "role"));
-			AString content = RT.ensureString(RT.getIn(turn, "content"));
-			if (role == null || content == null || content.toString().isBlank()) continue;
-			String r = role.toString();
-			if (ROLE_USER.equals(r)) {
-				turns.add(new Turn(r, content.toString()));
-			} else if (ROLE_ASSISTANT.equals(r) && !hasToolCalls(turn)) {
-				turns.add(new Turn(r, content.toString()));
+			String role = str(RT.getIn(turn, "role"));
+			if (role == null) continue;
+			String content = str(RT.getIn(turn, "content"));
+
+			switch (role) {
+				case ROLE_USER -> {
+					flush(items, pending);
+					if (notBlank(content)) items.add(new Message(ROLE_USER, content));
+				}
+				case ROLE_ASSISTANT -> {
+					if (hasToolCalls(turn)) {
+						if (notBlank(content)) pending.add(new Step(false, "", content, false));
+					} else {
+						flush(items, pending);
+						if (notBlank(content)) items.add(new Message(ROLE_ASSISTANT, content));
+					}
+				}
+				case ROLE_TOOL -> {
+					String name = str(RT.getIn(turn, "name"));
+					String detail = renderContent(RT.getIn(turn, "content"));
+					boolean error = CVMBool.TRUE.equals(RT.getIn(turn, "isError"));
+					pending.add(new Step(true, (name != null) ? name : "tool", detail, error));
+				}
+				default -> {
+					// system and any other roles are not shown
+				}
 			}
 		}
-		return turns;
+		flush(items, pending);
+		return items;
+	}
+
+	private static void flush(List<Item> items, List<Step> pending) {
+		if (!pending.isEmpty()) {
+			items.add(new Activity(List.copyOf(pending)));
+			pending.clear();
+		}
 	}
 
 	private static boolean hasToolCalls(ACell turn) {
 		return RT.getIn(turn, "toolCalls") instanceof AVector<?> v && !v.isEmpty();
+	}
+
+	private static String str(ACell cell) {
+		AString s = RT.ensureString(cell);
+		return (s != null) ? s.toString() : null;
+	}
+
+	private static boolean notBlank(String s) {
+		return s != null && !s.isBlank();
+	}
+
+	/** A tool result rendered for display: strings verbatim, structures as JSON. */
+	private static String renderContent(ACell content) {
+		if (content == null) return "";
+		if (content instanceof AString s) return s.toString();
+		return JSON.toStringPretty(content);
 	}
 }

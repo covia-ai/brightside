@@ -66,9 +66,10 @@ class SessionHistoryTest {
 		assertNotNull(conv, "live conversation is readable");
 		assertNotNull(conv.agentValue(), "carries the agent value for change comparison");
 		assertEquals(sid, conv.sessionId(), "reopens the same session");
-		assertTrue(conv.turns().stream()
-			.anyMatch(t -> t.role().equals("user") && t.text().contains("remember this line")),
-			"transcript contains the user turn");
+		assertTrue(conv.items().stream()
+			.anyMatch(it -> it instanceof SessionHistory.Message m
+				&& m.role().equals("user") && m.text().contains("remember this line")),
+			"transcript contains the user message");
 
 		// The lattice value compare: a new turn changes the agent value.
 		s.send("another line");

@@ -3,6 +3,7 @@ package covia.brightside.ui;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
@@ -64,7 +65,7 @@ public final class ChatPanel extends JPanel {
 	private final JTextArea input = new JTextArea(1, 20);
 	private final JButton send = new JButton("Send");
 
-	private final List<SessionHistory.Turn> displayed = new ArrayList<>();
+	private final List<SessionHistory.Item> displayed = new ArrayList<>();
 	private JTextArea lastSelectedBubble; // the bubble holding the current selection, if any
 	private Component thinkingRow; // the assistant "typing…" row while a reply is pending
 	private TypingIndicator thinkingIndicator;
@@ -152,20 +153,26 @@ public final class ChatPanel extends JPanel {
 	}
 
 	/** Replaces the transcript with the venue's live conversation turns. */
-	public void restore(List<SessionHistory.Turn> turns) {
+	public void restore(List<SessionHistory.Item> items) {
 		column.clear();
 		displayed.clear();
-		for (SessionHistory.Turn t : turns) {
-			displayed.add(t);
-			column.add(bubbleRow(t.text(), "user".equals(t.role())));
+		for (SessionHistory.Item it : items) {
+			displayed.add(it);
+			column.add(rowFor(it));
 		}
 		column.revalidate();
 		column.repaint();
 		scrollToBottom();
 	}
 
-	/** Re-render only if the live turns differ from what's shown (avoids flicker). */
-	public void refreshTo(List<SessionHistory.Turn> live) {
+	private Component rowFor(SessionHistory.Item it) {
+		if (it instanceof SessionHistory.Message m) return bubbleRow(m.text(), "user".equals(m.role()));
+		if (it instanceof SessionHistory.Activity a) return activityRow(a);
+		return new JPanel();
+	}
+
+	/** Re-render only if the live items differ from what's shown (avoids flicker). */
+	public void refreshTo(List<SessionHistory.Item> live) {
 		// While a send is in flight the message sits in the agent's pending queue
 		// before it's minted into the conversation, so a mid-flight read wouldn't
 		// yet include it — don't clobber the optimistic bubble. The reply's own
@@ -234,7 +241,7 @@ public final class ChatPanel extends JPanel {
 		// The venue records the turn in the agent session; the UI reflects it
 		// optimistically and keeps `displayed` in step so the watcher's compare
 		// doesn't re-render our own turns.
-		displayed.add(new SessionHistory.Turn(role, text));
+		displayed.add(new SessionHistory.Message(role, text));
 		column.add(bubbleRow(text, "user".equals(role)));
 		column.revalidate();
 		scrollToBottom();
@@ -319,9 +326,11 @@ public final class ChatPanel extends JPanel {
 	/** The whole conversation as plain text ("You:" / "Brightside:" turns). */
 	public String conversationText() {
 		StringBuilder sb = new StringBuilder();
-		for (SessionHistory.Turn t : displayed) {
-			String who = "user".equals(t.role()) ? "You" : "Brightside";
-			sb.append(who).append(": ").append(t.text()).append("\n\n");
+		for (SessionHistory.Item it : displayed) {
+			if (it instanceof SessionHistory.Message m) {
+				String who = "user".equals(m.role()) ? "You" : "Brightside";
+				sb.append(who).append(": ").append(m.text()).append("\n\n");
+			}
 		}
 		return sb.toString().stripTrailing();
 	}
@@ -378,6 +387,33 @@ public final class ChatPanel extends JPanel {
 		row.add(label, BorderLayout.CENTER);
 		row.setAlignmentX(Component.LEFT_ALIGNMENT);
 		return row;
+	}
+
+	/** An assistant-side, collapsed-by-default group of a turn's tool-use steps. */
+	private Component activityRow(SessionHistory.Activity a) {
+		JPanel row = new JPanel(new BorderLayout());
+		row.setOpaque(false);
+		row.setBorder(BorderFactory.createEmptyBorder(0, 2, 0, 2));
+		row.add(new ExpandableActivity(a), BorderLayout.WEST);
+		row.setAlignmentX(Component.LEFT_ALIGNMENT);
+		return row;
+	}
+
+	private static String escapeHtml(String s) {
+		return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>");
+	}
+
+	private static String truncate(String s, int max) {
+		return (s.length() <= max) ? s : s.substring(0, max) + "…";
+	}
+
+	private static JLabel htmlLabel(String text, Color fg, boolean italic) {
+		String style = "width:440px;" + (italic ? "font-style:italic;" : "");
+		JLabel l = new JLabel("<html><div style='" + style + "'>" + escapeHtml(text) + "</div></html>");
+		l.setForeground(fg);
+		l.putClientProperty("FlatLaf.styleClass", "small");
+		l.setAlignmentX(Component.LEFT_ALIGNMENT);
+		return l;
 	}
 
 	private static Color muted() {
@@ -493,6 +529,93 @@ public final class ChatPanel extends JPanel {
 		@Override
 		public boolean getScrollableTracksViewportHeight() {
 			return false;
+		}
+	}
+
+	/** A collapsed "tool steps" chip that expands to show a turn's tool use. */
+	@SuppressWarnings("serial")
+	private final class ExpandableActivity extends JPanel {
+		private static final Color OK_GREEN = new Color(0x3F, 0xB9, 0x50);
+
+		private final JLabel header;
+		private final JPanel body;
+		private final int toolCount;
+		private boolean expanded;
+
+		ExpandableActivity(SessionHistory.Activity a) {
+			setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+			setOpaque(false);
+			setAlignmentX(LEFT_ALIGNMENT);
+			toolCount = (int) a.steps().stream().filter(SessionHistory.Step::tool).count();
+
+			header = new JLabel();
+			header.putClientProperty("FlatLaf.styleClass", "small");
+			header.setForeground(muted());
+			header.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+			header.setBorder(BorderFactory.createEmptyBorder(2, 6, 2, 6));
+			header.setAlignmentX(LEFT_ALIGNMENT);
+			header.addMouseListener(new MouseAdapter() {
+				@Override
+				public void mouseClicked(MouseEvent e) {
+					toggle();
+				}
+			});
+			updateHeader();
+
+			body = new JPanel();
+			body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
+			body.setOpaque(false);
+			body.setBorder(BorderFactory.createEmptyBorder(2, 12, 6, 4));
+			body.setVisible(false);
+			body.setAlignmentX(LEFT_ALIGNMENT);
+			for (SessionHistory.Step s : a.steps()) body.add(stepComponent(s));
+
+			add(header);
+			add(body);
+		}
+
+		private String summary() {
+			if (toolCount == 1) return "1 tool step";
+			if (toolCount > 1) return toolCount + " tool steps";
+			return "details";
+		}
+
+		private void updateHeader() {
+			header.setText((expanded ? "▾  " : "▸  ") + summary());
+		}
+
+		private void toggle() {
+			expanded = !expanded;
+			body.setVisible(expanded);
+			updateHeader();
+			revalidate();
+			column.revalidate();
+		}
+
+		private Component stepComponent(SessionHistory.Step s) {
+			if (!s.tool()) {
+				return htmlLabel(s.detail(), muted(), true);
+			}
+			JPanel p = new JPanel();
+			p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
+			p.setOpaque(false);
+			p.setBorder(BorderFactory.createEmptyBorder(2, 0, 4, 0));
+			p.setAlignmentX(LEFT_ALIGNMENT);
+			JLabel title = new JLabel((s.error() ? "✕ " : "✓ ") + s.title());
+			title.setForeground(s.error() ? ERROR_RED : OK_GREEN);
+			title.putClientProperty("FlatLaf.styleClass", "small");
+			title.setAlignmentX(LEFT_ALIGNMENT);
+			p.add(title);
+			if (s.detail() != null && !s.detail().isBlank()) {
+				p.add(htmlLabel(truncate(s.detail(), 800), muted(), false));
+			}
+			return p;
+		}
+
+		@Override
+		public Dimension getMaximumSize() {
+			Dimension p = getPreferredSize();
+			return new Dimension(Math.min(p.width, 680), p.height);
 		}
 	}
 

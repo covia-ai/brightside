@@ -17,6 +17,7 @@ MCP/A2A/HTTP surface) running on your own machine, under your own identity.
 - Your own private assistant with a **memory** (`n/memory`) that persists across chats
 - Its persona is a **Covia skill** (`v/skills/brightside/introduction`)
 - **It can teach itself** — author new skills into `w/skills` (a gated `skill-authoring` ability)
+- **Tool use is tucked into an expandable chip** — the final reply shows; click to see the steps
 - Chat window talking to your own agent on that venue, entirely in-process
 - Tray icon; minimise and close go to the tray. Technical bits (dashboard, identity, logs) live under **Advanced**
 - Persistent state under `~/.brightside/`

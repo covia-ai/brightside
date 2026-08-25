@@ -177,7 +177,7 @@ public final class MainWindow extends JFrame {
 	// ------------------------------------------------------------------
 
 	/** Everything is ready: show the chat, reopening the last conversation. */
-	public void showChat(EmbeddedVenue venue, ChatSession session, Identity identity, List<SessionHistory.Turn> history) {
+	public void showChat(EmbeddedVenue venue, ChatSession session, Identity identity, List<SessionHistory.Item> history) {
 		this.venue = venue;
 		this.identity = identity;
 		dashboardItem.setEnabled(true);
@@ -195,7 +195,7 @@ public final class MainWindow extends JFrame {
 	}
 
 	/** The name changed: rebind the chat to that user and their conversation. */
-	public void userChanged(ChatSession session, Identity identity, List<SessionHistory.Turn> history) {
+	public void userChanged(ChatSession session, Identity identity, List<SessionHistory.Item> history) {
 		this.identity = identity;
 		updateWho();
 		chatPanel.restore(history);
@@ -210,7 +210,7 @@ public final class MainWindow extends JFrame {
 	}
 
 	/** Update the transcript to the venue's live conversation (only re-renders if changed). */
-	public void refreshConversation(List<SessionHistory.Turn> turns) {
+	public void refreshConversation(List<SessionHistory.Item> turns) {
 		chatPanel.refreshTo(turns);
 	}
 

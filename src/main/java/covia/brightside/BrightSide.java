@@ -203,7 +203,7 @@ public final class BrightSide {
 		String agentId = config.chat().agentId();
 		SessionHistory.Snapshot history = SessionHistory.loadLatest(client, agentId);
 		if (history != null) session.resume(history.sessionId());
-		List<SessionHistory.Turn> turns = (history != null) ? history.turns() : List.of();
+		List<SessionHistory.Item> turns = (history != null) ? history.items() : List.of();
 		convex.core.data.ACell baseline = (history != null) ? history.agentValue() : null;
 		log.info("Chatting as {} ({}) — reopened {} live message(s)", id.label(), userDID, turns.size());
 
@@ -216,7 +216,7 @@ public final class BrightSide {
 			if (w != null) w.stop();
 			watcher = new ConversationWatcher(client, agentId, baseline,
 				() -> window.isChatShowing(),
-				s -> window.refreshConversation(s.turns()));
+				s -> window.refreshConversation(s.items()));
 			watcher.start();
 		});
 	}

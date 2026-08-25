@@ -86,6 +86,14 @@ window that talks to an agent on that venue. Single Maven module,
   message. This reads the `AgentState` schema directly (public field names)
   because the purpose-built `agent:sessionRead` projection is restricted to an
   agent's own execution context, so it isn't callable by the owner.
+- **Transcript items and tool activity.** `SessionHistory` projects the
+  conversation into a list of `Item`s: `Message` (user / final-assistant text)
+  and `Activity` (the intermediate "let me try…" narration and tool
+  calls/results of a turn, grouped between question and answer). `ChatPanel`
+  renders a `Message` as a `Bubble` and an `Activity` as an `ExpandableActivity`
+  — a collapsed "N tool steps" chip that expands to show the steps (tool
+  name + ✓/✕ + result). So the final reply is what shows by default, with the
+  tool use available to dig into. New item kinds go here.
 - **Change detection is a lattice value compare.** `ConversationWatcher` polls
   the agent value (`SessionHistory.loadLatest`) every few seconds while the chat
   is showing and compares it with `.equals` to the last one shown — lattice
