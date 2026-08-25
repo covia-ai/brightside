@@ -65,19 +65,26 @@ window that talks to an agent on that venue. Single Maven module,
 - **Chat goes through the agent framework** (`v/ops/agent/create|update|
   info|chat` via `LocalVenue`), not through a private LLM call, so what the
   window shows is what any other client of the venue would see.
-- **Skills and memory, by namespace.** `BrightsideSkills` seeds the shipped
-  skill library into `v/skills/brightside/…` as the venue principal (only the
-  venue may write `v/`). Two are pinned into the agent via `config.loads`:
-  `introduction` (persona) and `skills` (how it grows). Persona content is a
-  **skill**, not system-prompt prose — the prompt stays small.
+- **`BrightsideAdapter` is the venue extension.** A real Covia `AAdapter`
+  (`covia.brightside.BrightsideAdapter`), registered on the embedded engine in
+  `EmbeddedVenue.launch`. Its `installAssets()` installs the shipped skills
+  under `v/skills/brightside/…` (via `installSkill` from the JSON resources in
+  `src/main/resources/brightside/skills/`) and the `brightside:info` op — its
+  assets live and die with the adapter, the idiomatic way (cf. `AuthAdapter`).
+  Add Brightside-specific operations here (a `brightside/<op>.json` resource +
+  a case in `invokeFuture`); ship a new default skill by adding a skill JSON
+  resource + an `installSkill(...)` line.
+- **Skills and memory, by namespace.** Two shipped skills are pinned into the
+  agent via `config.loads`: `introduction` (persona) and `skills` (how it
+  grows). Persona content is a **skill**, not system-prompt prose — the prompt
+  stays small.
 - **Self-authoring, gated hierarchically.** The pinned `skills` meta-skill
   gates `skill-authoring` as a sub-skill (its `skill.skills` facet), and
   `skill-authoring` is the only skill whose facet grants the `covia:write`
   tool. So the assistant can extend itself — it loads `skill-authoring` and
   writes a new skill into its own `w/skills` (a declared skillset, so authored
   skills become discoverable) — but the write capability is not in context
-  until it deliberately loads that sub-skill. To ship a new default ability,
-  add a resource + a `writeSkill(...)` call in `BrightsideSkills`.
+  until it deliberately loads that sub-skill.
 - **Memory and scratch** live in `n/`: `n/memory` (recall pinned as a
   `v/ops/memory` context entry, with the `v/ops/memory` tool so it can write)
   and other scratch. See `docs/DESIGN.md`.

@@ -17,7 +17,7 @@ import convex.core.lang.RT;
 import convex.core.util.JSON;
 import covia.api.Fields;
 import covia.brightside.AppConfig;
-import covia.brightside.BrightsideSkills;
+import covia.brightside.BrightsideSkillsAdapter;
 import covia.grid.Job;
 import covia.grid.Venue;
 
@@ -138,8 +138,8 @@ public final class ChatSession {
 			// (the skills meta-skill gates skill-authoring as a sub-skill). The
 			// user's own skillset is declared so skills it authors become its own.
 			"loads", Maps.of(
-				BrightsideSkills.INTRODUCTION, Maps.of("skill", true, "budget", 4000L, "label", "introduction"),
-				BrightsideSkills.SKILLS, Maps.of("skill", true, "budget", 2000L, "label", "skills")),
+				BrightsideSkillsAdapter.INTRODUCTION, Maps.of("skill", true, "budget", 4000L, "label", "introduction"),
+				BrightsideSkillsAdapter.SKILLS, Maps.of("skill", true, "budget", 2000L, "label", "skills")),
 			"skillsets", Vectors.of(Strings.create(USER_SKILLSET)));
 		AMap<AString, ACell> input = Maps.of(Fields.AGENT_ID, config.agentId(), Fields.CONFIG, agentConfig);
 		if (agentExists()) {

@@ -1,0 +1,22 @@
+{
+	"name": "Brightside Info",
+	"description": "Reports Brightside desktop app and venue information: app name and version, the venue name and DID, and the default skills Brightside ships. Useful for diagnostics and to confirm the app is running against this venue.",
+	"operation": {
+		"adapter": "brightside:info",
+		"readOnly": true,
+		"input": {
+			"type": "object",
+			"properties": {}
+		},
+		"output": {
+			"type": "object",
+			"properties": {
+				"app": { "type": "string", "description": "Application name (Brightside)" },
+				"version": { "type": "string", "description": "Application version, or 'dev' when run from a build" },
+				"venue": { "type": "string", "description": "Venue name" },
+				"did": { "type": "string", "description": "Venue DID" },
+				"skills": { "type": "array", "description": "Brightside's default skills, seeded under v/skills/brightside" }
+			}
+		}
+	}
+}

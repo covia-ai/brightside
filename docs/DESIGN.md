@@ -62,7 +62,7 @@ Use Covia's namespaces for what they're for:
 
 | Namespace | Purpose | Written by |
 |-----------|---------|-----------|
-| `v/skills/brightside/…` | Brightside's **default, shipped skills** (e.g. `introduction`) | Brightside, as the venue principal, on startup |
+| `v/skills/brightside/…` | Brightside's **default, shipped skills** (e.g. `introduction`) | `BrightsideAdapter`, at venue launch |
 | `w/skills` | The **user's own** skills, developed over time | the user (their agent) |
 | `n/…` | The assistant's **private scratch space**, including `n/memory` | the assistant, during a run |
 

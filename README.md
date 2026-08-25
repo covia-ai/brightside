@@ -113,11 +113,12 @@ src/main/java/covia/brightside/
 ├── BrightSide.java        entry point and application controller
 ├── AppConfig.java         ~/.brightside/config.json (JSON5) and defaults
 ├── Identity.java          the u:<name> user; ~/.brightside/identity.json
-├── BrightsideSkills.java  seeds v/skills/brightside/… (introduction, skills, skill-authoring)
+├── BrightsideAdapter.java  Covia adapter: brightside:info + v/skills/brightside/… skills
 ├── EmbeddedVenue.java     VenueServer + per-user in-process LocalVenue client
 ├── chat/ChatSession.java  agent config (skills, n/memory) + agent:chat
 └── ui/                    LAF, MainWindow, WelcomePanel, ChatPanel, TrayManager, Icons
-src/main/resources/brightside/*.md               skill bodies (introduction, skills, skill-authoring)
+src/main/resources/brightside/skills/*.json      shipped skill assets (introduction, skills, skill-authoring)
+src/main/resources/adapters/brightside/info.json brightside:info operation
 src/main/resources/brightside/logback.xml
 docs/DESIGN.md             product design guidelines
 src/test/java/…            unit tests (boot temporary venue engines; headless)

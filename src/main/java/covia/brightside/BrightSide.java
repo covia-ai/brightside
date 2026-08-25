@@ -120,13 +120,7 @@ public final class BrightSide {
 	 * wait for {@link #submitName}.
 	 */
 	private void onVenueReady() {
-		// Install Brightside's default skills into v/ (venue-principal write),
-		// before any agent that pins them is created.
-		try {
-			BrightsideSkills.seed(venue.clientAs(venue.did()));
-		} catch (Exception e) {
-			log.warn("Could not seed default skills", e);
-		}
+		// Default skills are installed by BrightsideAdapter at venue launch.
 		Identity id = identity;
 		if (id != null) startChatOnce(venue, id);
 	}

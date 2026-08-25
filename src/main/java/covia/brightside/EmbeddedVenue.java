@@ -33,7 +33,12 @@ public final class EmbeddedVenue implements AutoCloseable {
 	 * once it is serving.
 	 */
 	public static EmbeddedVenue launch(AMap<AString, ACell> config) {
-		return new EmbeddedVenue(VenueServer.launch(config));
+		VenueServer server = VenueServer.launch(config);
+		// Brightside's venue adapters: operations, and the default skill library.
+		Engine engine = server.getEngine();
+		engine.registerAdapter(new BrightsideAdapter());
+		engine.registerAdapter(new BrightsideSkillsAdapter());
+		return new EmbeddedVenue(server);
 	}
 
 	public Engine engine() {
