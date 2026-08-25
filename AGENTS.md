@@ -1,12 +1,12 @@
-# AGENTS.md — BrightSide
+# AGENTS.md — Brightside
 
 Instructions for AI coding agents working in this repository. The workspace
 root (`../AGENTS.md`) sets the cross-repo rules (GitHub identities, British
-English); this file adds what is specific to BrightSide.
+English); this file adds what is specific to Brightside.
 
 ## Purpose
 
-BrightSide exists to **demonstrate the power of the Covia Grid and lattice
+Brightside exists to **demonstrate the power of the Covia Grid and lattice
 technology as a personal agent**. It is a showcase: a single desktop app that
 puts a full Covia venue — engine, adapters, lattice-backed persistent state,
 agent framework, MCP/A2A/HTTP surface — on someone's own machine, under their
@@ -16,7 +16,7 @@ state, real federation potential) over hiding it behind a generic chat UI.
 
 ## What this is
 
-BrightSide is a Swing/FlatLaf desktop application that runs a Covia venue
+Brightside is a Swing/FlatLaf desktop application that runs a Covia venue
 embedded in its own process, minimises to a system-tray icon, and offers a chat
 window that talks to an agent on that venue. Single Maven module,
 `ai.covia:brightside`, main class `covia.brightside.BrightSide`.
@@ -49,13 +49,13 @@ window that talks to an agent on that venue. Single Maven module,
   `System.exit`; a Convex `Shutdown` hook at `SERVER - 10` covers Ctrl-C and
   SIGTERM, mirroring `MainVenue`. Keep `EmbeddedVenue.close()` idempotent.
 - **Configuration is data, not code.** `AppConfig` merges the user's
-  `venue` map over BrightSide's defaults key-for-key and passes it straight
-  to `VenueServer.launch`, so new venue options need no BrightSide change.
+  `venue` map over Brightside's defaults key-for-key and passes it straight
+  to `VenueServer.launch`, so new venue options need no Brightside change.
   Anything the file omits must have a default; an empty `{}` is valid.
 - **The user is a named venue principal, not the venue.** The chat window
   acts as `<venueDID>:u:<name>` (`Identity`) — the same suffix convention as
   Covia's `<venueDID>:public`. The name is chosen at a first-launch screen
-  (`IdentityDialog`) and stored in `~/.brightside/identity.json`, separate
+  (`WelcomePanel`) and stored in `~/.brightside/identity.json`, separate
   from the hand-edited `config.json`. Chatting as a distinct user (not the
   venue DID) makes Covia attribute turns as coming from the agent's *owner*,
   not from "the venue operator"; `ChatSession.ATTRIBUTION_GUIDANCE` tells the
@@ -65,7 +65,7 @@ window that talks to an agent on that venue. Single Maven module,
 - **Chat goes through the agent framework** (`v/ops/agent/create|update|
   info|chat` via `LocalVenue`), not through a private LLM call, so what the
   window shows is what any other client of the venue would see.
-- **Skills and memory, by namespace.** BrightSide's shipped skills (e.g.
+- **Skills and memory, by namespace.** Brightside's shipped skills (e.g.
   `introduction`, `DefaultSkills`) are seeded into `v/skills/brightside/…` as
   the venue principal (only the venue may write `v/`) and pinned into the agent
   via `config.loads`. The user's own skills live in `w/skills` (a declared

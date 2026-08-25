@@ -1,6 +1,6 @@
-# BrightSide — Design guidelines
+# Brightside — Design guidelines
 
-BrightSide is a **consumer product** that happens to be powered by the Covia
+Brightside is a **consumer product** that happens to be powered by the Covia
 Grid. Its job is to make a full Covia venue feel like a friendly personal
 assistant. These are short rules of thumb; when in doubt, favour the person in
 front of the screen over the platform behind it.
@@ -20,7 +20,7 @@ works, it remembers, it's private), not *explained*.
   "memory", "starting up".
 - Friendly, plain, second person. "What should I call you?", not "Enter a user
   identity".
-- Errors are human: *"BrightSide couldn't start up — details are in the logs"*,
+- Errors are human: *"Brightside couldn't start up — details are in the logs"*,
   never a stack trace or a `did:key:…` in the face.
 
 ## 3. Hide the machinery, don't remove it
@@ -56,7 +56,7 @@ Use Covia's namespaces for what they're for:
 
 | Namespace | Purpose | Written by |
 |-----------|---------|-----------|
-| `v/skills/brightside/…` | BrightSide's **default, shipped skills** (e.g. `introduction`) | BrightSide, as the venue principal, on startup |
+| `v/skills/brightside/…` | Brightside's **default, shipped skills** (e.g. `introduction`) | Brightside, as the venue principal, on startup |
 | `w/skills` | The **user's own** skills, developed over time | the user (their agent) |
 | `n/…` | The assistant's **private scratch space**, including `n/memory` | the assistant, during a run |
 

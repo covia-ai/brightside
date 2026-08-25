@@ -1,6 +1,6 @@
-# BrightSide
+# Brightside
 
-**BrightSide** is a Covia desktop companion: a JVM application that runs a
+**Brightside** is a Covia desktop companion: a JVM application that runs a
 [Covia](https://covia.ai) venue *inside the process* and puts a chat window in
 front of it. Minimise or close the window and the venue keeps running from a
 system-tray icon; **Exit** flushes its state and stops it.
@@ -43,21 +43,21 @@ configuration file (its directory becomes the data directory).
 
 ## Configuration
 
-On first launch BrightSide writes `~/.brightside/config.json` — JSON5, with
+On first launch Brightside writes `~/.brightside/config.json` — JSON5, with
 comments — and every key in it is optional:
 
 ```json5
 {
   "theme": "dark",                      // or "light"
   "venue": {                            // a Covia venue config map
-    "name": "BrightSide Venue",
+    "name": "Brightside Venue",
     "port": 8085
   },
   "chat": {
     "agentId": "brightside",            // agent at <venue DID>/g/brightside
     "operation": "v/ops/llmagent/chat", // transition operation
     "llmOperation": "v/models/anthropic/claude-sonnet-5",
-    "systemPrompt": "You are BrightSide, ...",
+    "systemPrompt": "You are Brightside, ...",
     "timeout": 120                      // seconds to wait for a reply
   }
 }
@@ -65,7 +65,7 @@ comments — and every key in it is optional:
 
 **`venue`** accepts any key the Covia venue runtime understands (`mcp`, `a2a`,
 `adapters`, `modules`, `auth`, `store`, …); each key you set replaces
-BrightSide's default for that key. The defaults bind to `127.0.0.1`, keep a
+Brightside's default for that key. The defaults bind to `127.0.0.1`, keep a
 persistent store at `~/.brightside/venue.etch` (with the venue's identity seed
 in `venue.key` beside it — delete both together to reset), auto-create users
 and enable the MCP endpoint at `http://127.0.0.1:8085/mcp`.
@@ -77,12 +77,12 @@ before launching, or store it in the venue's secret store — the `secrets.publi
 block above, which every local user resolves from.  For an offline smoke test
 set `"llmOperation": "v/test/ops/llm"` — an echo bot.
 
-Edit the file and restart BrightSide to apply changes. *Advanced → Open
+Edit the file and restart Brightside to apply changes. *Advanced → Open
 settings file* opens it in your editor. Logs go to `~/.brightside/logs/`.
 
 ## Your name
 
-At first launch BrightSide asks *"What should I call you?"* — that's all you
+At first launch Brightside asks *"What should I call you?"* — that's all you
 need to give it. Behind the scenes the name makes you a principal on your own
 venue (`u:<name>`, the DID `<venueDID>:u:<name>`, with your agent at
 `<venueDID>:u:<name>/g/brightside`), which is what makes the venue treat your

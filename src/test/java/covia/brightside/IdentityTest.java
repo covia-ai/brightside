@@ -34,11 +34,18 @@ class IdentityTest {
 	}
 
 	@Test
-	void buildsTheUserDidAsAVenueSubPrincipal() {
+	void preservesDisplayCaseButLowercasesTheDid() {
 		Identity id = Identity.of("Mike");
-		assertEquals("mike", id.name());
+		assertEquals("Mike", id.name(), "display name keeps the case as typed");
+		assertEquals("mike", id.slug());
 		assertEquals("u:mike", id.label());
 		assertEquals("did:key:z6Mkabc:u:mike", id.userDID("did:key:z6Mkabc"));
+	}
+
+	@Test
+	void displayNameTrimsAndCollapsesWhitespace() {
+		assertEquals("Mike Anderson", Identity.of("  Mike   Anderson  ").name());
+		assertEquals("mike-anderson", Identity.of("  Mike   Anderson  ").slug());
 	}
 
 	@Test
@@ -48,9 +55,13 @@ class IdentityTest {
 	}
 
 	@Test
-	void suggestionIsNeverEmpty() {
-		assertTrue(Identity.suggestName().length() > 0);
-		assertEquals(Identity.suggestName(), Identity.sanitise(Identity.suggestName()));
+	void suggestionIsUsableAsAName() {
+		String suggestion = Identity.suggestName();
+		assertTrue(suggestion.length() > 0, "suggestion is never empty");
+		// It must yield a valid identity (a non-empty slug), even if the display
+		// form differs from its slug (e.g. "mike_" → slug "mike").
+		assertFalse(Identity.sanitise(suggestion).isEmpty());
+		assertEquals(suggestion, Identity.of(suggestion).name());
 	}
 
 	@Test
@@ -61,7 +72,8 @@ class IdentityTest {
 		Identity reloaded = Identity.load(home);
 		assertNotNull(reloaded);
 		assertEquals(id, reloaded);
-		assertEquals("mike-smith", reloaded.name());
+		assertEquals("Mike Smith", reloaded.name(), "display case survives a round trip");
+		assertEquals("mike-smith", reloaded.slug());
 	}
 
 	@Test

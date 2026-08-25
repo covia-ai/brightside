@@ -19,17 +19,20 @@ import convex.core.util.JSON;
 /**
  * The local user the chat window acts as.
  *
- * <p>On a self-sovereign local venue the user is a named sub-principal of the
- * venue: DID {@code <venueDID>:u:<name>} — the same suffix convention Covia
- * uses for the anonymous {@code <venueDID>:public} principal and for the
- * {@code :u:} user segment of {@code did:web} venues. So "mike" becomes a real
- * venue principal {@code did:key:…:u:mike}, its agents live at
- * {@code did:key:…:u:mike/g/<agentId>}, and the venue attributes its turns as
- * coming from the agent's own owner.
+ * <p>Two forms of the name, deliberately kept apart:</p>
+ * <ul>
+ *   <li>the <b>display name</b> — exactly what the person typed (case and
+ *       spacing preserved), e.g. {@code "Mike"}. This is what the UI shows and
+ *       what the assistant calls them.</li>
+ *   <li>the <b>slug</b> — a lower-case, DID-safe label, e.g. {@code "mike"},
+ *       used only to build the venue principal {@code <venueDID>:u:mike}.</li>
+ * </ul>
  *
- * <p>Persisted on its own in {@code <home>/identity.json} — separate from the
- * hand-edited {@code config.json} so choosing a name never rewrites the user's
- * commented configuration.
+ * <p>The DID follows the suffix convention Covia uses for the anonymous
+ * {@code <venueDID>:public} principal and the {@code :u:} user segment of
+ * {@code did:web} venues, so the agent's turns are attributed to their owner.
+ * Persisted on its own in {@code <home>/identity.json}, apart from the
+ * hand-edited {@code config.json}.
  */
 public final class Identity {
 
@@ -41,39 +44,55 @@ public final class Identity {
 	/** Where the chosen name lives, under the BrightSide data directory. */
 	public static final String FILE_NAME = "identity.json";
 
-	private static final int MAX_NAME_LENGTH = 64;
+	private static final int MAX_LENGTH = 60;
 
-	private final String name;
+	private final String display;
+	private final String slug;
 
-	private Identity(String name) {
-		this.name = name;
+	private Identity(String display, String slug) {
+		this.display = display;
+		this.slug = slug;
 	}
 
 	/**
-	 * Creates an identity from a display name, normalising it to a single DID-safe
-	 * label ({@code a-z}, {@code 0-9}, {@code . _ -}).
+	 * Creates an identity from a name as typed. The display name keeps its case
+	 * and spacing; the slug is normalised to a DID-safe label.
 	 *
-	 * @throws IllegalArgumentException if the name is empty once normalised
+	 * @throws IllegalArgumentException if nothing usable is left once normalised
 	 */
 	public static Identity of(String rawName) {
-		String clean = sanitise(rawName);
-		if (clean.isEmpty()) throw new IllegalArgumentException("A user name is required");
-		return new Identity(clean);
+		String slug = sanitise(rawName);
+		if (slug.isEmpty()) throw new IllegalArgumentException("A user name is required");
+		String display = normaliseDisplay(rawName);
+		if (display.isEmpty()) display = slug;
+		return new Identity(display, slug);
 	}
 
-	/** The normalised, DID-safe user name (e.g. {@code "mike"}). */
+	/** The name as the person typed it — what the UI and the assistant use. */
 	public String name() {
-		return name;
+		return display;
 	}
 
-	/** How the user is shown in the UI (e.g. {@code "u:mike"}). */
+	/** The DID-safe lower-case label (e.g. {@code "mike"}). */
+	public String slug() {
+		return slug;
+	}
+
+	/** The technical label shown only in About (e.g. {@code "u:mike"}). */
 	public String label() {
-		return "u:" + name;
+		return "u:" + slug;
 	}
 
-	/** This user's DID on the given venue: {@code <venueDID>:u:<name>}. */
+	/** This user's DID on the given venue: {@code <venueDID>:u:<slug>}. */
 	public String userDID(String venueDID) {
-		return venueDID + USER_SEP + name;
+		return venueDID + USER_SEP + slug;
+	}
+
+	/** Trims and collapses whitespace, preserving case; caps the length. */
+	public static String normaliseDisplay(String raw) {
+		if (raw == null) return "";
+		String s = raw.strip().replaceAll("\\s+", " ");
+		return (s.length() > MAX_LENGTH) ? s.substring(0, MAX_LENGTH).strip() : s;
 	}
 
 	/**
@@ -87,17 +106,15 @@ public final class Identity {
 		String lower = raw.trim().toLowerCase(Locale.ROOT);
 		StringBuilder sb = new StringBuilder(lower.length());
 		boolean lastSep = false;
-		for (int i = 0; i < lower.length() && sb.length() < MAX_NAME_LENGTH; i++) {
+		for (int i = 0; i < lower.length() && sb.length() < MAX_LENGTH; i++) {
 			char c = lower.charAt(i);
 			if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.' || c == '_') {
 				sb.append(c);
 				lastSep = false;
-			} else {
+			} else if (!lastSep && sb.length() > 0) {
 				// collapse any other character (spaces, ':', '/', accents, …) to one '-'
-				if (!lastSep && sb.length() > 0) {
-					sb.append('-');
-					lastSep = true;
-				}
+				sb.append('-');
+				lastSep = true;
 			}
 		}
 		int end = sb.length();
@@ -111,10 +128,10 @@ public final class Identity {
 		return c == '-' || c == '.' || c == '_';
 	}
 
-	/** A first-launch suggestion from the OS user name, or {@code "user"}. */
+	/** A first-launch suggestion from the OS user name, or {@code "You"}. */
 	public static String suggestName() {
-		String suggestion = sanitise(System.getProperty("user.name", ""));
-		return suggestion.isEmpty() ? "user" : suggestion;
+		String suggestion = normaliseDisplay(System.getProperty("user.name", ""));
+		return suggestion.isEmpty() ? "You" : suggestion;
 	}
 
 	/** Reads the saved identity, or {@code null} if none has been chosen yet. */
@@ -125,33 +142,33 @@ public final class Identity {
 			AMap<AString, ACell> map = RT.ensureMap(JSON.parseJSON5(Files.readString(file)));
 			AString n = (map == null) ? null : RT.ensureString(map.get(Strings.create("name")));
 			if (n == null) return null;
-			String clean = sanitise(n.toString());
-			return clean.isEmpty() ? null : new Identity(clean);
+			String raw = n.toString();
+			return sanitise(raw).isEmpty() ? null : of(raw);
 		} catch (Exception e) {
 			log.warn("Could not read {} — will ask for a name again: {}", file, e.toString());
 			return null;
 		}
 	}
 
-	/** Persists this identity to {@code <home>/identity.json}. */
+	/** Persists this identity (the display name) to {@code <home>/identity.json}. */
 	public void save(Path home) throws IOException {
 		Files.createDirectories(home);
-		AMap<AString, ACell> map = Maps.of(Strings.create("name"), Strings.create(name));
+		AMap<AString, ACell> map = Maps.of(Strings.create("name"), Strings.create(display));
 		Files.writeString(home.resolve(FILE_NAME), JSON.printPretty(map).toString() + "\n");
 	}
 
 	@Override
 	public boolean equals(Object o) {
-		return (o instanceof Identity other) && name.equals(other.name);
+		return (o instanceof Identity other) && slug.equals(other.slug) && display.equals(other.display);
 	}
 
 	@Override
 	public int hashCode() {
-		return name.hashCode();
+		return 31 * slug.hashCode() + display.hashCode();
 	}
 
 	@Override
 	public String toString() {
-		return label();
+		return display + " (" + label() + ")";
 	}
 }

@@ -62,7 +62,7 @@ public final class WelcomePanel extends JPanel {
 		JLabel mark = new JLabel(new ImageIcon(Icons.icon(72)));
 		mark.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-		JLabel hello = new JLabel("Welcome to BrightSide");
+		JLabel hello = new JLabel("Welcome to " + covia.brightside.BrightSide.APP_NAME);
 		hello.setForeground(muted());
 		hello.setAlignmentX(Component.CENTER_ALIGNMENT);
 

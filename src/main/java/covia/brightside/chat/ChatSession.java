@@ -70,7 +70,7 @@ public final class ChatSession {
 
 	private final Venue venue;
 	private final AppConfig.Chat config;
-	private final String userLabel;
+	private final String userName;
 	private volatile String sessionId;
 	private boolean agentReady;
 
@@ -79,23 +79,24 @@ public final class ChatSession {
 	}
 
 	/**
-	 * @param venue     in-process client bound to the acting user
-	 * @param config    the chat agent's configuration
-	 * @param userLabel how the acting user is shown (e.g. {@code "u:mike"}), or null
+	 * @param venue    in-process client bound to the acting user
+	 * @param config   the chat agent's configuration
+	 * @param userName the user's display name (e.g. {@code "Mike"}), told to the
+	 *                 agent so it addresses them correctly, or null
 	 */
-	public ChatSession(Venue venue, AppConfig.Chat config, String userLabel) {
+	public ChatSession(Venue venue, AppConfig.Chat config, String userName) {
 		this.venue = venue;
 		this.config = config;
-		this.userLabel = userLabel;
+		this.userName = userName;
 	}
 
 	public AppConfig.Chat config() {
 		return config;
 	}
 
-	/** How the acting user is shown, or null if unspecified. */
-	public String userLabel() {
-		return userLabel;
+	/** The user's display name, or null if unspecified. */
+	public String userName() {
+		return userName;
 	}
 
 	/** Current session id, or null before the first reply / after a reset. */
@@ -116,7 +117,11 @@ public final class ChatSession {
 	 */
 	public synchronized void ensureAgent() throws Exception {
 		if (agentReady) return;
-		String systemPrompt = config.systemPrompt() + "\n\n" + ATTRIBUTION_GUIDANCE;
+		String systemPrompt = config.systemPrompt();
+		if (userName != null && !userName.isBlank()) {
+			systemPrompt += "\n\nThe user's name is " + userName + ". Address them by it naturally.";
+		}
+		systemPrompt += "\n\n" + ATTRIBUTION_GUIDANCE;
 		AMap<AString, ACell> agentConfig = Maps.of(
 			Fields.OPERATION, config.operation(),
 			"llmOperation", config.llmOperation(),

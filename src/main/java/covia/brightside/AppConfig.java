@@ -47,7 +47,7 @@ public final class AppConfig {
 	public static final Path DEFAULT_FILE = HOME.resolve("config.json");
 
 	public static final int DEFAULT_PORT = 8085;
-	public static final String DEFAULT_VENUE_NAME = "BrightSide Venue";
+	public static final String DEFAULT_VENUE_NAME = "Brightside";
 	public static final String DEFAULT_THEME = "dark";
 
 	public static final String DEFAULT_AGENT_ID = "brightside";
@@ -58,7 +58,7 @@ public final class AppConfig {
 	/** Test LLM that echoes the last user message — an offline chat backend. */
 	public static final String ECHO_LLM_OPERATION = "v/test/ops/llm";
 	public static final String DEFAULT_SYSTEM_PROMPT =
-		"You are BrightSide, a private personal AI assistant running on the user's own computer, "
+		"You are Brightside, a private personal AI assistant running on the user's own computer, "
 		+ "powered by the Covia Grid (keep that under the hood unless they ask). Be warm, concise and "
 		+ "genuinely helpful, and use the user's name naturally rather than in every message. Follow "
 		+ "your loaded skills, and use your memory to recall and quietly record useful things about the "
@@ -73,7 +73,7 @@ public final class AppConfig {
 	/** Written to a fresh config file so users have a commented starting point. */
 	public static final String DEFAULT_TEMPLATE = """
 		{
-			// BrightSide configuration — edit and restart BrightSide to apply.
+			// Brightside configuration — edit and restart Brightside to apply.
 			// Every key is optional; delete this file to restore the defaults.
 			// Your chosen name lives separately in identity.json (not here).
 
@@ -81,11 +81,11 @@ public final class AppConfig {
 			"theme": "dark",
 
 			// The embedded Covia venue. Any Covia venue config key is accepted here
-			// and replaces BrightSide's default for that key. Defaults: bound to
+			// and replaces Brightside's default for that key. Defaults: bound to
 			// 127.0.0.1, persistent store at ~/.brightside/venue.etch (identity in
 			// venue.key next to it), users auto-created, MCP endpoint enabled.
 			"venue": {
-				"name": "BrightSide Venue",
+				"name": "Brightside",
 				"port": 8085
 				// The model needs an API key. Either export ANTHROPIC_API_KEY before
 				// launching, or provision it into the venue's shared secret store here
@@ -102,9 +102,9 @@ public final class AppConfig {
 				// environment (e.g. ANTHROPIC_API_KEY) or in the venue's secret store.
 				// Use "v/test/ops/llm" for an offline echo bot.
 				"llmOperation": "v/models/anthropic/claude-sonnet-5",
-				// How the assistant should behave. Leave it out to use BrightSide's
+				// How the assistant should behave. Leave it out to use Brightside's
 				// default persona (a warm, private personal assistant).
-				// "systemPrompt": "You are BrightSide, ...",
+				// "systemPrompt": "You are Brightside, ...",
 				// Seconds to wait for a reply before giving up
 				"timeout": 120
 			}

@@ -37,7 +37,7 @@ public final class BrightSide {
 
 	private static final Logger log = LoggerFactory.getLogger(BrightSide.class);
 
-	public static final String APP_NAME = "BrightSide";
+	public static final String APP_NAME = "Brightside";
 
 	private final AppConfig config;
 	private final Path configPath;
@@ -193,7 +193,7 @@ public final class BrightSide {
 	/** Binds a chat session to {@code id}'s principal and readies its agent. */
 	private void startChat(EmbeddedVenue v, Identity id, boolean firstStart) {
 		String userDID = id.userDID(v.did());
-		ChatSession session = new ChatSession(v.clientAs(userDID), config.chat(), id.label());
+		ChatSession session = new ChatSession(v.clientAs(userDID), config.chat(), id.name());
 		chat = session;
 		log.info("Chatting as {} ({})", id.label(), userDID);
 		SwingUtilities.invokeLater(() -> {

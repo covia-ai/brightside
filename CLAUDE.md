@@ -1,4 +1,4 @@
-# Claude Code — BrightSide
+# Claude Code — Brightside
 
 The canonical agent instructions for this repository live in
 **[AGENTS.md](./AGENTS.md)**. Read that file first and follow it; this file is
