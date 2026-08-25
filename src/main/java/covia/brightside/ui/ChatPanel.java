@@ -159,7 +159,8 @@ public final class ChatPanel extends JPanel {
 	}
 
 	public void focusInput() {
-		input.requestFocusInWindow();
+		// After the window/layout settles, so the request actually lands.
+		SwingUtilities.invokeLater(input::requestFocusInWindow);
 	}
 
 	private void setInputEnabled(boolean on) {
@@ -391,14 +392,24 @@ public final class ChatPanel extends JPanel {
 			ta.setWrapStyleWord(true);
 			ta.setOpaque(false);
 			ta.setForeground(fg);
-			// Selectable, but no blinking insert caret in a read-only bubble.
-			ta.setCaret(new javax.swing.text.DefaultCaret() {
+			// A read-only bubble never takes keyboard focus (so the input keeps it)
+			// and shows no insert caret — but stays mouse-selectable, with the
+			// selection painted even without focus.
+			ta.setFocusable(false);
+			javax.swing.text.DefaultCaret caret = new javax.swing.text.DefaultCaret() {
 				@Override
 				public void setVisible(boolean visible) {
 					super.setVisible(false);
 				}
-			});
-			ta.getCaret().setBlinkRate(0);
+
+				@Override
+				public void setSelectionVisible(boolean visible) {
+					super.setSelectionVisible(true);
+				}
+			};
+			caret.setBlinkRate(0);
+			ta.setCaret(caret);
+			caret.setSelectionVisible(true);
 			ta.setBorder(BorderFactory.createEmptyBorder(PAD_V, PAD_H, PAD_V, PAD_H));
 			ta.setFont(ta.getFont().deriveFont(ta.getFont().getSize2D() + 1f));
 			MouseAdapter popup = new MouseAdapter() {
