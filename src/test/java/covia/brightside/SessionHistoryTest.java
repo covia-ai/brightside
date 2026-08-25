@@ -151,6 +151,27 @@ class SessionHistoryTest {
 	}
 
 	@Test
+	void inProcessAgentRecordMatchesAndDetectsChange() throws Exception {
+		String userDID = Identity.of("inproc").userDID(venue.did());
+		Venue client = venue.clientAs(userDID);
+		AppConfig.Chat chat = new AppConfig.Chat("inproc-agent",
+			AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo the user.", 30);
+		ChatSession s = new ChatSession(client, chat, "InProc");
+		s.send("first message");
+
+		// Reads the record straight from the in-process lattice (no covia:read job).
+		ACell record = venue.agentRecord(userDID, "inproc-agent");
+		assertNotNull(record, "the agent record reads in-process");
+		assertEquals(SessionHistory.listSessions(client, "inproc-agent").size(),
+			SessionHistory.sessionsOf(record).size(), "same projection as the op-based read");
+
+		// The watcher's cheap compare: unchanged → equal value, a new turn → different.
+		assertEquals(record, venue.agentRecord(userDID, "inproc-agent"), "unchanged is an equal value");
+		s.send("second message");
+		assertNotEquals(record, venue.agentRecord(userDID, "inproc-agent"), "a new turn changes the value");
+	}
+
+	@Test
 	void rawTurnsExposeTheUnprojectedConversation() throws Exception {
 		String userDID = Identity.of("raw").userDID(venue.did());
 		Venue client = venue.clientAs(userDID);

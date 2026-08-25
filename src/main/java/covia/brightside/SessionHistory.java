@@ -156,7 +156,11 @@ public final class SessionHistory {
 
 	/** Every raw turn of one session, unprojected (for the cycle-detail inspector). */
 	public static List<RawTurn> rawTurns(Venue client, String agentId, String sessionId) {
-		ACell record = readAgentValue(client, agentId);
+		return rawTurnsOf(readAgentValue(client, agentId), sessionId);
+	}
+
+	/** Every raw turn of one session in an already-read record (no venue read). */
+	public static List<RawTurn> rawTurnsOf(ACell record, String sessionId) {
 		if (!(record instanceof AMap) || sessionId == null) return List.of();
 		AMap<ACell, ACell> sessions = asMap(RT.getIn(record, "sessions"));
 		if (sessions == null) return List.of();
@@ -164,12 +168,12 @@ public final class SessionHistory {
 			MapEntry<ACell, ACell> entry = sessions.entryAt(i);
 			if (!sessionId.equals(sidHex(entry.getKey()))) continue;
 			AVector<ACell> conversation = conversationOf(entry.getValue());
-			return (conversation != null) ? rawTurnsOf(conversation) : List.of();
+			return (conversation != null) ? turnsFrom(conversation) : List.of();
 		}
 		return List.of();
 	}
 
-	private static List<RawTurn> rawTurnsOf(AVector<ACell> conversation) {
+	private static List<RawTurn> turnsFrom(AVector<ACell> conversation) {
 		List<RawTurn> out = new ArrayList<>();
 		for (long i = 0; i < conversation.count(); i++) {
 			ACell turn = conversation.get(i);

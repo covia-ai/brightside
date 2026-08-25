@@ -57,6 +57,7 @@ public final class BrightSide {
 	private volatile ConversationWatcher watcher; // event thread
 	private volatile Identity identity;
 	private volatile covia.grid.Venue client; // in-process client for the acting user
+	private volatile String userDID; // the acting user's DID (for in-process lattice reads)
 	private volatile String agentId;
 	private volatile String viewedSessionId; // the conversation currently on screen
 	private volatile List<SessionHistory.Session> sessions = List.of(); // switcher list, newest first
@@ -202,8 +203,8 @@ public final class BrightSide {
 
 	/** Binds a chat session to {@code id}'s principal and reopens its live conversation. */
 	private void startChat(EmbeddedVenue v, Identity id, boolean firstStart) {
-		String userDID = id.userDID(v.did());
-		covia.grid.Venue userClient = v.clientAs(userDID);
+		String did = id.userDID(v.did());
+		covia.grid.Venue userClient = v.clientAs(did);
 		ChatSession session = new ChatSession(userClient, config.chat(), id.name());
 		chat = session;
 
@@ -217,16 +218,19 @@ public final class BrightSide {
 		String aid = config.chat().agentId();
 		this.client = userClient;
 		this.agentId = aid;
+		this.userDID = did;
 
-		SessionHistory.Snapshot history = SessionHistory.loadLatest(userClient, aid);
+		// The venue is in-process: read the agent record straight from the lattice
+		// (no job) and project it, rather than submitting a covia:read.
+		convex.core.data.ACell record = v.agentRecord(did, aid);
+		SessionHistory.Snapshot history = SessionHistory.snapshotOf(record, null);
 		if (history != null) session.resume(history.sessionId());
 		List<SessionHistory.Item> turns = (history != null) ? history.items() : List.of();
-		convex.core.data.ACell baseline = (history != null) ? history.agentValue() : null;
 		viewedSessionId = (history != null) ? history.sessionId() : null;
-		List<SessionHistory.Session> sessionList = SessionHistory.listSessions(userClient, aid);
+		List<SessionHistory.Session> sessionList = (record != null) ? SessionHistory.sessionsOf(record) : List.of();
 		sessions = sessionList;
 		log.info("Chatting as {} ({}) — reopened {} live message(s) across {} conversation(s)",
-			id.label(), userDID, turns.size(), sessionList.size());
+			id.label(), did, turns.size(), sessionList.size());
 
 		SwingUtilities.invokeLater(() -> {
 			if (firstStart) window.showChat(v, session, id, turns);
@@ -234,10 +238,11 @@ public final class BrightSide {
 			window.setConversations(sessionList, viewedSessionId);
 			if (tray != null) tray.setTooltip(APP_NAME + " — " + id.name());
 			// Watch the venue's agent value; on any change, refresh the switcher
-			// and re-render the conversation the user is currently viewing.
+			// and re-render the conversation the user is currently viewing. The
+			// read is an in-process lattice compare — no job, no log noise.
 			ConversationWatcher w = watcher;
 			if (w != null) w.stop();
-			watcher = new ConversationWatcher(userClient, aid, baseline,
+			watcher = new ConversationWatcher(() -> v.agentRecord(did, aid), record,
 				() -> window.isChatShowing(),
 				this::onAgentChanged);
 			watcher.start();
@@ -281,16 +286,17 @@ public final class BrightSide {
 
 	/** Switch the chat to a past conversation, reopening its transcript and continuing it. */
 	public void openSession(String sessionId) {
-		covia.grid.Venue c = client;
+		EmbeddedVenue v = venue;
 		ChatSession s = chat;
-		String aid = agentId;
-		if (c == null || s == null || aid == null || sessionId == null) return;
+		String aid = agentId, did = userDID;
+		if (v == null || s == null || aid == null || did == null || sessionId == null) return;
 		if (sessionId.equals(viewedSessionId)) return;
 		Thread t = new Thread(() -> {
-			SessionHistory.Snapshot snap = SessionHistory.load(c, aid, sessionId);
+			ACell record = v.agentRecord(did, aid);
+			SessionHistory.Snapshot snap = SessionHistory.snapshotOf(record, sessionId);
 			if (snap == null) return;
 			s.resume(snap.sessionId());
-			List<SessionHistory.Session> list = SessionHistory.listSessions(c, aid);
+			List<SessionHistory.Session> list = SessionHistory.sessionsOf(record);
 			SwingUtilities.invokeLater(() -> {
 				viewedSessionId = snap.sessionId();
 				sessions = list;
@@ -319,7 +325,7 @@ public final class BrightSide {
 				SwingUtilities.invokeLater(() -> window.showSystemMessage("Sorry — I couldn't rename that conversation."));
 				return;
 			}
-			List<SessionHistory.Session> list = SessionHistory.listSessions(c, aid);
+			List<SessionHistory.Session> list = SessionHistory.sessionsOf(venue.agentRecord(userDID, aid));
 			SwingUtilities.invokeLater(() -> {
 				sessions = list;
 				window.setConversations(list, viewedSessionId);
@@ -331,11 +337,11 @@ public final class BrightSide {
 
 	/** Copy a past conversation's transcript to the clipboard as plain text. */
 	public void copyTranscript(String sessionId) {
-		Venue c = client;
-		String aid = agentId;
-		if (c == null || aid == null || sessionId == null) return;
+		EmbeddedVenue v = venue;
+		String aid = agentId, did = userDID;
+		if (v == null || aid == null || did == null || sessionId == null) return;
 		Thread t = new Thread(() -> {
-			SessionHistory.Snapshot snap = SessionHistory.load(c, aid, sessionId);
+			SessionHistory.Snapshot snap = SessionHistory.snapshotOf(v.agentRecord(did, aid), sessionId);
 			if (snap == null) {
 				SwingUtilities.invokeLater(() -> window.showSystemMessage("Sorry — I couldn't read that conversation."));
 				return;
@@ -353,13 +359,16 @@ public final class BrightSide {
 
 	/** Show the full context the assistant's model receives for a conversation. */
 	public void showSessionInfo(String sessionId) {
-		Venue c = client;
-		String aid = agentId;
-		if (c == null || aid == null || sessionId == null) return;
+		covia.grid.Venue c = client;
+		EmbeddedVenue v = venue;
+		String aid = agentId, did = userDID;
+		if (c == null || v == null || aid == null || did == null || sessionId == null) return;
 		String title = titleOf(sessionId);
 		Thread t = new Thread(() -> {
+			// The assembled context is a computation (agent:context op); the raw
+			// turns are just a lattice read, done in-process.
 			AgentContext.Report report = AgentContext.load(c, aid, sessionId);
-			List<SessionHistory.RawTurn> turns = SessionHistory.rawTurns(c, aid, sessionId);
+			List<SessionHistory.RawTurn> turns = SessionHistory.rawTurnsOf(v.agentRecord(did, aid), sessionId);
 			SwingUtilities.invokeLater(() -> {
 				if (report == null) window.showSystemMessage("Sorry — I couldn't read the context for that conversation.");
 				else window.showContextInfo(report, turns, title);
@@ -391,7 +400,7 @@ public final class BrightSide {
 				return;
 			}
 			boolean wasViewed = sessionId.equals(viewedSessionId);
-			List<SessionHistory.Session> list = SessionHistory.listSessions(c, aid);
+			List<SessionHistory.Session> list = SessionHistory.sessionsOf(venue.agentRecord(userDID, aid));
 			SwingUtilities.invokeLater(() -> {
 				sessions = list;
 				if (wasViewed) {

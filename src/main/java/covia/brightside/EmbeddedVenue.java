@@ -5,9 +5,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
+import convex.core.data.Strings;
 import covia.grid.Venue;
 import covia.venue.Engine;
 import covia.venue.LocalVenue;
+import covia.venue.RequestContext;
 import covia.venue.server.VenueServer;
 
 /**
@@ -43,6 +45,23 @@ public final class EmbeddedVenue implements AutoCloseable {
 
 	public Engine engine() {
 		return server.getEngine();
+	}
+
+	/**
+	 * Reads an agent record ({@code g/<agentId>}) straight from the in-process
+	 * lattice as {@code userDID}, with no job — the same
+	 * {@link Engine#resolvePath} that {@code v/ops/covia/read} calls internally.
+	 * Used for cheap, silent change detection and projection (the venue is right
+	 * here in the process; there is no reason to submit a read job for it).
+	 * Returns null if absent or on any resolution error.
+	 */
+	public ACell agentRecord(String userDID, String agentId) {
+		try {
+			RequestContext ctx = RequestContext.of(Strings.create(userDID));
+			return engine().resolvePath(Strings.create("g/" + agentId), ctx);
+		} catch (Exception e) {
+			return null;
+		}
 	}
 
 	/**

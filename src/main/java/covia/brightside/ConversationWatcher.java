@@ -2,22 +2,23 @@ package covia.brightside;
 
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import javax.swing.SwingWorker;
 import javax.swing.Timer;
 
 import convex.core.data.ACell;
-import covia.grid.Venue;
 
 /**
  * Watches the venue's agent value and refreshes the UI when it changes.
  *
  * <p>Change detection is a plain lattice value compare: each tick re-reads the
- * agent value and compares it with {@code .equals} to the last one shown. Since
- * lattice values are immutable and content-addressed, an unchanged conversation
- * yields an equal value (cheap), and any change — a new turn, an edit from
- * another client, an out-of-band agent update — yields a different one, so the
- * UI can refresh. Polling pauses while the window isn't showing.
+ * agent value (via {@code readValue}, which reads the in-process lattice
+ * directly — no job) and compares it with {@code .equals} to the last one shown.
+ * Since lattice values are immutable and content-addressed, an unchanged
+ * conversation yields an equal value (cheap), and any change — a new turn, an
+ * edit from another client, an out-of-band agent update — yields a different one,
+ * so the UI can refresh. Polling pauses while the window isn't showing.
  *
  * <p>Runs on the Swing timer/event thread; the read itself is off the event
  * thread. Ticks never overlap.
@@ -26,8 +27,7 @@ public final class ConversationWatcher {
 
 	private static final int INTERVAL_MS = 2500;
 
-	private final Venue client;
-	private final String agentId;
+	private final Supplier<ACell> readValue;
 	private final BooleanSupplier active;
 	private final Consumer<ACell> onChanged;
 	private final Timer timer;
@@ -36,16 +36,17 @@ public final class ConversationWatcher {
 	private boolean checking;
 
 	/**
+	 * @param readValue    supplies the current agent value (an in-process lattice
+	 *                     read, not a job)
 	 * @param initialValue the agent value already shown (baseline for comparison), or null
 	 * @param active       polls only while this returns true (e.g. window showing)
 	 * @param onChanged    called on the event thread with the new agent record when
 	 *                     the value changes; the caller projects the switcher list
 	 *                     and the currently-viewed session from it
 	 */
-	public ConversationWatcher(Venue client, String agentId, ACell initialValue,
+	public ConversationWatcher(Supplier<ACell> readValue, ACell initialValue,
 			BooleanSupplier active, Consumer<ACell> onChanged) {
-		this.client = client;
-		this.agentId = agentId;
+		this.readValue = readValue;
 		this.lastValue = initialValue;
 		this.active = active;
 		this.onChanged = onChanged;
@@ -74,7 +75,7 @@ public final class ConversationWatcher {
 		new SwingWorker<ACell, Void>() {
 			@Override
 			protected ACell doInBackground() {
-				ACell value = SessionHistory.readAgentValue(client, agentId);
+				ACell value = readValue.get();
 				// Only surface the record when the agent value actually changed.
 				return (value == null || equalValue(value, baseline)) ? null : value;
 			}

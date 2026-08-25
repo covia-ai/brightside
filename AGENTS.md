@@ -91,16 +91,23 @@ window that talks to an agent on that venue. Single Maven module,
   (no insert cursor); right-click offers *Copy message* / *Copy conversation*
   (`conversationText()`) to get text out across messages.
 - **Brightside runs off the venue's live session state — no local transcript
-  copy.** On start `startChat` reads the most recently active conversation
-  straight from the agent's session store (`SessionHistory.loadLatest`:
-  `covia:read g/<agentId>` → newest `sessions[sid].frames[0].conversation`,
-  projecting user + completed-assistant turns), renders it, and
-  `ChatSession.resume(sessionId)` continues that same session (falling back to
-  a new one if the id is stale, so it never blocks chatting). The UI just
-  reflects turns as they happen; the venue records them, and the next launch
-  re-reads live state. This reads the `AgentState` schema directly (public field
-  names) because the purpose-built `agent:sessionRead` projection is restricted
-  to an agent's own execution context, so it isn't callable by the owner.
+  copy.** The venue is in-process, so agent-record reads go straight to the
+  lattice with **no job**: `EmbeddedVenue.agentRecord(userDID, agentId)` calls
+  `Engine.resolvePath("g/<agentId>", RequestContext.of(userDID))` — exactly what
+  `v/ops/covia/read` does internally, minus the job machinery. On start
+  `startChat` reads the record that way, projects it with
+  `SessionHistory.snapshotOf(record, null)` (newest session →
+  `sessions[sid].frames[0].conversation`, user + completed-assistant turns),
+  renders it, and `ChatSession.resume(sessionId)` continues that same session
+  (falling back to a new one if the id is stale). The UI just reflects turns as
+  they happen; the venue records them, and the next launch re-reads live state.
+  It reads the `AgentState` schema directly (public field names) because the
+  purpose-built `agent:sessionRead` projection is restricted to an agent's own
+  execution context. `SessionHistory` still offers `Venue`-based reads
+  (`loadLatest`/`load`/`listSessions`/`rawTurns`, via `covia:read`) for tests and
+  any out-of-process client; the app prefers the in-process path. Actual
+  *operations* (chat, rename/delete-session, `agent:context`) still go through
+  the op/job path — only lattice *reads* are done directly.
 - **Every past conversation is switchable.** The agent record holds many
   `sessions`; `SessionHistory.listSessions` enumerates them (newest first,
   titled by each one's first user message) for the `ConversationList` switcher,
@@ -150,12 +157,16 @@ window that talks to an agent on that venue. Single Maven module,
   is the assistant's `content` on tool-calling turns.) Note
   session ids are bare hex (`toHexString()`, no `0x`) — the agent ops reject a
   `0x` prefix.
-- **Change detection is a lattice value compare.** `ConversationWatcher` polls
-  the agent value (`SessionHistory.loadLatest`) every few seconds while the chat
-  is showing and compares it with `.equals` to the last one shown — lattice
-  values are immutable and content-addressed, so an unchanged conversation is an
-  equal value and any change (a new turn, an edit from another client, an
-  out-of-band agent update) is a different one. Only then does it refresh, and
+- **Change detection is a lattice value compare — in-process, no job.**
+  `ConversationWatcher` takes a `Supplier<ACell>` (`() -> venue.agentRecord(…)`,
+  an in-process lattice read) and every couple of seconds, while the chat is
+  showing, compares it with `.equals` to the last one shown — lattice values are
+  immutable and content-addressed, so an unchanged conversation is an equal value
+  (a cheap hash compare, and crucially **not** a submitted job) and any change (a
+  new turn, an edit from another client, an out-of-band agent update) is a
+  different one. Polling this way is silent and near-free; do **not** reintroduce
+  a `covia:read` job to poll a value the process already holds. Only then does it
+  refresh, and
   `ChatPanel.refreshTo` re-renders only if the projected turns actually differ
   from what's on screen (so the app's own turns don't cause a redundant
   re-render). *File → Refresh* forces an immediate compare.
