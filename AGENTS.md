@@ -252,5 +252,7 @@ not bespoke app code. Access is capability-based, so you need a token:
 - Remote: `https://github.com/covia-ai/brightside` (the covia-ai org). Push as
   `mikera` through the per-repo credential-helper override described in the
   workspace `AGENTS.md`.
+- **Branches:** `master` is the default/integration branch; `develop` is the
+  day-to-day working branch. Commit dev work on `develop` and merge to `master`.
 - Commit as the repo's local `user.name`/`user.email` (check
   `git config --local`); use `gh` as `brittleboye` for issues and PRs.
