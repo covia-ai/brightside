@@ -71,8 +71,10 @@ window that talks to an agent on that venue. Single Maven module,
   `covia.brightside.ui.chat` package, one component per file: `ChatPanel` (the
   container, which owns send/copy), `Bubble` (a rounded, selectable message),
   `MessageColumn` (the scrolling, width-tracking column), `TypingIndicator`
-  (the "typing…" dots), `ExpandableActivity` (the tool-steps chip) and
-  `ChatStyle` (shared theme-derived colours + HTML-label helpers). `ChatPanel`
+  (the "typing…" dots), `ExpandableActivity` (the tool-steps chip),
+  `ConversationList` (the left-hand switcher — a *New conversation* button over a
+  list of past sessions) and `ChatStyle` (shared theme-derived colours +
+  HTML-label helpers). `ChatPanel`
   renders each message as its **own rounded `Bubble` component** in the
   `MessageColumn` (user right/accent, assistant left/surface) — separate
   components on purpose, so new message kinds (images, cards, tool output) can
@@ -89,10 +91,21 @@ window that talks to an agent on that venue. Single Maven module,
   `ChatSession.resume(sessionId)` continues that same session (falling back to
   a new one if the id is stale, so it never blocks chatting). The UI just
   reflects turns as they happen; the venue records them, and the next launch
-  re-reads live state. *File → New chat* mints a fresh session on the next
-  message. This reads the `AgentState` schema directly (public field names)
-  because the purpose-built `agent:sessionRead` projection is restricted to an
-  agent's own execution context, so it isn't callable by the owner.
+  re-reads live state. This reads the `AgentState` schema directly (public field
+  names) because the purpose-built `agent:sessionRead` projection is restricted
+  to an agent's own execution context, so it isn't callable by the owner.
+- **Every past conversation is switchable.** The agent record holds many
+  `sessions`; `SessionHistory.listSessions` enumerates them (newest first,
+  titled by each one's first user message) for the `ConversationList` switcher,
+  and `SessionHistory.load(agentId, sessionId)` / `snapshotOf(record, sessionId)`
+  reopen a specific one. *New conversation* (the switcher button, or *File → New
+  chat*) resets the session so the next message mints a fresh one — it joins the
+  switcher once its first message lands. `BrightSide.openSession` resumes a
+  chosen past session and continues it. Crucially the watcher is **viewed-session
+  aware**: it hands `BrightSide.onAgentChanged` the changed agent record and the
+  controller re-renders `viewedSessionId` (the session on screen), not always the
+  latest — so a background update to another session never yanks you off the one
+  you opened.
 - **Transcript items and tool activity.** `SessionHistory` projects the
   conversation into a list of `Item`s: `Message` (user / final-assistant text)
   and `Activity` (the intermediate "let me try…" narration and tool

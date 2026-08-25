@@ -1,6 +1,7 @@
 package covia.brightside;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -9,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.nio.file.Path;
+import java.util.List;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -76,6 +78,46 @@ class SessionHistoryTest {
 		SessionHistory.Snapshot after = SessionHistory.loadLatest(client, "hist-agent");
 		assertNotNull(after);
 		assertNotEquals(conv.agentValue(), after.agentValue(), "the agent value changed");
+	}
+
+	@Test
+	void listsAndReopensPastSessions() throws Exception {
+		String userDID = Identity.of("switcher").userDID(venue.did());
+		Venue client = venue.clientAs(userDID);
+		AppConfig.Chat chat = new AppConfig.Chat("switch-agent",
+			AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo the user.", 30);
+		ChatSession s = new ChatSession(client, chat, "Switcher");
+
+		String sid1 = s.send("first conversation topic").sessionId();
+		s.reset(); // a new chat: the next message mints a fresh session
+		String sid2 = s.send("second conversation topic").sessionId();
+		assertNotNull(sid1);
+		assertNotNull(sid2);
+		assertNotEquals(sid1, sid2, "reset starts a new session");
+
+		// The switcher lists both, newest first, titled by the first user message.
+		List<SessionHistory.Session> list = SessionHistory.listSessions(client, "switch-agent");
+		assertEquals(2, list.size(), "both conversations are listed");
+		assertEquals(sid2, list.get(0).sessionId(), "newest conversation first");
+		assertEquals(sid1, list.get(1).sessionId());
+		assertTrue(list.get(1).title().contains("first conversation topic"),
+			"the title is the first user message");
+
+		// Reopening a specific past session gives that session's transcript.
+		SessionHistory.Snapshot first = SessionHistory.load(client, "switch-agent", sid1);
+		assertEquals(sid1, first.sessionId());
+		assertTrue(hasUserMessage(first, "first conversation topic"));
+		assertFalse(hasUserMessage(first, "second conversation topic"),
+			"an old session shows only its own turns");
+
+		// A null or unknown id falls back to the latest — never a blank screen.
+		assertEquals(sid2, SessionHistory.load(client, "switch-agent", null).sessionId());
+		assertEquals(sid2, SessionHistory.load(client, "switch-agent", "deadbeef").sessionId());
+	}
+
+	private static boolean hasUserMessage(SessionHistory.Snapshot snap, String needle) {
+		return snap.items().stream().anyMatch(it -> it instanceof SessionHistory.Message m
+			&& m.role().equals("user") && m.text().contains(needle));
 	}
 
 	@Test

@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,6 +47,10 @@ public final class BrightSide {
 	private volatile ChatSession chat;
 	private volatile ConversationWatcher watcher; // event thread
 	private volatile Identity identity;
+	private volatile covia.grid.Venue client; // in-process client for the acting user
+	private volatile String agentId;
+	private volatile String viewedSessionId; // the conversation currently on screen
+	private volatile List<SessionHistory.Session> sessions = List.of(); // switcher list, newest first
 	private MainWindow window; // event thread only
 	private TrayManager tray; // event thread only
 	private final AtomicBoolean exiting = new AtomicBoolean();
@@ -189,8 +194,8 @@ public final class BrightSide {
 	/** Binds a chat session to {@code id}'s principal and reopens its live conversation. */
 	private void startChat(EmbeddedVenue v, Identity id, boolean firstStart) {
 		String userDID = id.userDID(v.did());
-		covia.grid.Venue client = v.clientAs(userDID);
-		ChatSession session = new ChatSession(client, config.chat(), id.name());
+		covia.grid.Venue userClient = v.clientAs(userDID);
+		ChatSession session = new ChatSession(userClient, config.chat(), id.name());
 		chat = session;
 
 		// Create/refresh the agent, then read the last conversation from the
@@ -200,25 +205,92 @@ public final class BrightSide {
 		} catch (Exception e) {
 			log.warn("Chat agent not ready", e);
 		}
-		String agentId = config.chat().agentId();
-		SessionHistory.Snapshot history = SessionHistory.loadLatest(client, agentId);
+		String aid = config.chat().agentId();
+		this.client = userClient;
+		this.agentId = aid;
+
+		SessionHistory.Snapshot history = SessionHistory.loadLatest(userClient, aid);
 		if (history != null) session.resume(history.sessionId());
 		List<SessionHistory.Item> turns = (history != null) ? history.items() : List.of();
 		convex.core.data.ACell baseline = (history != null) ? history.agentValue() : null;
-		log.info("Chatting as {} ({}) — reopened {} live message(s)", id.label(), userDID, turns.size());
+		viewedSessionId = (history != null) ? history.sessionId() : null;
+		List<SessionHistory.Session> sessionList = SessionHistory.listSessions(userClient, aid);
+		sessions = sessionList;
+		log.info("Chatting as {} ({}) — reopened {} live message(s) across {} conversation(s)",
+			id.label(), userDID, turns.size(), sessionList.size());
 
 		SwingUtilities.invokeLater(() -> {
 			if (firstStart) window.showChat(v, session, id, turns);
 			else window.userChanged(session, id, turns);
+			window.setConversations(sessionList, viewedSessionId);
 			if (tray != null) tray.setTooltip(APP_NAME + " — " + id.name());
-			// Watch the venue's agent value and refresh the transcript when it changes.
+			// Watch the venue's agent value; on any change, refresh the switcher
+			// and re-render the conversation the user is currently viewing.
 			ConversationWatcher w = watcher;
 			if (w != null) w.stop();
-			watcher = new ConversationWatcher(client, agentId, baseline,
+			watcher = new ConversationWatcher(userClient, aid, baseline,
 				() -> window.isChatShowing(),
-				s -> window.refreshConversation(s.items()));
+				this::onAgentChanged);
 			watcher.start();
 		});
+	}
+
+	/**
+	 * The agent record changed (a new turn here or an out-of-band update):
+	 * refresh the switcher list and re-render the conversation currently on
+	 * screen — the one the user picked, not necessarily the newest. Called on
+	 * the event thread; the cell projection runs off it.
+	 */
+	private void onAgentChanged(convex.core.data.ACell record) {
+		new SwingWorker<Void, Void>() {
+			private List<SessionHistory.Session> list;
+			private SessionHistory.Snapshot snap;
+			private String vsid;
+
+			@Override
+			protected Void doInBackground() {
+				list = SessionHistory.sessionsOf(record);
+				// A brand-new chat has no session id until its first reply lands;
+				// adopt it once the session framework mints it.
+				vsid = (viewedSessionId != null) ? viewedSessionId
+					: (chat != null ? chat.sessionId() : null);
+				snap = (vsid != null) ? SessionHistory.snapshotOf(record, vsid) : null;
+				return null;
+			}
+
+			@Override
+			protected void done() {
+				sessions = list;
+				if (vsid != null) {
+					viewedSessionId = vsid;
+					if (snap != null) window.refreshConversation(snap.items());
+				}
+				window.setConversations(list, viewedSessionId);
+			}
+		}.execute();
+	}
+
+	/** Switch the chat to a past conversation, reopening its transcript and continuing it. */
+	public void openSession(String sessionId) {
+		covia.grid.Venue c = client;
+		ChatSession s = chat;
+		String aid = agentId;
+		if (c == null || s == null || aid == null || sessionId == null) return;
+		if (sessionId.equals(viewedSessionId)) return;
+		Thread t = new Thread(() -> {
+			SessionHistory.Snapshot snap = SessionHistory.load(c, aid, sessionId);
+			if (snap == null) return;
+			s.resume(snap.sessionId());
+			List<SessionHistory.Session> list = SessionHistory.listSessions(c, aid);
+			SwingUtilities.invokeLater(() -> {
+				viewedSessionId = snap.sessionId();
+				sessions = list;
+				window.showConversation(snap.items());
+				window.setConversations(list, viewedSessionId);
+			});
+		}, "brightside-open-session");
+		t.setDaemon(true);
+		t.start();
 	}
 
 	public AppConfig config() {
@@ -271,11 +343,14 @@ public final class BrightSide {
 		ChatSession c = chat;
 		if (c == null) return;
 		// A fresh session is minted on the next message; the previous one stays
-		// in the venue's history but is no longer the one shown.
+		// in the venue's history but is no longer the one shown. It joins the
+		// switcher once its first message lands (the watcher picks it up).
 		c.reset();
+		viewedSessionId = null;
 		SwingUtilities.invokeLater(() -> {
 			window.clearChat();
 			window.showSystemMessage("Started a new chat.");
+			window.setConversations(sessions, null);
 		});
 	}
 

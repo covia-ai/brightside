@@ -32,6 +32,7 @@ import covia.brightside.EmbeddedVenue;
 import covia.brightside.Identity;
 import covia.brightside.chat.ChatSession;
 import covia.brightside.ui.chat.ChatPanel;
+import covia.brightside.ui.chat.ConversationList;
 
 /**
  * The BrightSide window. Two full-window screens on a {@link CardLayout}: the
@@ -50,6 +51,7 @@ public final class MainWindow extends JFrame {
 	private final JPanel deck = new JPanel(cards);
 	private final WelcomePanel welcomePanel;
 	private final ChatPanel chatPanel = new ChatPanel();
+	private final ConversationList conversations;
 	private final JLabel whoLabel = new JLabel(" ");
 	private final JLabel brandLabel = new JLabel("Powered by the Covia Grid");
 
@@ -79,7 +81,20 @@ public final class MainWindow extends JFrame {
 			}
 		});
 
+		conversations = new ConversationList(new ConversationList.Listener() {
+			@Override
+			public void onNewConversation() {
+				app.newConversation();
+			}
+
+			@Override
+			public void onSelectSession(String sessionId) {
+				app.openSession(sessionId);
+			}
+		});
+
 		JPanel chatCard = new JPanel(new BorderLayout());
+		chatCard.add(conversations, BorderLayout.WEST);
 		chatCard.add(chatPanel, BorderLayout.CENTER);
 		chatCard.add(buildStatusBar(), BorderLayout.SOUTH);
 
@@ -213,6 +228,16 @@ public final class MainWindow extends JFrame {
 	/** Update the transcript to the venue's live conversation (only re-renders if changed). */
 	public void refreshConversation(List<SessionHistory.Item> turns) {
 		chatPanel.refreshTo(turns);
+	}
+
+	/** Replace the switcher's list of past conversations, highlighting the open one. */
+	public void setConversations(List<SessionHistory.Session> sessions, String selectedId) {
+		conversations.setSessions(sessions, selectedId);
+	}
+
+	/** Show a chosen past conversation's transcript (a definite switch, not a poll). */
+	public void showConversation(List<SessionHistory.Item> turns) {
+		chatPanel.restore(turns);
 	}
 
 	/** True while the chat is on screen — the watcher only polls then. */

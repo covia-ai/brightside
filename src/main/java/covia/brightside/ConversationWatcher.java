@@ -29,7 +29,7 @@ public final class ConversationWatcher {
 	private final Venue client;
 	private final String agentId;
 	private final BooleanSupplier active;
-	private final Consumer<SessionHistory.Snapshot> onChanged;
+	private final Consumer<ACell> onChanged;
 	private final Timer timer;
 
 	private ACell lastValue;
@@ -38,10 +38,12 @@ public final class ConversationWatcher {
 	/**
 	 * @param initialValue the agent value already shown (baseline for comparison), or null
 	 * @param active       polls only while this returns true (e.g. window showing)
-	 * @param onChanged     called on the event thread with the new snapshot when the value changes
+	 * @param onChanged    called on the event thread with the new agent record when
+	 *                     the value changes; the caller projects the switcher list
+	 *                     and the currently-viewed session from it
 	 */
 	public ConversationWatcher(Venue client, String agentId, ACell initialValue,
-			BooleanSupplier active, Consumer<SessionHistory.Snapshot> onChanged) {
+			BooleanSupplier active, Consumer<ACell> onChanged) {
 		this.client = client;
 		this.agentId = agentId;
 		this.lastValue = initialValue;
@@ -69,22 +71,22 @@ public final class ConversationWatcher {
 		if (active != null && !active.getAsBoolean()) return;
 		checking = true;
 		final ACell baseline = lastValue;
-		new SwingWorker<SessionHistory.Snapshot, Void>() {
+		new SwingWorker<ACell, Void>() {
 			@Override
-			protected SessionHistory.Snapshot doInBackground() {
-				SessionHistory.Snapshot s = SessionHistory.loadLatest(client, agentId);
-				// Only surface a snapshot when the agent value actually changed.
-				return (s == null || equalValue(s.agentValue(), baseline)) ? null : s;
+			protected ACell doInBackground() {
+				ACell value = SessionHistory.readAgentValue(client, agentId);
+				// Only surface the record when the agent value actually changed.
+				return (value == null || equalValue(value, baseline)) ? null : value;
 			}
 
 			@Override
 			protected void done() {
 				checking = false;
 				try {
-					SessionHistory.Snapshot s = get();
-					if (s != null) {
-						lastValue = s.agentValue();
-						onChanged.accept(s);
+					ACell value = get();
+					if (value != null) {
+						lastValue = value;
+						onChanged.accept(value);
 					}
 				} catch (Exception ignored) {
 					// a failed read just means "try again next tick"

@@ -80,6 +80,14 @@ public final class SessionHistory {
 	public record Snapshot(ACell agentValue, String sessionId, List<Item> items) {
 	}
 
+	/**
+	 * One past conversation for the switcher: its {@code sessionId}, a short
+	 * {@code title} (the first user message), and {@code lastTs} (its most recent
+	 * turn) for ordering and a relative-time label.
+	 */
+	public record Session(String sessionId, String title, long lastTs) {
+	}
+
 	private SessionHistory() {
 	}
 
@@ -89,36 +97,116 @@ public final class SessionHistory {
 	 * fails; an existing agent with no sessions returns an empty transcript.
 	 */
 	public static Snapshot loadLatest(Venue client, String agentId) {
+		ACell record = readAgentValue(client, agentId);
+		return (record != null) ? latestFrom(record) : null;
+	}
+
+	/**
+	 * Reads the agent record and projects one specific session (by hex id). Falls
+	 * back to the most-recently-active session when {@code sessionId} is null or
+	 * no longer present, so a stale id never leaves a blank screen.
+	 */
+	public static Snapshot load(Venue client, String agentId, String sessionId) {
+		ACell record = readAgentValue(client, agentId);
+		return (record != null) ? snapshotOf(record, sessionId) : null;
+	}
+
+	/** All of the agent's non-empty conversations, newest first (for the switcher). */
+	public static List<Session> listSessions(Venue client, String agentId) {
+		ACell record = readAgentValue(client, agentId);
+		return (record != null) ? sessionsOf(record) : List.of();
+	}
+
+	/**
+	 * The raw agent record cell ({@code g/<agentId>}), or null if the agent has
+	 * no record yet or the read fails. This is the value to compare with
+	 * {@code .equals} for change detection, and to project sessions from.
+	 */
+	public static ACell readAgentValue(Venue client, String agentId) {
 		try {
 			Job job = client.invoke("v/ops/covia/read", Maps.of("path", "g/" + agentId))
 				.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 			ACell result = job.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 			ACell record = RT.getIn(result, "value");
-			if (!(record instanceof AMap)) return null;
-
-			AMap<ACell, ACell> sessions = asMap(RT.getIn(record, "sessions"));
-			String bestSid = null;
-			long bestTs = Long.MIN_VALUE;
-			AVector<ACell> bestConversation = null;
-			if (sessions != null) {
-				for (long i = 0; i < sessions.count(); i++) {
-					MapEntry<ACell, ACell> entry = sessions.entryAt(i);
-					AVector<ACell> conversation = conversationOf(entry.getValue());
-					if (conversation == null || conversation.isEmpty()) continue;
-					long ts = latestTurnTs(conversation);
-					if (ts >= bestTs) {
-						bestTs = ts;
-						bestSid = sidHex(entry.getKey());
-						bestConversation = conversation;
-					}
-				}
-			}
-			List<Item> items = (bestConversation != null) ? project(bestConversation) : List.of();
-			return new Snapshot(record, bestSid, items);
+			return (record instanceof AMap) ? record : null;
 		} catch (Exception e) {
-			log.warn("Could not read live conversation for {}: {}", agentId, e.toString());
+			log.warn("Could not read agent record {}: {}", agentId, e.toString());
 			return null;
 		}
+	}
+
+	/** Enumerates the sessions in an already-read agent record, newest first. */
+	public static List<Session> sessionsOf(ACell record) {
+		List<Session> out = new ArrayList<>();
+		AMap<ACell, ACell> sessions = asMap(RT.getIn(record, "sessions"));
+		if (sessions != null) {
+			for (long i = 0; i < sessions.count(); i++) {
+				MapEntry<ACell, ACell> entry = sessions.entryAt(i);
+				AVector<ACell> conversation = conversationOf(entry.getValue());
+				if (conversation == null || conversation.isEmpty()) continue;
+				out.add(new Session(sidHex(entry.getKey()), titleOf(conversation), latestTurnTs(conversation)));
+			}
+		}
+		out.sort((a, b) -> Long.compare(b.lastTs(), a.lastTs()));
+		return out;
+	}
+
+	/** Projects one session (by hex id) from an already-read record, or the latest. */
+	public static Snapshot snapshotOf(ACell record, String sessionId) {
+		if (!(record instanceof AMap)) return null;
+		AMap<ACell, ACell> sessions = asMap(RT.getIn(record, "sessions"));
+		if (sessions != null && sessionId != null) {
+			for (long i = 0; i < sessions.count(); i++) {
+				MapEntry<ACell, ACell> entry = sessions.entryAt(i);
+				if (!sessionId.equals(sidHex(entry.getKey()))) continue;
+				AVector<ACell> conversation = conversationOf(entry.getValue());
+				List<Item> items = (conversation != null) ? project(conversation) : List.of();
+				return new Snapshot(record, sessionId, items);
+			}
+		}
+		return latestFrom(record);
+	}
+
+	/** Projects the most-recently-active session from an already-read record. */
+	private static Snapshot latestFrom(ACell record) {
+		if (!(record instanceof AMap)) return null;
+		AMap<ACell, ACell> sessions = asMap(RT.getIn(record, "sessions"));
+		String bestSid = null;
+		long bestTs = Long.MIN_VALUE;
+		AVector<ACell> bestConversation = null;
+		if (sessions != null) {
+			for (long i = 0; i < sessions.count(); i++) {
+				MapEntry<ACell, ACell> entry = sessions.entryAt(i);
+				AVector<ACell> conversation = conversationOf(entry.getValue());
+				if (conversation == null || conversation.isEmpty()) continue;
+				long ts = latestTurnTs(conversation);
+				if (ts >= bestTs) {
+					bestTs = ts;
+					bestSid = sidHex(entry.getKey());
+					bestConversation = conversation;
+				}
+			}
+		}
+		List<Item> items = (bestConversation != null) ? project(bestConversation) : List.of();
+		return new Snapshot(record, bestSid, items);
+	}
+
+	/** A session's title: its first non-blank user message, first line, truncated. */
+	private static String titleOf(AVector<ACell> conversation) {
+		for (long i = 0; i < conversation.count(); i++) {
+			ACell turn = conversation.get(i);
+			if (!ROLE_USER.equals(str(RT.getIn(turn, "role")))) continue;
+			String content = str(RT.getIn(turn, "content"));
+			if (notBlank(content)) return firstLine(content);
+		}
+		return "New conversation";
+	}
+
+	private static String firstLine(String s) {
+		String line = s.strip();
+		int nl = line.indexOf('\n');
+		if (nl >= 0) line = line.substring(0, nl).strip();
+		return (line.length() <= 48) ? line : line.substring(0, 47).strip() + "…";
 	}
 
 	@SuppressWarnings("unchecked")
