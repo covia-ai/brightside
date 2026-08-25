@@ -82,6 +82,15 @@ window that talks to an agent on that venue. Single Maven module,
   message. This reads the `AgentState` schema directly (public field names)
   because the purpose-built `agent:sessionRead` projection is restricted to an
   agent's own execution context, so it isn't callable by the owner.
+- **Change detection is a lattice value compare.** `ConversationWatcher` polls
+  the agent value (`SessionHistory.loadLatest`) every few seconds while the chat
+  is showing and compares it with `.equals` to the last one shown — lattice
+  values are immutable and content-addressed, so an unchanged conversation is an
+  equal value and any change (a new turn, an edit from another client, an
+  out-of-band agent update) is a different one. Only then does it refresh, and
+  `ChatPanel.refreshTo` re-renders only if the projected turns actually differ
+  from what's on screen (so the app's own turns don't cause a redundant
+  re-render). *File → Refresh* forces an immediate compare.
 - **`BrightsideAdapter` is the venue extension.** A real Covia `AAdapter`
   (`covia.brightside.BrightsideAdapter`), registered on the embedded engine in
   `EmbeddedVenue.launch`. Its `installAssets()` installs the shipped skills

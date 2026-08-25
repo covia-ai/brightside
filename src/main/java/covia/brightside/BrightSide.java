@@ -44,6 +44,7 @@ public final class BrightSide {
 	private final Path configPath;
 	private volatile EmbeddedVenue venue;
 	private volatile ChatSession chat;
+	private volatile ConversationWatcher watcher; // event thread
 	private volatile Identity identity;
 	private MainWindow window; // event thread only
 	private TrayManager tray; // event thread only
@@ -199,15 +200,24 @@ public final class BrightSide {
 		} catch (Exception e) {
 			log.warn("Chat agent not ready", e);
 		}
-		SessionHistory.Conversation history = SessionHistory.loadLatest(client, config.chat().agentId());
+		String agentId = config.chat().agentId();
+		SessionHistory.Snapshot history = SessionHistory.loadLatest(client, agentId);
 		if (history != null) session.resume(history.sessionId());
 		List<SessionHistory.Turn> turns = (history != null) ? history.turns() : List.of();
+		convex.core.data.ACell baseline = (history != null) ? history.agentValue() : null;
 		log.info("Chatting as {} ({}) — reopened {} live message(s)", id.label(), userDID, turns.size());
 
 		SwingUtilities.invokeLater(() -> {
 			if (firstStart) window.showChat(v, session, id, turns);
 			else window.userChanged(session, id, turns);
 			if (tray != null) tray.setTooltip(APP_NAME + " — " + id.name());
+			// Watch the venue's agent value and refresh the transcript when it changes.
+			ConversationWatcher w = watcher;
+			if (w != null) w.stop();
+			watcher = new ConversationWatcher(client, agentId, baseline,
+				() -> window.isChatShowing(),
+				s -> window.refreshConversation(s.turns()));
+			watcher.start();
 		});
 	}
 
@@ -249,6 +259,12 @@ public final class BrightSide {
 	/** Minimise: to the tray when there is one, otherwise the usual taskbar minimise. */
 	public void onWindowIconified() {
 		if (tray != null) hideToTray();
+	}
+
+	/** Force an immediate lattice value compare and refresh the transcript if it changed. */
+	public void refreshNow() {
+		ConversationWatcher w = watcher;
+		if (w != null) w.checkNow();
 	}
 
 	public void newConversation() {
@@ -312,6 +328,8 @@ public final class BrightSide {
 		if (!exiting.compareAndSet(false, true)) return;
 		log.info("Exit requested");
 		SwingUtilities.invokeLater(() -> {
+			ConversationWatcher w = watcher;
+			if (w != null) w.stop();
 			if (window != null) window.setVisible(false);
 			if (tray != null) tray.remove();
 		});

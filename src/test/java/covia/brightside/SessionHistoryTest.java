@@ -1,6 +1,7 @@
 package covia.brightside;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -61,12 +62,19 @@ class SessionHistoryTest {
 		assertNotNull(sid);
 
 		// A fresh reader (as on restart) sees the same session and its turns.
-		SessionHistory.Conversation conv = SessionHistory.loadLatest(client, "hist-agent");
+		SessionHistory.Snapshot conv = SessionHistory.loadLatest(client, "hist-agent");
 		assertNotNull(conv, "live conversation is readable");
+		assertNotNull(conv.agentValue(), "carries the agent value for change comparison");
 		assertEquals(sid, conv.sessionId(), "reopens the same session");
 		assertTrue(conv.turns().stream()
 			.anyMatch(t -> t.role().equals("user") && t.text().contains("remember this line")),
 			"transcript contains the user turn");
+
+		// The lattice value compare: a new turn changes the agent value.
+		s.send("another line");
+		SessionHistory.Snapshot after = SessionHistory.loadLatest(client, "hist-agent");
+		assertNotNull(after);
+		assertNotEquals(conv.agentValue(), after.agentValue(), "the agent value changed");
 	}
 
 	@Test

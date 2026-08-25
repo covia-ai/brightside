@@ -53,6 +53,7 @@ public final class ChatPanel extends JPanel {
 	private final JTextArea input = new JTextArea(1, 20);
 	private final JButton send = new JButton("Send");
 
+	private final java.util.List<SessionHistory.Turn> displayed = new java.util.ArrayList<>();
 	private volatile ChatSession session;
 	private boolean busy;
 
@@ -125,15 +126,28 @@ public final class ChatPanel extends JPanel {
 	/** Replaces the transcript with the venue's live conversation turns. */
 	public void restore(List<SessionHistory.Turn> turns) {
 		column.clear();
+		displayed.clear();
 		for (SessionHistory.Turn t : turns) {
+			displayed.add(t);
 			column.add(bubbleRow(t.text(), "user".equals(t.role())));
 		}
 		column.revalidate();
 		scrollToBottom();
 	}
 
+	/**
+	 * Re-render only if the live turns differ from what's shown. The change was
+	 * already detected by a lattice value compare; this avoids a redundant
+	 * re-render (and flicker) when the shown turns already match.
+	 */
+	public void refreshTo(List<SessionHistory.Turn> live) {
+		if (live.equals(displayed)) return;
+		restore(live);
+	}
+
 	public void clearMessages() {
 		column.clear();
+		displayed.clear();
 		column.revalidate();
 		column.repaint();
 	}
@@ -184,8 +198,10 @@ public final class ChatPanel extends JPanel {
 	}
 
 	private void addTurn(String role, String text) {
-		// The turn is recorded by the venue in the agent session; the UI just
-		// reflects it, and re-reads live state on the next launch.
+		// The turn is recorded by the venue in the agent session; the UI reflects
+		// it optimistically and keeps `displayed` in step so the watcher's compare
+		// doesn't re-render our own turns.
+		displayed.add(new SessionHistory.Turn(role, text));
 		column.add(bubbleRow(text, "user".equals(role)));
 		column.revalidate();
 		scrollToBottom();

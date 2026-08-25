@@ -122,6 +122,7 @@ public final class MainWindow extends JFrame {
 		JMenu file = new JMenu("File");
 		file.setMnemonic(KeyEvent.VK_F);
 		file.add(item("New chat", KeyStroke.getKeyStroke(KeyEvent.VK_N, shortcut), e -> app.newConversation()));
+		file.add(item("Refresh", KeyStroke.getKeyStroke(KeyEvent.VK_R, shortcut), e -> app.refreshNow()));
 		changeNameItem = item("Change my name…", null, e -> app.changeName());
 		changeNameItem.setEnabled(false);
 		file.add(changeNameItem);
@@ -206,6 +207,16 @@ public final class MainWindow extends JFrame {
 	/** Clear the transcript for a new chat. */
 	public void clearChat() {
 		chatPanel.clearMessages();
+	}
+
+	/** Update the transcript to the venue's live conversation (only re-renders if changed). */
+	public void refreshConversation(List<SessionHistory.Turn> turns) {
+		chatPanel.refreshTo(turns);
+	}
+
+	/** True while the chat is on screen — the watcher only polls then. */
+	public boolean isChatShowing() {
+		return isShowing() && CARD_CHAT.equals(currentCard);
 	}
 
 	/** Show the name screen so the person can change how they're addressed. */
