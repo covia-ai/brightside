@@ -44,6 +44,7 @@
 		     Convex then Covia locally (mvn install) before building Brightside. -->
 		<covia.version>0.10.0-SNAPSHOT</covia.version>
 		<flatlaf.version>3.7.2</flatlaf.version>
+		<inter.version>4.1</inter.version>
 		<junit.version>6.1.3</junit.version>
 
 		<main.class>covia.brightside.BrightSide</main.class>
@@ -62,6 +63,14 @@
 			<groupId>com.formdev</groupId>
 			<artifactId>flatlaf</artifactId>
 			<version>${flatlaf.version}</version>
+		</dependency>
+
+		<!-- Inter, bundled: the UI's default font, so it's identical on every
+		     platform without relying on a system install. -->
+		<dependency>
+			<groupId>com.formdev</groupId>
+			<artifactId>flatlaf-fonts-inter</artifactId>
+			<version>${inter.version}</version>
 		</dependency>
 
 		<dependency>

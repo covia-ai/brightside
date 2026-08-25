@@ -67,7 +67,10 @@ window that talks to an agent on that venue. Single Maven module,
   window shows is what any other client of the venue would see.
 - **Look and feel.** `LAF` installs FlatLaf's macOS-style themes
   (`FlatMacDarkLaf`/`FlatMacLightLaf`) with a purple accent and rounded
-  geometry — keep it modern. The chat UI lives in its own
+  geometry — keep it modern. The default font is **Inter**, bundled via
+  `flatlaf-fonts-inter` (so it's identical on every platform, no system install
+  needed) at a comfortable 15pt base (`BASE_FONT_SIZE`); components derive their
+  sizes from that. The window opens at 1040×760 (min 720×520). The chat UI lives in its own
   `covia.brightside.ui.chat` package, one component per file: `ChatPanel` (the
   container, which owns send/copy), `Bubble` (a rounded, selectable message),
   `MessageColumn` (the scrolling, width-tracking column), `TypingIndicator`

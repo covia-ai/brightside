@@ -129,8 +129,8 @@ public final class MainWindow extends JFrame {
 			}
 		});
 
-		setSize(780, 600);
-		setMinimumSize(new Dimension(460, 420));
+		setSize(1040, 760);
+		setMinimumSize(new Dimension(720, 520));
 		setLocationRelativeTo(null);
 
 		if (startOnWelcome) {
