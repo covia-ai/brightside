@@ -44,12 +44,16 @@ import covia.brightside.ui.chat.ConversationList;
 @SuppressWarnings("serial")
 public final class MainWindow extends JFrame {
 
+	private static final String CARD_ONBOARD = "onboarding";
+	private static final String CARD_UNLOCK = "unlock";
 	private static final String CARD_WELCOME = "welcome";
 	private static final String CARD_CHAT = "chat";
 
 	private final BrightSide app;
 	private final CardLayout cards = new CardLayout();
 	private final JPanel deck = new JPanel(cards);
+	private final covia.brightside.ui.onboarding.OnboardingWizard onboarding;
+	private final covia.brightside.ui.onboarding.UnlockPanel unlock;
 	private final WelcomePanel welcomePanel;
 	private final ChatPanel chatPanel = new ChatPanel();
 	private final ConversationList conversations;
@@ -63,12 +67,15 @@ public final class MainWindow extends JFrame {
 	private Identity identity;
 	private String currentCard;
 
-	public MainWindow(BrightSide app, boolean startOnWelcome, String welcomePrefill) {
+	public MainWindow(BrightSide app) {
 		super(BrightSide.APP_NAME);
 		this.app = app;
 		setIconImages(Icons.appIcons());
 		setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
 		setJMenuBar(buildMenuBar());
+
+		onboarding = new covia.brightside.ui.onboarding.OnboardingWizard(app::onOnboardingComplete);
+		unlock = new covia.brightside.ui.onboarding.UnlockPanel(app::onUnlock);
 
 		welcomePanel = new WelcomePanel(new WelcomePanel.Listener() {
 			@Override
@@ -119,6 +126,8 @@ public final class MainWindow extends JFrame {
 		chatCard.add(chatPanel, BorderLayout.CENTER);
 		chatCard.add(buildStatusBar(), BorderLayout.SOUTH);
 
+		deck.add(onboarding, CARD_ONBOARD);
+		deck.add(unlock, CARD_UNLOCK);
 		deck.add(welcomePanel, CARD_WELCOME);
 		deck.add(chatCard, CARD_CHAT);
 		add(deck, BorderLayout.CENTER);
@@ -138,14 +147,36 @@ public final class MainWindow extends JFrame {
 		setSize(1040, 760);
 		setMinimumSize(new Dimension(720, 520));
 		setLocationRelativeTo(null);
+		// The first screen is chosen by BrightSide.start() (onboarding / unlock /
+		// name / chat), via the show* methods below.
+	}
 
-		if (startOnWelcome) {
-			welcomePanel.prepare(welcomePrefill, false);
-			show(CARD_WELCOME);
-		} else {
-			chatPanel.appendSystem("Just a moment while everything starts up…");
-			show(CARD_CHAT);
-		}
+	/** First-run: the onboarding wizard. */
+	public void showOnboarding() {
+		show(CARD_ONBOARD);
+	}
+
+	/** Returning with a vault: the unlock screen. */
+	public void showUnlock() {
+		show(CARD_UNLOCK);
+		java.awt.EventQueue.invokeLater(unlock::focusField);
+	}
+
+	/** A wrong passphrase on the unlock screen. */
+	public void unlockError(String message) {
+		unlock.showError(message);
+	}
+
+	/** Legacy first-run without a vault: just ask for a name. */
+	public void showNameEntry(String prefill) {
+		welcomePanel.prepare(prefill, false);
+		show(CARD_WELCOME);
+	}
+
+	/** Returning (legacy or unlocked): the chat, starting up. */
+	public void showChatStartup() {
+		chatPanel.appendSystem("Just a moment while everything starts up…");
+		show(CARD_CHAT);
 	}
 
 	// ------------------------------------------------------------------

@@ -4,8 +4,6 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Duration;
 
 import org.slf4j.Logger;
@@ -58,12 +56,12 @@ public final class Takeover {
 	 * operator via a token signed with {@code venueKey}. Throws if the request is
 	 * rejected (e.g. wrong key, or the op is unavailable on an older instance).
 	 */
-	public static void requestShutdown(int port, String venueDID, Path venueKey) throws Exception {
+	public static void requestShutdown(int port, String venueDID, String seedHex) throws Exception {
 		if (venueDID == null) throw new IllegalStateException("could not read the running venue's DID");
-		if (!Files.isReadable(venueKey)) {
-			throw new IllegalStateException("venue key not found at " + venueKey);
+		if (seedHex == null || seedHex.isBlank()) {
+			throw new IllegalStateException("no venue key available to authorise the shutdown");
 		}
-		AKeyPair keyPair = AKeyPair.create(Blob.fromHex(Files.readString(venueKey).trim()));
+		AKeyPair keyPair = AKeyPair.create(Blob.fromHex(seedHex.trim()));
 		long now = System.currentTimeMillis() / 1000;
 		String token = JWT.signPublic(Maps.of(
 			"sub", venueDID, "iss", venueDID, "aud", venueDID,

@@ -4,6 +4,7 @@ import java.awt.Desktop;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -28,9 +29,12 @@ import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.joran.JoranConfigurator;
 import convex.core.util.Shutdown;
 import covia.brightside.chat.ChatSession;
+import covia.brightside.model.Providers;
 import covia.brightside.ui.LAF;
 import covia.brightside.ui.MainWindow;
 import covia.brightside.ui.TrayManager;
+import covia.brightside.ui.onboarding.OnboardingWizard;
+import covia.brightside.vault.Vault;
 
 /**
  * BrightSide: a Covia venue on the desktop.
@@ -65,6 +69,13 @@ public final class BrightSide {
 	private TrayManager tray; // event thread only
 	private final AtomicBoolean exiting = new AtomicBoolean();
 	private final AtomicBoolean chatStarted = new AtomicBoolean();
+	private volatile Vault vault; // set once onboarded/unlocked
+	private volatile String venueSeedHex; // the venue's Ed25519 seed hex (authorises operator takeover)
+	private volatile String llmOverride; // chosen model op for the first onboarding launch
+
+	private enum Mode {
+		ONBOARD, UNLOCK, LEGACY
+	}
 
 	BrightSide(AppConfig config, Path configPath) {
 		this.config = config;
@@ -100,12 +111,20 @@ public final class BrightSide {
 	void start() {
 		Identity saved = Identity.load(config.home());
 		identity = saved;
-		boolean welcome = (saved == null);
-		String prefill = welcome ? Identity.suggestName() : null;
+		Mode mode = decideMode();
+		String prefill = (saved == null) ? Identity.suggestName() : null;
 		try {
 			SwingUtilities.invokeAndWait(() -> {
 				tray = TrayManager.install(this);
-				window = new MainWindow(this, welcome, prefill);
+				window = new MainWindow(this);
+				switch (mode) {
+					case ONBOARD -> window.showOnboarding();
+					case UNLOCK -> window.showUnlock();
+					case LEGACY -> {
+						if (saved == null) window.showNameEntry(prefill);
+						else window.showChatStartup();
+					}
+				}
 				window.setVisible(true);
 			});
 		} catch (Exception e) {
@@ -114,12 +133,29 @@ public final class BrightSide {
 		// Flush venue state on any JVM exit (Ctrl-C, SIGTERM) ahead of Convex's
 		// own store shutdown — the same ordering MainVenue uses.
 		Shutdown.addHook(Shutdown.SERVER - 10, this::closeVenue);
-		Thread t = new Thread(this::launchVenue, "brightside-venue");
+		// Onboarding/unlock launch the venue once the person completes them; a
+		// legacy (unencrypted) install brings it straight up.
+		if (mode == Mode.LEGACY) {
+			venueSeedHex = readSeedFile(config.home().resolve("venue.key"));
+			launchInBackground(config.venueConfig());
+		}
+	}
+
+	/** ONBOARD if brand new, UNLOCK if a vault exists, else LEGACY (existing unencrypted install). */
+	private Mode decideMode() {
+		Path home = config.home();
+		if (Vault.exists(home)) return Mode.UNLOCK;
+		boolean legacy = Files.exists(home.resolve("venue.etch")) || Files.exists(home.resolve("venue.key"));
+		return legacy ? Mode.LEGACY : Mode.ONBOARD;
+	}
+
+	private void launchInBackground(AMap<AString, ACell> venueConfig) {
+		Thread t = new Thread(() -> launchVenueWith(venueConfig), "brightside-venue");
 		t.setDaemon(true);
 		t.start();
 	}
 
-	private void launchVenue() {
+	private void launchVenueWith(AMap<AString, ACell> venueConfig) {
 		try {
 			// Another instance already holds the venue store? Offer to take over
 			// (ask it to shut down cleanly) rather than fail on the store lock.
@@ -129,13 +165,107 @@ public final class BrightSide {
 				System.exit(0);
 				return;
 			}
-			EmbeddedVenue v = EmbeddedVenue.launch(config.venueConfig(), this::exit);
+			EmbeddedVenue v = EmbeddedVenue.launch(venueConfig, this::exit);
 			venue = v;
 			log.info("Venue '{}' ready at {} as {}", v.name(), v.url(), v.did());
 			onVenueReady();
 		} catch (Throwable t) {
 			log.error("Venue failed to start", t);
 			SwingUtilities.invokeLater(() -> window.startupFailed(t));
+		}
+	}
+
+	/**
+	 * First-run onboarding is done: derive the vault, store the encrypted seed,
+	 * remember the name and model, and bring up the encrypted venue. Called on the
+	 * event thread; the work runs off it.
+	 */
+	public void onOnboardingComplete(OnboardingWizard.Setup setup) {
+		Thread t = new Thread(() -> {
+			try {
+				Path home = config.home();
+				Vault v = Vault.open(home, setup.passphrase());
+				v.storeSeed(setup.seedHex());
+				this.vault = v;
+				this.venueSeedHex = setup.seedHex();
+
+				identity = Identity.of(setup.name());
+				persistIdentity(identity);
+
+				// Encrypted store + this exact identity, plus the API key provisioned
+				// into the (encrypted) secret store — none of it written in the clear.
+				AMap<AString, ACell> venueConfig = v.secure(config.venueConfig(), setup.seedHex());
+				if (setup.apiKey() != null && setup.providerId() != null) {
+					String secretName = Providers.byId(setup.providerId()).secretName();
+					if (secretName != null) venueConfig = withPublicSecret(venueConfig, secretName, setup.apiKey());
+				}
+				llmOverride = (setup.providerId() == null)
+					? AppConfig.ECHO_LLM_OPERATION
+					: Providers.modelOp(setup.providerId(), setup.modelId());
+				config.persistModel(llmOverride);
+
+				launchVenueWith(venueConfig);
+			} catch (Exception e) {
+				log.error("Onboarding failed", e);
+				SwingUtilities.invokeLater(() -> window.startupFailed(e));
+			}
+		}, "brightside-onboard");
+		t.setDaemon(true);
+		t.start();
+	}
+
+	/** Returning user entered a passphrase: derive the vault, decrypt the seed, launch. */
+	public void onUnlock(char[] passphrase) {
+		Thread t = new Thread(() -> {
+			try {
+				Vault v = Vault.open(config.home(), passphrase);
+				String seedHex = v.seedHex(); // throws on a wrong passphrase (GCM tag)
+				this.vault = v;
+				this.venueSeedHex = seedHex;
+				AMap<AString, ACell> venueConfig = v.secure(config.venueConfig(), seedHex);
+				SwingUtilities.invokeLater(window::showChatStartup);
+				launchVenueWith(venueConfig);
+			} catch (IOException e) {
+				SwingUtilities.invokeLater(() -> window.unlockError("That passphrase didn't work."));
+			} catch (Exception e) {
+				log.error("Unlock failed", e);
+				SwingUtilities.invokeLater(() -> window.unlockError("Couldn't unlock — see the logs."));
+			}
+		}, "brightside-unlock");
+		t.setDaemon(true);
+		t.start();
+	}
+
+	/** Injects a public secret (an API key) into an in-memory venue config, merged. */
+	private static AMap<AString, ACell> withPublicSecret(AMap<AString, ACell> venueConfig, String name, String value) {
+		AString secretsKey = Strings.create("secrets");
+		AString publicKey = Strings.create("public");
+		AMap<AString, ACell> secrets = asMap(venueConfig.get(secretsKey));
+		AMap<AString, ACell> pub = asMap((secrets != null) ? secrets.get(publicKey) : null);
+		if (pub == null) pub = Maps.empty();
+		pub = pub.assoc(Strings.create(name), Strings.create(value));
+		if (secrets == null) secrets = Maps.empty();
+		secrets = secrets.assoc(publicKey, pub);
+		return venueConfig.assoc(secretsKey, secrets);
+	}
+
+	@SuppressWarnings("unchecked")
+	private static AMap<AString, ACell> asMap(ACell cell) {
+		return (cell instanceof AMap<?, ?> m) ? (AMap<AString, ACell>) m : null;
+	}
+
+	/** The chat config with the chosen model applied (onboarding's, else the saved one). */
+	private AppConfig.Chat effectiveChat() {
+		AppConfig.Chat c = config.chat();
+		if (llmOverride == null || llmOverride.equals(c.llmOperation())) return c;
+		return new AppConfig.Chat(c.agentId(), c.operation(), llmOverride, c.systemPrompt(), c.timeoutSeconds());
+	}
+
+	private static String readSeedFile(Path keyFile) {
+		try {
+			return Files.isReadable(keyFile) ? Files.readString(keyFile).trim() : null;
+		} catch (IOException e) {
+			return null;
 		}
 	}
 
@@ -147,7 +277,7 @@ public final class BrightSide {
 	private boolean takeOver(int port) throws Exception {
 		if (!confirmTakeover()) return false;
 		log.info("Taking over from a running Brightside instance on port {}", port);
-		Takeover.requestShutdown(port, Takeover.venueDID(port), config.home().resolve("venue.key"));
+		Takeover.requestShutdown(port, Takeover.venueDID(port), venueSeedHex);
 		if (!Takeover.waitUntilDown(port, 20_000)) {
 			throw new IllegalStateException("the previous instance did not shut down in time");
 		}
@@ -246,7 +376,7 @@ public final class BrightSide {
 	private void startChat(EmbeddedVenue v, Identity id, boolean firstStart) {
 		String did = id.userDID(v.did());
 		covia.grid.Venue userClient = v.clientAs(did);
-		ChatSession session = new ChatSession(userClient, config.chat(), id.name());
+		ChatSession session = new ChatSession(userClient, effectiveChat(), id.name());
 		chat = session;
 
 		// Create/refresh the agent, then read the last conversation from the

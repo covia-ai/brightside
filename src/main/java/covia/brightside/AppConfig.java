@@ -121,12 +121,42 @@ public final class AppConfig {
 		this.theme = string(raw, "theme", DEFAULT_THEME);
 		this.venue = merge(defaultVenue(home), RT.ensureMap(raw.get(Strings.create("venue"))));
 		AMap<AString, ACell> c = RT.ensureMap(raw.get(Strings.create("chat")));
+		// The chosen model persists in a small side-file (model.txt), so changing
+		// it in onboarding/Settings never rewrites the commented config.json.
+		String model = readModel(home);
+		if (model == null) model = string(c, "llmOperation", DEFAULT_LLM_OPERATION);
 		this.chat = new Chat(
 			string(c, "agentId", DEFAULT_AGENT_ID),
 			string(c, "operation", DEFAULT_OPERATION),
-			string(c, "llmOperation", DEFAULT_LLM_OPERATION),
+			model,
 			string(c, "systemPrompt", DEFAULT_SYSTEM_PROMPT),
 			longValue(c, "timeout", DEFAULT_TIMEOUT_SECONDS));
+	}
+
+	/** File holding the chosen model operation, so it survives restarts without a config rewrite. */
+	static final String MODEL_FILE = "model.txt";
+
+	/** Persists the chosen model operation ({@code v/models/<provider>/<id>}). Best-effort. */
+	public void persistModel(String llmOperation) {
+		try {
+			Files.createDirectories(home);
+			Files.writeString(home.resolve(MODEL_FILE), llmOperation);
+		} catch (IOException e) {
+			log.warn("Could not save the chosen model", e);
+		}
+	}
+
+	private static String readModel(Path home) {
+		try {
+			Path f = home.resolve(MODEL_FILE);
+			if (Files.isRegularFile(f)) {
+				String s = Files.readString(f).trim();
+				if (!s.isEmpty()) return s;
+			}
+		} catch (IOException ignored) {
+			// fall back to config.json / default
+		}
+		return null;
 	}
 
 	/**
