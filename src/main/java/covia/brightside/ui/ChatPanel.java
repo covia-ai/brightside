@@ -34,7 +34,7 @@ import javax.swing.SwingWorker;
 import javax.swing.UIManager;
 import javax.swing.text.DefaultEditorKit;
 
-import covia.brightside.ConversationStore;
+import covia.brightside.SessionHistory;
 import covia.brightside.chat.ChatSession;
 
 /**
@@ -46,11 +46,6 @@ import covia.brightside.chat.ChatSession;
 @SuppressWarnings("serial")
 public final class ChatPanel extends JPanel {
 
-	/** Notified of each real turn so the app can persist the conversation. */
-	public interface MessageSink {
-		void onMessage(String role, String text);
-	}
-
 	private static final Color ERROR_RED = new Color(0xE5, 0x53, 0x53);
 
 	private final MessageColumn column = new MessageColumn();
@@ -60,7 +55,6 @@ public final class ChatPanel extends JPanel {
 
 	private volatile ChatSession session;
 	private boolean busy;
-	private MessageSink sink;
 
 	public ChatPanel() {
 		super(new BorderLayout());
@@ -121,10 +115,6 @@ public final class ChatPanel extends JPanel {
 	// Wiring
 	// ------------------------------------------------------------------
 
-	public void setSink(MessageSink sink) {
-		this.sink = sink;
-	}
-
 	/** Connects a live session and opens the input box (does not clear the transcript). */
 	public void setSession(ChatSession session) {
 		this.session = session;
@@ -132,12 +122,11 @@ public final class ChatPanel extends JPanel {
 		focusInput();
 	}
 
-	/** Replaces the transcript with saved messages (no persistence side effects). */
-	public void restore(List<ConversationStore.Msg> messages) {
+	/** Replaces the transcript with the venue's live conversation turns. */
+	public void restore(List<SessionHistory.Turn> turns) {
 		column.clear();
-		for (ConversationStore.Msg m : messages) {
-			boolean user = "user".equals(m.role());
-			column.add(bubbleRow(m.text(), user));
+		for (SessionHistory.Turn t : turns) {
+			column.add(bubbleRow(t.text(), "user".equals(t.role())));
 		}
 		column.revalidate();
 		scrollToBottom();
@@ -168,7 +157,7 @@ public final class ChatPanel extends JPanel {
 		String text = input.getText().trim();
 		if (text.isEmpty()) return;
 		input.setText("");
-		addTurn("user", text, true);
+		addTurn("user", text);
 		busy = true;
 		setInputEnabled(false);
 
@@ -183,7 +172,7 @@ public final class ChatPanel extends JPanel {
 				busy = false;
 				setInputEnabled(true);
 				try {
-					addTurn("assistant", get().text(), true);
+					addTurn("assistant", get().text());
 				} catch (ExecutionException e) {
 					appendError(describe(e.getCause() != null ? e.getCause() : e));
 				} catch (Exception e) {
@@ -194,11 +183,12 @@ public final class ChatPanel extends JPanel {
 		}.execute();
 	}
 
-	private void addTurn(String role, String text, boolean persist) {
+	private void addTurn(String role, String text) {
+		// The turn is recorded by the venue in the agent session; the UI just
+		// reflects it, and re-reads live state on the next launch.
 		column.add(bubbleRow(text, "user".equals(role)));
 		column.revalidate();
 		scrollToBottom();
-		if (persist && sink != null) sink.onMessage(role, text);
 	}
 
 	/** A note from Brightside itself (status, hints) — centred and muted. */

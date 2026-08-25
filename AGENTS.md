@@ -70,14 +70,18 @@ window that talks to an agent on that venue. Single Maven module,
   geometry — keep it modern. `ChatPanel` renders real **bubbles** (a scrolling
   column of rounded `Bubble`s: user right/accent, assistant left/surface),
   not a plain text pane.
-- **The last conversation reopens on restart.** `ConversationStore`
-  (`~/.brightside/conversations/<slug>.json`, per user) keeps the displayed
-  transcript and the agent session id; on start `startChat` restores the
-  transcript and `ChatSession.resume(sessionId)` continues the same agent
-  session (falling back to a new one if the venue no longer knows it, so a
-  stale id never blocks chatting). The venue's session store remains the
-  source of truth for the model's context; this is a display/continuity
-  mirror. *File → New chat* clears it.
+- **Brightside runs off the venue's live session state — no local transcript
+  copy.** On start `startChat` reads the most recently active conversation
+  straight from the agent's session store (`SessionHistory.loadLatest`:
+  `covia:read g/<agentId>` → newest `sessions[sid].frames[0].conversation`,
+  projecting user + completed-assistant turns), renders it, and
+  `ChatSession.resume(sessionId)` continues that same session (falling back to
+  a new one if the id is stale, so it never blocks chatting). The UI just
+  reflects turns as they happen; the venue records them, and the next launch
+  re-reads live state. *File → New chat* mints a fresh session on the next
+  message. This reads the `AgentState` schema directly (public field names)
+  because the purpose-built `agent:sessionRead` projection is restricted to an
+  agent's own execution context, so it isn't callable by the owner.
 - **`BrightsideAdapter` is the venue extension.** A real Covia `AAdapter`
   (`covia.brightside.BrightsideAdapter`), registered on the embedded engine in
   `EmbeddedVenue.launch`. Its `installAssets()` installs the shipped skills

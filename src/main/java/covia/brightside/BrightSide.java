@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.swing.JOptionPane;
@@ -43,7 +44,6 @@ public final class BrightSide {
 	private final Path configPath;
 	private volatile EmbeddedVenue venue;
 	private volatile ChatSession chat;
-	private volatile ConversationStore conversation;
 	private volatile Identity identity;
 	private MainWindow window; // event thread only
 	private TrayManager tray; // event thread only
@@ -185,30 +185,30 @@ public final class BrightSide {
 		t.start();
 	}
 
-	/** Binds a chat session to {@code id}'s principal and readies its agent. */
+	/** Binds a chat session to {@code id}'s principal and reopens its live conversation. */
 	private void startChat(EmbeddedVenue v, Identity id, boolean firstStart) {
 		String userDID = id.userDID(v.did());
-		ChatSession session = new ChatSession(v.clientAs(userDID), config.chat(), id.name());
+		covia.grid.Venue client = v.clientAs(userDID);
+		ChatSession session = new ChatSession(client, config.chat(), id.name());
 		chat = session;
-		// Reopen this user's last conversation and continue its agent session.
-		ConversationStore store = ConversationStore.load(config.home(), id.slug());
-		conversation = store;
-		session.resume(store.sessionId());
-		log.info("Chatting as {} ({}) — {} saved message(s)", id.label(), userDID, store.messages().size());
-		SwingUtilities.invokeLater(() -> {
-			if (firstStart) window.showChat(v, session, id, store);
-			else window.userChanged(session, id, store);
-			if (tray != null) tray.setTooltip(APP_NAME + " — " + id.name());
-		});
-		// Create/refresh the agent now, so the first message is quick and any
-		// configuration problem shows up straight away.
+
+		// Create/refresh the agent, then read the last conversation from the
+		// venue's live session state (the single source of truth) and continue it.
 		try {
 			session.ensureAgent();
 		} catch (Exception e) {
 			log.warn("Chat agent not ready", e);
-			SwingUtilities.invokeLater(() -> window.showSystemMessage(
-				"I'm having trouble getting ready: " + e.getMessage()));
 		}
+		SessionHistory.Conversation history = SessionHistory.loadLatest(client, config.chat().agentId());
+		if (history != null) session.resume(history.sessionId());
+		List<SessionHistory.Turn> turns = (history != null) ? history.turns() : List.of();
+		log.info("Chatting as {} ({}) — reopened {} live message(s)", id.label(), userDID, turns.size());
+
+		SwingUtilities.invokeLater(() -> {
+			if (firstStart) window.showChat(v, session, id, turns);
+			else window.userChanged(session, id, turns);
+			if (tray != null) tray.setTooltip(APP_NAME + " — " + id.name());
+		});
 	}
 
 	public AppConfig config() {
@@ -254,9 +254,9 @@ public final class BrightSide {
 	public void newConversation() {
 		ChatSession c = chat;
 		if (c == null) return;
+		// A fresh session is minted on the next message; the previous one stays
+		// in the venue's history but is no longer the one shown.
 		c.reset();
-		ConversationStore store = conversation;
-		if (store != null) store.clear();
 		SwingUtilities.invokeLater(() -> {
 			window.clearChat();
 			window.showSystemMessage("Started a new chat.");

@@ -1,5 +1,6 @@
 package covia.brightside.ui;
 
+import java.util.List;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
@@ -26,7 +27,7 @@ import javax.swing.UIManager;
 import javax.swing.WindowConstants;
 
 import covia.brightside.BrightSide;
-import covia.brightside.ConversationStore;
+import covia.brightside.SessionHistory;
 import covia.brightside.EmbeddedVenue;
 import covia.brightside.Identity;
 import covia.brightside.chat.ChatSession;
@@ -175,14 +176,15 @@ public final class MainWindow extends JFrame {
 	// ------------------------------------------------------------------
 
 	/** Everything is ready: show the chat, reopening the last conversation. */
-	public void showChat(EmbeddedVenue venue, ChatSession session, Identity identity, ConversationStore store) {
+	public void showChat(EmbeddedVenue venue, ChatSession session, Identity identity, List<SessionHistory.Turn> history) {
 		this.venue = venue;
 		this.identity = identity;
 		dashboardItem.setEnabled(true);
 		changeNameItem.setEnabled(true);
 		updateWho();
-		bindConversation(session, store);
-		if (store.isEmpty()) {
+		chatPanel.restore(history);
+		chatPanel.setSession(session);
+		if (history.isEmpty()) {
 			chatPanel.appendSystem("Hi " + identity.name()
 				+ " — I'm Brightside, ready whenever you are. Ask me anything.");
 		} else {
@@ -192,19 +194,13 @@ public final class MainWindow extends JFrame {
 	}
 
 	/** The name changed: rebind the chat to that user and their conversation. */
-	public void userChanged(ChatSession session, Identity identity, ConversationStore store) {
+	public void userChanged(ChatSession session, Identity identity, List<SessionHistory.Turn> history) {
 		this.identity = identity;
 		updateWho();
-		bindConversation(session, store);
+		chatPanel.restore(history);
+		chatPanel.setSession(session);
 		chatPanel.appendSystem("Okay — I'll call you " + identity.name() + " from now on.");
 		show(CARD_CHAT);
-	}
-
-	/** Connect the panel to the session and persist each turn to the store. */
-	private void bindConversation(ChatSession session, ConversationStore store) {
-		chatPanel.setSink((role, text) -> store.record(role, text, session.sessionId()));
-		chatPanel.restore(store.messages());
-		chatPanel.setSession(session);
 	}
 
 	/** Clear the transcript for a new chat. */
