@@ -21,6 +21,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
+import javax.swing.SwingUtilities;
 
 import covia.brightside.SessionHistory;
 import covia.brightside.ui.LAF;
@@ -118,22 +119,16 @@ public final class ConversationList extends JPanel {
 		row.addMouseListener(new MouseAdapter() {
 			@Override
 			public void mousePressed(MouseEvent e) {
-				maybePopup(e);
-			}
-
-			@Override
-			public void mouseReleased(MouseEvent e) {
-				maybePopup(e);
-			}
-
-			@Override
-			public void mouseClicked(MouseEvent e) {
-				if (!e.isPopupTrigger() && !s.sessionId().equals(selectedId)) {
+				// Select on press for a snappier feel; right-click opens the menu.
+				if (e.isPopupTrigger()) {
+					menuFor(s).show(row, e.getX(), e.getY());
+				} else if (SwingUtilities.isLeftMouseButton(e) && !s.sessionId().equals(selectedId)) {
 					listener.onSelectSession(s.sessionId());
 				}
 			}
 
-			private void maybePopup(MouseEvent e) {
+			@Override
+			public void mouseReleased(MouseEvent e) {
 				if (e.isPopupTrigger()) menuFor(s).show(row, e.getX(), e.getY());
 			}
 		});

@@ -28,6 +28,9 @@ final class Bubble extends JPanel {
 	private static final int ARC = 20;
 	private static final int PAD_H = 14;
 	private static final int PAD_V = 10;
+	// The text view needs a hair more width than FontMetrics measures, or it wraps
+	// the last word at its own natural width — leaving a too-thin, extra-line bubble.
+	private static final int WRAP_SLACK = 6;
 
 	private final JTextArea ta;
 	private final Color bg;
@@ -85,7 +88,7 @@ final class Bubble extends JPanel {
 		for (String line : ta.getText().split("\n", -1)) {
 			longest = Math.max(longest, fm.stringWidth(line));
 		}
-		int contentW = Math.min(longest, inner);
+		int contentW = Math.min(longest + WRAP_SLACK, inner);
 		ta.setSize(contentW, Short.MAX_VALUE);
 		int h = ta.getPreferredSize().height;
 		return new Dimension(contentW + 2 * PAD_H, h + 2 * PAD_V);

@@ -17,10 +17,13 @@ import covia.brightside.SessionHistory;
 
 /**
  * A collapsed "N tool steps" chip that expands to show a turn's intermediate
- * work — the assistant's "let me try…" narration and each tool call's name,
- * ✓/✕ outcome and (truncated) result. Collapsed by default so the final reply
- * is what the eye lands on, with the detail one click away. The narration and
- * results are {@link SelectableText} so they can be selected and copied.
+ * work — the assistant's "let me try…" narration and, for each tool call, a
+ * further expandable row revealing the call's arguments and its result.
+ * Collapsed by default so the final reply is what the eye lands on, with the
+ * detail one (or two) clicks away. Narration and results are
+ * {@link SelectableText} so they can be selected and copied. Disclosure
+ * chevrons and the ✓/✕ marks are painted ({@link ChatIcons}), not glyphs, so
+ * they render in any UI font.
  */
 @SuppressWarnings("serial")
 final class ExpandableActivity extends JPanel {
@@ -56,7 +59,7 @@ final class ExpandableActivity extends JPanel {
 		header.setAlignmentX(LEFT_ALIGNMENT);
 		header.addMouseListener(new MouseAdapter() {
 			@Override
-			public void mouseClicked(MouseEvent e) {
+			public void mousePressed(MouseEvent e) {
 				toggle();
 			}
 		});
@@ -81,35 +84,26 @@ final class ExpandableActivity extends JPanel {
 	}
 
 	private void updateHeader() {
-		header.setText((expanded ? "▾  " : "▸  ") + summary());
+		header.setIcon(ChatIcons.chevron(expanded, ChatStyle.muted()));
+		header.setText(summary());
 	}
 
 	private void toggle() {
 		expanded = !expanded;
 		body.setVisible(expanded);
 		updateHeader();
+		relayout();
+	}
+
+	/** Re-lay out this chip and let the host column reflow around it. */
+	private void relayout() {
 		revalidate();
 		if (onToggle != null) onToggle.run();
 	}
 
 	private Component stepComponent(SessionHistory.Step s) {
-		if (!s.tool()) {
-			return selectable(s.detail(), true);
-		}
-		JPanel p = new JPanel();
-		p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
-		p.setOpaque(false);
-		p.setBorder(BorderFactory.createEmptyBorder(2, 0, 4, 0));
-		p.setAlignmentX(LEFT_ALIGNMENT);
-		JLabel title = new JLabel((s.error() ? "✕ " : "✓ ") + s.title());
-		title.setForeground(s.error() ? ChatStyle.ERROR : ChatStyle.OK);
-		title.putClientProperty("FlatLaf.styleClass", "small");
-		title.setAlignmentX(LEFT_ALIGNMENT);
-		p.add(title);
-		if (s.detail() != null && !s.detail().isBlank()) {
-			p.add(selectable(ChatStyle.truncate(s.detail(), 800), false));
-		}
-		return p;
+		if (!s.tool()) return selectable(s.detail(), true);
+		return new ToolStep(s);
 	}
 
 	/** A selectable run of muted text that reports its selection to the panel. */
@@ -123,9 +117,90 @@ final class ExpandableActivity extends JPanel {
 		return t;
 	}
 
+	private static JLabel caption(String text) {
+		JLabel l = new JLabel(text);
+		l.putClientProperty("FlatLaf.styleClass", "mini");
+		l.setForeground(ChatStyle.muted());
+		l.setBorder(BorderFactory.createEmptyBorder(4, 0, 1, 0));
+		l.setAlignmentX(LEFT_ALIGNMENT);
+		return l;
+	}
+
 	@Override
 	public Dimension getMaximumSize() {
 		Dimension p = getPreferredSize();
 		return new Dimension(Math.min(p.width, 680), p.height);
+	}
+
+	/** One tool call as its own expandable row: a header (✓/✕ + name), and a
+	 *  body revealing the call's input arguments and its result. */
+	private final class ToolStep extends JPanel {
+
+		private final JLabel chevron;
+		private final JPanel detail;
+		private boolean open;
+
+		ToolStep(SessionHistory.Step s) {
+			setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+			setOpaque(false);
+			setAlignmentX(LEFT_ALIGNMENT);
+			setBorder(BorderFactory.createEmptyBorder(1, 0, 2, 0));
+
+			chevron = new JLabel(ChatIcons.chevron(false, ChatStyle.muted()));
+			JLabel status = new JLabel(ChatIcons.mark(!s.error(), s.error() ? ChatStyle.ERROR : ChatStyle.OK));
+			status.setBorder(BorderFactory.createEmptyBorder(0, 4, 0, 5));
+			JLabel name = new JLabel(s.title());
+			name.putClientProperty("FlatLaf.styleClass", "small");
+			name.setForeground(s.error() ? ChatStyle.ERROR : ChatStyle.foreground());
+
+			JPanel headerRow = new JPanel();
+			headerRow.setLayout(new BoxLayout(headerRow, BoxLayout.X_AXIS));
+			headerRow.setOpaque(false);
+			headerRow.setAlignmentX(LEFT_ALIGNMENT);
+			headerRow.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+			headerRow.add(chevron);
+			headerRow.add(status);
+			headerRow.add(name);
+			MouseAdapter toggle = new MouseAdapter() {
+				@Override
+				public void mousePressed(MouseEvent e) {
+					toggle();
+				}
+			};
+			headerRow.addMouseListener(toggle);
+			chevron.addMouseListener(toggle);
+			status.addMouseListener(toggle);
+			name.addMouseListener(toggle);
+
+			detail = new JPanel();
+			detail.setLayout(new BoxLayout(detail, BoxLayout.Y_AXIS));
+			detail.setOpaque(false);
+			detail.setBorder(BorderFactory.createEmptyBorder(0, 18, 4, 2));
+			detail.setVisible(false);
+			detail.setAlignmentX(LEFT_ALIGNMENT);
+			if (s.call() != null && !s.call().isBlank()) {
+				detail.add(caption("Input"));
+				detail.add(selectable(ChatStyle.truncate(s.call(), 1000), false));
+			}
+			if (s.detail() != null && !s.detail().isBlank()) {
+				detail.add(caption("Result"));
+				detail.add(selectable(ChatStyle.truncate(s.detail(), 1000), false));
+			}
+
+			add(headerRow);
+			add(detail);
+		}
+
+		private void toggle() {
+			open = !open;
+			detail.setVisible(open);
+			chevron.setIcon(ChatIcons.chevron(open, ChatStyle.muted()));
+			relayout();
+		}
+
+		@Override
+		public Dimension getMaximumSize() {
+			return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
+		}
 	}
 }

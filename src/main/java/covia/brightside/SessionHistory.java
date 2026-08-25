@@ -1,7 +1,9 @@
 package covia.brightside;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
@@ -67,10 +69,12 @@ public final class SessionHistory {
 	/**
 	 * One step within an {@link Activity}: either the assistant's narration
 	 * ({@code tool=false}, text in {@code detail}) or a tool call/result
-	 * ({@code tool=true}, {@code title} = tool name, {@code detail} = result,
-	 * {@code error} = whether it failed).
+	 * ({@code tool=true}, {@code title} = tool name, {@code call} = the call's
+	 * arguments, {@code detail} = the result, {@code error} = whether it failed).
+	 * {@code call} is null for narration steps and for tool results with no
+	 * captured arguments.
 	 */
-	public record Step(boolean tool, String title, String detail, boolean error) {
+	public record Step(boolean tool, String title, String detail, boolean error, String call) {
 	}
 
 	/**
@@ -267,6 +271,9 @@ public final class SessionHistory {
 	private static List<Item> project(AVector<ACell> conversation) {
 		List<Item> items = new ArrayList<>();
 		List<Step> pending = new ArrayList<>();
+		// Tool call id -> rendered arguments, captured from the assistant turn so
+		// the following tool-result turn (matched by id) can show its input too.
+		Map<String, String> callArgs = new HashMap<>();
 		for (long i = 0; i < conversation.count(); i++) {
 			ACell turn = conversation.get(i);
 			String role = str(RT.getIn(turn, "role"));
@@ -280,7 +287,8 @@ public final class SessionHistory {
 				}
 				case ROLE_ASSISTANT -> {
 					if (hasToolCalls(turn)) {
-						if (notBlank(content)) pending.add(new Step(false, "", content, false));
+						if (notBlank(content)) pending.add(new Step(false, "", content, false, null));
+						recordToolCalls(turn, callArgs);
 					} else {
 						flush(items, pending);
 						if (notBlank(content)) items.add(new Message(ROLE_ASSISTANT, content));
@@ -288,9 +296,10 @@ public final class SessionHistory {
 				}
 				case ROLE_TOOL -> {
 					String name = str(RT.getIn(turn, "name"));
-					String detail = renderContent(RT.getIn(turn, "content"));
+					String id = str(RT.getIn(turn, "id"));
 					boolean error = CVMBool.TRUE.equals(RT.getIn(turn, "isError"));
-					pending.add(new Step(true, (name != null) ? name : "tool", detail, error));
+					String call = (id != null) ? callArgs.get(id) : null;
+					pending.add(new Step(true, (name != null) ? name : "tool", toolResult(turn), error, call));
 				}
 				default -> {
 					// system and any other roles are not shown
@@ -299,6 +308,26 @@ public final class SessionHistory {
 		}
 		flush(items, pending);
 		return items;
+	}
+
+	/** Captures {@code id -> rendered arguments} for each call on an assistant turn. */
+	private static void recordToolCalls(ACell turn, Map<String, String> callArgs) {
+		if (!(RT.getIn(turn, "toolCalls") instanceof AVector<?> calls)) return;
+		for (long i = 0; i < calls.count(); i++) {
+			ACell call = calls.get(i);
+			String id = str(RT.getIn(call, "id"));
+			if (id == null) continue;
+			ACell args = RT.getIn(call, "arguments");
+			if (args != null) callArgs.put(id, renderContent(args));
+		}
+	}
+
+	/** A tool turn's result: its {@code content}, or its {@code structuredContent}. */
+	private static String toolResult(ACell turn) {
+		String content = renderContent(RT.getIn(turn, "content"));
+		if (notBlank(content)) return content;
+		ACell structured = RT.getIn(turn, "structuredContent");
+		return (structured != null) ? renderContent(structured) : content;
 	}
 
 	private static void flush(List<Item> items, List<Step> pending) {
