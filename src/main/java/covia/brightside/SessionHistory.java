@@ -93,6 +93,20 @@ public final class SessionHistory {
 	public record Session(String sessionId, String title, long lastTs) {
 	}
 
+	/** One tool call on a raw turn: its {@code name}, {@code id}, and rendered {@code args}. */
+	public record RawCall(String name, String id, String args) {
+	}
+
+	/**
+	 * One raw conversation turn, unprojected — for the cycle-detail inspector. All
+	 * the within-cycle detail the chat elides: interim assistant {@code content},
+	 * each tool {@code call}, a tool turn's {@code toolResult} (and {@code error}),
+	 * and a {@code meta} line (source, finish reason, tokens, job).
+	 */
+	public record RawTurn(String role, String content, List<RawCall> calls,
+			String toolResult, boolean error, String meta) {
+	}
+
 	private SessionHistory() {
 	}
 
@@ -138,6 +152,58 @@ public final class SessionHistory {
 			log.warn("Could not read agent record {}: {}", agentId, e.toString());
 			return null;
 		}
+	}
+
+	/** Every raw turn of one session, unprojected (for the cycle-detail inspector). */
+	public static List<RawTurn> rawTurns(Venue client, String agentId, String sessionId) {
+		ACell record = readAgentValue(client, agentId);
+		if (!(record instanceof AMap) || sessionId == null) return List.of();
+		AMap<ACell, ACell> sessions = asMap(RT.getIn(record, "sessions"));
+		if (sessions == null) return List.of();
+		for (long i = 0; i < sessions.count(); i++) {
+			MapEntry<ACell, ACell> entry = sessions.entryAt(i);
+			if (!sessionId.equals(sidHex(entry.getKey()))) continue;
+			AVector<ACell> conversation = conversationOf(entry.getValue());
+			return (conversation != null) ? rawTurnsOf(conversation) : List.of();
+		}
+		return List.of();
+	}
+
+	private static List<RawTurn> rawTurnsOf(AVector<ACell> conversation) {
+		List<RawTurn> out = new ArrayList<>();
+		for (long i = 0; i < conversation.count(); i++) {
+			ACell turn = conversation.get(i);
+			String role = str(RT.getIn(turn, "role"));
+			if (role == null) continue;
+			List<RawCall> calls = new ArrayList<>();
+			if (RT.getIn(turn, "toolCalls") instanceof AVector<?> tcs) {
+				for (long j = 0; j < tcs.count(); j++) {
+					ACell c = (ACell) tcs.get(j);
+					calls.add(new RawCall(str(RT.getIn(c, "name")), str(RT.getIn(c, "id")),
+						renderContent(RT.getIn(c, "arguments"))));
+				}
+			}
+			String toolResult = ROLE_TOOL.equals(role) ? toolResult(turn) : null;
+			boolean error = CVMBool.TRUE.equals(RT.getIn(turn, "isError"));
+			out.add(new RawTurn(role, str(RT.getIn(turn, "content")), calls, toolResult, error, turnMeta(turn)));
+		}
+		return out;
+	}
+
+	/** A compact per-turn metadata line: source · finish reason · tokens · job. */
+	private static String turnMeta(ACell turn) {
+		List<String> bits = new ArrayList<>();
+		String source = str(RT.getIn(turn, "source"));
+		if (source != null) bits.add(source);
+		String finish = str(RT.getIn(turn, "finishReason"));
+		if (finish != null) bits.add(finish);
+		AMap<ACell, ACell> tokens = asMap(RT.getIn(turn, "tokens"));
+		if (tokens != null && tokens.get(Strings.create("total")) instanceof CVMLong total) {
+			bits.add(total.longValue() + " tok");
+		}
+		String jobId = str(RT.getIn(turn, "jobId"));
+		if (jobId != null) bits.add("job " + (jobId.length() > 10 ? jobId.substring(0, 10) + "…" : jobId));
+		return String.join(" · ", bits);
 	}
 
 	/** Enumerates the sessions in an already-read agent record, newest first. */

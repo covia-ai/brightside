@@ -150,6 +150,22 @@ class SessionHistoryTest {
 		assertFalse(list.stream().anyMatch(x -> x.sessionId().equals(drop)), "deleted session is gone");
 	}
 
+	@Test
+	void rawTurnsExposeTheUnprojectedConversation() throws Exception {
+		String userDID = Identity.of("raw").userDID(venue.did());
+		Venue client = venue.clientAs(userDID);
+		AppConfig.Chat chat = new AppConfig.Chat("raw-agent",
+			AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo the user.", 30);
+		ChatSession s = new ChatSession(client, chat, "Raw");
+		String sid = s.send("hello raw world").sessionId();
+
+		List<SessionHistory.RawTurn> turns = SessionHistory.rawTurns(client, "raw-agent", sid);
+		assertTrue(turns.size() >= 2, "at least the user turn and the assistant reply");
+		assertTrue(turns.stream().anyMatch(t -> "user".equals(t.role())
+			&& t.content() != null && t.content().contains("hello raw world")),
+			"the raw turns include the user message verbatim");
+	}
+
 	private static String titleOf(Venue client, String agentId, String sessionId) {
 		return SessionHistory.listSessions(client, agentId).stream()
 			.filter(x -> x.sessionId().equals(sessionId))

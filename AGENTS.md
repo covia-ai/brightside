@@ -141,8 +141,13 @@ window that talks to an agent on that venue. Single Maven module,
   it assembles the same `Spec` a live turn would, without calling the model).
   Tabs: Overview (model, byte budget, session token usage), Context (every
   assembled message — identity, the `[Skills]` index, pinned memory, each loaded
-  skill body, the conversation), Tools (the offered palette with provenance and
-  the unavailable ones), Skills (the loaded entries + accounting), and Raw. Note
+  skill body, the conversation), **Cycle detail** (`SessionHistory.rawTurns` —
+  the raw, unprojected conversation the chat elides: interim assistant content,
+  every tool call with its arguments and id, tool results, and per-turn metadata
+  — source, finish reason, tokens, job), Tools (the offered palette with
+  provenance and the unavailable ones), Skills (the loaded entries + accounting),
+  and Raw. (This model config has no separate thinking field; "interim thinking"
+  is the assistant's `content` on tool-calling turns.) Note
   session ids are bare hex (`toHexString()`, no `0x`) — the agent ops reject a
   `0x` prefix.
 - **Change detection is a lattice value compare.** `ConversationWatcher` polls

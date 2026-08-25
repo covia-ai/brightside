@@ -5,6 +5,7 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.util.List;
 
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
@@ -17,6 +18,7 @@ import javax.swing.JTextArea;
 import javax.swing.UIManager;
 
 import covia.brightside.AgentContext;
+import covia.brightside.SessionHistory;
 
 /**
  * A comprehensive, read-only view of the exact context an agent sends its model
@@ -32,11 +34,12 @@ import covia.brightside.AgentContext;
 @SuppressWarnings("serial")
 public final class ContextInspector extends JPanel {
 
-	public ContextInspector(AgentContext.Report report) {
+	public ContextInspector(AgentContext.Report report, List<SessionHistory.RawTurn> turns) {
 		super(new BorderLayout());
 		JTabbedPane tabs = new JTabbedPane();
 		tabs.addTab("Overview", overview(report));
 		tabs.addTab("Context (" + report.messages().size() + ")", scroll(messages(report)));
+		tabs.addTab("Cycle detail (" + turns.size() + ")", scroll(cycle(turns)));
 		tabs.addTab("Tools (" + report.tools().size() + ")", scroll(tools(report)));
 		tabs.addTab("Skills (" + report.loads().size() + ")", scroll(loads(report)));
 		tabs.addTab("Raw", rawTab(report));
@@ -74,6 +77,36 @@ public final class ContextInspector extends JPanel {
 		}
 		if (r.messages().isEmpty()) p.add(small("No messages."));
 		return p;
+	}
+
+	private static JComponent cycle(List<SessionHistory.RawTurn> turns) {
+		JPanel p = column();
+		if (turns.isEmpty()) {
+			p.add(small("No turns recorded for this conversation."));
+			return p;
+		}
+		for (SessionHistory.RawTurn t : turns) {
+			String head = t.role();
+			if (t.meta() != null && !t.meta().isBlank()) head += "   ·  " + t.meta();
+			JLabel h = heading(head);
+			if (t.error()) h.setForeground(errorColor());
+			p.add(h);
+			if (t.content() != null && !t.content().isBlank()) p.add(body(t.content(), false));
+			for (SessionHistory.RawCall c : t.calls()) {
+				p.add(small("→ " + c.name() + (c.id() != null ? "  (" + shortId(c.id()) + ")" : "")));
+				if (c.args() != null && !c.args().isBlank()) p.add(body(c.args(), true));
+			}
+			if (t.toolResult() != null && !t.toolResult().isBlank()) {
+				p.add(small(t.error() ? "error result" : "result"));
+				p.add(body(t.toolResult(), true));
+			}
+			p.add(divider());
+		}
+		return p;
+	}
+
+	private static String shortId(String id) {
+		return (id.length() > 12) ? id.substring(0, 12) + "…" : id;
 	}
 
 	private static JComponent tools(AgentContext.Report r) {
@@ -207,5 +240,9 @@ public final class ContextInspector extends JPanel {
 	private static Color line() {
 		Color c = UIManager.getColor("Separator.foreground");
 		return (c != null) ? c : Color.GRAY;
+	}
+
+	private static Color errorColor() {
+		return new Color(0xE5, 0x53, 0x53);
 	}
 }

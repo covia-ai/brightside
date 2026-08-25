@@ -262,9 +262,10 @@ public final class MainWindow extends JFrame {
 	}
 
 	/** Open a (non-modal) inspector showing exactly what the model receives for a conversation. */
-	public void showContextInfo(covia.brightside.AgentContext.Report report, String title) {
+	public void showContextInfo(covia.brightside.AgentContext.Report report,
+			List<SessionHistory.RawTurn> turns, String title) {
 		JDialog dialog = new JDialog(this, "What the assistant sees — " + title, false);
-		dialog.setContentPane(new covia.brightside.ui.inspect.ContextInspector(report));
+		dialog.setContentPane(new covia.brightside.ui.inspect.ContextInspector(report, turns));
 		dialog.setSize(940, 720);
 		dialog.setMinimumSize(new Dimension(640, 460));
 		dialog.setLocationRelativeTo(this);
