@@ -224,6 +224,21 @@ window that talks to an agent on that venue. Single Maven module,
   writes a new skill into its own `w/skills` (a declared skillset, so authored
   skills become discoverable) — but the write capability is not in context
   until it deliberately loads that sub-skill.
+- **Filesystem skills (agentskills.io).** `FilesystemSkills.sync` imports skills
+  from `~/.brightside/skills/` (`AppConfig.skillsDir`) into the user's own
+  `w/skills` on start — a folder with a `SKILL.md`, or a single `<name>.md`, in
+  the open [agentskills.io](https://agentskills.io) format (YAML frontmatter with
+  `name`/`description`, then a markdown body). No lossy translation: the raw
+  `SKILL.md` is stored verbatim as the skill asset's `content.inline`, with
+  `name`/`description` lifted to metadata — Covia's own resolver already strips
+  the frontmatter at load and reads `tools`/`skills`/`skillsets` frontmatter into
+  the skill facet (so an agentskills.io skill loads as instructions, and one that
+  lists Covia op paths under `tools:` grants them). Written as the acting user via
+  `covia:write` to `w/skills/<name>` (a non-destructive upsert, so it never
+  clobbers agent-authored skills), so no config change is needed — the agent's
+  existing `w/skills` skillset discovers them. Covia has no directory-bundle
+  facet yet, so `scripts/`/`references/`/`assets/` are not imported; only the
+  `SKILL.md` instructions are.
 - **Memory and scratch** live in `n/`: `n/memory` (recall pinned as a
   `v/ops/memory` context entry, with the `v/ops/memory` tool so it can write)
   and other scratch. See `docs/DESIGN.md`.

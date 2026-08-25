@@ -200,6 +200,15 @@ public final class AppConfig {
 		return home;
 	}
 
+	/**
+	 * Where the user drops filesystem skills (agentskills.io {@code SKILL.md}
+	 * folders or single {@code .md} files); imported into the agent's own
+	 * {@code w/skills} on start. Defaults to {@code <home>/skills}.
+	 */
+	public Path skillsDir() {
+		return home.resolve("skills");
+	}
+
 	/** {@code "dark"} or {@code "light"}. */
 	public String theme() {
 		return theme;

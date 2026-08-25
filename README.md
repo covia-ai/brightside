@@ -46,7 +46,10 @@ model call you asked for, to the provider whose key you supplied.
 Brightside's abilities are **Covia skills** — data, not code — and the agent can
 author new ones into its own `w/skills` namespace. Ask it to learn how you like
 your weekly report written, and it can capture that as a skill it loads next
-time. Even its own persona is a skill you can edit.
+time. Even its own persona is a skill you can edit. You can also hand it skills
+as **files**: drop an [agentskills.io](https://agentskills.io) `SKILL.md` into
+`~/.brightside/skills/` and it's imported on the next start — the same open,
+portable format Claude Code and a dozen other agents use.
 
 **Power stays gated, not absent.** Only read-only tools and memory are always
 on. Writing, HTTP, files, other agents — each arrives by loading the skill that
@@ -103,6 +106,9 @@ If the build cannot resolve `ai.covia:venue`, that is why.
   can talk to
 - **Self-authoring skills** — a gated `skill-authoring` ability lets the agent
   write new skills into `w/skills`, where they become discoverable to itself
+- **Filesystem skills** — drop an [agentskills.io](https://agentskills.io)
+  `SKILL.md` folder (or a single `.md`) into `~/.brightside/skills/` and it's
+  imported into your agent's `w/skills` on start; portable, editable, shareable
 - **Persistent memory** — `n/memory`, kept quietly, across every conversation
 - **Every conversation, switchable** — a sidebar of past sessions with rename,
   delete and copy-transcript; the agent can read its own history when you ask

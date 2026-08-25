@@ -215,6 +215,13 @@ public final class BrightSide {
 		} catch (Exception e) {
 			log.warn("Chat agent not ready", e);
 		}
+		// Import any skills the user has dropped into ~/.brightside/skills/
+		// (agentskills.io SKILL.md folders) into their agent's own w/skills.
+		try {
+			covia.brightside.skills.FilesystemSkills.sync(userClient, config.skillsDir());
+		} catch (Exception e) {
+			log.warn("Filesystem skill import failed", e);
+		}
 		String aid = config.chat().agentId();
 		this.client = userClient;
 		this.agentId = aid;
