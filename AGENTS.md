@@ -73,8 +73,9 @@ window that talks to an agent on that venue. Single Maven module,
   `MessageColumn` (the scrolling, width-tracking column), `TypingIndicator`
   (the "typing…" dots), `ExpandableActivity` (the tool-steps chip),
   `ConversationList` (the left-hand switcher — a *New conversation* button over a
-  list of past sessions) and `ChatStyle` (shared theme-derived colours +
-  HTML-label helpers). `ChatPanel`
+  list of past sessions), `SelectableText` (the read-only, selectable text used
+  for an activity's narration and tool results, so they can be copied) and
+  `ChatStyle` (shared theme-derived colours + a text helper). `ChatPanel`
   renders each message as its **own rounded `Bubble` component** in the
   `MessageColumn` (user right/accent, assistant left/surface) — separate
   components on purpose, so new message kinds (images, cards, tool output) can
@@ -136,6 +137,18 @@ window that talks to an agent on that venue. Single Maven module,
   agent via `config.loads`: `introduction` (persona) and `skills` (how it
   grows). Persona content is a **skill**, not system-prompt prose — the prompt
   stays small.
+- **Tool-granting skills are loaded on demand, never pinned.** A `skill_load`
+  is what denormalises a skill's `skill.tools` into the palette; a hand-written
+  `config.loads` pin loads the skill's *body* but not its tools. So a skill that
+  grants tools (`conversations` → the read-only past-session tools
+  `agent:sessions`/`agent:session-read`; `skill-authoring` → `covia:write`) is
+  made **discoverable** and left for the agent to load when its description
+  matches, not pinned. `conversations` is revealed by the pinned `introduction`
+  (its `skill.skills`), so `skill_load conversations` resolves; that's how the
+  agent answers "what did we discuss before?" — it loads the skill, gets the
+  tools, and reads its own past sessions rather than claiming it can't. Skill
+  **descriptions are the trigger**: pack the words the user actually says
+  ("past conversation sessions", "what we discussed", "history") into them.
 - **Discovery is broad, authority stays deliberate.** The agent's
   `config.skillsets` are `["w/skills", "v/skills/root"]` — its own skills plus
   the venue's shipped library. `v/skills/root` is the *usable* skillset level

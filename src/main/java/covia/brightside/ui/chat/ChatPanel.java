@@ -405,7 +405,7 @@ public final class ChatPanel extends JPanel {
 		JPanel row = new JPanel(new BorderLayout());
 		row.setOpaque(false);
 		row.setBorder(BorderFactory.createEmptyBorder(0, 2, 0, 2));
-		row.add(new ExpandableActivity(a, column::revalidate), BorderLayout.WEST);
+		row.add(new ExpandableActivity(a, column::revalidate, ta -> lastSelectedBubble = ta), BorderLayout.WEST);
 		row.setAlignmentX(Component.LEFT_ALIGNMENT);
 		return row;
 	}

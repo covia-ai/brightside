@@ -1,14 +1,12 @@
 package covia.brightside.ui.chat;
 
 import java.awt.Color;
-import java.awt.Component;
 
-import javax.swing.JLabel;
 import javax.swing.UIManager;
 
 /**
- * Shared colours and small HTML-label helpers for the chat components. Kept in
- * one place so the bubble, the activity chip and the panel all derive their
+ * Shared colours and a small text helper for the chat components. Kept in one
+ * place so the bubble, the activity chip and the panel all derive their
  * surfaces and muted text from the same theme-driven values.
  */
 final class ChatStyle {
@@ -46,21 +44,7 @@ final class ChatStyle {
 			Math.round(a.getBlue() * (1 - t) + b.getBlue() * t));
 	}
 
-	static String escapeHtml(String s) {
-		return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>");
-	}
-
 	static String truncate(String s, int max) {
 		return (s.length() <= max) ? s : s.substring(0, max) + "…";
-	}
-
-	/** A wrapping, muted (optionally italic) label for narration and tool detail. */
-	static JLabel htmlLabel(String text, Color fg, boolean italic) {
-		String style = "width:440px;" + (italic ? "font-style:italic;" : "");
-		JLabel l = new JLabel("<html><div style='" + style + "'>" + escapeHtml(text) + "</div></html>");
-		l.setForeground(fg);
-		l.putClientProperty("FlatLaf.styleClass", "small");
-		l.setAlignmentX(Component.LEFT_ALIGNMENT);
-		return l;
 	}
 }

@@ -161,9 +161,13 @@ public final class ChatSession {
 				"op", MEMORY_OP,
 				"input", Maps.of("command", "recall", "path", MEMORY_PATH),
 				"label", "Your private memory of the user — edit with path " + MEMORY_PATH)),
-			// Always-loaded: how it introduces itself, and how it grows new skills
-			// (the skills meta-skill gates skill-authoring as a sub-skill). The
-			// user's own skillset is declared so skills it authors become its own.
+			// Always-loaded: how it introduces itself (which reveals the
+			// on-demand `conversations` skill), and how it grows new skills (the
+			// skills meta-skill gates skill-authoring as a sub-skill). Skills that
+			// grant tools — conversations, skill-authoring — are loaded on demand
+			// by their descriptions, not pinned: a `skill_load` is what activates a
+			// skill's facet tools, so pinning a tool-granting skill loads its
+			// guidance but not its tools.
 			"loads", Maps.of(
 				BrightsideSkillsAdapter.INTRODUCTION, Maps.of("skill", true, "budget", 4000L, "label", "introduction"),
 				BrightsideSkillsAdapter.SKILLS, Maps.of("skill", true, "budget", 2000L, "label", "skills")),

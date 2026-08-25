@@ -70,6 +70,7 @@ public class BrightsideAdapter extends AAdapter {
 			K_DID, (did != null) ? did.toString() : null,
 			K_SKILLS, Vectors.of(
 				Strings.create("introduction"),
+				Strings.create("conversations"),
 				Strings.create("skills"),
 				Strings.create("skill-authoring")));
 	}

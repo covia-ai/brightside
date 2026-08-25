@@ -5,11 +5,13 @@ import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.util.function.Consumer;
 
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JTextArea;
 
 import covia.brightside.SessionHistory;
 
@@ -17,23 +19,30 @@ import covia.brightside.SessionHistory;
  * A collapsed "N tool steps" chip that expands to show a turn's intermediate
  * work — the assistant's "let me try…" narration and each tool call's name,
  * ✓/✕ outcome and (truncated) result. Collapsed by default so the final reply
- * is what the eye lands on, with the detail one click away.
+ * is what the eye lands on, with the detail one click away. The narration and
+ * results are {@link SelectableText} so they can be selected and copied.
  */
 @SuppressWarnings("serial")
 final class ExpandableActivity extends JPanel {
+
+	private static final int WRAP = 440;
 
 	private final JLabel header;
 	private final JPanel body;
 	private final int toolCount;
 	private final Runnable onToggle;
+	private final Consumer<JTextArea> selectionSink;
 	private boolean expanded;
 
 	/**
-	 * @param a        the grouped narration and tool steps for one turn
-	 * @param onToggle run after expand/collapse so the host column can re-lay out
+	 * @param a             the grouped narration and tool steps for one turn
+	 * @param onToggle      run after expand/collapse so the host column can re-lay out
+	 * @param selectionSink notified with a text area when it holds a selection, so
+	 *                      the panel's copy shortcut can pick it up
 	 */
-	ExpandableActivity(SessionHistory.Activity a, Runnable onToggle) {
+	ExpandableActivity(SessionHistory.Activity a, Runnable onToggle, Consumer<JTextArea> selectionSink) {
 		this.onToggle = onToggle;
+		this.selectionSink = selectionSink;
 		setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 		setOpaque(false);
 		setAlignmentX(LEFT_ALIGNMENT);
@@ -85,7 +94,7 @@ final class ExpandableActivity extends JPanel {
 
 	private Component stepComponent(SessionHistory.Step s) {
 		if (!s.tool()) {
-			return ChatStyle.htmlLabel(s.detail(), ChatStyle.muted(), true);
+			return selectable(s.detail(), true);
 		}
 		JPanel p = new JPanel();
 		p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
@@ -98,9 +107,20 @@ final class ExpandableActivity extends JPanel {
 		title.setAlignmentX(LEFT_ALIGNMENT);
 		p.add(title);
 		if (s.detail() != null && !s.detail().isBlank()) {
-			p.add(ChatStyle.htmlLabel(ChatStyle.truncate(s.detail(), 800), ChatStyle.muted(), false));
+			p.add(selectable(ChatStyle.truncate(s.detail(), 800), false));
 		}
 		return p;
+	}
+
+	/** A selectable run of muted text that reports its selection to the panel. */
+	private SelectableText selectable(String text, boolean italic) {
+		SelectableText t = new SelectableText(text, ChatStyle.muted(), italic, WRAP);
+		if (selectionSink != null) {
+			t.addCaretListener(e -> {
+				if (e.getDot() != e.getMark()) selectionSink.accept(t);
+			});
+		}
+		return t;
 	}
 
 	@Override

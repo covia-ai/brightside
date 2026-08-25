@@ -16,6 +16,9 @@ import covia.venue.RequestContext;
  * <p>Skills, under {@code v/skills/brightside/…}:</p>
  * <ul>
  *   <li><b>introduction</b> — how the assistant presents itself (pinned).</li>
+ *   <li><b>conversations</b> — how it talks with the user and reviews past
+ *       conversations (pinned); its facet grants the read-only past-session
+ *       tools ({@code agent:sessions}, {@code agent:session-read}).</li>
  *   <li><b>skills</b> — how it grows new abilities (pinned); its
  *       {@code skill.skills} facet reveals <b>skill-authoring</b>.</li>
  *   <li><b>skill-authoring</b> — the gated sub-skill whose facet grants the
@@ -33,6 +36,8 @@ public class BrightsideSkillsAdapter extends AAdapter {
 	public static final String SKILLSET = "v/skills/brightside";
 	/** Always-loaded: how the assistant introduces itself. */
 	public static final String INTRODUCTION = SKILLSET + "/introduction";
+	/** Always-loaded: how it talks with the user and reviews past conversations. */
+	public static final String CONVERSATIONS = SKILLSET + "/conversations";
 	/** Always-loaded: how the assistant grows new abilities; gates skill-authoring. */
 	public static final String SKILLS = SKILLSET + "/skills";
 	/** Gated sub-skill: how to author a skill, and the write tool to do it. */
@@ -52,6 +57,7 @@ public class BrightsideSkillsAdapter extends AAdapter {
 	@Override
 	protected void installAssets() {
 		installSkill("brightside/introduction", "/brightside/skills/introduction.json");
+		installSkill("brightside/conversations", "/brightside/skills/conversations.json");
 		installSkill("brightside/skill-authoring", "/brightside/skills/skill-authoring.json");
 		installSkill("brightside/skills", "/brightside/skills/skills.json");
 	}
