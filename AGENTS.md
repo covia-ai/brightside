@@ -123,6 +123,20 @@ window that talks to an agent on that venue. Single Maven module,
   agent via `config.loads`: `introduction` (persona) and `skills` (how it
   grows). Persona content is a **skill**, not system-prompt prose — the prompt
   stays small.
+- **Discovery is broad, authority stays deliberate.** The agent's
+  `config.skillsets` are `["w/skills", "v/skills/root"]` — its own skills plus
+  the venue's shipped library. `v/skills/root` is the *usable* skillset level
+  (the per-family entry routers — `covia`, `grid`, `agents`, `discovery`,
+  `lattice`, `venue`, …, and adapter integrations once their modules are
+  loaded); pointing at bare `v/skills` would be silently useless, as it holds
+  skillsets, not skills (Covia issue #409). The agent sees the routers in its
+  skills index and loads one to reveal and use that family's tools. Only
+  `defaultTools` (read-only `covia read`/`list`) and the memory tool are
+  always-on; every broader capability — writes, HTTP, files, agents — arrives
+  by loading the skill that grants it, so the gated `skill-authoring` model
+  (write stays out of context until deliberately loaded) still holds. Enabling
+  the optional module adapters (Telegram, Discord, …) in an embedded venue is
+  an upstream ask — Covia issue #410.
 - **Self-authoring, gated hierarchically.** The pinned `skills` meta-skill
   gates `skill-authoring` as a sub-skill (its `skill.skills` facet), and
   `skill-authoring` is the only skill whose facet grants the `covia:write`

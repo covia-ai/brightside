@@ -49,6 +49,16 @@ public final class ChatSession {
 	public static final String MEMORY_PATH = "n/memory";
 	/** The user's own skills — discoverable, theirs to grow. */
 	public static final String USER_SKILLSET = "w/skills";
+	/**
+	 * The venue's shipped skill library. {@code v/skills/root} is the usable
+	 * skillset level — the per-family entry routers (ops-tools, data, agents,
+	 * and adapter integrations such as telegram/discord). Loading a router
+	 * reveals its family, so the always-on index stays small while the whole
+	 * library — and every tool the active adapters contribute — is reachable.
+	 * (Pointing at bare {@code v/skills} would be silently useless: it holds
+	 * skillsets, not skills.)
+	 */
+	public static final String VENUE_SKILLSET = "v/skills/root";
 	private static final String MEMORY_OP = "v/ops/memory";
 
 	/**
@@ -138,8 +148,13 @@ public final class ChatSession {
 			Fields.OPERATION, config.operation(),
 			"llmOperation", config.llmOperation(),
 			"systemPrompt", systemPrompt,
-			"defaultTools", false,
+			// Read-only workspace access (covia read/list) on top of the tools
+			// below — so it can inspect its own namespace out of the box.
+			"defaultTools", true,
 			// The memory tool, so the assistant can record and revise what it knows.
+			// Broader capabilities (writes, HTTP, files, agents, telegram/discord…)
+			// arrive by discovering and loading the skills that grant them — see
+			// skillsets below — so authority stays deliberate rather than always-on.
 			"tools", Vectors.of(Strings.create(MEMORY_OP)),
 			// Pin the assistant's memory (n/memory) into every turn's context.
 			"context", Vectors.of(Maps.of(
@@ -152,7 +167,10 @@ public final class ChatSession {
 			"loads", Maps.of(
 				BrightsideSkillsAdapter.INTRODUCTION, Maps.of("skill", true, "budget", 4000L, "label", "introduction"),
 				BrightsideSkillsAdapter.SKILLS, Maps.of("skill", true, "budget", 2000L, "label", "skills")),
-			"skillsets", Vectors.of(Strings.create(USER_SKILLSET)));
+			// Discovery surface: the user's own skills plus the venue's shipped
+			// library. The agent sees the entry routers in its skills index and
+			// loads one to reveal (and then use) that family's tools.
+			"skillsets", Vectors.of(Strings.create(USER_SKILLSET), Strings.create(VENUE_SKILLSET)));
 		AMap<AString, ACell> input = Maps.of(Fields.AGENT_ID, config.agentId(), Fields.CONFIG, agentConfig);
 		if (agentExists()) {
 			try {
