@@ -79,7 +79,7 @@ public final class ChatSession {
 	}
 
 	private final Venue venue;
-	private final AppConfig.Chat config;
+	private AppConfig.Chat config;
 	private final String userName;
 	private volatile String sessionId;
 	private boolean pendingResume;
@@ -103,6 +103,13 @@ public final class ChatSession {
 
 	public AppConfig.Chat config() {
 		return config;
+	}
+
+	/** Re-apply the agent's configuration (e.g. a new model chosen in Settings). */
+	public synchronized void reconfigure(AppConfig.Chat config) throws Exception {
+		this.config = config;
+		this.agentReady = false;
+		ensureAgent();
 	}
 
 	/** The user's display name, or null if unspecified. */

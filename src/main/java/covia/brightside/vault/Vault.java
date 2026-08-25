@@ -1,11 +1,14 @@
 package covia.brightside.vault;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.security.SecureRandom;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
@@ -19,6 +22,7 @@ import convex.core.data.AMap;
 import convex.core.data.AString;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
+import convex.core.util.JSON;
 
 /**
  * The encrypted vault: one passphrase unlocks everything Brightside keeps on
@@ -36,6 +40,7 @@ public final class Vault {
 	/** File names under the data directory. */
 	public static final String SALT_FILE = "vault.salt";
 	public static final String IDENTITY_FILE = "identity.enc";
+	public static final String KEYS_FILE = "keys.enc";
 
 	private static final int SALT_LEN = 16;
 	private static final int KEY_LEN = 32;
@@ -98,6 +103,34 @@ public final class Vault {
 		} finally {
 			Arrays.fill(seed, (byte) 0);
 		}
+	}
+
+	/** The stored provider API keys (name → value), decrypting {@code keys.enc}; empty if none. */
+	public Map<String, String> apiKeys() throws IOException {
+		Path file = home.resolve(KEYS_FILE);
+		if (!Files.isRegularFile(file)) return new LinkedHashMap<>();
+		byte[] json = aesGcmDecrypt(seedKey, Files.readAllBytes(file));
+		Map<String, String> out = new LinkedHashMap<>();
+		ACell parsed = JSON.parseJSON5(new String(json, StandardCharsets.UTF_8));
+		if (parsed instanceof AMap<?, ?> map) {
+			for (long i = 0; i < map.count(); i++) {
+				var entry = map.entryAt(i);
+				out.put(entry.getKey().toString(), entry.getValue().toString());
+			}
+		}
+		return out;
+	}
+
+	/** Encrypts and stores a provider API key (merged with any existing ones). */
+	public void storeApiKey(String name, String value) throws IOException {
+		Map<String, String> keys = apiKeys();
+		keys.put(name, value);
+		AMap<AString, ACell> map = Maps.empty();
+		for (Map.Entry<String, String> e : keys.entrySet()) {
+			map = map.assoc(Strings.create(e.getKey()), Strings.create(e.getValue()));
+		}
+		byte[] json = JSON.toStringPretty(map).getBytes(StandardCharsets.UTF_8);
+		writeOwnerOnly(home.resolve(KEYS_FILE), aesGcmEncrypt(seedKey, json));
 	}
 
 	/**

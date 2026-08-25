@@ -7,6 +7,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -194,11 +195,11 @@ public final class BrightSide {
 
 				// Encrypted store + this exact identity, plus the API key provisioned
 				// into the (encrypted) secret store — none of it written in the clear.
-				AMap<AString, ACell> venueConfig = v.secure(config.venueConfig(), setup.seedHex());
 				if (setup.apiKey() != null && setup.providerId() != null) {
 					String secretName = Providers.byId(setup.providerId()).secretName();
-					if (secretName != null) venueConfig = withPublicSecret(venueConfig, secretName, setup.apiKey());
+					if (secretName != null) v.storeApiKey(secretName, setup.apiKey());
 				}
+				AMap<AString, ACell> venueConfig = provisionKeys(v.secure(config.venueConfig(), setup.seedHex()), v);
 				llmOverride = (setup.providerId() == null)
 					? AppConfig.ECHO_LLM_OPERATION
 					: Providers.modelOp(setup.providerId(), setup.modelId());
@@ -222,7 +223,7 @@ public final class BrightSide {
 				String seedHex = v.seedHex(); // throws on a wrong passphrase (GCM tag)
 				this.vault = v;
 				this.venueSeedHex = seedHex;
-				AMap<AString, ACell> venueConfig = v.secure(config.venueConfig(), seedHex);
+				AMap<AString, ACell> venueConfig = provisionKeys(v.secure(config.venueConfig(), seedHex), v);
 				SwingUtilities.invokeLater(window::showChatStartup);
 				launchVenueWith(venueConfig);
 			} catch (IOException e) {
@@ -234,6 +235,57 @@ public final class BrightSide {
 		}, "brightside-unlock");
 		t.setDaemon(true);
 		t.start();
+	}
+
+	/** Provisions every stored (encrypted) API key into the in-memory venue config's public secrets. */
+	private static AMap<AString, ACell> provisionKeys(AMap<AString, ACell> venueConfig, Vault vault) throws IOException {
+		for (Map.Entry<String, String> e : vault.apiKeys().entrySet()) {
+			venueConfig = withPublicSecret(venueConfig, e.getKey(), e.getValue());
+		}
+		return venueConfig;
+	}
+
+	// ------------------------------------------------------------------
+	// Settings (model & API key)
+	// ------------------------------------------------------------------
+
+	/** The model operation the chat is currently using ({@code v/models/<provider>/<id>}). */
+	public String currentModelOp() {
+		return effectiveChat().llmOperation();
+	}
+
+	/** Apply a chosen model live (re-configures the running agent) and persist it. */
+	public void applyModel(String providerId, String modelId) {
+		String op = Providers.modelOp(providerId, modelId);
+		llmOverride = op;
+		config.persistModel(op);
+		ChatSession c = chat;
+		if (c == null) return;
+		new Thread(() -> {
+			try {
+				c.reconfigure(effectiveChat());
+				SwingUtilities.invokeLater(() -> window.showSystemMessage("Now using " + op + "."));
+			} catch (Exception e) {
+				log.warn("Could not apply the model change", e);
+			}
+		}, "brightside-model").start();
+	}
+
+	/**
+	 * Stores a provider API key (encrypted in the vault). Applied on the next
+	 * launch — the venue provisions secrets at start. Returns false if it couldn't.
+	 */
+	public boolean storeApiKey(String providerId, String apiKey) {
+		Vault v = vault;
+		Providers.Provider p = Providers.byId(providerId);
+		if (v == null || p == null || p.secretName() == null || apiKey == null || apiKey.isBlank()) return false;
+		try {
+			v.storeApiKey(p.secretName(), apiKey);
+			return true;
+		} catch (Exception e) {
+			log.warn("Could not store the API key", e);
+			return false;
+		}
 	}
 
 	/** Injects a public secret (an API key) into an in-memory venue config, merged. */
@@ -659,6 +711,15 @@ public final class BrightSide {
 			window.showSystemMessage("Started a new chat.");
 			window.setConversations(sessions, null);
 		});
+	}
+
+	/** Opens the Model &amp; API-key settings (once the venue is up; key storage needs the vault). */
+	public void openSettings() {
+		if (venue == null) {
+			SwingUtilities.invokeLater(() -> window.showSystemMessage("Settings are available once Brightside has started."));
+			return;
+		}
+		window.openModelSettings(currentModelOp());
 	}
 
 	/** Opens the venue's own web dashboard (Advanced menu — a power-user surface). */

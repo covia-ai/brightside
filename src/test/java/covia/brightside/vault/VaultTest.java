@@ -57,6 +57,22 @@ class VaultTest {
 	}
 
 	@Test
+	void storesAndReadsEncryptedApiKeys(@TempDir Path home) throws Exception {
+		Vault vault = Vault.open(home, "pw".toCharArray());
+		assertTrue(vault.apiKeys().isEmpty());
+		vault.storeApiKey("ANTHROPIC_API_KEY", "sk-ant-123");
+		vault.storeApiKey("OPENAI_API_KEY", "sk-oai-456");
+
+		// Re-open with the same passphrase → both keys decrypt.
+		Vault again = Vault.open(home, "pw".toCharArray());
+		assertEquals("sk-ant-123", again.apiKeys().get("ANTHROPIC_API_KEY"));
+		assertEquals("sk-oai-456", again.apiKeys().get("OPENAI_API_KEY"));
+
+		// A wrong passphrase can't read them.
+		assertThrows(IOException.class, () -> Vault.open(home, "WRONG".toCharArray()).apiKeys());
+	}
+
+	@Test
 	void venueRunsEncryptedAndRejectsAWrongKey(@TempDir Path home) throws Exception {
 		int port;
 		try (ServerSocket s = new ServerSocket(0)) {

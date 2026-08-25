@@ -194,6 +194,7 @@ public final class MainWindow extends JFrame {
 		changeNameItem = item("Change my name…", null, e -> app.changeName());
 		changeNameItem.setEnabled(false);
 		file.add(changeNameItem);
+		file.add(item("Model & API key…", null, e -> app.openSettings()));
 		file.addSeparator();
 		if (app.hasTray()) {
 			file.add(item("Hide to tray", KeyStroke.getKeyStroke(KeyEvent.VK_H, shortcut), e -> app.hideToTray()));
@@ -290,6 +291,22 @@ public final class MainWindow extends JFrame {
 	/** Show a chosen past conversation's transcript (a definite switch, not a poll). */
 	public void showConversation(List<SessionHistory.Item> turns) {
 		chatPanel.restore(turns);
+	}
+
+	/** Open the Model &amp; API-key settings, pre-filled with the current model. */
+	public void openModelSettings(String currentModelOp) {
+		SettingsDialog dialog = new SettingsDialog(this, currentModelOp, new SettingsDialog.Handler() {
+			@Override
+			public void applyModel(String providerId, String modelId) {
+				app.applyModel(providerId, modelId);
+			}
+
+			@Override
+			public boolean storeApiKey(String providerId, String apiKey) {
+				return app.storeApiKey(providerId, apiKey);
+			}
+		});
+		dialog.setVisible(true);
 	}
 
 	/** Open a (non-modal) inspector showing exactly what the model receives for a conversation. */
