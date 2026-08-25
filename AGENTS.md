@@ -89,22 +89,29 @@ window that talks to an agent on that venue. Single Maven module,
   configured programmatically from `brightside/logback.xml` because the
   venue jar ships a root `logback.xml` of its own.
 
-## Debugging
+## Debugging / accessing the venue
 
-- **A user's private namespace can only be read in-process, as that user.**
-  Covia is capability-based: reading `u:<name>/w/skills` (or any `w/`, and
-  agent-scoped `n/`) over HTTP is refused without that user's authority —
-  even for the venue's own public principal, and even on loopback. Enabling
-  public/`unrestricted` auth does **not** grant cross-user reads. So the debug
-  path is not the network; it is Brightside itself, which already holds
-  `clientAs(userDID)`.
-- **`"debug": true`** (top-level config) turns on `BrightSide.dumpUserState`:
-  after the agent is ready it reads, in-process as the user, `w/skills`
-  (`covia:list`) and the agent record `g/<agentId>` (`covia:read`, which
-  carries the durable timeline, config and memory) and logs them to
-  `~/.brightside/logs`. Off by default; no network exposure. `n/memory` itself
-  is agent-run scratch and cannot be read out-of-band — inspect it via the
-  agent record.
+Use the venue's **standard interfaces** — the HTTP API, the Covia SDK, or MCP —
+not bespoke app code. Access is capability-based, so you need a token:
+
+- **The venue trusts JWTs it signed itself.** `VenueAuthenticator.tryVerifyVenueSigned`
+  accepts a JWT with `iss == venueDID` verified against the venue key, and
+  authenticates the bearer as the token's `sub`. This is the same mechanism the
+  venue's OAuth login uses (`LoginProviders`).
+- **Mint an admin/user token** by signing with `~/.brightside/venue.key` (a
+  32-byte Ed25519 seed) using the Covia/Convex SDK:
+  `JWT.signPublic({sub, iss:venueDID, aud:venueDID, iat, exp}, AKeyPair.create(Blob.fromHex(seed)))`.
+  Set `sub` to `<venueDID>` for the operator, or `<venueDID>:u:<name>` to act as
+  a local user (the local `u:<name>` principals have no key of their own, so a
+  venue-signed token is the only way to authenticate as them off-process).
+- **Then use any standard client**: `Authorization: Bearer <token>` against
+  `/api/v1/...` (e.g. `GET /api/v1/values/list?path=w/skills`,
+  `POST /api/v1/run`), the Covia SDK with a bearer/keypair auth strategy, or the
+  MCP endpoint. A `u:<name>` token reads that user's own `w/`/`n/` as their own
+  namespace — no cross-user proof needed.
+- **There is no operator backdoor into user data**: the venue principal reading
+  another user's namespace still needs a proof. Authenticate *as* the user (via
+  a venue-signed `sub`) rather than trying to read across users.
 
 ## Conventions
 

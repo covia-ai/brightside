@@ -210,38 +210,6 @@ public final class BrightSide {
 			SwingUtilities.invokeLater(() -> window.showSystemMessage(
 				"I'm having trouble getting ready: " + e.getMessage()));
 		}
-		if (config.debug()) dumpUserState(v, id);
-	}
-
-	/**
-	 * Local debugging aid: read the user's own skills and memory in-process (as
-	 * the user, so their authority applies) and log them. This is the only way to
-	 * inspect a user's private namespace — the venue serves it to no one else,
-	 * even over loopback. Enabled by {@code "debug": true} in the config.
-	 */
-	private void dumpUserState(EmbeddedVenue v, Identity id) {
-		String userDID = id.userDID(v.did());
-		// The user's own skills (w/) — read as the user.
-		read(v.clientAs(userDID), "v/ops/covia/list",
-			convex.core.data.Maps.of("path", ChatSession.USER_SKILLSET),
-			"[debug] " + id.label() + " " + ChatSession.USER_SKILLSET);
-		// The assistant's memory lives in agent-run scratch (n/), which can't be
-		// read out-of-band; its durable home is the agent record, readable as the
-		// user (own namespace). Read that so memory is inspectable too.
-		read(v.clientAs(userDID), "v/ops/covia/read",
-			convex.core.data.Maps.of("path", "g/" + config.chat().agentId()),
-			"[debug] agent record g/" + config.chat().agentId());
-	}
-
-	private void read(covia.grid.Venue caller, String op, convex.core.data.ACell input, String label) {
-		try {
-			covia.grid.Job job = caller.invoke(op, input).get(30, java.util.concurrent.TimeUnit.SECONDS);
-			Object result = job.future().get(30, java.util.concurrent.TimeUnit.SECONDS);
-			log.info("{} = {}", label, result);
-		} catch (Exception e) {
-			Throwable cause = (e.getCause() != null) ? e.getCause() : e;
-			log.info("{} — not readable here ({})", label, cause.getMessage());
-		}
 	}
 
 	public AppConfig config() {
