@@ -64,6 +64,7 @@ public final class ChatPanel extends JPanel {
 	private final JButton send = new JButton("Send");
 
 	private final List<SessionHistory.Turn> displayed = new ArrayList<>();
+	private JTextArea lastSelectedBubble; // the bubble holding the current selection, if any
 	private volatile ChatSession session;
 	private boolean busy;
 
@@ -96,6 +97,21 @@ public final class ChatPanel extends JPanel {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				send();
+			}
+		});
+		// The input keeps focus, so Ctrl/Cmd+C lands here: copy the input's own
+		// selection, or fall back to the last bubble the user selected in.
+		KeyStroke copyKey = KeyStroke.getKeyStroke(KeyEvent.VK_C,
+			Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx());
+		input.getInputMap(JComponent.WHEN_FOCUSED).put(copyKey, "smartCopy");
+		input.getActionMap().put("smartCopy", new AbstractAction() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if (hasSelection(input)) {
+					input.copy();
+				} else if (hasSelection(lastSelectedBubble)) {
+					toClipboard(lastSelectedBubble.getSelectedText());
+				}
 			}
 		});
 
@@ -257,6 +273,10 @@ public final class ChatPanel extends JPanel {
 		Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(text), null);
 	}
 
+	private static boolean hasSelection(JTextArea ta) {
+		return ta != null && ta.getSelectionStart() != ta.getSelectionEnd();
+	}
+
 	/** Right-click menu on a bubble: copy its selection/message, or the whole conversation. */
 	private void showBubbleMenu(JTextArea ta, String messageText, Component invoker, int x, int y) {
 		JPopupMenu menu = new JPopupMenu();
@@ -410,6 +430,10 @@ public final class ChatPanel extends JPanel {
 			caret.setBlinkRate(0);
 			ta.setCaret(caret);
 			caret.setSelectionVisible(true);
+			// Remember this bubble as the copy source while it holds a selection.
+			ta.addCaretListener(e -> {
+				if (e.getDot() != e.getMark()) lastSelectedBubble = ta;
+			});
 			ta.setBorder(BorderFactory.createEmptyBorder(PAD_V, PAD_H, PAD_V, PAD_H));
 			ta.setFont(ta.getFont().deriveFont(ta.getFont().getSize2D() + 1f));
 			MouseAdapter popup = new MouseAdapter() {
