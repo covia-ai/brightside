@@ -1,11 +1,9 @@
-package covia.brightside.ui;
+package covia.brightside.ui.chat;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
-import java.awt.Cursor;
 import java.awt.Dimension;
-import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
@@ -24,8 +22,6 @@ import java.util.concurrent.ExecutionException;
 
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
@@ -35,30 +31,27 @@ import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.KeyStroke;
-import javax.swing.Scrollable;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
-import javax.swing.Timer;
-import javax.swing.UIManager;
 import javax.swing.text.DefaultEditorKit;
 
 import covia.brightside.SessionHistory;
 import covia.brightside.chat.ChatSession;
+import covia.brightside.ui.LAF;
 
 /**
- * The chat: a scrolling column of message components above a rounded input box
- * and an accent Send button. Each message is its own rounded {@link Bubble}
- * component (user right/accent, assistant left/surface) — kept as separate
- * components so new message kinds (images, cards, tool output) can be added as
- * their own row types later. Text within a bubble is selectable; a right-click
- * offers <em>Copy message</em> and <em>Copy conversation</em> to get text out
- * across messages. Enter sends, Shift+Enter inserts a newline.
+ * The chat: a scrolling {@link MessageColumn} of message components above a
+ * rounded input box and an accent Send button. Each transcript item is rendered
+ * by its own component — a {@link Bubble} for a user/assistant message, an
+ * {@link ExpandableActivity} chip for a turn's tool use — kept as separate
+ * components (in this {@code ui.chat} package) so new item kinds (images, cards,
+ * richer tool output) can be added as their own row types. Text within a bubble
+ * is selectable; a right-click offers <em>Copy message</em> and <em>Copy
+ * conversation</em>. Enter sends, Shift+Enter inserts a newline.
  */
 @SuppressWarnings("serial")
 public final class ChatPanel extends JPanel {
-
-	private static final Color ERROR_RED = new Color(0xE5, 0x53, 0x53);
 
 	private final MessageColumn column = new MessageColumn();
 	private final JScrollPane scroll;
@@ -152,7 +145,7 @@ public final class ChatPanel extends JPanel {
 		focusInput();
 	}
 
-	/** Replaces the transcript with the venue's live conversation turns. */
+	/** Replaces the transcript with the venue's live conversation items. */
 	public void restore(List<SessionHistory.Item> items) {
 		column.clear();
 		displayed.clear();
@@ -255,9 +248,9 @@ public final class ChatPanel extends JPanel {
 	/** Show an animated "typing…" bubble on the assistant side while a reply is pending. */
 	private void showThinking() {
 		if (thinkingRow != null) return;
-		JPanel bubble = roundBubble(assistantBg());
+		JPanel bubble = roundBubble(ChatStyle.assistantBg());
 		bubble.setBorder(BorderFactory.createEmptyBorder(14, 16, 14, 16));
-		thinkingIndicator = new TypingIndicator(muted());
+		thinkingIndicator = new TypingIndicator(ChatStyle.muted());
 		bubble.add(thinkingIndicator, BorderLayout.CENTER);
 		JPanel row = new JPanel(new BorderLayout());
 		row.setOpaque(false);
@@ -301,13 +294,13 @@ public final class ChatPanel extends JPanel {
 
 	/** A note from Brightside itself (status, hints) — centred and muted. */
 	public void appendSystem(String text) {
-		column.add(noticeRow(text, muted(), false));
+		column.add(noticeRow(text, ChatStyle.muted(), false));
 		column.revalidate();
 		scrollToBottom();
 	}
 
 	public void appendError(String text) {
-		column.add(noticeRow(text, ERROR_RED, true));
+		column.add(noticeRow(text, ChatStyle.ERROR, true));
 		column.revalidate();
 		scrollToBottom();
 	}
@@ -363,10 +356,28 @@ public final class ChatPanel extends JPanel {
 	// ------------------------------------------------------------------
 
 	private Component bubbleRow(String text, boolean user) {
-		Color bg = user ? LAF.ACCENT : assistantBg();
-		Color fg = user ? Color.WHITE : UIManager.getColor("Label.foreground");
+		Color bg = user ? LAF.ACCENT : ChatStyle.assistantBg();
+		Color fg = user ? Color.WHITE : ChatStyle.foreground();
 		Bubble bubble = new Bubble(text, bg, fg);
 		bubble.setAvailableWidth(scroll.getViewport().getWidth());
+
+		// The bubble is a dumb display component; the panel owns copy behaviour.
+		JTextArea ta = bubble.textArea();
+		ta.addCaretListener(e -> {
+			if (e.getDot() != e.getMark()) lastSelectedBubble = ta;
+		});
+		MouseAdapter popup = new MouseAdapter() {
+			@Override
+			public void mousePressed(MouseEvent e) {
+				if (e.isPopupTrigger()) showBubbleMenu(ta, text, ta, e.getX(), e.getY());
+			}
+
+			@Override
+			public void mouseReleased(MouseEvent e) {
+				if (e.isPopupTrigger()) showBubbleMenu(ta, text, ta, e.getX(), e.getY());
+			}
+		};
+		ta.addMouseListener(popup);
 
 		JPanel row = new JPanel(new BorderLayout());
 		row.setOpaque(false);
@@ -394,323 +405,8 @@ public final class ChatPanel extends JPanel {
 		JPanel row = new JPanel(new BorderLayout());
 		row.setOpaque(false);
 		row.setBorder(BorderFactory.createEmptyBorder(0, 2, 0, 2));
-		row.add(new ExpandableActivity(a), BorderLayout.WEST);
+		row.add(new ExpandableActivity(a, column::revalidate), BorderLayout.WEST);
 		row.setAlignmentX(Component.LEFT_ALIGNMENT);
 		return row;
-	}
-
-	private static String escapeHtml(String s) {
-		return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>");
-	}
-
-	private static String truncate(String s, int max) {
-		return (s.length() <= max) ? s : s.substring(0, max) + "…";
-	}
-
-	private static JLabel htmlLabel(String text, Color fg, boolean italic) {
-		String style = "width:440px;" + (italic ? "font-style:italic;" : "");
-		JLabel l = new JLabel("<html><div style='" + style + "'>" + escapeHtml(text) + "</div></html>");
-		l.setForeground(fg);
-		l.putClientProperty("FlatLaf.styleClass", "small");
-		l.setAlignmentX(Component.LEFT_ALIGNMENT);
-		return l;
-	}
-
-	private static Color muted() {
-		Color c = UIManager.getColor("Label.disabledForeground");
-		return (c != null) ? c : Color.GRAY;
-	}
-
-	/** Elevated surface for the assistant's bubbles, derived from the theme. */
-	private static Color assistantBg() {
-		Color base = UIManager.getColor("Panel.background");
-		if (base == null) base = new Color(0x2B, 0x2B, 0x2B);
-		boolean dark = (base.getRed() + base.getGreen() + base.getBlue()) / 3 < 128;
-		return dark ? mix(base, Color.WHITE, 0.12f) : mix(base, Color.BLACK, 0.06f);
-	}
-
-	private static Color mix(Color a, Color b, float t) {
-		return new Color(
-			Math.round(a.getRed() * (1 - t) + b.getRed() * t),
-			Math.round(a.getGreen() * (1 - t) + b.getGreen() * t),
-			Math.round(a.getBlue() * (1 - t) + b.getBlue() * t));
-	}
-
-	/** A three-dot "typing…" animation. */
-	@SuppressWarnings("serial")
-	private static final class TypingIndicator extends JComponent {
-		private static final int COUNT = 3;
-		private static final int DOT = 8;
-		private static final int GAP = 6;
-
-		private final Color color;
-		private final Timer timer;
-		private int phase;
-
-		TypingIndicator(Color color) {
-			this.color = color;
-			setOpaque(false);
-			setPreferredSize(new Dimension(COUNT * DOT + (COUNT - 1) * GAP, DOT + 6));
-			// COUNT+1 phases: each dot lifts in turn, then a brief rest.
-			timer = new Timer(280, e -> {
-				phase = (phase + 1) % (COUNT + 1);
-				repaint();
-			});
-		}
-
-		void start() {
-			phase = 0;
-			timer.start();
-		}
-
-		void stop() {
-			timer.stop();
-		}
-
-		@Override
-		protected void paintComponent(Graphics g) {
-			Graphics2D g2 = (Graphics2D) g.create();
-			g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-			int y = (getHeight() - DOT) / 2;
-			for (int i = 0; i < COUNT; i++) {
-				boolean active = (i == phase);
-				int alpha = active ? 235 : 110;
-				int lift = active ? 2 : 0;
-				g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), alpha));
-				g2.fillOval(i * (DOT + GAP), y - lift, DOT, DOT);
-			}
-			g2.dispose();
-		}
-	}
-
-	/** The scrolling column of rows; tracks the viewport width so rows can align. */
-	private static final class MessageColumn extends JPanel implements Scrollable {
-		MessageColumn() {
-			setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-			setOpaque(false);
-			setBorder(BorderFactory.createEmptyBorder(8, 4, 8, 4));
-		}
-
-		void setAvailableWidth(int viewportWidth) {
-			for (Component row : getComponents()) {
-				if (row instanceof JPanel p) {
-					for (Component c : p.getComponents()) {
-						if (c instanceof Bubble b) b.setAvailableWidth(viewportWidth);
-					}
-				}
-			}
-			revalidate();
-		}
-
-		void clear() {
-			removeAll();
-		}
-
-		@Override
-		public Dimension getPreferredScrollableViewportSize() {
-			return getPreferredSize();
-		}
-
-		@Override
-		public int getScrollableUnitIncrement(java.awt.Rectangle r, int orientation, int direction) {
-			return 24;
-		}
-
-		@Override
-		public int getScrollableBlockIncrement(java.awt.Rectangle r, int orientation, int direction) {
-			return r.height;
-		}
-
-		@Override
-		public boolean getScrollableTracksViewportWidth() {
-			return true;
-		}
-
-		@Override
-		public boolean getScrollableTracksViewportHeight() {
-			return false;
-		}
-	}
-
-	/** A collapsed "tool steps" chip that expands to show a turn's tool use. */
-	@SuppressWarnings("serial")
-	private final class ExpandableActivity extends JPanel {
-		private static final Color OK_GREEN = new Color(0x3F, 0xB9, 0x50);
-
-		private final JLabel header;
-		private final JPanel body;
-		private final int toolCount;
-		private boolean expanded;
-
-		ExpandableActivity(SessionHistory.Activity a) {
-			setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-			setOpaque(false);
-			setAlignmentX(LEFT_ALIGNMENT);
-			toolCount = (int) a.steps().stream().filter(SessionHistory.Step::tool).count();
-
-			header = new JLabel();
-			header.putClientProperty("FlatLaf.styleClass", "small");
-			header.setForeground(muted());
-			header.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-			header.setBorder(BorderFactory.createEmptyBorder(2, 6, 2, 6));
-			header.setAlignmentX(LEFT_ALIGNMENT);
-			header.addMouseListener(new MouseAdapter() {
-				@Override
-				public void mouseClicked(MouseEvent e) {
-					toggle();
-				}
-			});
-			updateHeader();
-
-			body = new JPanel();
-			body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
-			body.setOpaque(false);
-			body.setBorder(BorderFactory.createEmptyBorder(2, 12, 6, 4));
-			body.setVisible(false);
-			body.setAlignmentX(LEFT_ALIGNMENT);
-			for (SessionHistory.Step s : a.steps()) body.add(stepComponent(s));
-
-			add(header);
-			add(body);
-		}
-
-		private String summary() {
-			if (toolCount == 1) return "1 tool step";
-			if (toolCount > 1) return toolCount + " tool steps";
-			return "details";
-		}
-
-		private void updateHeader() {
-			header.setText((expanded ? "▾  " : "▸  ") + summary());
-		}
-
-		private void toggle() {
-			expanded = !expanded;
-			body.setVisible(expanded);
-			updateHeader();
-			revalidate();
-			column.revalidate();
-		}
-
-		private Component stepComponent(SessionHistory.Step s) {
-			if (!s.tool()) {
-				return htmlLabel(s.detail(), muted(), true);
-			}
-			JPanel p = new JPanel();
-			p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
-			p.setOpaque(false);
-			p.setBorder(BorderFactory.createEmptyBorder(2, 0, 4, 0));
-			p.setAlignmentX(LEFT_ALIGNMENT);
-			JLabel title = new JLabel((s.error() ? "✕ " : "✓ ") + s.title());
-			title.setForeground(s.error() ? ERROR_RED : OK_GREEN);
-			title.putClientProperty("FlatLaf.styleClass", "small");
-			title.setAlignmentX(LEFT_ALIGNMENT);
-			p.add(title);
-			if (s.detail() != null && !s.detail().isBlank()) {
-				p.add(htmlLabel(truncate(s.detail(), 800), muted(), false));
-			}
-			return p;
-		}
-
-		@Override
-		public Dimension getMaximumSize() {
-			Dimension p = getPreferredSize();
-			return new Dimension(Math.min(p.width, 680), p.height);
-		}
-	}
-
-	/** A rounded message bubble wrapping a wrapping, selectable text area. */
-	private final class Bubble extends JPanel {
-		private static final int ARC = 20;
-		private static final int PAD_H = 14;
-		private static final int PAD_V = 10;
-
-		private final JTextArea ta;
-		private final Color bg;
-		private int maxWidth = 460;
-
-		Bubble(String text, Color bg, Color fg) {
-			super(new BorderLayout());
-			this.bg = bg;
-			setOpaque(false);
-			ta = new JTextArea(text);
-			ta.setEditable(false);
-			ta.setLineWrap(true);
-			ta.setWrapStyleWord(true);
-			ta.setOpaque(false);
-			ta.setForeground(fg);
-			// A read-only bubble never takes keyboard focus (so the input keeps it)
-			// and shows no insert caret — but stays mouse-selectable, with the
-			// selection painted even without focus.
-			ta.setFocusable(false);
-			javax.swing.text.DefaultCaret caret = new javax.swing.text.DefaultCaret() {
-				@Override
-				public void setVisible(boolean visible) {
-					super.setVisible(false);
-				}
-
-				@Override
-				public void setSelectionVisible(boolean visible) {
-					super.setSelectionVisible(true);
-				}
-			};
-			caret.setBlinkRate(0);
-			ta.setCaret(caret);
-			caret.setSelectionVisible(true);
-			// Remember this bubble as the copy source while it holds a selection.
-			ta.addCaretListener(e -> {
-				if (e.getDot() != e.getMark()) lastSelectedBubble = ta;
-			});
-			ta.setBorder(BorderFactory.createEmptyBorder(PAD_V, PAD_H, PAD_V, PAD_H));
-			ta.setFont(ta.getFont().deriveFont(ta.getFont().getSize2D() + 1f));
-			MouseAdapter popup = new MouseAdapter() {
-				@Override
-				public void mousePressed(MouseEvent e) {
-					if (e.isPopupTrigger()) showBubbleMenu(ta, text, ta, e.getX(), e.getY());
-				}
-
-				@Override
-				public void mouseReleased(MouseEvent e) {
-					if (e.isPopupTrigger()) showBubbleMenu(ta, text, ta, e.getX(), e.getY());
-				}
-			};
-			ta.addMouseListener(popup);
-			add(ta, BorderLayout.CENTER);
-		}
-
-		void setAvailableWidth(int viewportWidth) {
-			int w = (viewportWidth > 0) ? (int) (viewportWidth * 0.78) : 460;
-			maxWidth = Math.max(200, Math.min(660, w));
-			revalidate();
-		}
-
-		@Override
-		public Dimension getPreferredSize() {
-			int inner = Math.max(40, maxWidth - 2 * PAD_H);
-			FontMetrics fm = ta.getFontMetrics(ta.getFont());
-			int longest = 0;
-			for (String line : ta.getText().split("\n", -1)) {
-				longest = Math.max(longest, fm.stringWidth(line));
-			}
-			int contentW = Math.min(longest, inner);
-			ta.setSize(contentW, Short.MAX_VALUE);
-			int h = ta.getPreferredSize().height;
-			return new Dimension(contentW + 2 * PAD_H, h + 2 * PAD_V);
-		}
-
-		@Override
-		public Dimension getMaximumSize() {
-			return getPreferredSize();
-		}
-
-		@Override
-		protected void paintComponent(Graphics g) {
-			Graphics2D g2 = (Graphics2D) g.create();
-			g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-			g2.setColor(bg);
-			g2.fillRoundRect(0, 0, getWidth(), getHeight(), ARC, ARC);
-			g2.dispose();
-			super.paintComponent(g);
-		}
 	}
 }

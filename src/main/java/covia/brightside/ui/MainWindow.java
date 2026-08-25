@@ -31,6 +31,7 @@ import covia.brightside.SessionHistory;
 import covia.brightside.EmbeddedVenue;
 import covia.brightside.Identity;
 import covia.brightside.chat.ChatSession;
+import covia.brightside.ui.chat.ChatPanel;
 
 /**
  * The BrightSide window. Two full-window screens on a {@link CardLayout}: the
