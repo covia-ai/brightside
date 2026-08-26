@@ -43,6 +43,8 @@ public final class ChatSession {
 	private static final String OP_CHAT = "v/ops/agent/chat";
 	private static final String OP_RESUME = "v/ops/agent/resume";
 
+	private static final String STATUS_SUSPENDED = "SUSPENDED";
+
 	/** Time allowed for agent management calls (create/update/info). */
 	private static final long ADMIN_TIMEOUT_SECONDS = 30;
 
@@ -106,11 +108,16 @@ public final class ChatSession {
 		return config;
 	}
 
-	/** Re-apply the agent's configuration (e.g. a new model chosen in Settings). */
-	public synchronized void reconfigure(AppConfig.Chat config) throws Exception {
+	/**
+	 * Re-apply the agent's configuration (e.g. a new model chosen in Settings).
+	 *
+	 * @return true if it applied now; false if the agent is busy (a reply in
+	 *         flight) and it will apply on the next message instead
+	 */
+	public synchronized boolean reconfigure(AppConfig.Chat config) throws Exception {
 		this.config = config;
 		this.agentReady = false;
-		ensureAgent();
+		return ensureAgent();
 	}
 
 	/** The user's display name, or null if unspecified. */
@@ -144,9 +151,15 @@ public final class ChatSession {
 	 * and system prompt. Creates it on first use; on later runs (persistent
 	 * venue store) re-applies the configuration, keeping the agent's history.
 	 * Idempotent per session object.
+	 *
+	 * @return true if the configuration is in force; false if the agent exists
+	 *         but could not be updated yet (e.g. it is mid-cycle) — chatting
+	 *         still works on its previous configuration and the update is
+	 *         retried on the next call
+	 * @throws Exception if the agent does not exist and cannot be created
 	 */
-	public synchronized void ensureAgent() throws Exception {
-		if (agentReady) return;
+	public synchronized boolean ensureAgent() throws Exception {
+		if (agentReady) return true;
 		String systemPrompt = config.systemPrompt();
 		if (userName != null && !userName.isBlank()) {
 			systemPrompt += "\n\nThe user's name is " + userName + ". Address them by it naturally.";
@@ -184,56 +197,65 @@ public final class ChatSession {
 			// loads one to reveal (and then use) that family's tools.
 			"skillsets", Vectors.of(Strings.create(USER_SKILLSET), Strings.create(VENUE_SKILLSET)));
 		AMap<AString, ACell> input = Maps.of(Fields.AGENT_ID, config.agentId(), Fields.CONFIG, agentConfig);
-		if (agentExists()) {
+		String status = agentStatus();
+		if (status != null) {
+			// agent:update is a recursive *merge* (vectors replace, maps merge), not
+			// a replace: tools/skillsets/context above are re-applied wholesale, but
+			// a `loads` pin dropped from this map would linger on existing agents.
 			try {
 				run(OP_UPDATE, input, ADMIN_TIMEOUT_SECONDS);
 				log.info("Applied configuration to chat agent '{}'", config.agentId());
 			} catch (Exception e) {
-				// e.g. the agent is mid-cycle; the previous configuration stands.
-				log.warn("Could not apply configuration to agent '{}': {}", config.agentId(), e.getMessage());
+				// e.g. the agent is mid-cycle (update is rejected while RUNNING); the
+				// previous configuration stands for now. Leave agentReady false so
+				// the next send() tries again once the agent is idle.
+				log.warn("Could not apply configuration to agent '{}' (will retry): {}",
+					config.agentId(), e.getMessage());
+				return false;
 			}
+			// A failed transition (a bad model op, a missing API key…) leaves the
+			// agent SUSPENDED, and a suspended agent refuses every chat until it is
+			// resumed. The configuration has just been (re)applied — which is the
+			// usual fix — so resume it now rather than leave the chat bricked.
+			if (STATUS_SUSPENDED.equals(status)) resume();
 		} else {
 			run(OP_CREATE, input, ADMIN_TIMEOUT_SECONDS);
 			log.info("Created chat agent '{}' ({} via {})", config.agentId(), config.operation(), config.llmOperation());
 		}
-		// An agent can still be carrying a suspension from an earlier failed run
-		// (e.g. a model with no API key). Clear it here so the next message runs.
-		resumeIfSuspended();
 		agentReady = true;
+		return true;
 	}
 
-	/** True if a failure looks like the agent being SUSPENDED. */
-	private static boolean isSuspended(Throwable e) {
-		String m = e.getMessage();
-		return m != null && m.toLowerCase(java.util.Locale.ROOT).contains("suspend");
-	}
-
-	/** Clears a suspension (agent:resume) so the agent can run again. */
-	public synchronized void resume() throws Exception {
-		run(OP_RESUME, Maps.of(Fields.AGENT_ID, config.agentId()), ADMIN_TIMEOUT_SECONDS);
-		log.info("Resumed agent '{}'", config.agentId());
-	}
-
-	/** If the agent is SUSPENDED, clear it so a fresh session can run. Best-effort. */
-	private void resumeIfSuspended() {
+	/** The agent's status (SLEEPING, RUNNING, SUSPENDED, TERMINATED), or null if it doesn't exist. */
+	private String agentStatus() {
 		try {
 			ACell info = run(OP_INFO, Maps.of(Fields.AGENT_ID, config.agentId()), ADMIN_TIMEOUT_SECONDS);
-			AString status = RT.ensureString(RT.getIn(info, "status"));
-			if (status != null && "SUSPENDED".equals(status.toString())) {
-				resume();
-				log.info("Cleared a stale suspension on agent '{}'", config.agentId());
-			}
+			if (info == null) return null;
+			AString status = RT.ensureString(RT.getIn(info, Fields.STATUS));
+			return (status != null) ? status.toString() : "";
 		} catch (Exception e) {
-			log.warn("Could not check/clear agent suspension: {}", e.getMessage());
+			return null;
 		}
 	}
 
-	private boolean agentExists() {
+	/** Clears a suspension (SUSPENDED → SLEEPING). Best-effort; logged, never thrown. */
+	private void resume() {
 		try {
-			return run(OP_INFO, Maps.of(Fields.AGENT_ID, config.agentId()), ADMIN_TIMEOUT_SECONDS) != null;
+			run(OP_RESUME, Maps.of(Fields.AGENT_ID, config.agentId()), ADMIN_TIMEOUT_SECONDS);
+			log.info("Resumed suspended chat agent '{}'", config.agentId());
 		} catch (Exception e) {
-			return false;
+			log.warn("Could not resume agent '{}': {}", config.agentId(), e.getMessage());
 		}
+	}
+
+	/** Whether {@code e} is the venue refusing work because the agent is suspended. */
+	static boolean isSuspended(Throwable e) {
+		for (Throwable t = e; t != null; t = t.getCause()) {
+			String m = t.getMessage();
+			if (m != null && m.contains("is suspended")) return true;
+			if (t.getCause() == t) break;
+		}
+		return false;
 	}
 
 	/** Sends one user message and waits for the agent's reply. */
@@ -244,23 +266,42 @@ public final class ChatSession {
 			pendingResume = false;
 			return reply;
 		} catch (Exception e) {
+			// Suspended by an earlier failed turn (e.g. before a key was fixed in
+			// Settings): resume and try this message once more, same session.
+			if (isSuspended(e)) {
+				log.warn("Agent is suspended ({}); resuming and retrying", e.getMessage());
+				resume();
+				Reply reply = sendOnce(message);
+				pendingResume = false;
+				return reply;
+			}
 			// A resumed session the venue no longer knows: drop it and retry once.
-			if (pendingResume) {
+			// Only for that error — a model or key failure must not mint a fresh
+			// (orphan) session and fail again in it.
+			if (pendingResume && isUnknownSession(e)) {
 				log.warn("Could not continue the previous conversation ({}); starting a new one",
 					e.getMessage());
 				pendingResume = false;
 				sessionId = null;
 				return sendOnce(message);
 			}
-			// The agent is suspended (e.g. an earlier bad model or missing key):
-			// clear the suspension and try once more, so Send just works.
-			if (isSuspended(e)) {
-				log.warn("Agent '{}' is suspended; resuming and retrying", config.agentId());
-				resume();
-				return sendOnce(message);
-			}
 			throw e;
 		}
+	}
+
+	/**
+	 * Whether {@code e} is the venue rejecting an unknown session id. The agent
+	 * framework fails the chat job with "Unknown session: …" / "Unknown
+	 * sessionId: …" (see Covia's {@code AgentAdapter}); anything else is a
+	 * different failure and the session id stays.
+	 */
+	static boolean isUnknownSession(Throwable e) {
+		for (Throwable t = e; t != null; t = t.getCause()) {
+			String m = t.getMessage();
+			if (m != null && m.toLowerCase().contains("unknown session")) return true;
+			if (t.getCause() == t) break;
+		}
+		return false;
 	}
 
 	private Reply sendOnce(String message) throws Exception {

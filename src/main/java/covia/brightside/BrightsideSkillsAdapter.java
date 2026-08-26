@@ -15,15 +15,18 @@ import covia.venue.RequestContext;
  *
  * <p>Skills, under {@code v/skills/brightside/…}:</p>
  * <ul>
- *   <li><b>introduction</b> — how the assistant presents itself (pinned).</li>
+ *   <li><b>introduction</b> — how the assistant presents itself (pinned); its
+ *       {@code skill.skills} facet reveals <b>conversations</b>.</li>
  *   <li><b>conversations</b> — how it talks with the user and reviews past
- *       conversations (pinned); its facet grants the read-only past-session
- *       tools ({@code agent:sessions}, {@code agent:session-read}).</li>
+ *       conversations. Loaded on demand, <em>not</em> pinned: its facet grants
+ *       the read-only past-session tools ({@code agent:sessions},
+ *       {@code agent:session-read}), and only a {@code skill_load} activates a
+ *       skill's tools — a pinned load carries the body alone.</li>
  *   <li><b>skills</b> — how it grows new abilities (pinned); its
  *       {@code skill.skills} facet reveals <b>skill-authoring</b>.</li>
- *   <li><b>skill-authoring</b> — the gated sub-skill whose facet grants the
- *       {@code covia:write} tool, so the assistant can author skills into its
- *       own {@code w/skills}.</li>
+ *   <li><b>skill-authoring</b> — the gated sub-skill (on demand) whose facet
+ *       grants the {@code covia:write} tool, so the assistant can author skills
+ *       into its own {@code w/skills}.</li>
  * </ul>
  *
  * <p>Registered on the embedded engine at launch ({@link EmbeddedVenue}); like
@@ -34,14 +37,17 @@ public class BrightsideSkillsAdapter extends AAdapter {
 
 	/** Brightside's default skillset under the venue namespace. */
 	public static final String SKILLSET = "v/skills/brightside";
-	/** Always-loaded: how the assistant introduces itself. */
+	/** Always-loaded: how the assistant introduces itself; reveals conversations. */
 	public static final String INTRODUCTION = SKILLSET + "/introduction";
-	/** Always-loaded: how it talks with the user and reviews past conversations. */
+	/** On demand: how it talks with the user and reviews past conversations (grants the session tools). */
 	public static final String CONVERSATIONS = SKILLSET + "/conversations";
 	/** Always-loaded: how the assistant grows new abilities; gates skill-authoring. */
 	public static final String SKILLS = SKILLSET + "/skills";
 	/** Gated sub-skill: how to author a skill, and the write tool to do it. */
 	public static final String SKILL_AUTHORING = SKILLSET + "/skill-authoring";
+	/** Every shipped skill path, in install order — the single list others derive from. */
+	public static final java.util.List<String> SHIPPED =
+		java.util.List.of(INTRODUCTION, CONVERSATIONS, SKILLS, SKILL_AUTHORING);
 
 	@Override
 	public String getName() {
@@ -56,10 +62,10 @@ public class BrightsideSkillsAdapter extends AAdapter {
 
 	@Override
 	protected void installAssets() {
-		installSkill("brightside/introduction", "/brightside/skills/introduction.json");
-		installSkill("brightside/conversations", "/brightside/skills/conversations.json");
-		installSkill("brightside/skill-authoring", "/brightside/skills/skill-authoring.json");
-		installSkill("brightside/skills", "/brightside/skills/skills.json");
+		for (String path : SHIPPED) {
+			String name = path.substring(path.lastIndexOf('/') + 1);
+			installSkill("brightside/" + name, "/brightside/skills/" + name + ".json");
+		}
 	}
 
 	@Override

@@ -10,12 +10,16 @@ working default for anything you omit.
 |---|---|
 | `~/.brightside/config.json` | Settings (JSON5 — comments allowed). Hand-edited. |
 | `~/.brightside/identity.json` | Your name, kept apart so choosing a name never rewrites your settings. |
-| `~/.brightside/venue.etch` | The lattice store: conversations, memory, skills, agent state. |
-| `~/.brightside/venue.key` | The venue's Ed25519 identity seed (32 bytes, hex). |
+| `~/.brightside/venue.etch` | The encrypted lattice store: conversations, memory, skills, agent state. |
+| `~/.brightside/vault.salt` | The non-secret salt for passphrase hardening. |
+| `~/.brightside/identity.enc` | The AES-GCM-encrypted Ed25519 identity seed. |
+| `~/.brightside/keys.enc` | Provider API keys encrypted under the passphrase-derived key. |
+| `~/.brightside/unlock.enc` | Optional remembered unlock material; see the warning in Settings → Vault. |
 | `~/.brightside/logs/` | Logs. |
 
-To reset the venue completely, delete `venue.etch` and `venue.key` **together** —
-the store and the identity that signs for it belong to each other.
+Back up the whole directory as one unit. To reset Brightside completely, remove
+the whole data directory while Brightside is stopped. There is no supported
+plaintext or unencrypted legacy-install mode.
 
 *Advanced → Open settings file* opens `config.json` in your editor; *Advanced →
 Open logs folder* opens the log directory. Changes to the file take effect on
@@ -62,8 +66,9 @@ need no Brightside change.
 Brightside's defaults:
 
 - bind to `127.0.0.1` (loopback only — nothing on your network can reach it)
-- a persistent store at `~/.brightside/venue.etch`, with the identity seed in
-  `venue.key` beside it
+- a persistent encrypted store at `~/.brightside/venue.etch`, with its identity
+  and encryption material injected only into the in-memory venue configuration
+- anonymous HTTP and MCP access disabled; local tools must authenticate
 - auto-create users
 - the MCP endpoint enabled at `http://127.0.0.1:8085/mcp`
 
@@ -83,17 +88,18 @@ restarts and across configuration changes.
 
 ## Model API keys
 
-The default model operation needs a provider key. Two ways to supply it:
+The default model operation needs a provider key. Two supported ways to supply it:
 
 1. **Environment** — put `ANTHROPIC_API_KEY` in the environment before
    launching.
-2. **The venue's secret store** — put it in the `secrets.public` block of the
-   `venue` config.
+2. **Brightside settings** — enter it during onboarding or under *Settings →
+   Model*. Brightside stores it in encrypted `keys.enc` and provisions the
+   running venue's public secret scope in memory.
 
-It must be `secrets.public`, not `secrets.venue`. You chat as `u:<your name>`, a
-local principal that is deliberately *not* the venue principal, and
-`secrets.public` is what a local user resolves from. This is the same separation
-that stops the venue operator having a backdoor into user data.
+The runtime scope must be public, not venue-only. You chat as `u:<your name>`, a
+local principal that is deliberately *not* the venue principal, and the public
+secret scope is what a local user resolves from. Do not put API keys in
+`config.json`.
 
 For an offline smoke test with no key at all, set:
 
@@ -122,12 +128,13 @@ About**. Change it any time with **File → Change my name…**.
 
 ## Reaching the venue from other tools
 
-The venue speaks HTTP, MCP and A2A on loopback. Access is capability-based, so
-you need a token: the venue trusts JWTs it signed itself, and you can mint one
-by signing with `~/.brightside/venue.key`. Set the token's `sub` to the venue
-DID to act as the operator, or to `<venueDID>:u:<name>` to act as your local
-user — the local principals have no key of their own, so a venue-signed token is
-the only way to authenticate as them off-process.
+The venue speaks HTTP, MCP and A2A on loopback. Anonymous access is disabled, so
+you need a token. *Settings → Auth* mints a short-lived operator token without
+writing it to disk. Advanced tools that need a different subject can use the
+passphrase-gated identity-seed export under *Settings → Profile* and the
+Covia/Convex SDK. Set the token's `sub` to the venue DID to act as the operator,
+or to `<venueDID>:u:<name>` to act as your local user — local principals have no
+key of their own, so a venue-signed token is how they authenticate off-process.
 
 Then use any standard client: `Authorization: Bearer <token>` against
 `/api/v1/…`, the Covia SDK, or the MCP endpoint. See the *Debugging / accessing

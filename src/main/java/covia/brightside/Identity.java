@@ -32,7 +32,9 @@ import convex.core.util.JSON;
  * {@code <venueDID>:public} principal and the {@code :u:} user segment of
  * {@code did:web} venues, so the agent's turns are attributed to their owner.
  * Persisted on its own in {@code <home>/identity.json}, apart from the
- * hand-edited {@code config.json}.
+ * hand-edited {@code config.json}. The slug is saved alongside the name and
+ * kept when the name changes ({@link #withName}) — the principal is where the
+ * agent, its memory and its skills live, so it must outlive any rename.
  */
 public final class Identity {
 
@@ -66,6 +68,19 @@ public final class Identity {
 		String display = normaliseDisplay(rawName);
 		if (display.isEmpty()) display = slug;
 		return new Identity(display, slug);
+	}
+
+	/**
+	 * The same principal with a new display name. The slug — and so the venue
+	 * DID, the agent, its memory and its skills — is unchanged: renaming
+	 * yourself must never switch you to a different, empty agent.
+	 *
+	 * @throws IllegalArgumentException if the new name is unusable
+	 */
+	public Identity withName(String rawName) {
+		if (sanitise(rawName).isEmpty()) throw new IllegalArgumentException("A user name is required");
+		String display = normaliseDisplay(rawName);
+		return new Identity(display.isEmpty() ? slug : display, slug);
 	}
 
 	/** The name as the person typed it — what the UI and the assistant use. */
@@ -143,17 +158,25 @@ public final class Identity {
 			AString n = (map == null) ? null : RT.ensureString(map.get(Strings.create("name")));
 			if (n == null) return null;
 			String raw = n.toString();
-			return sanitise(raw).isEmpty() ? null : of(raw);
+			if (sanitise(raw).isEmpty()) return null;
+			Identity id = of(raw);
+			// A saved slug pins the principal across renames; older files (name
+			// only) derive it from the name, exactly as before.
+			AString s = RT.ensureString(map.get(Strings.create("slug")));
+			String savedSlug = (s == null) ? "" : sanitise(s.toString());
+			return savedSlug.isEmpty() ? id : new Identity(id.display, savedSlug);
 		} catch (Exception e) {
 			log.warn("Could not read {} — will ask for a name again: {}", file, e.toString());
 			return null;
 		}
 	}
 
-	/** Persists this identity (the display name) to {@code <home>/identity.json}. */
+	/** Persists this identity (display name and slug) to {@code <home>/identity.json}. */
 	public void save(Path home) throws IOException {
 		Files.createDirectories(home);
-		AMap<AString, ACell> map = Maps.of(Strings.create("name"), Strings.create(display));
+		AMap<AString, ACell> map = Maps.of(
+			Strings.create("name"), Strings.create(display),
+			Strings.create("slug"), Strings.create(slug));
 		Files.writeString(home.resolve(FILE_NAME), JSON.printPretty(map).toString() + "\n");
 	}
 

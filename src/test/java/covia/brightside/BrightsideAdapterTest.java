@@ -89,11 +89,15 @@ class BrightsideAdapterTest {
 	@Test
 	void seedsTheDefaultSkillset() {
 		RequestContext ctx = RequestContext.of(Strings.create(venue.did()));
-		for (String path : new String[] {
-			BrightsideSkillsAdapter.INTRODUCTION,
-			BrightsideSkillsAdapter.SKILLS,
-			BrightsideSkillsAdapter.SKILL_AUTHORING }) {
+		assertEquals(4, BrightsideSkillsAdapter.SHIPPED.size());
+		for (String path : BrightsideSkillsAdapter.SHIPPED) {
 			assertNotNull(venue.engine().resolvePath(Strings.create(path), ctx), "skill present: " + path);
+		}
+		// The conversations skill is what grants the past-session tools; the
+		// ops it names must exist in the venue's catalogue or the load is hollow.
+		for (String op : new String[] { "v/ops/agent/sessions", "v/ops/agent/session-read",
+			"v/ops/agent/rename-session", "v/ops/agent/delete-session", "v/ops/agent/context" }) {
+			assertNotNull(venue.engine().resolvePath(Strings.create(op), ctx), "op present: " + op);
 		}
 	}
 }

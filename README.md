@@ -210,11 +210,12 @@ determine the menu, not Brightside.
 Covia-hosted dependency. The venue binds to `127.0.0.1`. The only outbound
 traffic is the model call you configured, to the provider whose key you gave it.
 
-**Where is my data?** `~/.brightside/` — `venue.etch` (the lattice store, which
-holds conversations, memory and skills), `venue.key` (the venue's identity
-seed), `identity.json` (your name), `config.json` and `logs/`. Back the folder
-up; delete it to start over. Delete `venue.etch` and `venue.key` **together** if
-you want a clean venue.
+**Where is my data?** `~/.brightside/` — `venue.etch` (the encrypted lattice
+store, which holds conversations, memory and skills), `identity.enc` (the
+encrypted venue identity), `keys.enc` (encrypted provider credentials),
+`identity.json` (your name), `config.json` and `logs/`. Back the whole folder up;
+delete the whole folder to start over completely. Brightside never creates a
+plaintext `venue.key`.
 
 **Can it run fully offline?** The app, the venue, your memory and your skills
 are all local and work with no network. The *model* is the exception: point

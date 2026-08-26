@@ -39,6 +39,25 @@ class VaultTest {
 	}
 
 	@Test
+	void neverOverwritesAnExistingSalt(@TempDir Path home) throws Exception {
+		String seed = Mnemonic.toSeedHex(Mnemonic.generate(12));
+		Vault.open(home, "pw".toCharArray()).storeSeed(seed);
+		Path saltFile = home.resolve(Vault.SALT_FILE);
+		byte[] salt = java.nio.file.Files.readAllBytes(saltFile);
+
+		// A malformed salt (truncated by a bad write, edited, …) must be an
+		// error, not a reason to mint a new one — that would silently make
+		// identity.enc and the store undecryptable with the right passphrase.
+		java.nio.file.Files.write(saltFile, new byte[] { 1, 2, 3 });
+		assertThrows(IOException.class, () -> Vault.open(home, "pw".toCharArray()));
+		assertEquals(3, java.nio.file.Files.readAllBytes(saltFile).length, "left untouched");
+
+		// Restore it and the vault opens again with the same keys.
+		java.nio.file.Files.write(saltFile, salt);
+		assertEquals(seed, Vault.open(home, "pw".toCharArray()).seedHex());
+	}
+
+	@Test
 	void wrongPassphraseCannotDecryptTheSeed(@TempDir Path home) throws Exception {
 		Vault.open(home, "right".toCharArray()).storeSeed(Mnemonic.toSeedHex(Mnemonic.generate(12)));
 		Vault wrong = Vault.open(home, "WRONG".toCharArray());
@@ -53,7 +72,7 @@ class VaultTest {
 		ACell etch = secured.get(Strings.create("etch"));
 		assertEquals(CVMLong.create(3), RT.getIn(etch, "version"));
 		assertEquals(Strings.create("chacha20"), RT.getIn(etch, "cipher"));
-		assertEquals(64, RT.getIn(etch, "key").toString().length(), "32-byte vault key as hex");
+		assertEquals(64, RT.getIn(etch, "key").toString().length(), "32-byte store key as hex");
 	}
 
 	@Test
@@ -90,6 +109,13 @@ class VaultTest {
 			venue.close();
 		}
 
+		// Recovery validates the candidate seed against the authenticated store
+		// header before replacing identity.enc or deleting provider credentials.
+		Vault recovery = Vault.open(home, "new-passphrase".toCharArray());
+		recovery.verifyStoreAccess(base, seed);
+		String otherSeed = Mnemonic.toSeedHex(Mnemonic.generate(12));
+		assertThrows(IOException.class, () -> recovery.verifyStoreAccess(base, otherSeed));
+
 		// A DIFFERENT passphrase but the SAME seed reopens the store and reads the
 		// marker — the store key comes from the seed, so recovery (which reaches the
 		// seed via the recovery phrase) restores full access, not just the identity.
@@ -103,7 +129,6 @@ class VaultTest {
 		}
 
 		// A DIFFERENT seed cannot open it.
-		String otherSeed = Mnemonic.toSeedHex(Mnemonic.generate(12));
 		AMap<AString, ACell> wrong = Vault.open(home, "passphrase-A".toCharArray()).secure(base, otherSeed);
 		assertThrows(Exception.class, () -> EmbeddedVenue.launch(wrong).close(),
 			"a different seed cannot open the encrypted store");

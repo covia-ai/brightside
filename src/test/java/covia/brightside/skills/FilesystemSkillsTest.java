@@ -96,6 +96,20 @@ class FilesystemSkillsTest {
 		assertTrue(str(RT.getIn(value, "description")).contains("weekly report"));
 		assertTrue(str(RT.getIn(RT.getIn(value, "content"), "inline")).contains("Five bullets"),
 			"the markdown body is stored");
+
+		// A second sync with the stored value in view leaves the unchanged skill
+		// alone (no write job) — the app syncs on every launch.
+		FilesystemSkills.Result again = FilesystemSkills.sync(client, skillsDir, path -> venue.resolve(userDID, path));
+		assertTrue(again.loaded().isEmpty(), "nothing rewritten: " + again.loaded());
+		assertEquals(java.util.List.of("weekly-report"), again.unchanged());
+
+		// Edit the file and it is written again.
+		Files.writeString(skill.resolve("SKILL.md"),
+			"---\nname: weekly-report\ndescription: How I like my weekly report. Load when drafting it.\n---\n\nSix bullets now.\n");
+		FilesystemSkills.Result edited = FilesystemSkills.sync(client, skillsDir, path -> venue.resolve(userDID, path));
+		assertEquals(java.util.List.of("weekly-report"), edited.loaded());
+		assertTrue(str(RT.getIn(RT.getIn(read(client, "w/skills/weekly-report"), "content"), "inline"))
+			.contains("Six bullets"));
 	}
 
 	@Test

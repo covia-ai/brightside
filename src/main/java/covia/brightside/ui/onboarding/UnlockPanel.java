@@ -35,8 +35,8 @@ import covia.brightside.ui.LAF;
 
 /**
  * The returning-user screen: enter the vault passphrase to unlock Brightside.
- * A wrong passphrase is caught cheaply (the encrypted store's header won't
- * verify) and reported without leaking anything.
+ * A wrong passphrase is caught by the authenticated encryption on
+ * {@code identity.enc} and reported without leaking anything.
  *
  * <p>Optionally "Remember me on this computer" stores the passphrase locally
  * (with a hover warning); a "Forgot passphrase?" link opens recovery from the
@@ -153,6 +153,7 @@ public final class UnlockPanel extends JPanel {
 	private void submit() {
 		char[] pw = field.getPassword();
 		if (pw.length == 0) return;
+		field.setText("");
 		setBusy();
 		listener.onUnlock(pw, remember.isSelected());
 	}

@@ -41,22 +41,32 @@ go through the op/job path.
 
 ```
 src/main/java/covia/brightside/
-├── BrightSide.java             entry point and application controller
-├── AppConfig.java              ~/.brightside/config.json (JSON5) and defaults
-├── Identity.java               the u:<name> user; ~/.brightside/identity.json
-├── EmbeddedVenue.java          VenueServer + per-user in-process LocalVenue client
-├── BrightsideAdapter.java      Covia adapter: brightside:info + shipped skills
-├── BrightsideSkillsAdapter.java  skill asset installation
+├── BrightSide.java             entry point and application controller: startup
+│                               mode (onboard / unlock), takeover, chat
+│                               and session actions, settings, desktop, exit
+├── AppConfig.java              ~/.brightside/config.json (JSON5), defaults, model.txt
+├── Identity.java               the u:<slug> user + display name; identity.json
+├── EmbeddedVenue.java          VenueServer + per-user LocalVenue client + in-process
+│                               lattice reads (agentRecord / resolve — no job)
+├── Takeover.java               detect a running instance; venue-signed shutdown
+├── BrightsideAdapter.java      Covia adapter: brightside:info, brightside:shutdown
+├── BrightsideSkillsAdapter.java  installs the shipped skills under v/skills/brightside
 ├── SessionHistory.java         projects the live venue session into transcript items
 ├── ConversationWatcher.java    in-process value compare; refresh on change
 ├── AgentContext.java           "what the assistant sees" — v/ops/agent/context
 ├── chat/ChatSession.java       agent config (skills, n/memory) + agent:chat
+├── model/Providers.java        model providers, v/models/<provider>/<id>, secret names
+├── skills/FilesystemSkills.java  imports agentskills.io SKILL.md folders into w/skills
+├── vault/Vault.java            passphrase key + seed-derived Etch v3 key
+├── vault/Mnemonic.java         BIP39 recovery phrase ↔ Ed25519 seed
 └── ui/
     ├── LAF.java                FlatLaf themes, purple accent, bundled Lato
-    ├── MainWindow.java         menus, window lifecycle
-    ├── WelcomePanel.java       first-run "What should I call you?"
+    ├── MainWindow.java         menus, cards (onboarding / unlock / name / chat)
+    ├── WelcomePanel.java       "What should I call you?" (rename)
+    ├── settings/               Model, Profile, Vault and Auth pages
     ├── TrayManager.java        best-effort system tray
     ├── Icons.java
+    ├── onboarding/             OnboardingWizard, UnlockPanel, OnboardingUI
     ├── chat/                   ChatPanel, Bubble, MessageColumn, TypingIndicator,
     │                           ExpandableActivity, ConversationList,
     │                           SelectableText, ChatIcons, ChatStyle
@@ -65,7 +75,7 @@ src/main/java/covia/brightside/
 src/main/resources/
 ├── brightside/skills/*.json    shipped skills: introduction, skills,
 │                               skill-authoring, conversations
-├── adapters/brightside/info.json   the brightside:info operation
+├── adapters/brightside/        info.json, shutdown.json — the brightside:* operations
 ├── fonts/lato/                 bundled OFL faces, registered at startup
 └── brightside/logback.xml      logging (configured programmatically)
 

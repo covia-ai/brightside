@@ -11,7 +11,7 @@ import javax.swing.JTextArea;
 
 /**
  * The <b>Auth</b> settings page: mint a venue-signed access-token JWT that
- * authenticates as this identity against the local venue API, with a chosen
+ * authenticates as the venue operator against the local venue API, with a chosen
  * expiry. Its single primary action is <b>Generate</b> (there is nothing to save);
  * the token is shown once (selectable) for copying and is never written to disk.
  */
@@ -65,8 +65,8 @@ public final class AuthPanel extends SettingsPage {
 		primary.setToolTipText("Mint a new access token with the chosen expiry");
 		onPrimary(this::onGenerate);
 
-		addDescription("A bearer token for this venue's local API (Authorization: Bearer …), authenticating as your "
-			+ "identity. Treat it like a password. It is not stored on disk.");
+		addDescription("A bearer token for this venue's local API (Authorization: Bearer …), authenticating as the "
+			+ "venue operator. This is highly privileged: treat it like a password. It is not stored on disk.");
 		addField("Expires in", expiry);
 		addSpan(tokenScroll, "h 96!, gaptop 6");
 		addSpanLeft(copy);
@@ -93,5 +93,12 @@ public final class AuthPanel extends SettingsPage {
 		if (t == null || t.isEmpty()) return;
 		Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(t), null);
 		setNote("Copied to the clipboard.", false);
+	}
+
+	/** Drops the displayed bearer token when the current user logs out. */
+	public void clearSensitive() {
+		token.setText("");
+		copy.setEnabled(false);
+		clearNote();
 	}
 }

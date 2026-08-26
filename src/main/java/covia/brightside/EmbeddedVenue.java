@@ -66,9 +66,17 @@ public final class EmbeddedVenue implements AutoCloseable {
 	 * Returns null if absent or on any resolution error.
 	 */
 	public ACell agentRecord(String userDID, String agentId) {
+		return resolve(userDID, "g/" + agentId);
+	}
+
+	/**
+	 * Resolves any lattice {@code path} as {@code userDID} straight from the
+	 * in-process engine — no job. Null if absent or on any resolution error.
+	 */
+	public ACell resolve(String userDID, String path) {
 		try {
 			RequestContext ctx = RequestContext.of(Strings.create(userDID));
-			return engine().resolvePath(Strings.create("g/" + agentId), ctx);
+			return engine().resolvePath(Strings.create(path), ctx);
 		} catch (Exception e) {
 			return null;
 		}

@@ -6,6 +6,7 @@ import java.nio.CharBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Arrays;
@@ -20,11 +21,11 @@ import javax.crypto.spec.SecretKeySpec;
  * the vault can be unlocked without typing it on this computer.
  *
  * <p>The file is encrypted (AES-GCM) under a key derived from stable local
- * identifiers (this OS user + home directory), so it is useless if copied to
- * another machine or account. It is <em>not</em> protection against software
- * running as this user here — enabling it trades the vault's at-rest protection
- * for convenience. That is the user's explicit, warned choice, so it is off by
- * default and cleared the moment they untick it or a recovery resets the vault.
+ * identifiers (this OS user + home directory). Those identifiers are not secret,
+ * so this is only an accidental-disclosure barrier, not protection against a
+ * copied profile or software running as this user. Enabling it trades the vault's
+ * at-rest protection for convenience. It is off by default and cleared the moment
+ * the user unticks it or recovery resets the vault.
  */
 public final class RememberedPassphrase {
 
@@ -60,7 +61,13 @@ public final class RememberedPassphrase {
 			System.arraycopy(nonce, 0, out, 0, nonce.length);
 			System.arraycopy(ct, 0, out, nonce.length, ct.length);
 			Files.createDirectories(home);
-			Files.write(home.resolve(FILE), out);
+			Path file = home.resolve(FILE);
+			Files.write(file, out);
+			try {
+				Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("rw-------"));
+			} catch (UnsupportedOperationException ignored) {
+				// Windows/NTFS — the file inherits the user's directory ACL.
+			}
 		} catch (IOException e) {
 			throw e;
 		} catch (Exception e) {

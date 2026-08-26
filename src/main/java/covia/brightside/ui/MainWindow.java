@@ -193,7 +193,17 @@ public final class MainWindow extends JFrame {
 				return app.storeApiKey(providerId, apiKey);
 			}
 		}, app.currentModelOp());
-		ProfilePanel profilePanel = new ProfilePanel(app::submitName);
+		ProfilePanel profilePanel = new ProfilePanel(new ProfilePanel.Host() {
+			@Override
+			public void saveName(String name) {
+				app.submitName(name);
+			}
+
+			@Override
+			public String revealPrivateKey(char[] passphrase) throws Exception {
+				return app.revealPrivateSeed(passphrase);
+			}
+		});
 		VaultPanel vaultPanel = new VaultPanel(app::forgetRememberedPassphrase);
 		AuthPanel authPanel = new AuthPanel(app::mintAccessToken);
 		settingsScreen = new SettingsScreen(modelPanel, profilePanel, vaultPanel, authPanel);
@@ -241,7 +251,13 @@ public final class MainWindow extends JFrame {
 	/** Returning with a vault: the unlock screen. */
 	public void showUnlock(char[] prefill) {
 		unlock.reset();
-		if (prefill != null) unlock.prefill(prefill);
+		if (prefill != null) {
+			try {
+				unlock.prefill(prefill);
+			} finally {
+				java.util.Arrays.fill(prefill, '\0');
+			}
+		}
 		show(CARD_UNLOCK);
 		java.awt.EventQueue.invokeLater(unlock::focusField);
 	}
@@ -256,13 +272,7 @@ public final class MainWindow extends JFrame {
 		unlock.showError(message);
 	}
 
-	/** Legacy first-run without a vault: just ask for a name. */
-	public void showNameEntry(String prefill) {
-		welcomePanel.prepare(prefill, false);
-		show(CARD_WELCOME);
-	}
-
-	/** Returning (legacy or unlocked): the chat, starting up. */
+	/** Returning after unlock: the chat is starting up. */
 	public void showChatStartup() {
 		chatPanel.appendSystem("Just a moment while everything starts up…");
 		show(CARD_CHAT);
@@ -400,6 +410,21 @@ public final class MainWindow extends JFrame {
 		chatPanel.clearMessages();
 	}
 
+	/** Clears every current-user UI binding while the venue keeps running. */
+	public void userLoggedOut() {
+		identity = null;
+		chatPanel.clearSession();
+		conversations.setSessions(List.of(), null);
+		agentList.setAgents(List.of(), null);
+		settingsScreen.profile().clearSensitive();
+		settingsScreen.auth().clearSensitive();
+		dashboardItem.setEnabled(false);
+		changeNameItem.setEnabled(false);
+		logoutItem.setEnabled(false);
+		userMenu.setText("Account");
+		whoLabel.setText(" ");
+	}
+
 	/** Update the transcript to the venue's live conversation (only re-renders if changed). */
 	public void refreshConversation(List<SessionHistory.Item> turns) {
 		chatPanel.refreshTo(turns);
@@ -459,7 +484,7 @@ public final class MainWindow extends JFrame {
 		String name = (identity != null) ? identity.name() : null;
 		String did = (venue != null) ? venue.did() : null;
 		settingsScreen.model().preselect(app.currentModelOp());
-		settingsScreen.profile().refresh(name, did, app.publicKeyHex(), app.privateSeedHex());
+		settingsScreen.profile().refresh(name, did, app.publicKeyHex(), app.canRevealPrivateSeed());
 		settingsScreen.vault().refresh(app.hasRememberedPassphrase());
 	}
 
@@ -520,11 +545,16 @@ public final class MainWindow extends JFrame {
 	}
 
 	public void startupFailed(Throwable t) {
+		startupFailed("BrightSide couldn't start up. Technical details are in the log folder"
+			+ " (Advanced ▸ Open logs folder).");
+	}
+
+	/** Startup failed for a reason the person can act on — show it in their words. */
+	public void startupFailed(String message) {
 		if (CARD_WELCOME.equals(currentCard)) {
 			welcomePanel.setError("Sorry — BrightSide couldn't start up.");
 		}
-		chatPanel.appendError("BrightSide couldn't start up. Technical details are in the log folder"
-			+ " (Advanced ▸ Open logs folder).");
+		chatPanel.appendError(message);
 	}
 
 	private void updateWho() {

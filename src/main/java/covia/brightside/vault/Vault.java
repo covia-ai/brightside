@@ -24,6 +24,8 @@ import convex.core.data.AString;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
 import convex.core.util.JSON;
+import convex.etch.EtchStore;
+import covia.venue.Config;
 
 /**
  * The encrypted vault. Two keys protect what Brightside keeps on disk, and they
@@ -162,6 +164,25 @@ public final class Vault {
 			.assoc(Strings.create("etch"), etch);
 	}
 
+	/**
+	 * Verifies that {@code seedHex} can open an existing persistent store without
+	 * changing any vault credential files. Recovery uses this before replacing
+	 * {@code identity.enc}; a mistyped but valid recovery phrase must not destroy
+	 * the last usable encrypted identity.
+	 */
+	public void verifyStoreAccess(AMap<AString, ACell> venueConfig, String seedHex) throws IOException {
+		Config secured = new Config(secure(venueConfig, seedHex));
+		String store = secured.getStore();
+		if ("temp".equals(store) || "memory".equals(store)) return;
+		Path storeFile = Path.of(store);
+		if (!Files.isRegularFile(storeFile)) return;
+		try (EtchStore ignored = EtchStore.create(storeFile.toFile(), secured.getEtchConfig())) {
+			// Opening the authenticated Etch v3 header is the verification.
+		} catch (IOException | RuntimeException e) {
+			throw new IOException("The recovery phrase does not unlock the encrypted store", e);
+		}
+	}
+
 	// ------------------------------------------------------------------
 	// Key derivation
 	// ------------------------------------------------------------------
@@ -230,11 +251,22 @@ public final class Vault {
 	// Files & hex
 	// ------------------------------------------------------------------
 
+	/**
+	 * Reads the vault salt, creating it only when there is none. An existing
+	 * salt file is never overwritten: the vault key and seed key are derived
+	 * from it, so replacing it would silently make {@code identity.enc} and
+	 * {@code venue.etch} undecryptable even with the right passphrase. A
+	 * malformed salt is therefore an error, not a reason to start afresh.
+	 */
 	private static byte[] readOrCreateSalt(Path home) throws IOException {
 		Path saltFile = home.resolve(SALT_FILE);
-		if (Files.isRegularFile(saltFile)) {
+		if (Files.exists(saltFile)) {
 			byte[] salt = Files.readAllBytes(saltFile);
-			if (salt.length == SALT_LEN) return salt;
+			if (salt.length != SALT_LEN) {
+				throw new IOException(SALT_FILE + " is malformed (" + salt.length + " bytes, expected "
+					+ SALT_LEN + ") — not overwriting it; restore it from a backup");
+			}
+			return salt;
 		}
 		byte[] salt = new byte[SALT_LEN];
 		RNG.nextBytes(salt);

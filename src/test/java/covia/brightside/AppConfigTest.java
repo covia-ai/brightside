@@ -1,6 +1,7 @@
 package covia.brightside;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -32,6 +33,9 @@ class AppConfigTest {
 		assertEquals(AppConfig.DEFAULT_VENUE_NAME, c.venueConfig().get(Fields.NAME).toString());
 		assertEquals(home.resolve("venue.etch").toString(), c.venueConfig().get(Config.STORE).toString());
 		assertEquals("127.0.0.1", c.venueConfig().get(Config.BIND_ADDRESS).toString());
+		Config venue = new Config(c.venueConfig());
+		assertFalse(venue.isPublicAccess(), "anonymous venue access is disabled");
+		assertTrue(venue.isMCPAuthRequired(), "MCP requires a bearer-authenticated caller");
 	}
 
 	@Test

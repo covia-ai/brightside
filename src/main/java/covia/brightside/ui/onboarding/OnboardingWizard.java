@@ -201,8 +201,8 @@ public final class OnboardingWizard extends JPanel {
 		c.add(Box.createVerticalStrut(16));
 		c.add(strength);
 		c.add(Box.createVerticalStrut(16));
-		JLabel warn = OnboardingUI.html("⚠  There's no \"forgot passphrase\". If you lose it the encrypted data "
-			+ "is gone — but your recovery phrase (next) still restores your identity.", 420, SwingConstants.CENTER);
+		JLabel warn = OnboardingUI.html("⚠  Keep your recovery phrase safe. It can reset a forgotten passphrase "
+			+ "and reopen retained Brightside data; provider API keys must be entered again.", 420, SwingConstants.CENTER);
 		warn.setForeground(OnboardingUI.muted());
 		warn.putClientProperty("FlatLaf.styleClass", "small");
 		c.add(warn);

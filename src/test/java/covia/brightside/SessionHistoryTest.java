@@ -157,18 +157,22 @@ class SessionHistoryTest {
 		AppConfig.Chat chat = new AppConfig.Chat("inproc-agent",
 			AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo the user.", 30);
 		ChatSession s = new ChatSession(client, chat, "InProc");
-		s.send("first message");
+		s.ensureAgent();
 
-		// Reads the record straight from the in-process lattice (no covia:read job).
+		// Reads the idle record straight from the in-process lattice (no covia:read job).
 		ACell record = venue.agentRecord(userDID, "inproc-agent");
 		assertNotNull(record, "the agent record reads in-process");
-		assertEquals(SessionHistory.listSessions(client, "inproc-agent").size(),
-			SessionHistory.sessionsOf(record).size(), "same projection as the op-based read");
-
-		// The watcher's cheap compare: unchanged → equal value, a new turn → different.
+		// The watcher's cheap compare: an idle, unchanged agent is an equal value.
 		assertEquals(record, venue.agentRecord(userDID, "inproc-agent"), "unchanged is an equal value");
-		s.send("second message");
-		assertNotEquals(record, venue.agentRecord(userDID, "inproc-agent"), "a new turn changes the value");
+
+		// A chat mutates the record. Its returned job intentionally completes before
+		// the run loop's final RUNNING → SLEEPING bookkeeping, but either state is
+		// already distinct from the idle pre-chat record and needs no timing assumption.
+		s.send("first message");
+		ACell changed = venue.agentRecord(userDID, "inproc-agent");
+		assertNotEquals(record, changed, "a new turn changes the value");
+		assertEquals(SessionHistory.listSessions(client, "inproc-agent").size(),
+			SessionHistory.sessionsOf(changed).size(), "same projection as the op-based read");
 	}
 
 	@Test

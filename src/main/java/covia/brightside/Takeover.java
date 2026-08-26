@@ -25,11 +25,12 @@ import convex.core.util.JSON;
  * to shut down over the venue's own HTTP surface (the {@code brightside:shutdown}
  * operation), waits for it to release the store, and then starts its own venue.
  *
- * <p><b>Auth.</b> Shutdown is venue-operator only. Both instances share the same
- * {@code ~/.brightside/venue.key}, so the newcomer mints a short-lived
- * <em>venue-signed</em> token (issuer and subject = the running venue's DID, read
- * from its {@code /api/v1/status}) — the venue trusts JWTs it signed itself, and
- * authenticates the bearer as its own DID, i.e. the operator.
+ * <p><b>Auth.</b> Shutdown is venue-operator only. The newcomer unlocks the same
+ * encrypted identity seed, then mints a short-lived <em>venue-signed</em> token
+ * (issuer and subject = the running venue's DID, read from its
+ * {@code /api/v1/status}) — the venue trusts JWTs it signed itself, and
+ * authenticates the bearer as its own DID, i.e. the operator. The seed is never
+ * read from a plaintext key file.
  */
 public final class Takeover {
 

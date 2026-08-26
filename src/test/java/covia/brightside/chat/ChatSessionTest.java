@@ -1,7 +1,9 @@
 package covia.brightside.chat;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -79,6 +81,50 @@ class ChatSessionTest {
 		s.resume("00000000000000000000000000000000"); // never minted
 		ChatSession.Reply reply = s.send("hello");
 		assertNotNull(reply.sessionId(), "falls back to a fresh session instead of failing");
+	}
+
+	@Test
+	void onlyAnUnknownSessionTriggersTheFallback() throws Exception {
+		assertTrue(ChatSession.isUnknownSession(new RuntimeException("Unknown sessionId: abc — omit sessionId")));
+		assertTrue(ChatSession.isUnknownSession(new java.util.concurrent.ExecutionException(
+			new IllegalStateException("Unknown session: abc"))));
+		assertFalse(ChatSession.isUnknownSession(new RuntimeException("Secret ANTHROPIC_API_KEY not found")));
+		assertFalse(ChatSession.isUnknownSession(new java.util.concurrent.TimeoutException("No reply")));
+	}
+
+	@Test
+	void aModelFailureKeepsTheResumedSession() throws Exception {
+		// A real session, then resume it on an agent whose model operation is broken.
+		ChatSession good = new ChatSession(venue, echoChat("bs-keep"));
+		String sid = good.send("opening line").sessionId();
+
+		AppConfig.Chat broken = new AppConfig.Chat("bs-keep", AppConfig.DEFAULT_OPERATION,
+			"v/ops/no/such/model", "Echo the user.", 30);
+		ChatSession s = new ChatSession(venue, broken);
+		s.resume(sid);
+		assertThrows(Exception.class, () -> s.send("hello"));
+		// The failure was the model, not an unknown session: the id must stand,
+		// so the next attempt continues this conversation rather than a fresh one.
+		assertEquals(sid, s.sessionId(), "session id kept on a non-session failure");
+
+		// The failed transition left the agent SUSPENDED (the venue refuses all
+		// chat until agent:resume). Re-pointed at a working model, reconfigure
+		// resumes it and the same session continues.
+		assertTrue(s.reconfigure(echoChat("bs-keep")));
+		assertEquals(sid, s.send("continued").sessionId());
+	}
+
+	@Test
+	void aSuspendedAgentIsResumedOnTheNextSend() throws Exception {
+		// Suspend it with a broken model, then fix the config behind the
+		// session's back (as Settings does on a restart) and just send.
+		AppConfig.Chat broken = new AppConfig.Chat("bs-susp", AppConfig.DEFAULT_OPERATION,
+			"v/ops/no/such/model", "Echo the user.", 30);
+		assertThrows(Exception.class, () -> new ChatSession(venue, broken).send("boom"));
+
+		ChatSession fixed = new ChatSession(venue, echoChat("bs-susp"));
+		assertTrue(ChatSession.isSuspended(new RuntimeException("Agent 'x' is suspended: y; fix the cause")));
+		assertNotNull(fixed.send("hello again").sessionId(), "resumed, not bricked");
 	}
 
 	@Test

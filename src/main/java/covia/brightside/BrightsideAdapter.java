@@ -5,6 +5,7 @@ import java.util.concurrent.CompletableFuture;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
+import convex.core.data.AVector;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
 import convex.core.data.Vectors;
@@ -116,10 +117,15 @@ public class BrightsideAdapter extends AAdapter {
 			K_VERSION, (version != null) ? version : "dev",
 			K_VENUE, (venueName != null) ? venueName.toString() : null,
 			K_DID, (did != null) ? did.toString() : null,
-			K_SKILLS, Vectors.of(
-				Strings.create("introduction"),
-				Strings.create("conversations"),
-				Strings.create("skills"),
-				Strings.create("skill-authoring")));
+			K_SKILLS, shippedSkills());
+	}
+
+	/** The shipped skill names, from the skills adapter's own list (one source of truth). */
+	private static AVector<ACell> shippedSkills() {
+		AVector<ACell> out = Vectors.empty();
+		for (String path : BrightsideSkillsAdapter.SHIPPED) {
+			out = out.conj(Strings.create(path.substring(path.lastIndexOf('/') + 1)));
+		}
+		return out;
 	}
 }

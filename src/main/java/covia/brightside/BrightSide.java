@@ -78,7 +78,7 @@ public final class BrightSide {
 	private final java.util.Set<String> provisionedSecrets = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
 	private enum Mode {
-		ONBOARD, UNLOCK, LEGACY
+		ONBOARD, UNLOCK
 	}
 
 	/** How a chat (re)bind should be presented: first launch, a name change, or an agent switch. */
@@ -122,7 +122,6 @@ public final class BrightSide {
 		Identity saved = Identity.load(config.home());
 		identity = saved;
 		Mode mode = decideMode();
-		String prefill = (saved == null) ? Identity.suggestName() : null;
 		try {
 			SwingUtilities.invokeAndWait(() -> {
 				tray = TrayManager.install(this);
@@ -130,10 +129,6 @@ public final class BrightSide {
 				switch (mode) {
 					case ONBOARD -> window.showOnboarding();
 					case UNLOCK -> window.showUnlock(RememberedPassphrase.load(config.home()));
-					case LEGACY -> {
-						if (saved == null) window.showNameEntry(prefill);
-						else window.showChatStartup();
-					}
 				}
 				window.setVisible(true);
 			});
@@ -143,26 +138,11 @@ public final class BrightSide {
 		// Flush venue state on any JVM exit (Ctrl-C, SIGTERM) ahead of Convex's
 		// own store shutdown — the same ordering MainVenue uses.
 		Shutdown.addHook(Shutdown.SERVER - 10, this::closeVenue);
-		// Onboarding/unlock launch the venue once the person completes them; a
-		// legacy (unencrypted) install brings it straight up.
-		if (mode == Mode.LEGACY) {
-			venueSeedHex = readSeedFile(config.home().resolve("venue.key"));
-			launchInBackground(config.venueConfig());
-		}
 	}
 
-	/** ONBOARD if brand new, UNLOCK if a vault exists, else LEGACY (existing unencrypted install). */
+	/** New installs onboard into an encrypted vault; returning installs must unlock one. */
 	private Mode decideMode() {
-		Path home = config.home();
-		if (Vault.exists(home)) return Mode.UNLOCK;
-		boolean legacy = Files.exists(home.resolve("venue.etch")) || Files.exists(home.resolve("venue.key"));
-		return legacy ? Mode.LEGACY : Mode.ONBOARD;
-	}
-
-	private void launchInBackground(AMap<AString, ACell> venueConfig) {
-		Thread t = new Thread(() -> launchVenueWith(venueConfig), "brightside-venue");
-		t.setDaemon(true);
-		t.start();
+		return Vault.exists(config.home()) ? Mode.UNLOCK : Mode.ONBOARD;
 	}
 
 	private void launchVenueWith(AMap<AString, ACell> venueConfig) {
@@ -170,10 +150,24 @@ public final class BrightSide {
 			// Another instance already holds the venue store? Offer to take over
 			// (ask it to shut down cleanly) rather than fail on the store lock.
 			int port = config.port();
-			if (Takeover.isRunning(port) && !takeOver(port)) {
-				log.info("Another Brightside instance is running and takeover was cancelled; exiting");
-				System.exit(0);
-				return;
+			if (Takeover.isRunning(port)) {
+				boolean proceed;
+				try {
+					proceed = takeOver(port);
+				} catch (Exception e) {
+					// The running instance refused or didn't stop — typically a
+					// different identity (its key isn't ours), so we can't ask it.
+					log.warn("Could not take over the running instance on port {}: {}", port, e.toString());
+					SwingUtilities.invokeLater(() -> window.startupFailed(
+						"Brightside is already running on this computer and couldn't be taken over"
+						+ " — please quit it (tray icon ▸ Quit) and try again."));
+					return;
+				}
+				if (!proceed) {
+					log.info("Another Brightside instance is running and takeover was cancelled; exiting");
+					System.exit(0);
+					return;
+				}
 			}
 			EmbeddedVenue v = EmbeddedVenue.launch(venueConfig, this::exit);
 			venue = v;
@@ -192,9 +186,10 @@ public final class BrightSide {
 	 */
 	public void onOnboardingComplete(OnboardingWizard.Setup setup) {
 		Thread t = new Thread(() -> {
+			char[] passphrase = setup.passphrase();
 			try {
 				Path home = config.home();
-				Vault v = Vault.open(home, setup.passphrase());
+				Vault v = Vault.open(home, passphrase);
 				v.storeSeed(setup.seedHex());
 				this.vault = v;
 				this.venueSeedHex = setup.seedHex();
@@ -218,6 +213,8 @@ public final class BrightSide {
 			} catch (Exception e) {
 				log.error("Onboarding failed", e);
 				SwingUtilities.invokeLater(() -> window.startupFailed(e));
+			} finally {
+				java.util.Arrays.fill(passphrase, '\0');
 			}
 		}, "brightside-onboard");
 		t.setDaemon(true);
@@ -231,12 +228,9 @@ public final class BrightSide {
 				Path home = config.home();
 				Vault v = Vault.open(home, passphrase);
 				String seedHex = v.seedHex(); // throws on a wrong passphrase (GCM tag)
-				// Warm unlock: a Log out only showed the lock screen; the venue is
-				// still running. Verify the passphrase and return to the chat.
-				boolean warm = (venue != null && chat != null);
-				if (!warm) {
-					this.vault = v;
-					this.venueSeedHex = seedHex;
+				String runningSeed = this.venueSeedHex;
+				if (runningSeed != null && !runningSeed.equals(seedHex)) {
+					throw new IOException("The unlocked identity does not match the running venue");
 				}
 				// Only now that the passphrase is proven correct: honour Remember me.
 				if (remember) {
@@ -248,8 +242,17 @@ public final class BrightSide {
 				} else {
 					RememberedPassphrase.clear(home);
 				}
-				if (warm) {
-					SwingUtilities.invokeLater(window::showChatCard);
+				this.vault = v;
+				this.venueSeedHex = seedHex;
+				Identity saved = Identity.load(home);
+				this.identity = saved;
+
+				EmbeddedVenue running = venue;
+				if (running != null) {
+					if (saved == null) throw new IOException("The saved user identity is missing");
+					chatStarted.set(true);
+					SwingUtilities.invokeLater(window::showChatStartup);
+					startChat(running, saved, effectiveChat(), Bind.FIRST);
 					return;
 				}
 				AMap<AString, ACell> venueConfig = provisionKeys(v.secure(config.venueConfig(), seedHex), v);
@@ -260,21 +263,42 @@ public final class BrightSide {
 			} catch (Exception e) {
 				log.error("Unlock failed", e);
 				SwingUtilities.invokeLater(() -> window.unlockError("Couldn't unlock — see the logs."));
+			} finally {
+				java.util.Arrays.fill(passphrase, '\0');
 			}
 		}, "brightside-unlock");
 		t.setDaemon(true);
 		t.start();
 	}
 
-	/** The identity's private Ed25519 seed (hex), held in memory since unlock; null if unavailable. */
-	public String privateSeedHex() {
-		return venueSeedHex;
+	/** Whether a logged-in user may request a passphrase-gated private-seed export. */
+	public boolean canRevealPrivateSeed() {
+		return identity != null && vault != null && venueSeedHex != null;
+	}
+
+	/**
+	 * Re-authenticates with the vault passphrase before returning the venue's
+	 * Ed25519 seed for an explicit Advanced export.
+	 */
+	public String revealPrivateSeed(char[] passphrase) throws IOException {
+		try {
+			if (!canRevealPrivateSeed()) throw new IOException("No logged-in identity");
+			String candidate = Vault.open(config.home(), passphrase).seedHex();
+			String runningSeed = venueSeedHex;
+			if (runningSeed == null || !runningSeed.equals(candidate)) {
+				throw new IOException("The passphrase did not unlock the running identity");
+			}
+			if (!canRevealPrivateSeed()) throw new IOException("The user logged out during re-authentication");
+			return candidate;
+		} finally {
+			java.util.Arrays.fill(passphrase, '\0');
+		}
 	}
 
 	/** The identity's Ed25519 public key (hex), derived from the seed; null if unavailable. */
 	public String publicKeyHex() {
+		if (!canRevealPrivateSeed()) return null;
 		String seed = venueSeedHex;
-		if (seed == null || seed.isBlank()) return null;
 		try {
 			return convex.core.crypto.AKeyPair.create(convex.core.data.Blob.fromHex(seed.trim()))
 				.getAccountKey().toHexString();
@@ -283,13 +307,28 @@ public final class BrightSide {
 		}
 	}
 
-	/** Log out: show the lock screen without stopping the venue; the passphrase logs back in. */
+	/** Logs out the current user while leaving the embedded venue running. */
 	public void logout() {
 		if (vault == null) {
 			SwingUtilities.invokeLater(() -> window.showSystemMessage("This install has no passphrase to lock behind."));
 			return;
 		}
-		SwingUtilities.invokeLater(() -> window.showUnlock(null));
+		ConversationWatcher oldWatcher = watcher;
+		watcher = null;
+		chat = null;
+		client = null;
+		userDID = null;
+		agentId = null;
+		viewedSessionId = null;
+		sessions = List.of();
+		identity = null;
+		vault = null;
+		chatStarted.set(false);
+		SwingUtilities.invokeLater(() -> {
+			if (oldWatcher != null) oldWatcher.stop();
+			window.userLoggedOut();
+			window.showUnlock(null);
+		});
 	}
 
 	/** Opens recovery (Forgot passphrase?): restore identity from the recovery phrase. */
@@ -308,6 +347,13 @@ public final class BrightSide {
 			try {
 				Path home = config.home();
 				Vault v = Vault.open(home, passphrase); // new passphrase, existing salt
+				String runningSeed = venueSeedHex;
+				if (runningSeed != null && !runningSeed.equals(seedHex)) {
+					throw new IOException("That recovery phrase does not match the running venue");
+				}
+				if (runningSeed == null) {
+					v.verifyStoreAccess(config.venueConfig(), seedHex);
+				}
 				// The old API-key store was encrypted under the forgotten passphrase and
 				// can't be read now; drop it (keys can be re-entered in Settings). The
 				// venue store itself is keyed to the seed, so it stays and reopens intact.
@@ -316,12 +362,24 @@ public final class BrightSide {
 				v.storeSeed(seedHex); // re-encrypt the seed under the new passphrase
 				this.vault = v;
 				this.venueSeedHex = seedHex;
+				Identity saved = Identity.load(home);
+				this.identity = saved;
+				EmbeddedVenue running = venue;
+				if (running != null) {
+					if (saved == null) throw new IOException("The saved user identity is missing");
+					chatStarted.set(true);
+					SwingUtilities.invokeLater(window::showChatStartup);
+					startChat(running, saved, effectiveChat(), Bind.FIRST);
+					return;
+				}
 				AMap<AString, ACell> venueConfig = provisionKeys(v.secure(config.venueConfig(), seedHex), v);
 				SwingUtilities.invokeLater(window::showChatStartup);
 				launchVenueWith(venueConfig);
 			} catch (Exception e) {
 				log.error("Recovery failed", e);
 				SwingUtilities.invokeLater(() -> window.unlockError("Recovery failed — see the logs."));
+			} finally {
+				java.util.Arrays.fill(passphrase, '\0');
 			}
 		}, "brightside-recover");
 		t.setDaemon(true);
@@ -365,15 +423,23 @@ public final class BrightSide {
 		}
 		ChatSession c = chat;
 		if (c == null) return;
-		new Thread(() -> {
+		Thread t = new Thread(() -> {
+			String note;
 			try {
-				c.reconfigure(effectiveChat());
-				SwingUtilities.invokeLater(() -> window.showSystemMessage("Now using " + op + "."));
+				// A reply in flight means agent:update is rejected (RUNNING); the
+				// session then re-applies it before the next message goes out.
+				note = c.reconfigure(effectiveChat())
+					? "Now using " + op + "."
+					: "Saved — " + op + " will be used from your next message.";
 			} catch (Exception e) {
 				log.warn("Could not apply the model change", e);
-				SwingUtilities.invokeLater(() -> window.showSystemMessage("Couldn't switch model: " + e.getMessage()));
+				note = "Saved " + op + ", but it couldn't be applied yet: " + e.getMessage();
 			}
-		}, "brightside-model").start();
+			String text = note;
+			SwingUtilities.invokeLater(() -> window.showSystemMessage(text));
+		}, "brightside-model");
+		t.setDaemon(true);
+		t.start();
 	}
 
 	/**
@@ -401,6 +467,7 @@ public final class BrightSide {
 	 * the venue isn't up yet or no seed is available.
 	 */
 	public String mintAccessToken(long expiresInSeconds) {
+		if (identity == null || vault == null) return null;
 		EmbeddedVenue v = venue;
 		String seed = venueSeedHex;
 		if (v == null || seed == null || seed.isBlank()) return null;
@@ -441,14 +508,6 @@ public final class BrightSide {
 		AppConfig.Chat c = config.chat();
 		if (llmOverride == null || llmOverride.equals(c.llmOperation())) return c;
 		return new AppConfig.Chat(c.agentId(), c.operation(), llmOverride, c.systemPrompt(), c.timeoutSeconds());
-	}
-
-	private static String readSeedFile(Path keyFile) {
-		try {
-			return Files.isReadable(keyFile) ? Files.readString(keyFile).trim() : null;
-		} catch (IOException e) {
-			return null;
-		}
 	}
 
 	/**
@@ -501,9 +560,12 @@ public final class BrightSide {
 	 * later change). Called on the event thread from {@link MainWindow}.
 	 */
 	public void submitName(String rawName) {
+		Identity current = identity;
 		Identity id;
 		try {
-			id = Identity.of(rawName);
+			// A rename keeps the existing principal (slug): same agent, memory
+			// and skills, just addressed differently. Only a first name mints one.
+			id = (current != null) ? current.withName(rawName) : Identity.of(rawName);
 		} catch (IllegalArgumentException e) {
 			window.welcomeBusy(null); // clear any busy state; the panel shows its own error
 			return;
@@ -568,11 +630,13 @@ public final class BrightSide {
 		} catch (Exception e) {
 			log.warn("Chat agent not ready", e);
 		}
-		// Import any skills dropped into ~/.brightside/skills/ — a user-wide library,
-		// so only on the first bind, not on every agent switch.
+		// Import any skills the user has dropped into ~/.brightside/skills/
+		// (agentskills.io SKILL.md folders) on the first bind. Check the stored
+		// value in-process so an unchanged skill costs no write job.
 		if (bind == Bind.FIRST) {
 			try {
-				covia.brightside.skills.FilesystemSkills.sync(userClient, config.skillsDir());
+				covia.brightside.skills.FilesystemSkills.sync(userClient, config.skillsDir(),
+					path -> v.resolve(did, path));
 			} catch (Exception e) {
 				log.warn("Filesystem skill import failed", e);
 			}
@@ -960,7 +1024,7 @@ public final class BrightSide {
 
 	/** Opens the Model &amp; API-key settings (once the venue is up; key storage needs the vault). */
 	public void openSettings() {
-		if (venue == null) {
+		if (venue == null || identity == null || vault == null) {
 			SwingUtilities.invokeLater(() -> window.showSystemMessage("Settings are available once Brightside has started."));
 			return;
 		}
@@ -969,7 +1033,7 @@ public final class BrightSide {
 
 	/** Opens the Profile tab of Settings (from the user menu). */
 	public void openProfile() {
-		if (venue == null) {
+		if (venue == null || identity == null || vault == null) {
 			SwingUtilities.invokeLater(() -> window.showSystemMessage("Your profile is available once Brightside has started."));
 			return;
 		}
@@ -988,7 +1052,7 @@ public final class BrightSide {
 
 	/** Opens the Access-token minting dialog (Settings ▸ Access token), once the venue is up. */
 	public void openAccessToken() {
-		if (venue == null || venueSeedHex == null) {
+		if (venue == null || identity == null || vault == null || venueSeedHex == null) {
 			SwingUtilities.invokeLater(() -> window.showSystemMessage("Access tokens are available once Brightside has started."));
 			return;
 		}

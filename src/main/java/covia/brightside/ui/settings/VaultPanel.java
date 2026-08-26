@@ -49,7 +49,8 @@ public final class VaultPanel extends SettingsPage {
 
 		addDescription("Everything Brightside stores on this computer is encrypted. Your passphrase (hardened with "
 			+ "Argon2id) protects your identity key; the store is encrypted with a key derived from that identity, so "
-			+ "your recovery phrase can restore full access. There is no passphrase reset — keep your recovery phrase safe.");
+			+ "your recovery phrase can reopen a retained store. Provider API keys must be entered again after recovery. "
+			+ "Keep your recovery phrase safe.");
 		addSpan(remember);
 		addSpan(hint);
 	}

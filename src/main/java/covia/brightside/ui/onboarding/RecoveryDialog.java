@@ -26,10 +26,10 @@ import covia.brightside.vault.Mnemonic;
 
 /**
  * Recovery from the unlock screen ("Forgot passphrase?"). Restores the identity
- * from a BIP39 recovery phrase and sets a new passphrase. The data encrypted
- * under the forgotten passphrase cannot be decrypted, so recovery starts a fresh
- * encrypted store under the recovered identity (the caller moves the old one
- * aside first). Modal; only collects and validates — the caller does the work.
+ * from a BIP39 recovery phrase and sets a new passphrase. The identity-derived
+ * store key reopens an existing encrypted store; provider credentials encrypted
+ * by the forgotten passphrase must be entered again. Modal; only collects and
+ * validates — the caller does the work.
  */
 @SuppressWarnings("serial")
 public final class RecoveryDialog extends JDialog {
@@ -144,13 +144,20 @@ public final class RecoveryDialog extends JDialog {
 		char[] a = pass1.getPassword();
 		char[] b = pass2.getPassword();
 		if (a.length < 8) {
+			Arrays.fill(a, '\0');
+			Arrays.fill(b, '\0');
 			fail("Use at least 8 characters for the new passphrase.");
 			return;
 		}
 		if (!Arrays.equals(a, b)) {
+			Arrays.fill(a, '\0');
+			Arrays.fill(b, '\0');
 			fail("The passphrases don't match.");
 			return;
 		}
+		Arrays.fill(b, '\0');
+		pass1.setText("");
+		pass2.setText("");
 		String seedHex = Mnemonic.toSeedHex(words);
 		dispose();
 		listener.onRecover(seedHex, a);

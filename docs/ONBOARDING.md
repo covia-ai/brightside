@@ -29,40 +29,46 @@ Everything is under `~/.brightside/` (the data directory).
 |---|---|---|
 | `venue.etch` | the lattice store — conversations, memory, agents, **secrets** | **Encrypted** (Etch v3, ChaCha20) with the *vault key* |
 | `vault.salt` | 16 random bytes | not secret (Argon2 salt) |
-| `identity.enc` | the 32-byte Ed25519 **seed**, encrypted | **Encrypted** (AES-GCM) with the *seed key* |
+| `identity.enc` | the 32-byte Ed25519 **seed**, encrypted | **Encrypted** (AES-GCM) with the passphrase key |
+| `keys.enc` | model-provider credentials | **Encrypted** (AES-GCM) with the passphrase key |
+| `unlock.enc` | optional remembered passphrase | convenience only; see the threat-model warning below |
 | `identity.json` | the chosen display name (`u:<name>`) | plaintext, not sensitive |
 | `config.json` | theme, venue name/port, chosen **model** | plaintext, **no secrets** |
 | `skills/` | filesystem skills (agentskills.io) | plaintext (the user's own) |
 | `logs/` | app logs | plaintext |
 
-There is **no plaintext key and no plaintext API key on disk.** The old
-plaintext `venue.key` and `config.json → venue.secrets.public.*` are replaced:
-the seed is encrypted at rest (`identity.enc`), and API keys live in the venue's
-`SecretStore` *inside* the encrypted `venue.etch`.
+There is **no plaintext key and no plaintext API key on disk.** Brightside has no
+plaintext legacy mode: the seed is encrypted at rest in `identity.enc`, and API
+keys are encrypted in `keys.enc` then provisioned into the running venue's public
+secret scope in memory.
 
 ### The key hierarchy
 
 ```
-passphrase ──Argon2id(salt)──► 64 bytes ─┬─ [0..32)  vault key  ──► Etch v3 (ChaCha20) master key  → decrypts venue.etch
-                                          └─ [32..64) seed key   ──► AES-GCM                         → decrypts identity.enc → Ed25519 seed → venue DID
+passphrase ──Argon2id(salt)──► passphrase key ─┬─ AES-GCM ──► identity.enc ──► Ed25519 seed ──► venue DID
+                                         └─ AES-GCM ──► keys.enc
 
-recovery phrase (BIP39 mnemonic) ──► the same Ed25519 seed   (offline backup; recreates identity.enc if lost)
+recovery phrase (BIP39 mnemonic) ──► the same Ed25519 seed ──SHA-256(domain || seed)──► Etch v3 key ──► venue.etch
 ```
 
-One passphrase unlocks both the store and the identity. The **recovery phrase is
-independent of the passphrase** — it reconstructs the identity even if the disk
-(and `identity.enc`) is lost. Change the passphrase and only `vault.salt` +
-`identity.enc` are rewritten; the identity (DID) and the vault contents are
-unchanged.
+The **recovery phrase is independent of the passphrase**. With the existing
+`venue.etch`, it reconstructs both the identity and the current store key; it
+cannot recreate vault contents from a lost disk. Provider keys remain tied to
+the forgotten passphrase and must be entered again after recovery. Separating
+the signing identity from the store-encryption key is tracked in
+[issue #5](https://github.com/covia-ai/brightside/issues/5).
 
 ### Threat model (what this does and doesn't protect)
 
 - **Protects:** data at rest. Someone who copies the disk gets ciphertext only —
   no conversations, no memory, no API keys, no usable identity, without the
-  passphrase.
-- **Recovery:** the BIP39 phrase restores the *identity*; it does **not** restore
-  vault *contents* (those need the passphrase, or are simply lost with the disk).
-  This is deliberate and stated plainly to the user.
+  passphrase or recovery phrase.
+- **Recovery:** the BIP39 phrase restores the identity and can reopen a retained
+  encrypted store, but it does **not** restore vault contents from a lost disk.
+- **Remember me:** `unlock.enc` currently uses a key derived from non-secret
+  local identifiers. It prevents casual plaintext disclosure, not access by
+  software running as the same OS user or a sufficiently complete copied
+  profile. It is opt-in and its OS-backed replacement is tracked in issue #5.
 - **Does not protect:** a compromised running process, keyloggers, or a weak
   passphrase (hence Argon2id, not PBKDF2). Loopback-only venue; the only thing
   that leaves the machine is the model call the user asked for.
@@ -78,10 +84,11 @@ Three entry states, decided at launch by what exists on disk:
   the passphrase, then start.
 - **Running** — later changes go through **Settings** (§5).
 
-The identity and the vault key are needed *before* the venue can launch (the
-store can't open without the vault key; the venue needs the seed). So the wizard
-and unlock both run **before** `EmbeddedVenue.launch`. The provider/API-key step
-runs **after** the venue is up (it writes a secret into the store).
+The identity and store key are needed *before* the venue can launch (the store
+cannot open without the seed-derived key; the venue also needs the seed). So the
+wizard and unlock both run **before** `EmbeddedVenue.launch`. On first run the
+provider API key is encrypted before launch and provisioned into the venue's
+in-memory secret configuration as it starts.
 
 ```
 launch
@@ -92,7 +99,7 @@ launch
                                                                 ▼
                                           EmbeddedVenue.launch(seed, etch v3 key)
                                                                 │
-                                        first run? ──► Provider + API key ──► secret:set
+                                        first run? ──► Provider + API key ──► keys.enc
                                                                 ▼
                                                           Chat (as u:<name>)
 ```
@@ -133,9 +140,9 @@ large title, muted subtitle, one primary action). Steps, in order:
 
         ▓▓▓▓▓▓▓▓░░░░  strong
 
-   ⚠  There's no "forgot passphrase". If you lose it, the encrypted
-      data is gone — but your recovery phrase (next) still restores
-      your identity.
+   ⚠  Keep your recovery phrase safe. It can reset a forgotten
+      passphrase and reopen retained Brightside data; provider API
+      keys must be entered again.
 
                     [ Back ]      [ Continue ]
 ```
@@ -258,12 +265,12 @@ On Continue: derive the Ed25519 seed, encrypt it with the *seed key* → write
         Forgot it? Restore from your recovery phrase →
 ```
 
-- Wrong passphrase is detected cheaply: Etch v3's header carries a keyed HMAC, so
-  an incorrect vault key fails header verification without decrypting the store.
-  Show "That passphrase didn't work" and let them retry.
+- Wrong passphrase is detected by AES-GCM authentication while decrypting
+  `identity.enc`. Show "That passphrase didn't work" and let them retry.
 - "Restore from your recovery phrase" re-runs 3.2 + 3.3-import + a new passphrase,
-  rebuilding `identity.enc`/`vault.salt` — but note it cannot decrypt an old
-  `venue.etch` encrypted under a forgotten passphrase (that data is gone).
+  verifies the recovered seed against the retained Etch v3 store before changing
+  credential files, then rebuilds `identity.enc`. It reopens the existing store;
+  provider keys encrypted by the forgotten passphrase must be entered again.
 
 ---
 
@@ -285,9 +292,10 @@ Same widget as 3.4, pre-filled with the current provider/model. Non-modal.
 - **Model** choice persists to `config.json → chat.llmOperation`
   (`v/models/<provider>/<id>`), applied to the agent on the next message
   (`ChatSession.ensureAgent` re-applies config).
-- **API key** is written into the running venue's `SecretStore` via `secret:set`
-  under the provider's secret name (`ANTHROPIC_API_KEY`, …), encrypted at rest —
-  never to `config.json`. "(set)" shows a key is stored without revealing it.
+- **API key** is encrypted into `keys.enc` under the provider's secret name
+  (`ANTHROPIC_API_KEY`, …), then provisioned into the running venue's public
+  secret scope in memory — never to `config.json`. "(set)" shows a key is stored
+  without revealing it.
 - Also here (Advanced): **Change passphrase**, **View recovery phrase**
   (passphrase-gated), **Change model default**.
 
@@ -299,10 +307,10 @@ Same widget as 3.4, pre-filled with the current provider/model. Non-modal.
 
 - `vault.salt`: 16 random bytes (`SecureRandom`), created once.
 - Argon2id via BouncyCastle `Argon2BytesGenerator` + `Argon2Parameters`
-  (`ARGON2_id`, memory ~64 MB, iterations ~3, parallelism ~1), output **64
-  bytes** → `vaultKey = out[0..32)`, `seedKey = out[32..64)`.
-- `vaultKey` is handed to Etch as the master key (Covia uses `etch.key` bytes
-  **as-is** — no further derivation).
+  (`ARGON2_id`, memory ~64 MB, iterations ~3, parallelism ~1), output **32
+  bytes** → `passKey`, which protects `identity.enc` and `keys.enc`.
+- The Etch master key is `SHA-256("brightside-etch-v1" || identitySeed)`.
+  Covia uses the resulting `etch.key` bytes **as-is**.
 
 ### Encrypted store (Etch v3)
 
@@ -310,7 +318,7 @@ Injected into the in-memory venue config, never persisted:
 
 ```json
 { "store": "<home>/venue.etch",
-  "etch": { "version": 3, "cipher": "chacha20", "key": "<vaultKey hex>" } }
+  "etch": { "version": 3, "cipher": "chacha20", "key": "<store key hex>" } }
 ```
 
 `covia.venue.Config.getEtchConfig()` reads the `etch` block;
@@ -324,7 +332,7 @@ rejected; keep a file store.)
   (64-byte, PBKDF2-HMAC-SHA512/2048) → `SLIP10.deriveKeyPair(seed64)` →
   `kp.getSeed().toHexString()` = the **32-byte Ed25519 seed** hex.
 - Import: `BIP39.checkMnemonic(s)` (null == valid) → same derivation.
-- At rest: AES-GCM(seedKey) over the 32-byte seed → `identity.enc` (nonce ‖ ct).
+- At rest: AES-GCM(passKey) over the 32-byte seed → `identity.enc` (nonce ‖ ct).
 - At launch: decrypt → set venue config **`seed`** (hex) — `VenueServer`
   precedence #1, so the venue uses exactly this key and never auto-generates.
   (We do **not** write the plaintext `venue.key` the venue would otherwise use.)
@@ -347,46 +355,38 @@ Static catalog mirroring the venue's `langchain` model catalog:
 The live model list per provider comes from `langchain:models` over `v/models`;
 the static table is the fallback and provides the secret name + console URL.
 
-### API keys (`secret:set`)
+### API keys (`keys.enc`)
 
-Set under the public store so a local `u:<name>` caller resolves it (the venue's
-`resolveSecret` falls back to `<venueDID>:public`):
-
-```
-v/ops/secret/set  { name: "ANTHROPIC_API_KEY", value: "sk-ant-…", scope: "public" }
-```
-
-Encrypted at rest by `SecretStore.deriveKey(keyPair)` inside the already-encrypted
-`venue.etch`. The model op resolves it via `LangChainAdapter.resolveApiKey`
-(stored secret first, then process env).
+`Vault.storeApiKey` AES-GCM-encrypts the provider-name/value map into `keys.enc`.
+At launch Brightside decrypts that file and supplies the values to the venue's
+public secret scope in its in-memory configuration, so the named `u:<name>`
+caller can resolve them. The model adapter may also use process environment
+variables. Consolidating this with the persistent `SecretStore` is tracked in
+issue #5.
 
 ---
 
-## 7. Classes to add
+## 7. Implementation map
 
-- `covia.brightside.vault.Vault` — salt, Argon2id, `vaultKey`/`seedKey`; open/
-  create; encrypt/decrypt the seed (`identity.enc`); build the `etch` config
-  block; inject `seed` + `etch` into a venue config map.
+- `covia.brightside.vault.Vault` — salt, Argon2id passphrase key; encrypt/decrypt
+  `identity.enc` and `keys.enc`; derive the store key from the identity seed;
+  build and verify the Etch configuration.
 - `covia.brightside.vault.Mnemonic` — thin BIP39/SLIP10 wrapper: `generate(12)`,
   `validate`, `toSeedHex`, `fromSeedHex` (round-trip helpers).
 - `covia.brightside.model.Providers` — the static catalog (name → op prefix,
   secret name, console URL, default model) + `modelOp(provider, id)`.
-- `covia.brightside.model.ModelSettings` — apply a provider/model choice to
-  `config.json` and set the API key via `secret:set` on a live venue.
-- UI: `covia.brightside.ui.onboarding.*` (`OnboardingWizard`, `PassphrasePanel`,
-  `IdentityPanel`, `RecoveryPhrasePanel`, `ProviderPanel`, `UnlockPanel`) and
-  `covia.brightside.ui.SettingsDialog` (model & key).
-- `BrightSide` orchestration: choose wizard/unlock at launch, then
-  `EmbeddedVenue.launch(seed, etchConfig, …)`, then provider step on first run.
-- `AppConfig`: add `chat.provider`/keep `chat.llmOperation`; drop the plaintext
-  `secrets.public` template guidance in favour of the encrypted-store path.
+- UI: `covia.brightside.ui.onboarding.*` (`OnboardingWizard`,
+  `RecoveryDialog`, `UnlockPanel`) and `covia.brightside.ui.settings.*`.
+- `BrightSide` orchestration: choose wizard/unlock at launch, persist encrypted
+  identity/provider material, then call `EmbeddedVenue.launch(seed, etchConfig,
+  …)`.
+- `AppConfig`: keep `chat.llmOperation`, persist the selected model separately,
+  and omit all secret material from `config.json`.
 
 ## 8. Migration
 
-An existing install has a plaintext `venue.key` and an unencrypted `venue.etch`.
-On first launch after this ships, offer a one-time **"Secure your Brightside"**:
-choose a passphrase, derive keys, **rebuild** `venue.etch` as v3-encrypted
-(`EtchRebuilder`), encrypt the seed to `identity.enc`, and delete `venue.key`.
-Until migrated, Brightside still opens the old unencrypted store (backwards
-compatible), so nobody is locked out.
+There is no legacy migration path. Brightside is pre-release and has no deployed
+plaintext installs to preserve: every supported install starts with onboarding,
+creates `identity.enc`, and opens only an encrypted Etch v3 store. A directory
+containing old plaintext Covia files is not launched in a compatibility mode.
 ```

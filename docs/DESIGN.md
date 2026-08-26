@@ -39,7 +39,9 @@ in the way.
 ## 4. Identity
 
 - The user picks a **name**, nothing more. Internally that becomes a venue
-  principal `u:<name>`; the user only ever sees the name.
+  principal `u:<slug>`; the user only ever sees the name. The slug is fixed
+  once chosen — changing the name later never changes *which* assistant (and
+  memory, and skills) they are talking to.
 - Store the name in `~/.brightside/identity.json`, apart from the hand-edited
   `config.json`, so choosing a name never rewrites their settings.
 
@@ -66,7 +68,7 @@ Use Covia's namespaces for what they're for:
 
 | Namespace | Purpose | Written by |
 |-----------|---------|-----------|
-| `v/skills/brightside/…` | Brightside's **default, shipped skills** (e.g. `introduction`) | `BrightsideAdapter`, at venue launch |
+| `v/skills/brightside/…` | Brightside's **default, shipped skills** (e.g. `introduction`) | `BrightsideSkillsAdapter`, at venue launch |
 | `w/skills` | The **user's own** skills, developed over time | the user (their agent) |
 | `n/…` | The assistant's **private scratch space**, including `n/memory` | the assistant, during a run |
 

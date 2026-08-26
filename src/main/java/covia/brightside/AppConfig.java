@@ -63,7 +63,12 @@ public final class AppConfig {
 		+ "genuinely helpful, and use the user's name naturally rather than in every message. Follow "
 		+ "your loaded skills, and use your memory to recall and quietly record useful things about the "
 		+ "user across conversations.";
-	public static final long DEFAULT_TIMEOUT_SECONDS = 120;
+	/**
+	 * How long one reply may take. An agentic turn — load a router skill, load
+	 * a family skill, several tool calls — can run for minutes, and on timeout
+	 * the job is cancelled and the whole turn lost, so this errs generous.
+	 */
+	public static final long DEFAULT_TIMEOUT_SECONDS = 300;
 
 	/** Chat settings: which agent the window talks to and how it is configured. */
 	public record Chat(String agentId, String operation, String llmOperation,
@@ -82,15 +87,15 @@ public final class AppConfig {
 
 			// The embedded Covia venue. Any Covia venue config key is accepted here
 			// and replaces Brightside's default for that key. Defaults: bound to
-			// 127.0.0.1, persistent store at ~/.brightside/venue.etch (identity in
-			// venue.key next to it), users auto-created, MCP endpoint enabled.
+			// 127.0.0.1, encrypted persistent store at ~/.brightside/venue.etch,
+			// anonymous access disabled, users auto-created, MCP endpoint enabled.
 			"venue": {
 				"name": "Brightside",
 				"port": 8085
-				// The model needs an API key. Either export ANTHROPIC_API_KEY before
-				// launching, or provision it into the venue's shared secret store here
-				// (loopback-only venue — do not commit this file):
-				// ,"secrets": { "public": { "ANTHROPIC_API_KEY": "sk-ant-..." } }
+				// Model API keys do NOT belong in this file. Enter them in the app
+				// (File → Model & API key…) — they are stored encrypted in the vault
+				// and provisioned into the encrypted venue store at launch. Exporting
+				// e.g. ANTHROPIC_API_KEY before launching also works.
 			},
 
 			// The agent the chat window talks to. Created on first use at
@@ -98,15 +103,17 @@ public final class AppConfig {
 			"chat": {
 				"agentId": "brightside",
 				"operation": "v/ops/llmagent/chat",
-				// Model operation used for replies. Needs the provider's API key in the
-				// environment (e.g. ANTHROPIC_API_KEY) or in the venue's secret store.
+				// Model operation used for replies. The model chosen in the app
+				// (onboarding or File → Model & API key…) is kept in model.txt
+				// beside this file and takes precedence over this key.
 				// Use "v/test/ops/llm" for an offline echo bot.
 				"llmOperation": "v/models/anthropic/claude-sonnet-5",
 				// How the assistant should behave. Leave it out to use Brightside's
 				// default persona (a warm, private personal assistant).
 				// "systemPrompt": "You are Brightside, ...",
-				// Seconds to wait for a reply before giving up
-				"timeout": 120
+				// Seconds to wait for a reply before giving up. A reply that uses
+				// several tools can take a while; the job is cancelled on timeout.
+				"timeout": 300
 			}
 		}
 		""";
@@ -191,10 +198,12 @@ public final class AppConfig {
 			Fields.PORT, DEFAULT_PORT,
 			// Local desktop venue: never listen beyond this machine by default.
 			Config.BIND_ADDRESS, "127.0.0.1",
-			// Persistent Etch store; the venue generates and saves an identity
-			// seed to venue.key beside it on first launch (stable DID).
+			// Persistent Etch store. Vault injects its encryption key and identity
+			// seed in memory before launch; neither is written here in plaintext.
 			Config.STORE, home.resolve("venue.etch").toString(),
 			Config.USERS, Maps.of(Config.AUTO_CREATE, true),
+			// This is a private personal venue: HTTP and MCP require authentication.
+			Config.AUTH, Maps.of(Config.PUBLIC, Maps.of(Config.ENABLED, false)),
 			Config.ALLOW_PRIVATE_NETWORK, true,
 			// MCP endpoint so local agent tooling can connect to the venue.
 			Fields.MCP, Maps.of());

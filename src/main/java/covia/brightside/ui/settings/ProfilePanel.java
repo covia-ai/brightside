@@ -14,9 +14,12 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.Icon;
 import javax.swing.JButton;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPasswordField;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.SwingWorker;
 import javax.swing.UIManager;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -32,6 +35,8 @@ public final class ProfilePanel extends SettingsPage {
 	/** Actions the profile offers. */
 	public interface Host {
 		void saveName(String name);
+
+		String revealPrivateKey(char[] passphrase) throws Exception;
 	}
 
 	private static final String MASK = "•".repeat(64);
@@ -41,11 +46,14 @@ public final class ProfilePanel extends SettingsPage {
 	private final JTextArea didV = SettingsUI.selectable("—");
 	private final JTextArea pubV = SettingsUI.selectable("—");
 	private final JTextArea keyField = new JTextArea(1, 40);
+	private final JButton reveal = new JButton();
 	private final JButton copy = new JButton("Copy");
 	private final EyeIcon eye = new EyeIcon();
 	private String seedHex;
 	private String baselineName = "";
+	private boolean privateKeyAvailable;
 	private boolean revealed;
+	private long identityVersion;
 
 	public ProfilePanel(Host host) {
 		super("Save");
@@ -54,16 +62,19 @@ public final class ProfilePanel extends SettingsPage {
 	}
 
 	/** Refresh with the current identity; hides the private key and re-baselines Save. */
-	public void refresh(String name, String did, String publicKeyHex, String seedHex) {
+	public void refresh(String name, String did, String publicKeyHex, boolean privateKeyAvailable) {
+		identityVersion++;
 		baselineName = (name != null) ? name : "";
 		nameField.setText(baselineName);
 		didV.setText(did != null ? did : "—");
 		pubV.setText(publicKeyHex != null ? publicKeyHex : "—");
-		this.seedHex = seedHex;
+		this.privateKeyAvailable = privateKeyAvailable;
+		this.seedHex = null;
 		revealed = false;
 		eye.open = false;
-		keyField.setText(seedHex == null ? "unavailable" : MASK);
+		keyField.setText(privateKeyAvailable ? MASK : "unavailable");
 		keyField.setCaretPosition(0);
+		reveal.setEnabled(privateKeyAvailable);
 		copy.setEnabled(false);
 		clearNote();
 		updateDirty();
@@ -87,7 +98,7 @@ public final class ProfilePanel extends SettingsPage {
 		keyField.setFont(UIManager.getFont("Label.font"));
 		keyField.setText(MASK);
 
-		JButton reveal = new JButton(eye);
+		reveal.setIcon(eye);
 		reveal.setToolTipText("Show / hide the private key");
 		reveal.setContentAreaFilled(false);
 		reveal.setBorderPainted(false);
@@ -134,13 +145,77 @@ public final class ProfilePanel extends SettingsPage {
 	}
 
 	private void toggle() {
-		if (seedHex == null) return;
-		revealed = !revealed;
-		keyField.setText(revealed ? seedHex : MASK);
+		if (revealed) {
+			hidePrivateKey();
+			return;
+		}
+		if (!privateKeyAvailable) return;
+
+		JPasswordField passphrase = new JPasswordField(24);
+		int choice = JOptionPane.showConfirmDialog(this, passphrase,
+			"Enter your Brightside passphrase to reveal the private key",
+			JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
+		if (choice != JOptionPane.OK_OPTION) return;
+		char[] entered = passphrase.getPassword();
+		passphrase.setText("");
+		if (entered.length == 0) return;
+		long version = identityVersion;
+
+		reveal.setEnabled(false);
+		copy.setEnabled(false);
+		setNote("Checking your passphrase…", false);
+		new SwingWorker<String, Void>() {
+			@Override
+			protected String doInBackground() throws Exception {
+				return host.revealPrivateKey(entered);
+			}
+
+			@Override
+			protected void done() {
+				java.util.Arrays.fill(entered, '\0');
+				if (identityVersion != version || !privateKeyAvailable) {
+					hidePrivateKey();
+					reveal.setEnabled(privateKeyAvailable);
+					return;
+				}
+				reveal.setEnabled(privateKeyAvailable);
+				try {
+					seedHex = get();
+					revealed = true;
+					eye.open = true;
+					keyField.setText(seedHex);
+					copy.setEnabled(true);
+					setNote("Private key revealed for this session only.", false);
+				} catch (Exception e) {
+					hidePrivateKey();
+					setNote("That passphrase didn't unlock this identity.", true);
+				}
+				repaint();
+			}
+		}.execute();
+	}
+
+	private void hidePrivateKey() {
+		seedHex = null;
+		revealed = false;
+		eye.open = false;
+		keyField.setText(privateKeyAvailable ? MASK : "unavailable");
 		keyField.setCaretPosition(0);
-		copy.setEnabled(revealed);
-		eye.open = revealed;
+		copy.setEnabled(false);
 		repaint();
+	}
+
+	/** Drops any displayed or cached private material when the user logs out. */
+	public void clearSensitive() {
+		identityVersion++;
+		baselineName = "";
+		nameField.setText("");
+		privateKeyAvailable = false;
+		hidePrivateKey();
+		didV.setText("—");
+		pubV.setText("—");
+		clearNote();
+		updateDirty();
 	}
 
 	/** A small painted eye — open when revealed, struck-through when hidden. */

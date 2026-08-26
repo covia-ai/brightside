@@ -64,7 +64,14 @@ public final class ChatPanel extends JPanel {
 	private JTextArea lastSelectedBubble; // the bubble holding the current selection, if any
 	private Component thinkingRow; // the assistant "typing…" row while a reply is pending
 	private TypingIndicator thinkingIndicator;
+	private JLabel thinkingElapsed; // "1:05" once a reply has taken a while (an agentic turn)
+	private javax.swing.Timer thinkingClock;
+	private long thinkingSince;
+
+	/** Show the elapsed time on the typing bubble once a reply has taken this long. */
+	private static final long SHOW_ELAPSED_AFTER_MS = 8_000;
 	private volatile ChatSession session;
+	private long bindingVersion;
 	private boolean busy;
 
 	public ChatPanel() {
@@ -144,8 +151,23 @@ public final class ChatPanel extends JPanel {
 	/** Connects a live session and opens the input box (does not clear the transcript). */
 	public void setSession(ChatSession session) {
 		this.session = session;
+		bindingVersion++;
+		busy = false;
+		hideThinking();
 		setInputEnabled(true);
 		focusInput();
+	}
+
+	/** Removes the current user's session and all locally rendered conversation data. */
+	public void clearSession() {
+		session = null;
+		bindingVersion++;
+		busy = false;
+		hideThinking();
+		input.setText("");
+		lastSelectedBubble = null;
+		clearMessages();
+		setInputEnabled(false);
 	}
 
 	/** Replaces the transcript with the venue's live conversation items. */
@@ -202,6 +224,7 @@ public final class ChatPanel extends JPanel {
 	private void send() {
 		ChatSession s = session;
 		if (s == null || busy) return;
+		long version = bindingVersion;
 		String text = input.getText().trim();
 		if (text.isEmpty()) return;
 		input.setText("");
@@ -218,6 +241,7 @@ public final class ChatPanel extends JPanel {
 
 			@Override
 			protected void done() {
+				if (session != s || bindingVersion != version) return;
 				busy = false;
 				setInputEnabled(true);
 				hideThinking();
@@ -258,6 +282,15 @@ public final class ChatPanel extends JPanel {
 		bubble.setBorder(BorderFactory.createEmptyBorder(14, 16, 14, 16));
 		thinkingIndicator = new TypingIndicator(ChatStyle.muted());
 		bubble.add(thinkingIndicator, BorderLayout.CENTER);
+		// A multi-tool turn can run for a minute or more with nothing else to
+		// show (the venue records its steps only when the turn completes), so
+		// after a few seconds the bubble shows how long it has been thinking.
+		thinkingElapsed = new JLabel("");
+		thinkingElapsed.setForeground(ChatStyle.muted());
+		thinkingElapsed.putClientProperty("FlatLaf.styleClass", "small");
+		thinkingElapsed.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 0));
+		thinkingElapsed.setVisible(false);
+		bubble.add(thinkingElapsed, BorderLayout.EAST);
 		JPanel row = new JPanel(new BorderLayout());
 		row.setOpaque(false);
 		row.setBorder(BorderFactory.createEmptyBorder(4, 2, 4, 2));
@@ -267,10 +300,27 @@ public final class ChatPanel extends JPanel {
 		column.revalidate();
 		scrollToBottom();
 		thinkingIndicator.start();
+		thinkingSince = System.currentTimeMillis();
+		thinkingClock = new javax.swing.Timer(1000, e -> {
+			long ms = System.currentTimeMillis() - thinkingSince;
+			if (ms < SHOW_ELAPSED_AFTER_MS || thinkingElapsed == null) return;
+			long s = ms / 1000;
+			thinkingElapsed.setText(String.format("%d:%02d", s / 60, s % 60));
+			if (!thinkingElapsed.isVisible()) {
+				thinkingElapsed.setVisible(true);
+				column.revalidate();
+			}
+		});
+		thinkingClock.start();
 	}
 
 	private void hideThinking() {
 		if (thinkingRow == null) return;
+		if (thinkingClock != null) {
+			thinkingClock.stop();
+			thinkingClock = null;
+		}
+		thinkingElapsed = null;
 		if (thinkingIndicator != null) {
 			thinkingIndicator.stop();
 			thinkingIndicator = null;
