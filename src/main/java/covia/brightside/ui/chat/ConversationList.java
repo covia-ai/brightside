@@ -65,8 +65,10 @@ public final class ConversationList extends JPanel {
 		super(new BorderLayout());
 		this.listener = listener;
 		setOpaque(false);
+		// Preferred width for the initial split; a small minimum so the split's
+		// divider can narrow or fully collapse it.
 		setPreferredSize(new Dimension(WIDTH, 0));
-		setMinimumSize(new Dimension(WIDTH, 0));
+		setMinimumSize(new Dimension(0, 0));
 		Color line = uiColor("Separator.foreground", Color.GRAY);
 		setBorder(BorderFactory.createCompoundBorder(
 			BorderFactory.createMatteBorder(0, 0, 0, 1, line),

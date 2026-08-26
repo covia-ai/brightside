@@ -73,39 +73,40 @@ class VaultTest {
 	}
 
 	@Test
-	void venueRunsEncryptedAndRejectsAWrongKey(@TempDir Path home) throws Exception {
+	void storeKeyIsDerivedFromTheSeedSoRecoveryCanReopenIt(@TempDir Path home) throws Exception {
 		int port;
 		try (ServerSocket s = new ServerSocket(0)) {
 			port = s.getLocalPort();
 		}
 		String seed = Mnemonic.toSeedHex(Mnemonic.generate(12));
-		Vault vault = Vault.open(home, "vault-pass".toCharArray());
 		AMap<AString, ACell> base = AppConfig.defaultVenue(home).assoc(Fields.PORT, CVMLong.create(port));
-		AMap<AString, ACell> secured = vault.secure(base, seed);
 
-		// Launch on the encrypted store, write a marker into it, close.
-		EmbeddedVenue venue = EmbeddedVenue.launch(secured);
+		// Launch under passphrase A (with this seed), write a marker, close.
+		AMap<AString, ACell> a = Vault.open(home, "passphrase-A".toCharArray()).secure(base, seed);
+		EmbeddedVenue venue = EmbeddedVenue.launch(a);
 		try {
-			Venue op = venue.clientAs(venue.did());
-			write(op, "w/vault-marker", "hi there");
-			assertEquals("hi there", str(read(op, "w/vault-marker")));
+			write(venue.clientAs(venue.did()), "w/vault-marker", "hi there");
 		} finally {
 			venue.close();
 		}
 
-		// Reopen with the same vault key + seed → the marker persisted (decrypted).
-		EmbeddedVenue again = EmbeddedVenue.launch(secured);
+		// A DIFFERENT passphrase but the SAME seed reopens the store and reads the
+		// marker — the store key comes from the seed, so recovery (which reaches the
+		// seed via the recovery phrase) restores full access, not just the identity.
+		AMap<AString, ACell> different = Vault.open(home, "totally-different".toCharArray()).secure(base, seed);
+		EmbeddedVenue again = EmbeddedVenue.launch(different);
 		try {
 			assertEquals("hi there", str(read(again.clientAs(again.did()), "w/vault-marker")),
-				"encrypted store persisted and reopened");
+				"the same seed reopens the store regardless of passphrase");
 		} finally {
 			again.close();
 		}
 
-		// A wrong passphrase → wrong vault key → the store will not open.
-		AMap<AString, ACell> wrong = Vault.open(home, "not-the-pass".toCharArray()).secure(base, seed);
+		// A DIFFERENT seed cannot open it.
+		String otherSeed = Mnemonic.toSeedHex(Mnemonic.generate(12));
+		AMap<AString, ACell> wrong = Vault.open(home, "passphrase-A".toCharArray()).secure(base, otherSeed);
 		assertThrows(Exception.class, () -> EmbeddedVenue.launch(wrong).close(),
-			"a wrong vault key cannot open the encrypted store");
+			"a different seed cannot open the encrypted store");
 	}
 
 	private static void write(Venue client, String path, String value) throws Exception {

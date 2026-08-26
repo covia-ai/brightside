@@ -41,6 +41,7 @@ public final class ChatSession {
 	private static final String OP_UPDATE = "v/ops/agent/update";
 	private static final String OP_INFO = "v/ops/agent/info";
 	private static final String OP_CHAT = "v/ops/agent/chat";
+	private static final String OP_RESUME = "v/ops/agent/resume";
 
 	/** Time allowed for agent management calls (create/update/info). */
 	private static final long ADMIN_TIMEOUT_SECONDS = 30;
@@ -195,7 +196,36 @@ public final class ChatSession {
 			run(OP_CREATE, input, ADMIN_TIMEOUT_SECONDS);
 			log.info("Created chat agent '{}' ({} via {})", config.agentId(), config.operation(), config.llmOperation());
 		}
+		// An agent can still be carrying a suspension from an earlier failed run
+		// (e.g. a model with no API key). Clear it here so the next message runs.
+		resumeIfSuspended();
 		agentReady = true;
+	}
+
+	/** True if a failure looks like the agent being SUSPENDED. */
+	private static boolean isSuspended(Throwable e) {
+		String m = e.getMessage();
+		return m != null && m.toLowerCase(java.util.Locale.ROOT).contains("suspend");
+	}
+
+	/** Clears a suspension (agent:resume) so the agent can run again. */
+	public synchronized void resume() throws Exception {
+		run(OP_RESUME, Maps.of(Fields.AGENT_ID, config.agentId()), ADMIN_TIMEOUT_SECONDS);
+		log.info("Resumed agent '{}'", config.agentId());
+	}
+
+	/** If the agent is SUSPENDED, clear it so a fresh session can run. Best-effort. */
+	private void resumeIfSuspended() {
+		try {
+			ACell info = run(OP_INFO, Maps.of(Fields.AGENT_ID, config.agentId()), ADMIN_TIMEOUT_SECONDS);
+			AString status = RT.ensureString(RT.getIn(info, "status"));
+			if (status != null && "SUSPENDED".equals(status.toString())) {
+				resume();
+				log.info("Cleared a stale suspension on agent '{}'", config.agentId());
+			}
+		} catch (Exception e) {
+			log.warn("Could not check/clear agent suspension: {}", e.getMessage());
+		}
 	}
 
 	private boolean agentExists() {
@@ -220,6 +250,13 @@ public final class ChatSession {
 					e.getMessage());
 				pendingResume = false;
 				sessionId = null;
+				return sendOnce(message);
+			}
+			// The agent is suspended (e.g. an earlier bad model or missing key):
+			// clear the suspension and try once more, so Send just works.
+			if (isSuspended(e)) {
+				log.warn("Agent '{}' is suspended; resuming and retrying", config.agentId());
+				resume();
 				return sendOnce(message);
 			}
 			throw e;

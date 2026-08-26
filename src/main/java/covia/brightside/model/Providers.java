@@ -30,8 +30,8 @@ public final class Providers {
 	/** All providers, in display order; the first model of each is its default. */
 	public static final List<Provider> ALL = List.of(
 		new Provider("anthropic", "Anthropic", "ANTHROPIC_API_KEY", "https://console.anthropic.com/settings/keys",
-			List.of(new Model("claude-sonnet-5", "Claude Sonnet"),
-				new Model("claude-opus-5", "Claude Opus"),
+			List.of(new Model("claude-opus-5", "Claude Opus"),
+				new Model("claude-sonnet-5", "Claude Sonnet"),
 				new Model("claude-haiku-4-5-20251001", "Claude Haiku"))),
 		new Provider("openai", "OpenAI", "OPENAI_API_KEY", "https://platform.openai.com/api-keys",
 			List.of(new Model("gpt-5.6-terra", "GPT-5.6"),

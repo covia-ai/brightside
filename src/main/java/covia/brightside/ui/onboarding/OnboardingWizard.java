@@ -353,7 +353,7 @@ public final class OnboardingWizard extends JPanel {
 		setError(" ", false);
 		((CardLayout) cards.getLayout()).show(cards, s.name());
 		switch (s) {
-			case WELCOME -> set("Welcome to Brightside", "Your assistant. Yours alone.", "Get started", false);
+			case WELCOME -> set("Welcome to Brightside", "Your assistant. Yours alone.", "Get started", true);
 			case PASSPHRASE -> set("Secure your Brightside",
 				"Everything Brightside remembers is encrypted on this computer with a passphrase only you know.",
 				"Continue", true);

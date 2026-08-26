@@ -18,9 +18,12 @@ import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
+import javax.swing.JSplitPane;
+import javax.swing.JTextArea;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.KeyStroke;
@@ -61,6 +64,8 @@ public final class MainWindow extends JFrame {
 	private final JLabel brandLabel = new JLabel("Powered by the Covia Grid");
 
 	private JMenuItem changeNameItem;
+	private JMenuItem logoutItem;
+	private JMenu userMenu;
 	private JMenuItem dashboardItem;
 
 	private EmbeddedVenue venue; // set once ready
@@ -75,7 +80,17 @@ public final class MainWindow extends JFrame {
 		setJMenuBar(buildMenuBar());
 
 		onboarding = new covia.brightside.ui.onboarding.OnboardingWizard(app::onOnboardingComplete);
-		unlock = new covia.brightside.ui.onboarding.UnlockPanel(app::onUnlock);
+		unlock = new covia.brightside.ui.onboarding.UnlockPanel(new covia.brightside.ui.onboarding.UnlockPanel.Listener() {
+			@Override
+			public void onUnlock(char[] passphrase, boolean remember) {
+				app.onUnlock(passphrase, remember);
+			}
+
+			@Override
+			public void onForgot() {
+				app.openRecovery();
+			}
+		});
 
 		welcomePanel = new WelcomePanel(new WelcomePanel.Listener() {
 			@Override
@@ -121,9 +136,17 @@ public final class MainWindow extends JFrame {
 			}
 		});
 
+		// Resizable + collapsible sessions bar: drag the divider to resize, or use
+		// its one-touch arrows to collapse/expand it.
+		JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, conversations, chatPanel);
+		split.setBorder(null);
+		split.setContinuousLayout(true);
+		split.setOneTouchExpandable(true);
+		split.setResizeWeight(0.0); // extra width goes to the chat, not the sidebar
+		split.setDividerLocation(240);
+
 		JPanel chatCard = new JPanel(new BorderLayout());
-		chatCard.add(conversations, BorderLayout.WEST);
-		chatCard.add(chatPanel, BorderLayout.CENTER);
+		chatCard.add(split, BorderLayout.CENTER);
 		chatCard.add(buildStatusBar(), BorderLayout.SOUTH);
 
 		deck.add(onboarding, CARD_ONBOARD);
@@ -157,9 +180,16 @@ public final class MainWindow extends JFrame {
 	}
 
 	/** Returning with a vault: the unlock screen. */
-	public void showUnlock() {
+	public void showUnlock(char[] prefill) {
+		unlock.reset();
+		if (prefill != null) unlock.prefill(prefill);
 		show(CARD_UNLOCK);
 		java.awt.EventQueue.invokeLater(unlock::focusField);
+	}
+
+	/** Open the (modal) recovery dialog, wired to recover via the app. */
+	public void openRecoveryDialog(covia.brightside.ui.onboarding.RecoveryDialog.Listener listener) {
+		new covia.brightside.ui.onboarding.RecoveryDialog(this, listener).setVisible(true);
 	}
 
 	/** A wrong passphrase on the unlock screen. */
@@ -191,10 +221,6 @@ public final class MainWindow extends JFrame {
 		file.setMnemonic(KeyEvent.VK_F);
 		file.add(item("New chat", KeyStroke.getKeyStroke(KeyEvent.VK_N, shortcut), e -> app.newConversation()));
 		file.add(item("Refresh", KeyStroke.getKeyStroke(KeyEvent.VK_R, shortcut), e -> app.refreshNow()));
-		changeNameItem = item("Change my name…", null, e -> app.changeName());
-		changeNameItem.setEnabled(false);
-		file.add(changeNameItem);
-		file.add(item("Model & API key…", null, e -> app.openSettings()));
 		file.addSeparator();
 		if (app.hasTray()) {
 			file.add(item("Hide to tray", KeyStroke.getKeyStroke(KeyEvent.VK_H, shortcut), e -> app.hideToTray()));
@@ -202,15 +228,41 @@ public final class MainWindow extends JFrame {
 		file.add(item("Quit", KeyStroke.getKeyStroke(KeyEvent.VK_Q, shortcut), e -> app.exit()));
 		bar.add(file);
 
-		// Everything technical lives here, out of the everyday flow.
-		JMenu advanced = new JMenu("Advanced");
-		advanced.setMnemonic(KeyEvent.VK_A);
+		// Settings and power-user surfaces, out of the everyday flow.
+		JMenu settings = new JMenu("Settings");
+		settings.setMnemonic(KeyEvent.VK_S);
+		settings.add(item("Model & API key…", null, e -> app.openSettings()));
+		settings.add(item("Access token…", null, e -> app.openAccessToken()));
+		settings.addSeparator();
+		if (app.hasTray()) {
+			JMenu trayMenu = new JMenu("System tray");
+			JCheckBoxMenuItem keepOpen = new JCheckBoxMenuItem("Keep running in tray when closed", app.keepInTray());
+			keepOpen.addActionListener(e -> app.setKeepInTray(keepOpen.isSelected()));
+			JCheckBoxMenuItem minimise = new JCheckBoxMenuItem("Minimise to tray", app.minimiseToTray());
+			minimise.addActionListener(e -> app.setMinimiseToTray(minimise.isSelected()));
+			trayMenu.add(keepOpen);
+			trayMenu.add(minimise);
+			settings.add(trayMenu);
+			settings.addSeparator();
+		}
 		dashboardItem = item("Open dashboard in browser", null, e -> app.openDashboard());
 		dashboardItem.setEnabled(false);
-		advanced.add(dashboardItem);
-		advanced.add(item("Open settings file", null, e -> app.openConfigFile()));
-		advanced.add(item("Open logs folder", null, e -> app.openLogsFolder()));
-		bar.add(advanced);
+		settings.add(dashboardItem);
+		settings.add(item("Open settings file", null, e -> app.openConfigFile()));
+		settings.add(item("Open logs folder", null, e -> app.openLogsFolder()));
+		bar.add(settings);
+
+		// The user / account menu (its title becomes the user's name once known).
+		userMenu = new JMenu("Account");
+		changeNameItem = item("Change my name…", null, e -> app.changeName());
+		changeNameItem.setEnabled(false);
+		logoutItem = item("Log out", null, e -> app.logout());
+		logoutItem.setEnabled(false);
+		userMenu.add(item("Profile…", null, e -> showProfile()));
+		userMenu.add(changeNameItem);
+		userMenu.addSeparator();
+		userMenu.add(logoutItem);
+		bar.add(userMenu);
 
 		JMenu help = new JMenu("Help");
 		help.setMnemonic(KeyEvent.VK_H);
@@ -251,6 +303,7 @@ public final class MainWindow extends JFrame {
 		this.identity = identity;
 		dashboardItem.setEnabled(true);
 		changeNameItem.setEnabled(true);
+		logoutItem.setEnabled(true);
 		updateWho();
 		chatPanel.restore(history);
 		chatPanel.setSession(session);
@@ -309,6 +362,11 @@ public final class MainWindow extends JFrame {
 		dialog.setVisible(true);
 	}
 
+	/** Open the (non-modal) Access-token dialog, wired to mint via the app. */
+	public void openAccessTokenDialog(AccessTokenDialog.Minter minter) {
+		new AccessTokenDialog(this, minter).setVisible(true);
+	}
+
 	/** Open a (non-modal) inspector showing exactly what the model receives for a conversation. */
 	public void showContextInfo(covia.brightside.AgentContext.Report report,
 			List<SessionHistory.RawTurn> turns, String title) {
@@ -358,7 +416,8 @@ public final class MainWindow extends JFrame {
 	private void updateWho() {
 		if (identity == null) return;
 		whoLabel.setText(identity.name());
-		setTitle(BrightSide.APP_NAME + " — " + identity.name());
+		if (userMenu != null) userMenu.setText(identity.name());
+		setTitle(BrightSide.APP_NAME);
 	}
 
 	private void show(String card) {
@@ -391,7 +450,31 @@ public final class MainWindow extends JFrame {
 			if (venue.did() != null) sb.append("\nIdentity: ").append(identity != null
 				? identity.userDID(venue.did()) : venue.did());
 		}
-		JOptionPane.showMessageDialog(this, sb.toString(),
+		JTextArea area = new JTextArea(sb.toString());
+		area.setEditable(false);
+		area.setOpaque(false);
+		area.setBorder(null);
+		area.setFont(UIManager.getFont("Label.font"));
+		JOptionPane.showMessageDialog(this, area,
 			"About " + BrightSide.APP_NAME, JOptionPane.INFORMATION_MESSAGE, new ImageIcon(Icons.icon(64)));
+	}
+
+	/** The user's profile: name, identity DID, local address and model — all selectable. */
+	private void showProfile() {
+		StringBuilder sb = new StringBuilder();
+		if (identity != null) sb.append("Name: ").append(identity.name()).append('\n');
+		if (venue != null) {
+			if (venue.did() != null) {
+				sb.append("Identity: ").append(identity != null ? identity.userDID(venue.did()) : venue.did()).append('\n');
+			}
+			sb.append("Running locally at: ").append(venue.url()).append('\n');
+		}
+		sb.append("Model: ").append(app.currentModelOp());
+		JTextArea area = new JTextArea(sb.toString());
+		area.setEditable(false);
+		area.setOpaque(false);
+		area.setBorder(null);
+		area.setFont(UIManager.getFont("Label.font"));
+		JOptionPane.showMessageDialog(this, area, "Profile", JOptionPane.INFORMATION_MESSAGE, new ImageIcon(Icons.icon(64)));
 	}
 }

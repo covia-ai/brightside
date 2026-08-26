@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -25,15 +26,23 @@ import convex.core.data.Strings;
 import convex.core.util.JSON;
 
 /**
- * The encrypted vault: one passphrase unlocks everything Brightside keeps on
- * disk. It hardens the passphrase (Argon2id over a per-vault salt) into two
- * 32-byte keys — a <b>vault key</b> that encrypts the venue store (Etch v3,
- * ChaCha20) and a <b>seed key</b> that encrypts the identity's Ed25519 seed
- * ({@code identity.enc}) — so nothing sensitive is ever written in the clear.
+ * The encrypted vault. Two keys protect what Brightside keeps on disk, and they
+ * come from <em>different</em> roots on purpose:
  *
- * <p>The design and threat model are in {@code docs/ONBOARDING.md}. Keys live in
- * memory only; on disk are just {@code vault.salt} (not secret), the encrypted
- * {@code identity.enc}, and the encrypted {@code venue.etch}.
+ * <ul>
+ * <li>The <b>store key</b> (the Etch v3 / ChaCha20 key for {@code venue.etch}) is
+ * derived from the <b>identity seed</b> — so it is reproducible from the BIP39
+ * recovery phrase. Recovery therefore restores full access to the existing store,
+ * not just the identity.</li>
+ * <li>The <b>passphrase key</b> (Argon2id over a per-vault salt) protects only the
+ * seed itself ({@code identity.enc}) and the provider API keys ({@code keys.enc}).</li>
+ * </ul>
+ *
+ * <p>Unlocking is <em>passphrase → seed → store key → open store</em>; recovery is
+ * <em>recovery phrase → seed → store key → open the same store</em>, then the seed
+ * is re-encrypted under a new passphrase. The passphrase can be changed (or
+ * recovered) without re-encrypting the store, because the store key never depended
+ * on it. Design and threat model: {@code docs/ONBOARDING.md}.
  */
 public final class Vault {
 
@@ -47,6 +56,9 @@ public final class Vault {
 	private static final int GCM_NONCE_LEN = 12;
 	private static final int GCM_TAG_BITS = 128;
 
+	// Domain-separation label so the store key is distinct from the raw seed.
+	private static final byte[] ETCH_LABEL = "brightside-etch-v1".getBytes(StandardCharsets.UTF_8);
+
 	// Argon2id cost. ~64 MB / 3 passes: strong for an interactive desktop unlock.
 	private static final int ARGON_MEMORY_KB = 64 * 1024;
 	private static final int ARGON_ITERATIONS = 3;
@@ -55,13 +67,11 @@ public final class Vault {
 	private static final SecureRandom RNG = new SecureRandom();
 
 	private final Path home;
-	private final byte[] vaultKey;
-	private final byte[] seedKey;
+	private final byte[] passKey; // Argon2id(passphrase, salt): protects identity.enc and keys.enc
 
-	private Vault(Path home, byte[] vaultKey, byte[] seedKey) {
+	private Vault(Path home, byte[] passKey) {
 		this.home = home;
-		this.vaultKey = vaultKey;
-		this.seedKey = seedKey;
+		this.passKey = passKey;
 	}
 
 	/** True once a vault has been set up in {@code home} (an encrypted identity exists). */
@@ -70,25 +80,20 @@ public final class Vault {
 	}
 
 	/**
-	 * Derives the vault from {@code passphrase}, creating {@code vault.salt} if
-	 * absent. Deriving succeeds for any passphrase — a wrong one is only detected
-	 * when it fails to decrypt {@link #seedHex()} or to open the store.
+	 * Derives the passphrase key, creating {@code vault.salt} if absent. Deriving
+	 * succeeds for any passphrase — a wrong one is only detected when it fails to
+	 * decrypt {@link #seedHex()}.
 	 */
 	public static Vault open(Path home, char[] passphrase) throws IOException {
 		byte[] salt = readOrCreateSalt(home);
-		byte[] out = argon2id(passphrase, salt, 2 * KEY_LEN);
-		try {
-			return new Vault(home, Arrays.copyOfRange(out, 0, KEY_LEN), Arrays.copyOfRange(out, KEY_LEN, 2 * KEY_LEN));
-		} finally {
-			Arrays.fill(out, (byte) 0);
-		}
+		return new Vault(home, argon2id(passphrase, salt, KEY_LEN));
 	}
 
 	/** Encrypts and stores the 32-byte Ed25519 {@code seedHex} as {@code identity.enc}. */
 	public void storeSeed(String seedHex) throws IOException {
 		byte[] seed = unhex(seedHex);
 		try {
-			writeOwnerOnly(home.resolve(IDENTITY_FILE), aesGcmEncrypt(seedKey, seed));
+			writeOwnerOnly(home.resolve(IDENTITY_FILE), aesGcmEncrypt(passKey, seed));
 		} finally {
 			Arrays.fill(seed, (byte) 0);
 		}
@@ -97,7 +102,7 @@ public final class Vault {
 	/** The identity's 32-byte Ed25519 seed (hex), decrypting {@code identity.enc}. */
 	public String seedHex() throws IOException {
 		byte[] enc = Files.readAllBytes(home.resolve(IDENTITY_FILE));
-		byte[] seed = aesGcmDecrypt(seedKey, enc); // throws on a wrong key (GCM tag)
+		byte[] seed = aesGcmDecrypt(passKey, enc); // throws on a wrong passphrase (GCM tag)
 		try {
 			return hex(seed);
 		} finally {
@@ -109,7 +114,7 @@ public final class Vault {
 	public Map<String, String> apiKeys() throws IOException {
 		Path file = home.resolve(KEYS_FILE);
 		if (!Files.isRegularFile(file)) return new LinkedHashMap<>();
-		byte[] json = aesGcmDecrypt(seedKey, Files.readAllBytes(file));
+		byte[] json = aesGcmDecrypt(passKey, Files.readAllBytes(file));
 		Map<String, String> out = new LinkedHashMap<>();
 		ACell parsed = JSON.parseJSON5(new String(json, StandardCharsets.UTF_8));
 		if (parsed instanceof AMap<?, ?> map) {
@@ -130,27 +135,35 @@ public final class Vault {
 			map = map.assoc(Strings.create(e.getKey()), Strings.create(e.getValue()));
 		}
 		byte[] json = JSON.toStringPretty(map).getBytes(StandardCharsets.UTF_8);
-		writeOwnerOnly(home.resolve(KEYS_FILE), aesGcmEncrypt(seedKey, json));
+		writeOwnerOnly(home.resolve(KEYS_FILE), aesGcmEncrypt(passKey, json));
 	}
 
 	/**
 	 * Returns {@code venueConfig} with the identity {@code seed} and Etch v3
-	 * encryption injected — the venue then runs under this exact key and stores
-	 * everything encrypted with the vault key. Neither value is ever persisted;
-	 * they live only in the in-memory config handed to the venue.
+	 * encryption injected. The Etch key is derived from the <b>seed</b> (not the
+	 * passphrase), so the same seed always opens the same store — that is what lets
+	 * recovery reopen it. Neither value is ever persisted; they live only in the
+	 * in-memory config handed to the venue.
 	 */
 	public AMap<AString, ACell> secure(AMap<AString, ACell> venueConfig, String seedHex) {
+		byte[] seed = unhex(seedHex);
+		String etchKeyHex;
+		try {
+			etchKeyHex = hex(deriveKey(seed, ETCH_LABEL));
+		} finally {
+			Arrays.fill(seed, (byte) 0);
+		}
 		AMap<AString, ACell> etch = Maps.of(
 			"version", 3L,
 			"cipher", "chacha20",
-			"key", hex(vaultKey));
+			"key", etchKeyHex);
 		return venueConfig
 			.assoc(Strings.create("seed"), Strings.create(seedHex))
 			.assoc(Strings.create("etch"), etch);
 	}
 
 	// ------------------------------------------------------------------
-	// Argon2id
+	// Key derivation
 	// ------------------------------------------------------------------
 
 	private static byte[] argon2id(char[] passphrase, byte[] salt, int length) {
@@ -166,6 +179,18 @@ public final class Vault {
 		byte[] out = new byte[length];
 		generator.generateBytes(passphrase, out);
 		return out;
+	}
+
+	/** A 32-byte key derived from the high-entropy seed with domain separation. */
+	private static byte[] deriveKey(byte[] seed, byte[] label) {
+		try {
+			MessageDigest md = MessageDigest.getInstance("SHA-256");
+			md.update(label);
+			md.update(seed);
+			return md.digest();
+		} catch (Exception e) {
+			throw new IllegalStateException("key derivation failed", e);
+		}
 	}
 
 	// ------------------------------------------------------------------
@@ -189,7 +214,7 @@ public final class Vault {
 	}
 
 	private static byte[] aesGcmDecrypt(byte[] key, byte[] envelope) throws IOException {
-		if (envelope.length <= GCM_NONCE_LEN) throw new IOException("identity.enc is truncated");
+		if (envelope.length <= GCM_NONCE_LEN) throw new IOException("encrypted file is truncated");
 		try {
 			byte[] nonce = Arrays.copyOfRange(envelope, 0, GCM_NONCE_LEN);
 			Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
@@ -197,7 +222,7 @@ public final class Vault {
 			return cipher.doFinal(envelope, GCM_NONCE_LEN, envelope.length - GCM_NONCE_LEN);
 		} catch (Exception e) {
 			// A wrong passphrase surfaces here as a GCM tag failure.
-			throw new IOException("could not decrypt the identity (wrong passphrase?)", e);
+			throw new IOException("could not decrypt (wrong passphrase?)", e);
 		}
 	}
 

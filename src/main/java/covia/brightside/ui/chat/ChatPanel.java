@@ -53,6 +53,8 @@ import covia.brightside.ui.LAF;
 @SuppressWarnings("serial")
 public final class ChatPanel extends JPanel {
 
+	private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ChatPanel.class);
+
 	private final MessageColumn column = new MessageColumn();
 	private final JScrollPane scroll;
 	private final JTextArea input = new JTextArea(1, 20);
@@ -221,8 +223,11 @@ public final class ChatPanel extends JPanel {
 				try {
 					addTurn("assistant", get().text());
 				} catch (ExecutionException e) {
-					appendError(describe(e.getCause() != null ? e.getCause() : e));
+					Throwable cause = (e.getCause() != null) ? e.getCause() : e;
+					log.warn("Chat send failed", cause);
+					appendError(describe(cause));
 				} catch (Exception e) {
+					log.warn("Chat send failed", e);
 					appendError(describe(e));
 				}
 				focusInput();
@@ -294,13 +299,13 @@ public final class ChatPanel extends JPanel {
 
 	/** A note from Brightside itself (status, hints) — centred and muted. */
 	public void appendSystem(String text) {
-		column.add(noticeRow(text, ChatStyle.muted(), false));
+		column.add(noticeRow(text, ChatStyle.muted(), false, false));
 		column.revalidate();
 		scrollToBottom();
 	}
 
 	public void appendError(String text) {
-		column.add(noticeRow(text, ChatStyle.ERROR, true));
+		column.add(noticeRow(text, ChatStyle.ERROR, true, true));
 		column.revalidate();
 		scrollToBottom();
 	}
@@ -387,17 +392,42 @@ public final class ChatPanel extends JPanel {
 		return row;
 	}
 
-	private Component noticeRow(String text, Color fg, boolean bold) {
-		JLabel label = new JLabel(text, SwingConstants.CENTER);
-		label.setForeground(fg);
-		label.putClientProperty("FlatLaf.styleClass", "small");
-		if (bold) label.setFont(label.getFont().deriveFont(label.getFont().getStyle() | java.awt.Font.BOLD));
+	private Component noticeRow(String text, Color fg, boolean bold, boolean selectable) {
+		Component content;
+		if (selectable) {
+			// A selectable, wrapping text area — an error can be read AND copied
+			// (Ctrl/Cmd+C). Transparent and borderless so it reads as a notice, not
+			// an input.
+			JTextArea ta = new JTextArea(text);
+			ta.setEditable(false);
+			ta.setLineWrap(true);
+			ta.setWrapStyleWord(true);
+			ta.setOpaque(false);
+			ta.setForeground(fg);
+			ta.setBorder(null);
+			ta.putClientProperty("FlatLaf.styleClass", "small");
+			if (bold) ta.setFont(ta.getFont().deriveFont(java.awt.Font.BOLD));
+			content = ta;
+		} else {
+			// Short status line: a centred, wrapping label. Newlines become <br>.
+			String body = escapeHtml(text).replace("\n", "<br>");
+			JLabel label = new JLabel(
+				"<html><div style='width:520px; text-align:center'>" + body + "</div></html>", SwingConstants.CENTER);
+			label.setForeground(fg);
+			label.putClientProperty("FlatLaf.styleClass", "small");
+			if (bold) label.setFont(label.getFont().deriveFont(label.getFont().getStyle() | java.awt.Font.BOLD));
+			content = label;
+		}
 		JPanel row = new JPanel(new BorderLayout());
 		row.setOpaque(false);
 		row.setBorder(BorderFactory.createEmptyBorder(6, 24, 6, 24));
-		row.add(label, BorderLayout.CENTER);
+		row.add(content, BorderLayout.CENTER);
 		row.setAlignmentX(Component.LEFT_ALIGNMENT);
 		return row;
+	}
+
+	private static String escapeHtml(String s) {
+		return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
 	}
 
 	/** An assistant-side, collapsed-by-default group of a turn's tool-use steps. */

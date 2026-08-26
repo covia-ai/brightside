@@ -51,7 +51,7 @@ public final class SettingsDialog extends JDialog {
 		setContentPane(build());
 		preselect(currentModelOp);
 		pack();
-		setMinimumSize(new Dimension(460, getPreferredSize().height));
+		setMinimumSize(new Dimension(520, getPreferredSize().height));
 		setLocationRelativeTo(owner);
 	}
 
@@ -164,12 +164,12 @@ public final class SettingsDialog extends JDialog {
 		if (key.length > 0) {
 			boolean ok = handler.storeApiKey(p.id(), new String(key));
 			note.setForeground(ok ? mutedColor() : new java.awt.Color(0xE5, 0x53, 0x53));
-			note.setText(ok ? "Model updated. New key applies after a restart." : "Couldn't store the key.");
+			note.setText(ok ? "Saved. The new key applies after a restart." : "Couldn't store the key.");
 			keyField.setText("");
 			return;
 		}
 		note.setForeground(mutedColor());
-		note.setText("Model updated.");
+		note.setText("Saved.");
 	}
 
 	private static JLabel muted(String text) {

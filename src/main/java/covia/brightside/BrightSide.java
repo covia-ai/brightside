@@ -57,6 +57,7 @@ public final class BrightSide {
 
 	private final AppConfig config;
 	private final Path configPath;
+	private final Prefs prefs;
 	private volatile EmbeddedVenue venue;
 	private volatile ChatSession chat;
 	private volatile ConversationWatcher watcher; // event thread
@@ -73,6 +74,8 @@ public final class BrightSide {
 	private volatile Vault vault; // set once onboarded/unlocked
 	private volatile String venueSeedHex; // the venue's Ed25519 seed hex (authorises operator takeover)
 	private volatile String llmOverride; // chosen model op for the first onboarding launch
+	/** API-key secret names actually provisioned into the running venue at launch. */
+	private final java.util.Set<String> provisionedSecrets = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
 	private enum Mode {
 		ONBOARD, UNLOCK, LEGACY
@@ -81,6 +84,7 @@ public final class BrightSide {
 	BrightSide(AppConfig config, Path configPath) {
 		this.config = config;
 		this.configPath = configPath;
+		this.prefs = Prefs.load(config.home());
 	}
 
 	/** Entry point. Optional argument: path to the configuration file. */
@@ -120,7 +124,7 @@ public final class BrightSide {
 				window = new MainWindow(this);
 				switch (mode) {
 					case ONBOARD -> window.showOnboarding();
-					case UNLOCK -> window.showUnlock();
+					case UNLOCK -> window.showUnlock(RememberedPassphrase.load(config.home()));
 					case LEGACY -> {
 						if (saved == null) window.showNameEntry(prefill);
 						else window.showChatStartup();
@@ -216,13 +220,33 @@ public final class BrightSide {
 	}
 
 	/** Returning user entered a passphrase: derive the vault, decrypt the seed, launch. */
-	public void onUnlock(char[] passphrase) {
+	public void onUnlock(char[] passphrase, boolean remember) {
 		Thread t = new Thread(() -> {
 			try {
-				Vault v = Vault.open(config.home(), passphrase);
+				Path home = config.home();
+				Vault v = Vault.open(home, passphrase);
 				String seedHex = v.seedHex(); // throws on a wrong passphrase (GCM tag)
-				this.vault = v;
-				this.venueSeedHex = seedHex;
+				// Warm unlock: a Log out only showed the lock screen; the venue is
+				// still running. Verify the passphrase and return to the chat.
+				boolean warm = (venue != null && chat != null);
+				if (!warm) {
+					this.vault = v;
+					this.venueSeedHex = seedHex;
+				}
+				// Only now that the passphrase is proven correct: honour Remember me.
+				if (remember) {
+					try {
+						RememberedPassphrase.store(home, passphrase);
+					} catch (Exception e) {
+						log.warn("Could not store the remembered passphrase: {}", e.getMessage());
+					}
+				} else {
+					RememberedPassphrase.clear(home);
+				}
+				if (warm) {
+					SwingUtilities.invokeLater(window::showChatCard);
+					return;
+				}
 				AMap<AString, ACell> venueConfig = provisionKeys(v.secure(config.venueConfig(), seedHex), v);
 				SwingUtilities.invokeLater(window::showChatStartup);
 				launchVenueWith(venueConfig);
@@ -237,10 +261,56 @@ public final class BrightSide {
 		t.start();
 	}
 
+	/** Log out: show the lock screen without stopping the venue; the passphrase logs back in. */
+	public void logout() {
+		if (vault == null) {
+			SwingUtilities.invokeLater(() -> window.showSystemMessage("This install has no passphrase to lock behind."));
+			return;
+		}
+		SwingUtilities.invokeLater(() -> window.showUnlock(null));
+	}
+
+	/** Opens recovery (Forgot passphrase?): restore identity from the recovery phrase. */
+	public void openRecovery() {
+		SwingUtilities.invokeLater(() -> window.openRecoveryDialog(this::recover));
+	}
+
+	/**
+	 * Recover from a BIP39 recovery phrase. The store's encryption key is derived
+	 * from the seed, so the recovery phrase reopens the <em>existing</em> encrypted
+	 * store — recovery just re-encrypts the seed under a new passphrase. Runs from
+	 * the unlock screen, where no venue is holding the store.
+	 */
+	public void recover(String seedHex, char[] passphrase) {
+		Thread t = new Thread(() -> {
+			try {
+				Path home = config.home();
+				Vault v = Vault.open(home, passphrase); // new passphrase, existing salt
+				// The old API-key store was encrypted under the forgotten passphrase and
+				// can't be read now; drop it (keys can be re-entered in Settings). The
+				// venue store itself is keyed to the seed, so it stays and reopens intact.
+				Files.deleteIfExists(home.resolve(Vault.KEYS_FILE));
+				RememberedPassphrase.clear(home);
+				v.storeSeed(seedHex); // re-encrypt the seed under the new passphrase
+				this.vault = v;
+				this.venueSeedHex = seedHex;
+				AMap<AString, ACell> venueConfig = provisionKeys(v.secure(config.venueConfig(), seedHex), v);
+				SwingUtilities.invokeLater(window::showChatStartup);
+				launchVenueWith(venueConfig);
+			} catch (Exception e) {
+				log.error("Recovery failed", e);
+				SwingUtilities.invokeLater(() -> window.unlockError("Recovery failed — see the logs."));
+			}
+		}, "brightside-recover");
+		t.setDaemon(true);
+		t.start();
+	}
+
 	/** Provisions every stored (encrypted) API key into the in-memory venue config's public secrets. */
-	private static AMap<AString, ACell> provisionKeys(AMap<AString, ACell> venueConfig, Vault vault) throws IOException {
+	private AMap<AString, ACell> provisionKeys(AMap<AString, ACell> venueConfig, Vault vault) throws IOException {
 		for (Map.Entry<String, String> e : vault.apiKeys().entrySet()) {
 			venueConfig = withPublicSecret(venueConfig, e.getKey(), e.getValue());
+			provisionedSecrets.add(e.getKey());
 		}
 		return venueConfig;
 	}
@@ -259,6 +329,18 @@ public final class BrightSide {
 		String op = Providers.modelOp(providerId, modelId);
 		llmOverride = op;
 		config.persistModel(op);
+		Providers.Provider p = Providers.byId(providerId);
+		boolean keyLive = p == null || !p.needsApiKey() || provisionedSecrets.contains(p.secretName());
+		if (!keyLive) {
+			// Saved, but this provider's API key is only injected into the venue's
+			// secret store at launch — switching the running agent to it now would
+			// fail at the model call with no key. Defer to the next start rather
+			// than leave the agent in a broken state.
+			String label = (p != null) ? p.label() : providerId;
+			SwingUtilities.invokeLater(() -> window.showSystemMessage(
+				"Saved. Restart Brightside to switch to " + label + " — its API key is applied at launch."));
+			return;
+		}
 		ChatSession c = chat;
 		if (c == null) return;
 		new Thread(() -> {
@@ -267,6 +349,7 @@ public final class BrightSide {
 				SwingUtilities.invokeLater(() -> window.showSystemMessage("Now using " + op + "."));
 			} catch (Exception e) {
 				log.warn("Could not apply the model change", e);
+				SwingUtilities.invokeLater(() -> window.showSystemMessage("Couldn't switch model: " + e.getMessage()));
 			}
 		}, "brightside-model").start();
 	}
@@ -285,6 +368,31 @@ public final class BrightSide {
 		} catch (Exception e) {
 			log.warn("Could not store the API key", e);
 			return false;
+		}
+	}
+
+	/**
+	 * Mints a venue-signed access-token JWT authenticating the bearer as this
+	 * venue's identity (the operator), valid for {@code expiresInSeconds}. Used by
+	 * Advanced settings to obtain a bearer token for the local venue's HTTP API
+	 * ({@code Authorization: Bearer …}, {@code aud = } venue DID). Returns null if
+	 * the venue isn't up yet or no seed is available.
+	 */
+	public String mintAccessToken(long expiresInSeconds) {
+		EmbeddedVenue v = venue;
+		String seed = venueSeedHex;
+		if (v == null || seed == null || seed.isBlank()) return null;
+		try {
+			convex.core.crypto.AKeyPair keyPair =
+				convex.core.crypto.AKeyPair.create(convex.core.data.Blob.fromHex(seed.trim()));
+			String did = v.did();
+			long now = System.currentTimeMillis() / 1000;
+			return convex.auth.jwt.JWT.signPublic(Maps.of(
+				"sub", did, "iss", did, "aud", did,
+				"iat", now, "exp", now + expiresInSeconds), keyPair).toString();
+		} catch (Exception e) {
+			log.warn("Could not mint an access token", e);
+			return null;
 		}
 	}
 
@@ -681,15 +789,37 @@ public final class BrightSide {
 		});
 	}
 
-	/** Window close button: to the tray when there is one, otherwise exit. */
+	/**
+	 * Window close button. Only stays resident in the tray if the user opted in
+	 * (Settings ▸ System tray ▸ Keep running in tray). By default, closing the
+	 * window shuts Brightside down cleanly (flushing the venue store).
+	 */
 	public void onWindowClosing() {
-		if (tray != null) hideToTray();
+		if (keepInTray() && tray != null) hideToTray();
 		else exit();
 	}
 
-	/** Minimise: to the tray when there is one, otherwise the usual taskbar minimise. */
+	/** Minimise: to the tray when enabled and available, otherwise the usual taskbar minimise. */
 	public void onWindowIconified() {
-		if (tray != null) hideToTray();
+		if (minimiseToTray() && tray != null) hideToTray();
+	}
+
+	/** Whether closing the window keeps Brightside running in the tray (default false). */
+	public boolean keepInTray() {
+		return prefs.getBool("tray.keepOpen", false);
+	}
+
+	public void setKeepInTray(boolean value) {
+		prefs.setBool("tray.keepOpen", value);
+	}
+
+	/** Whether minimising sends the window to the tray (default true). */
+	public boolean minimiseToTray() {
+		return prefs.getBool("tray.minimise", true);
+	}
+
+	public void setMinimiseToTray(boolean value) {
+		prefs.setBool("tray.minimise", value);
 	}
 
 	/** Force an immediate lattice value compare and refresh the transcript if it changed. */
@@ -720,6 +850,15 @@ public final class BrightSide {
 			return;
 		}
 		window.openModelSettings(currentModelOp());
+	}
+
+	/** Opens the Access-token minting dialog (Settings ▸ Access token), once the venue is up. */
+	public void openAccessToken() {
+		if (venue == null || venueSeedHex == null) {
+			SwingUtilities.invokeLater(() -> window.showSystemMessage("Access tokens are available once Brightside has started."));
+			return;
+		}
+		window.openAccessTokenDialog(this::mintAccessToken);
 	}
 
 	/** Opens the venue's own web dashboard (Advanced menu — a power-user surface). */

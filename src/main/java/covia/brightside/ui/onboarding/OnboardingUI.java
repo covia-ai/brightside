@@ -20,6 +20,7 @@ import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JTextArea;
 import javax.swing.SwingConstants;
 import javax.swing.UIManager;
 
@@ -115,6 +116,24 @@ final class OnboardingUI {
 		l.setForeground(muted());
 		l.setAlignmentX(Component.CENTER_ALIGNMENT);
 		return l;
+	}
+
+	/**
+	 * A read-only, transparent, wrapping text block on a standard component, so its
+	 * text can be selected and copied (Ctrl/Cmd+C). Use for anything the reader
+	 * might want to copy — values, explanations, warnings.
+	 */
+	static JTextArea selectable(String text) {
+		JTextArea a = new JTextArea(text);
+		a.setEditable(false);
+		a.setOpaque(false);
+		a.setBorder(null);
+		a.setLineWrap(true);
+		a.setWrapStyleWord(true);
+		a.setFont(UIManager.getFont("Label.font"));
+		a.setForeground(foreground());
+		a.setAlignmentX(Component.LEFT_ALIGNMENT);
+		return a;
 	}
 
 	/** A clickable link that opens {@code url}. */

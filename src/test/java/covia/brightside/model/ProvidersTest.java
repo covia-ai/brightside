@@ -23,7 +23,7 @@ class ProvidersTest {
 		Providers.Provider anthropic = Providers.byId("anthropic");
 		assertEquals("ANTHROPIC_API_KEY", anthropic.secretName());
 		assertTrue(anthropic.needsApiKey());
-		assertEquals("claude-sonnet-5", anthropic.defaultModelId());
+		assertEquals("claude-opus-5", anthropic.defaultModelId(), "Opus 5 is the default (strong tool use)");
 
 		Providers.Provider ollama = Providers.byId("ollama");
 		assertFalse(ollama.needsApiKey(), "local provider needs no key");
