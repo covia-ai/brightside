@@ -37,6 +37,11 @@ import covia.brightside.Identity;
 import covia.brightside.chat.ChatSession;
 import covia.brightside.ui.chat.ChatPanel;
 import covia.brightside.ui.chat.ConversationList;
+import covia.brightside.ui.settings.AuthPanel;
+import covia.brightside.ui.settings.ModelPanel;
+import covia.brightside.ui.settings.ProfilePanel;
+import covia.brightside.ui.settings.SettingsScreen;
+import covia.brightside.ui.settings.VaultPanel;
 
 /**
  * The BrightSide window. Two full-window screens on a {@link CardLayout}: the
@@ -52,9 +57,23 @@ public final class MainWindow extends JFrame {
 	private static final String CARD_WELCOME = "welcome";
 	private static final String CARD_CHAT = "chat";
 
+	private static final int SIDEBAR_WIDTH = 400; // agents pane + sessions list
+	private static final String MAIN_CHAT = "chat-main";
+	private static final String MAIN_SETTINGS = "settings";
+
 	private final BrightSide app;
 	private final CardLayout cards = new CardLayout();
 	private final JPanel deck = new JPanel(cards);
+
+	// The bottom-nav content area: the chat (with an optional sessions bar) or settings.
+	private final CardLayout mainCards = new CardLayout();
+	private JSplitPane split;
+	private JPanel mainDeck;
+	private JPanel sessionsPane; // agents + sessions, the split's left side
+	private NavBar navBar;
+	private SettingsScreen settingsScreen;
+	private covia.brightside.ui.chat.AgentList agentList;
+	private int sidebarWidth = SIDEBAR_WIDTH;
 	private final covia.brightside.ui.onboarding.OnboardingWizard onboarding;
 	private final covia.brightside.ui.onboarding.UnlockPanel unlock;
 	private final WelcomePanel welcomePanel;
@@ -136,18 +155,58 @@ public final class MainWindow extends JFrame {
 			}
 		});
 
-		// Resizable + collapsible sessions bar: drag the divider to resize, or use
-		// its one-touch arrows to collapse/expand it.
-		JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, conversations, chatPanel);
+		// Agents pane (left) beside the sessions list — together the split's left
+		// side. Each agent has its own sessions; selecting one switches the chat.
+		agentList = new covia.brightside.ui.chat.AgentList(new covia.brightside.ui.chat.AgentList.Listener() {
+			@Override
+			public void onSelectAgent(String agentId) {
+				app.switchAgent(agentId);
+			}
+
+			@Override
+			public void onNewAgent() {
+				String name = javax.swing.JOptionPane.showInputDialog(MainWindow.this,
+					"Name your new agent:", "New agent", javax.swing.JOptionPane.PLAIN_MESSAGE);
+				if (name != null && !name.isBlank()) app.createAgent(name.trim());
+			}
+		});
+		sessionsPane = new JPanel(new BorderLayout());
+		sessionsPane.add(agentList, BorderLayout.WEST);
+		sessionsPane.add(conversations, BorderLayout.CENTER);
+
+		// A split so the sessions area can be resized (Sessions tab) or collapsed
+		// (Home tab). The bottom nav switches Home/Sessions/Settings.
+		split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sessionsPane, chatPanel);
 		split.setBorder(null);
 		split.setContinuousLayout(true);
-		split.setOneTouchExpandable(true);
 		split.setResizeWeight(0.0); // extra width goes to the chat, not the sidebar
-		split.setDividerLocation(240);
+		split.setDividerLocation(SIDEBAR_WIDTH);
+
+		ModelPanel modelPanel = new ModelPanel(new ModelPanel.Handler() {
+			@Override
+			public void applyModel(String providerId, String modelId) {
+				app.applyModel(providerId, modelId);
+			}
+
+			@Override
+			public boolean storeApiKey(String providerId, String apiKey) {
+				return app.storeApiKey(providerId, apiKey);
+			}
+		}, app.currentModelOp());
+		ProfilePanel profilePanel = new ProfilePanel(app::submitName);
+		VaultPanel vaultPanel = new VaultPanel(app::forgetRememberedPassphrase);
+		AuthPanel authPanel = new AuthPanel(app::mintAccessToken);
+		settingsScreen = new SettingsScreen(modelPanel, profilePanel, vaultPanel, authPanel);
+
+		mainDeck = new JPanel(mainCards);
+		mainDeck.add(split, MAIN_CHAT);
+		mainDeck.add(settingsScreen, MAIN_SETTINGS);
+
+		navBar = new NavBar(this::selectTab);
 
 		JPanel chatCard = new JPanel(new BorderLayout());
-		chatCard.add(split, BorderLayout.CENTER);
-		chatCard.add(buildStatusBar(), BorderLayout.SOUTH);
+		chatCard.add(mainDeck, BorderLayout.CENTER);
+		chatCard.add(navBar, BorderLayout.SOUTH);
 
 		deck.add(onboarding, CARD_ONBOARD);
 		deck.add(unlock, CARD_UNLOCK);
@@ -258,7 +317,7 @@ public final class MainWindow extends JFrame {
 		changeNameItem.setEnabled(false);
 		logoutItem = item("Log out", null, e -> app.logout());
 		logoutItem.setEnabled(false);
-		userMenu.add(item("Profile…", null, e -> showProfile()));
+		userMenu.add(item("Profile…", null, e -> app.openProfile()));
 		userMenu.add(changeNameItem);
 		userMenu.addSeparator();
 		userMenu.add(logoutItem);
@@ -313,6 +372,16 @@ public final class MainWindow extends JFrame {
 		} else {
 			chatPanel.appendSystem("Welcome back, " + identity.name() + ".");
 		}
+		selectTab(NavBar.Tab.SESSIONS); // the sessions bar is the default main screen
+		show(CARD_CHAT);
+	}
+
+	/** Switched to another agent: rebind the chat to its conversation (no name-change note). */
+	public void showAgentChat(ChatSession session, List<SessionHistory.Item> history, String agentName) {
+		chatPanel.restore(history);
+		chatPanel.setSession(session);
+		chatPanel.appendSystem(history.isEmpty() ? "New conversation with " + agentName + "."
+			: "Now chatting with " + agentName + ".");
 		show(CARD_CHAT);
 	}
 
@@ -341,30 +410,75 @@ public final class MainWindow extends JFrame {
 		conversations.setSessions(sessions, selectedId);
 	}
 
+	/** Replace the agents pane's list, highlighting the current agent. */
+	public void setAgents(List<covia.brightside.model.AgentRef> agents, String selectedId) {
+		agentList.setAgents(agents, selectedId);
+	}
+
 	/** Show a chosen past conversation's transcript (a definite switch, not a poll). */
 	public void showConversation(List<SessionHistory.Item> turns) {
 		chatPanel.restore(turns);
 	}
 
-	/** Open the Model &amp; API-key settings, pre-filled with the current model. */
-	public void openModelSettings(String currentModelOp) {
-		SettingsDialog dialog = new SettingsDialog(this, currentModelOp, new SettingsDialog.Handler() {
-			@Override
-			public void applyModel(String providerId, String modelId) {
-				app.applyModel(providerId, modelId);
+	/** Switch the bottom-nav content between the chat screens and settings. */
+	private void selectTab(NavBar.Tab tab) {
+		switch (tab) {
+			case HOME -> {
+				mainCards.show(mainDeck, MAIN_CHAT);
+				setSidebar(false);
 			}
-
-			@Override
-			public boolean storeApiKey(String providerId, String apiKey) {
-				return app.storeApiKey(providerId, apiKey);
+			case SESSIONS -> {
+				mainCards.show(mainDeck, MAIN_CHAT);
+				setSidebar(true);
 			}
-		});
-		dialog.setVisible(true);
+			case SETTINGS -> {
+				refreshSettings();
+				mainCards.show(mainDeck, MAIN_SETTINGS);
+			}
+		}
+		navBar.setActive(tab);
 	}
 
-	/** Open the (non-modal) Access-token dialog, wired to mint via the app. */
-	public void openAccessTokenDialog(AccessTokenDialog.Minter minter) {
-		new AccessTokenDialog(this, minter).setVisible(true);
+	/** Show or hide (collapse) the sessions bar within the chat view. */
+	private void setSidebar(boolean visible) {
+		if (visible) {
+			sessionsPane.setVisible(true);
+			split.setDividerSize(8);
+			split.setDividerLocation(sidebarWidth);
+		} else {
+			int loc = split.getDividerLocation();
+			if (loc > 20) sidebarWidth = loc; // remember the width for next time
+			sessionsPane.setVisible(false);
+			split.setDividerSize(0);
+			split.setDividerLocation(0);
+		}
+		split.revalidate();
+	}
+
+	private void refreshSettings() {
+		String name = (identity != null) ? identity.name() : null;
+		String did = (venue != null) ? venue.did() : null;
+		settingsScreen.model().preselect(app.currentModelOp());
+		settingsScreen.profile().refresh(name, did, app.publicKeyHex(), app.privateSeedHex());
+		settingsScreen.vault().refresh(app.hasRememberedPassphrase());
+	}
+
+	private void showSettings(SettingsScreen.Tab tab) {
+		settingsScreen.select(tab);
+		selectTab(NavBar.Tab.SETTINGS);
+	}
+
+	/** Menu entry points into the Settings screen's tabs. */
+	public void showModelSettings() {
+		showSettings(SettingsScreen.Tab.MODEL);
+	}
+
+	public void showProfileSettings() {
+		showSettings(SettingsScreen.Tab.PROFILE);
+	}
+
+	public void showAuthSettings() {
+		showSettings(SettingsScreen.Tab.AUTH);
 	}
 
 	/** Open a (non-modal) inspector showing exactly what the model receives for a conversation. */
@@ -459,22 +573,4 @@ public final class MainWindow extends JFrame {
 			"About " + BrightSide.APP_NAME, JOptionPane.INFORMATION_MESSAGE, new ImageIcon(Icons.icon(64)));
 	}
 
-	/** The user's profile: name, identity DID, local address and model — all selectable. */
-	private void showProfile() {
-		StringBuilder sb = new StringBuilder();
-		if (identity != null) sb.append("Name: ").append(identity.name()).append('\n');
-		if (venue != null) {
-			if (venue.did() != null) {
-				sb.append("Identity: ").append(identity != null ? identity.userDID(venue.did()) : venue.did()).append('\n');
-			}
-			sb.append("Running locally at: ").append(venue.url()).append('\n');
-		}
-		sb.append("Model: ").append(app.currentModelOp());
-		JTextArea area = new JTextArea(sb.toString());
-		area.setEditable(false);
-		area.setOpaque(false);
-		area.setBorder(null);
-		area.setFont(UIManager.getFont("Label.font"));
-		JOptionPane.showMessageDialog(this, area, "Profile", JOptionPane.INFORMATION_MESSAGE, new ImageIcon(Icons.icon(64)));
-	}
 }

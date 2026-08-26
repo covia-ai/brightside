@@ -122,6 +122,7 @@ public final class ChatPanel extends JPanel {
 		send.putClientProperty("JButton.buttonType", "roundRect");
 		send.setForeground(Color.WHITE);
 		send.setBackground(LAF.ACCENT);
+		send.setToolTipText("Send message (Enter)");
 		send.addActionListener(e -> send());
 
 		JPanel bottom = new JPanel(new BorderLayout(8, 0));

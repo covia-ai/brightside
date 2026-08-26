@@ -64,6 +64,13 @@
 			<version>${flatlaf.version}</version>
 		</dependency>
 
+		<!-- MigLayout: clean, aligned form layouts for the settings screens. -->
+		<dependency>
+			<groupId>com.miglayout</groupId>
+			<artifactId>miglayout-swing</artifactId>
+			<version>11.4.2</version>
+		</dependency>
+
 		<!-- Argon2id passphrase hardening for the encrypted vault. (Also a Covia
 		     transitive dep; pinned here because Brightside uses it directly.) -->
 		<dependency>

@@ -81,6 +81,11 @@ public final class BrightSide {
 		ONBOARD, UNLOCK, LEGACY
 	}
 
+	/** How a chat (re)bind should be presented: first launch, a name change, or an agent switch. */
+	private enum Bind {
+		FIRST, NAME_CHANGE, AGENT_SWITCH
+	}
+
 	BrightSide(AppConfig config, Path configPath) {
 		this.config = config;
 		this.configPath = configPath;
@@ -259,6 +264,23 @@ public final class BrightSide {
 		}, "brightside-unlock");
 		t.setDaemon(true);
 		t.start();
+	}
+
+	/** The identity's private Ed25519 seed (hex), held in memory since unlock; null if unavailable. */
+	public String privateSeedHex() {
+		return venueSeedHex;
+	}
+
+	/** The identity's Ed25519 public key (hex), derived from the seed; null if unavailable. */
+	public String publicKeyHex() {
+		String seed = venueSeedHex;
+		if (seed == null || seed.isBlank()) return null;
+		try {
+			return convex.core.crypto.AKeyPair.create(convex.core.data.Blob.fromHex(seed.trim()))
+				.getAccountKey().toHexString();
+		} catch (Exception e) {
+			return null;
+		}
 	}
 
 	/** Log out: show the lock screen without stopping the venue; the passphrase logs back in. */
@@ -491,7 +513,7 @@ public final class BrightSide {
 		persistIdentity(id);
 		EmbeddedVenue v = venue;
 		if (changing) {
-			startChatBackground(v, id, false);
+			startChatBackground(v, id, currentChatConfig(), Bind.NAME_CHANGE);
 		} else if (v != null) {
 			startChatOnce(v, id);
 		} else {
@@ -523,37 +545,39 @@ public final class BrightSide {
 	/** Starts the first chat exactly once, whichever of name/venue arrives last. */
 	private void startChatOnce(EmbeddedVenue v, Identity id) {
 		if (v == null || id == null) return;
-		if (chatStarted.compareAndSet(false, true)) startChatBackground(v, id, true);
+		if (chatStarted.compareAndSet(false, true)) startChatBackground(v, id, effectiveChat(), Bind.FIRST);
 	}
 
-	private void startChatBackground(EmbeddedVenue v, Identity id, boolean firstStart) {
-		Thread t = new Thread(() -> startChat(v, id, firstStart), "brightside-chat");
+	private void startChatBackground(EmbeddedVenue v, Identity id, AppConfig.Chat chatConfig, Bind bind) {
+		Thread t = new Thread(() -> startChat(v, id, chatConfig, bind), "brightside-chat");
 		t.setDaemon(true);
 		t.start();
 	}
 
 	/** Binds a chat session to {@code id}'s principal and reopens its live conversation. */
-	private void startChat(EmbeddedVenue v, Identity id, boolean firstStart) {
+	private void startChat(EmbeddedVenue v, Identity id, AppConfig.Chat chatConfig, Bind bind) {
 		String did = id.userDID(v.did());
 		covia.grid.Venue userClient = v.clientAs(did);
-		ChatSession session = new ChatSession(userClient, effectiveChat(), id.name());
+		ChatSession session = new ChatSession(userClient, chatConfig, id.name());
 		chat = session;
 
-		// Create/refresh the agent, then read the last conversation from the
-		// venue's live session state (the single source of truth) and continue it.
+		// Create/refresh the agent (agent:create if it's a brand-new one), then read
+		// its last conversation from the venue's live session state and continue it.
 		try {
 			session.ensureAgent();
 		} catch (Exception e) {
 			log.warn("Chat agent not ready", e);
 		}
-		// Import any skills the user has dropped into ~/.brightside/skills/
-		// (agentskills.io SKILL.md folders) into their agent's own w/skills.
-		try {
-			covia.brightside.skills.FilesystemSkills.sync(userClient, config.skillsDir());
-		} catch (Exception e) {
-			log.warn("Filesystem skill import failed", e);
+		// Import any skills dropped into ~/.brightside/skills/ — a user-wide library,
+		// so only on the first bind, not on every agent switch.
+		if (bind == Bind.FIRST) {
+			try {
+				covia.brightside.skills.FilesystemSkills.sync(userClient, config.skillsDir());
+			} catch (Exception e) {
+				log.warn("Filesystem skill import failed", e);
+			}
 		}
-		String aid = config.chat().agentId();
+		String aid = chatConfig.agentId();
 		this.client = userClient;
 		this.agentId = aid;
 		this.userDID = did;
@@ -567,17 +591,21 @@ public final class BrightSide {
 		viewedSessionId = (history != null) ? history.sessionId() : null;
 		List<SessionHistory.Session> sessionList = (record != null) ? SessionHistory.sessionsOf(record) : List.of();
 		sessions = sessionList;
-		log.info("Chatting as {} ({}) — reopened {} live message(s) across {} conversation(s)",
-			id.label(), did, turns.size(), sessionList.size());
+		List<covia.brightside.model.AgentRef> agentRefs = listAgents(aid);
+		log.info("Chatting as {} with agent '{}' — reopened {} live message(s) across {} conversation(s)",
+			id.label(), aid, turns.size(), sessionList.size());
 
 		SwingUtilities.invokeLater(() -> {
-			if (firstStart) window.showChat(v, session, id, turns);
-			else window.userChanged(session, id, turns);
+			switch (bind) {
+				case FIRST -> window.showChat(v, session, id, turns);
+				case NAME_CHANGE -> window.userChanged(session, id, turns);
+				case AGENT_SWITCH -> window.showAgentChat(session, turns, displayNameFor(aid));
+			}
+			window.setAgents(agentRefs, aid);
 			window.setConversations(sessionList, viewedSessionId);
 			if (tray != null) tray.setTooltip(APP_NAME + " — " + id.name());
-			// Watch the venue's agent value; on any change, refresh the switcher
-			// and re-render the conversation the user is currently viewing. The
-			// read is an in-process lattice compare — no job, no log noise.
+			// Watch this agent's value; on any change, refresh the switcher and
+			// re-render the conversation on screen. An in-process compare — no job.
 			ConversationWatcher w = watcher;
 			if (w != null) w.stop();
 			watcher = new ConversationWatcher(() -> v.agentRecord(did, aid), record,
@@ -585,6 +613,93 @@ public final class BrightSide {
 				this::onAgentChanged);
 			watcher.start();
 		});
+	}
+
+	// ------------------------------------------------------------------
+	// Agents (multi-agent switcher)
+	// ------------------------------------------------------------------
+
+	/** Switch the chat to another existing agent (from the agents pane). */
+	public void switchAgent(String agentId) {
+		EmbeddedVenue v = venue;
+		Identity id = identity;
+		if (v == null || id == null || agentId == null || agentId.equals(this.agentId)) return;
+		startChatBackground(v, id, chatConfigFor(agentId), Bind.AGENT_SWITCH);
+	}
+
+	/** Create (and switch to) a new agent with the given display name. */
+	public void createAgent(String rawName) {
+		String aid = slug(rawName);
+		EmbeddedVenue v = venue;
+		Identity id = identity;
+		if (aid.isEmpty() || v == null || id == null || aid.equals(this.agentId)) return;
+		// startChat's ensureAgent() creates it if it doesn't exist, with the named persona.
+		startChatBackground(v, id, chatConfigFor(aid), Bind.AGENT_SWITCH);
+	}
+
+	/** The chat config for {@code aid}: the default persona for the default agent, else a named one. */
+	private AppConfig.Chat chatConfigFor(String aid) {
+		AppConfig.Chat base = effectiveChat();
+		if (aid.equals(config.chat().agentId())) {
+			return new AppConfig.Chat(aid, base.operation(), base.llmOperation(), base.systemPrompt(), base.timeoutSeconds());
+		}
+		String persona = "You are " + displayNameFor(aid) + ", a private personal AI assistant running on the user's "
+			+ "own computer. Be genuinely helpful, warm, and concise.";
+		return new AppConfig.Chat(aid, base.operation(), base.llmOperation(), persona, base.timeoutSeconds());
+	}
+
+	private AppConfig.Chat currentChatConfig() {
+		return chatConfigFor((agentId != null) ? agentId : config.chat().agentId());
+	}
+
+	/** Lists the user's agents (via agent:list), always including the default and current. */
+	private List<covia.brightside.model.AgentRef> listAgents(String currentAid) {
+		java.util.LinkedHashMap<String, covia.brightside.model.AgentRef> map = new java.util.LinkedHashMap<>();
+		String def = config.chat().agentId();
+		map.put(def, new covia.brightside.model.AgentRef(def, displayNameFor(def)));
+		if (currentAid != null) {
+			map.putIfAbsent(currentAid, new covia.brightside.model.AgentRef(currentAid, displayNameFor(currentAid)));
+		}
+		try {
+			convex.core.data.ACell res = invokeOpResult(client, "v/ops/agent/list", Maps.empty());
+			convex.core.data.ACell agents = convex.core.lang.RT.getIn(res, "agents");
+			if (agents instanceof convex.core.data.AVector<?> vec) {
+				for (long i = 0; i < vec.count(); i++) {
+					AString aidS = convex.core.lang.RT.ensureString(convex.core.lang.RT.getIn(vec.get(i), "agentId"));
+					if (aidS != null) {
+						String aid = aidS.toString();
+						map.putIfAbsent(aid, new covia.brightside.model.AgentRef(aid, displayNameFor(aid)));
+					}
+				}
+			}
+		} catch (Exception e) {
+			log.warn("Could not list agents: {}", e.getMessage());
+		}
+		return new java.util.ArrayList<>(map.values());
+	}
+
+	/** A human display name from an agent id: {@code "bob"} → "Bob", {@code "bob-smith"} → "Bob Smith". */
+	private static String displayNameFor(String agentId) {
+		if (agentId == null || agentId.isBlank()) return "Agent";
+		StringBuilder sb = new StringBuilder();
+		for (String part : agentId.split("[-_]")) {
+			if (part.isEmpty()) continue;
+			if (sb.length() > 0) sb.append(' ');
+			sb.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
+		}
+		return (sb.length() > 0) ? sb.toString() : agentId;
+	}
+
+	/** An agent id (path segment) from a display name: lowercase, hyphenated. */
+	private static String slug(String name) {
+		if (name == null) return "";
+		return name.trim().toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]+", "-").replaceAll("(^-|-$)", "");
+	}
+
+	private static convex.core.data.ACell invokeOpResult(Venue client, String operation, AMap<AString, ACell> input)
+			throws Exception {
+		Job job = client.invoke(operation, input).get(30, TimeUnit.SECONDS);
+		return job.future().get(30, TimeUnit.SECONDS);
 	}
 
 	/**
@@ -849,7 +964,26 @@ public final class BrightSide {
 			SwingUtilities.invokeLater(() -> window.showSystemMessage("Settings are available once Brightside has started."));
 			return;
 		}
-		window.openModelSettings(currentModelOp());
+		SwingUtilities.invokeLater(window::showModelSettings);
+	}
+
+	/** Opens the Profile tab of Settings (from the user menu). */
+	public void openProfile() {
+		if (venue == null) {
+			SwingUtilities.invokeLater(() -> window.showSystemMessage("Your profile is available once Brightside has started."));
+			return;
+		}
+		SwingUtilities.invokeLater(window::showProfileSettings);
+	}
+
+	/** Whether a passphrase is currently remembered on this computer. */
+	public boolean hasRememberedPassphrase() {
+		return RememberedPassphrase.exists(config.home());
+	}
+
+	/** Delete the remembered passphrase from this computer. */
+	public void forgetRememberedPassphrase() {
+		RememberedPassphrase.clear(config.home());
 	}
 
 	/** Opens the Access-token minting dialog (Settings ▸ Access token), once the venue is up. */
@@ -858,7 +992,7 @@ public final class BrightSide {
 			SwingUtilities.invokeLater(() -> window.showSystemMessage("Access tokens are available once Brightside has started."));
 			return;
 		}
-		window.openAccessTokenDialog(this::mintAccessToken);
+		SwingUtilities.invokeLater(window::showAuthSettings);
 	}
 
 	/** Opens the venue's own web dashboard (Advanced menu — a power-user surface). */
