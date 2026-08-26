@@ -77,6 +77,32 @@ class IdentityTest {
 	}
 
 	@Test
+	void renamingKeepsThePrincipal() throws IOException {
+		Identity mike = Identity.of("Mike");
+		Identity michael = mike.withName("Michael Anderson");
+		assertEquals("Michael Anderson", michael.name(), "the display name changes");
+		assertEquals("mike", michael.slug(), "the slug — and so the DID, agent and memory — does not");
+		assertEquals(mike.userDID("did:x"), michael.userDID("did:x"));
+		assertThrows(IllegalArgumentException.class, () -> mike.withName("   "));
+
+		// The pinned slug survives a save/load round trip.
+		michael.save(home);
+		Identity reloaded = Identity.load(home);
+		assertNotNull(reloaded);
+		assertEquals("Michael Anderson", reloaded.name());
+		assertEquals("mike", reloaded.slug());
+	}
+
+	@Test
+	void loadsAnOlderNameOnlyFile() throws IOException {
+		// identity.json written before the slug was saved: derive it from the name.
+		java.nio.file.Files.writeString(home.resolve(Identity.FILE_NAME), "{\"name\": \"Mike Smith\"}");
+		Identity id = Identity.load(home);
+		assertNotNull(id);
+		assertEquals("mike-smith", id.slug());
+	}
+
+	@Test
 	void loadReturnsNullOnGarbage() throws IOException {
 		java.nio.file.Files.writeString(home.resolve(Identity.FILE_NAME), "not json at all {");
 		assertNull(Identity.load(home));

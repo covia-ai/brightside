@@ -161,10 +161,24 @@ public final class BrightSide {
 			// Another instance already holds the venue store? Offer to take over
 			// (ask it to shut down cleanly) rather than fail on the store lock.
 			int port = config.port();
-			if (Takeover.isRunning(port) && !takeOver(port)) {
-				log.info("Another Brightside instance is running and takeover was cancelled; exiting");
-				System.exit(0);
-				return;
+			if (Takeover.isRunning(port)) {
+				boolean proceed;
+				try {
+					proceed = takeOver(port);
+				} catch (Exception e) {
+					// The running instance refused or didn't stop — typically a
+					// different identity (its key isn't ours), so we can't ask it.
+					log.warn("Could not take over the running instance on port {}: {}", port, e.toString());
+					SwingUtilities.invokeLater(() -> window.startupFailed(
+						"Brightside is already running on this computer and couldn't be taken over"
+						+ " — please quit it (tray icon ▸ Quit) and try again."));
+					return;
+				}
+				if (!proceed) {
+					log.info("Another Brightside instance is running and takeover was cancelled; exiting");
+					System.exit(0);
+					return;
+				}
 			}
 			EmbeddedVenue v = EmbeddedVenue.launch(venueConfig, this::exit);
 			venue = v;
@@ -186,6 +200,7 @@ public final class BrightSide {
 			try {
 				Path home = config.home();
 				Vault v = Vault.open(home, setup.passphrase());
+				java.util.Arrays.fill(setup.passphrase(), '\0'); // derived; no longer needed
 				v.storeSeed(setup.seedHex());
 				this.vault = v;
 				this.venueSeedHex = setup.seedHex();
@@ -220,6 +235,7 @@ public final class BrightSide {
 		Thread t = new Thread(() -> {
 			try {
 				Vault v = Vault.open(config.home(), passphrase);
+				java.util.Arrays.fill(passphrase, '\0'); // derived; no longer needed
 				String seedHex = v.seedHex(); // throws on a wrong passphrase (GCM tag)
 				this.vault = v;
 				this.venueSeedHex = seedHex;
@@ -261,14 +277,23 @@ public final class BrightSide {
 		config.persistModel(op);
 		ChatSession c = chat;
 		if (c == null) return;
-		new Thread(() -> {
+		Thread t = new Thread(() -> {
+			String note;
 			try {
-				c.reconfigure(effectiveChat());
-				SwingUtilities.invokeLater(() -> window.showSystemMessage("Now using " + op + "."));
+				// A reply in flight means agent:update is rejected (RUNNING); the
+				// session then re-applies it before the next message goes out.
+				note = c.reconfigure(effectiveChat())
+					? "Now using " + op + "."
+					: "Saved — " + op + " will be used from your next message.";
 			} catch (Exception e) {
 				log.warn("Could not apply the model change", e);
+				note = "Saved " + op + ", but it couldn't be applied yet: " + e.getMessage();
 			}
-		}, "brightside-model").start();
+			String text = note;
+			SwingUtilities.invokeLater(() -> window.showSystemMessage(text));
+		}, "brightside-model");
+		t.setDaemon(true);
+		t.start();
 	}
 
 	/**
@@ -371,9 +396,12 @@ public final class BrightSide {
 	 * later change). Called on the event thread from {@link MainWindow}.
 	 */
 	public void submitName(String rawName) {
+		Identity current = identity;
 		Identity id;
 		try {
-			id = Identity.of(rawName);
+			// A rename keeps the existing principal (slug): same agent, memory
+			// and skills, just addressed differently. Only a first name mints one.
+			id = (current != null) ? current.withName(rawName) : Identity.of(rawName);
 		} catch (IllegalArgumentException e) {
 			window.welcomeBusy(null); // clear any busy state; the panel shows its own error
 			return;
@@ -439,9 +467,12 @@ public final class BrightSide {
 			log.warn("Chat agent not ready", e);
 		}
 		// Import any skills the user has dropped into ~/.brightside/skills/
-		// (agentskills.io SKILL.md folders) into their agent's own w/skills.
+		// (agentskills.io SKILL.md folders) into their agent's own w/skills —
+		// checking the stored value in-process first so an unchanged skill
+		// costs no write job.
 		try {
-			covia.brightside.skills.FilesystemSkills.sync(userClient, config.skillsDir());
+			covia.brightside.skills.FilesystemSkills.sync(userClient, config.skillsDir(),
+				path -> v.resolve(did, path));
 		} catch (Exception e) {
 			log.warn("Filesystem skill import failed", e);
 		}

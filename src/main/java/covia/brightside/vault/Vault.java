@@ -205,11 +205,22 @@ public final class Vault {
 	// Files & hex
 	// ------------------------------------------------------------------
 
+	/**
+	 * Reads the vault salt, creating it only when there is none. An existing
+	 * salt file is never overwritten: the vault key and seed key are derived
+	 * from it, so replacing it would silently make {@code identity.enc} and
+	 * {@code venue.etch} undecryptable even with the right passphrase. A
+	 * malformed salt is therefore an error, not a reason to start afresh.
+	 */
 	private static byte[] readOrCreateSalt(Path home) throws IOException {
 		Path saltFile = home.resolve(SALT_FILE);
-		if (Files.isRegularFile(saltFile)) {
+		if (Files.exists(saltFile)) {
 			byte[] salt = Files.readAllBytes(saltFile);
-			if (salt.length == SALT_LEN) return salt;
+			if (salt.length != SALT_LEN) {
+				throw new IOException(SALT_FILE + " is malformed (" + salt.length + " bytes, expected "
+					+ SALT_LEN + ") — not overwriting it; restore it from a backup");
+			}
+			return salt;
 		}
 		byte[] salt = new byte[SALT_LEN];
 		RNG.nextBytes(salt);

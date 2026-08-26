@@ -39,6 +39,25 @@ class VaultTest {
 	}
 
 	@Test
+	void neverOverwritesAnExistingSalt(@TempDir Path home) throws Exception {
+		String seed = Mnemonic.toSeedHex(Mnemonic.generate(12));
+		Vault.open(home, "pw".toCharArray()).storeSeed(seed);
+		Path saltFile = home.resolve(Vault.SALT_FILE);
+		byte[] salt = java.nio.file.Files.readAllBytes(saltFile);
+
+		// A malformed salt (truncated by a bad write, edited, …) must be an
+		// error, not a reason to mint a new one — that would silently make
+		// identity.enc and the store undecryptable with the right passphrase.
+		java.nio.file.Files.write(saltFile, new byte[] { 1, 2, 3 });
+		assertThrows(IOException.class, () -> Vault.open(home, "pw".toCharArray()));
+		assertEquals(3, java.nio.file.Files.readAllBytes(saltFile).length, "left untouched");
+
+		// Restore it and the vault opens again with the same keys.
+		java.nio.file.Files.write(saltFile, salt);
+		assertEquals(seed, Vault.open(home, "pw".toCharArray()).seedHex());
+	}
+
+	@Test
 	void wrongPassphraseCannotDecryptTheSeed(@TempDir Path home) throws Exception {
 		Vault.open(home, "right".toCharArray()).storeSeed(Mnemonic.toSeedHex(Mnemonic.generate(12)));
 		Vault wrong = Vault.open(home, "WRONG".toCharArray());

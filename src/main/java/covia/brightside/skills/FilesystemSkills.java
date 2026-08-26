@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,6 +18,7 @@ import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
 import convex.core.data.Maps;
+import convex.core.lang.RT;
 import covia.grid.Job;
 import covia.grid.Venue;
 
@@ -58,8 +60,12 @@ public final class FilesystemSkills {
 	public static final String SKILL_FILE = "SKILL.md";
 	private static final int MAX_NAME = 64;
 
-	/** What a sync imported and what it skipped (name → reason). */
-	public record Result(List<String> loaded, Map<String, String> skipped) {
+	/**
+	 * What a sync did: {@code loaded} were written (new or changed),
+	 * {@code unchanged} already matched and were left alone, {@code skipped}
+	 * could not be imported (name → reason).
+	 */
+	public record Result(List<String> loaded, List<String> unchanged, Map<String, String> skipped) {
 	}
 
 	/** A parsed skill ready to write: sanitised {@code name}, {@code description}, raw markdown {@code content}. */
@@ -76,17 +82,33 @@ public final class FilesystemSkills {
 	 * with a reason, the rest still import.
 	 */
 	public static Result sync(Venue client, Path dir) {
+		return sync(client, dir, null);
+	}
+
+	/**
+	 * As {@link #sync(Venue, Path)}, but with {@code existing} — a reader of the
+	 * current lattice value at a path (an in-process resolve, not a job) — so a
+	 * skill whose stored value already matches the file is left alone. Without
+	 * it every skill is rewritten on every start, and each {@code covia:write}
+	 * is a job persisted into the user's lattice.
+	 */
+	public static Result sync(Venue client, Path dir, Function<String, ACell> existing) {
 		List<String> loaded = new ArrayList<>();
+		List<String> unchanged = new ArrayList<>();
 		Map<String, String> skipped = new LinkedHashMap<>();
 		if (!Files.isDirectory(dir)) {
 			seed(dir);
-			return new Result(loaded, skipped);
+			return new Result(loaded, unchanged, skipped);
 		}
 		for (Source source : discover(dir)) {
 			try {
 				Parsed parsed = parse(Files.readString(source.file()), source.name());
 				if (parsed == null) {
 					skipped.put(source.name(), "needs a non-empty 'description' in its frontmatter");
+					continue;
+				}
+				if (existing != null && matches(existing.apply(pathOf(parsed.name())), parsed)) {
+					unchanged.add(parsed.name());
 					continue;
 				}
 				write(client, parsed);
@@ -96,10 +118,27 @@ public final class FilesystemSkills {
 			}
 		}
 		if (!loaded.isEmpty() || !skipped.isEmpty()) {
-			log.info("Imported {} filesystem skill(s) into w/skills{}", loaded.size(),
-				skipped.isEmpty() ? "" : " — skipped " + skipped.size() + ": " + skipped);
+			log.info("Imported {} filesystem skill(s) into w/skills ({} unchanged){}", loaded.size(),
+				unchanged.size(), skipped.isEmpty() ? "" : " — skipped " + skipped.size() + ": " + skipped);
 		}
-		return new Result(loaded, skipped);
+		return new Result(loaded, unchanged, skipped);
+	}
+
+	/** The lattice path a skill is written to. */
+	static String pathOf(String name) {
+		return "w/skills/" + name;
+	}
+
+	/** Whether a stored skill asset already carries this file's name, description and body. */
+	static boolean matches(ACell stored, Parsed parsed) {
+		if (stored == null) return false;
+		return same(RT.getIn(stored, "name"), parsed.name())
+			&& same(RT.getIn(stored, "description"), parsed.description())
+			&& same(RT.getIn(RT.getIn(stored, "content"), "inline"), parsed.content());
+	}
+
+	private static boolean same(ACell cell, String s) {
+		return cell != null && s.equals(cell.toString());
 	}
 
 	private record Source(String name, Path file) {
@@ -178,7 +217,7 @@ public final class FilesystemSkills {
 			"name", parsed.name(),
 			"description", parsed.description(),
 			"content", Maps.of("contentType", "text/markdown", "inline", parsed.content()));
-		AMap<AString, ACell> input = Maps.of("path", "w/skills/" + parsed.name(), "value", asset);
+		AMap<AString, ACell> input = Maps.of("path", pathOf(parsed.name()), "value", asset);
 		Job job = client.invoke("v/ops/covia/write", input).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 		job.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 	}

@@ -31,9 +31,10 @@ window that talks to an agent on that venue. Single Maven module,
 
 ## Build and test
 
-- Requires Java 21+, Maven 3.7+ and Covia `0.9.5` (a release — resolves from
-  Maven Central once published; otherwise install it locally with `../convex`
-  then `../covia`, `mvn install`). If the build cannot resolve `ai.covia:venue`,
+- Requires Java 21+, Maven 3.7+ and the Covia version named by
+  `covia.version` in `pom.xml` (currently `0.9.6-SNAPSHOT`, the develop line;
+  releases resolve from Maven Central, a SNAPSHOT needs `../convex` then
+  `../covia`, `mvn install`). If the build cannot resolve `ai.covia:venue`,
   that is why.
 - `mvn package` → `target/brightside.jar` (shaded, runnable). `mvn test` for
   the tests alone. `mvn exec:java` runs the app from the build.
@@ -78,10 +79,16 @@ window that talks to an agent on that venue. Single Maven module,
   to `VenueServer.launch`, so new venue options need no Brightside change.
   Anything the file omits must have a default; an empty `{}` is valid.
 - **The user is a named venue principal, not the venue.** The chat window
-  acts as `<venueDID>:u:<name>` (`Identity`) — the same suffix convention as
+  acts as `<venueDID>:u:<slug>` (`Identity`) — the same suffix convention as
   Covia's `<venueDID>:public`. The name is chosen at a first-launch screen
-  (`WelcomePanel`) and stored in `~/.brightside/identity.json`, separate
-  from the hand-edited `config.json`. Chatting as a distinct user (not the
+  (`WelcomePanel`/onboarding) and stored with its slug in
+  `~/.brightside/identity.json`, separate from the hand-edited `config.json`.
+  **The slug is fixed once chosen; only the display name changes.** The agent
+  (`g/<agentId>`), its memory (`n/memory`) and its skills (`w/skills`) all live
+  under that principal, so *Change my name* goes through `Identity.withName`
+  (same slug, new name) — deriving a fresh slug from the new name would
+  silently bind the window to a different, empty agent. Older `identity.json`
+  files without a `slug` derive it from the name, as before. Chatting as a distinct user (not the
   venue DID) makes Covia attribute turns as coming from the agent's *owner*,
   not from "the venue operator"; `ChatSession.ATTRIBUTION_GUIDANCE` tells the
   agent to treat those venue notes as infrastructure. Because the user is not
@@ -89,7 +96,23 @@ window that talks to an agent on that venue. Single Maven module,
   store (what `resolveSecret` falls back to), not `secrets.venue`.
 - **Chat goes through the agent framework** (`v/ops/agent/create|update|
   info|chat` via `LocalVenue`), not through a private LLM call, so what the
-  window shows is what any other client of the venue would see.
+  window shows is what any other client of the venue would see. Four
+  framework behaviours the session code accounts for: `agent:update` is a
+  recursive *merge* (vectors replace, maps merge — a dropped `loads` pin would
+  linger) and is rejected while the agent is RUNNING (so `ensureAgent` returns
+  false and retries on the next send rather than failing the chat); **a failed
+  transition (bad model op, missing API key) leaves the agent SUSPENDED and the
+  venue then refuses every chat until `agent:resume`** — so `ensureAgent`
+  resumes a suspended agent after re-applying its config, and `send` resumes
+  and retries once on an "is suspended" failure (`isSuspended`), otherwise one
+  bad reply would brick the chat for good;
+  `ChatSession.send` only falls back to a fresh session on the venue's
+  "Unknown session" error (`isUnknownSession`) — any other failure keeps the
+  session id, so a model or key problem never mints orphan conversations; and a
+  turn's tool steps are only persisted when the cycle completes
+  (`AgentState`), so nothing can be shown mid-turn beyond the typing bubble's
+  elapsed time — hence the generous `timeout` default (300 s), since a timeout
+  cancels the job and loses the turn.
 - **Look and feel.** `LAF` installs FlatLaf's macOS-style themes
   (`FlatMacDarkLaf`/`FlatMacLightLaf`) with a purple accent and rounded
   geometry — keep it modern. The default font is **Lato**, bundled as OFL TTFs
@@ -126,9 +149,13 @@ window that talks to an agent on that venue. Single Maven module,
   renders it, and `ChatSession.resume(sessionId)` continues that same session
   (falling back to a new one if the id is stale). The UI just reflects turns as
   they happen; the venue records them, and the next launch re-reads live state.
-  It reads the `AgentState` schema directly (public field names) because the
-  purpose-built `agent:sessionRead` projection is restricted to an agent's own
-  execution context. `SessionHistory` still offers `Venue`-based reads
+  It reads the `AgentState` schema directly (public field names) rather than the
+  `agent:sessions` / `agent:session-read` projections: those are owner-callable
+  since Covia 2026-08-24, but they are deliberately *safe* projections — they
+  omit the caller's current/unfinished session, tool scratch and diagnostics,
+  and bound the transcript — whereas the window needs the live session in full
+  (the activity chips and the Cycle-detail tab are built from exactly what they
+  leave out). `SessionHistory` still offers `Venue`-based reads
   (`loadLatest`/`load`/`listSessions`/`rawTurns`, via `covia:read`) for tests and
   any out-of-process client; the app prefers the in-process path. Actual
   *operations* (chat, rename/delete-session, `agent:context`) still go through
