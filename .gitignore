@@ -10,7 +10,9 @@
 /.classpath
 /.factorypath
 
-# Agent tooling (settings.json is shared; everything else is personal)
+# Agent tooling (settings.json is shared; everything else is personal).
+# Codex's project layer (.codex/config.toml, hooks.json, rules/) is shared by
+# design — personal Codex state lives in ~/.codex — so it is not ignored.
 CLAUDE.local.md
 /.claude/*
 !/.claude/settings.json

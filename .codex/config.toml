@@ -1,0 +1,4 @@
+[mcp_servers.brightside]
+url = "http://127.0.0.1:8085/mcp"
+bearer_token_env_var = "BRIGHTSIDE_MCP_TOKEN"
+enabled = true
