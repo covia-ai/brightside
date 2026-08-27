@@ -1,0 +1,14 @@
+{
+  "name": "cns",
+  "description": "Convex Name System (CNS): resolve a name such as convex.fungible to an address, register or update a name the owner controls, and find the standard libraries. Load when the owner mentions a Convex name, an @name, registering or renaming something on Convex, or which address a library lives at.",
+  "content": {
+    "contentType": "text/markdown",
+    "inline": "# Convex Name System\n\nCNS maps readable names such as `convex.fungible` to addresses, so code and conversation can use names instead of numbers.\n\n## Resolve\n\n- In source, `@convex.fungible` resolves the name directly — the normal way to reach a library; `(@convex.fungible/balance #TOKEN #HOLDER)` calls into it.\n- To see the current address: `(*registry*/resolve 'convex.fungible)` as a free query. Addresses are network-specific — resolve on the network in use rather than assuming.\n\n## Register or update — transactions\n\nThe registry is actor `#9`, available in code as `*registry*`:\n\n- New name: `(*registry*/create 'my.name #TARGET *address*)` — optional controller, metadata and child arguments follow.\n- Change target: `(*registry*/update 'my.name #NEW-TARGET)`\n- Change controller: `(*registry*/control 'my.name #NEW-CONTROLLER)`\n\nCreating needs control of the parent namespace: `my.name` requires the `my` node to exist and to trust the caller, otherwise `:TRUST` \"Forbidden to create CNS node\"; top-level names need special authority. `(*registry*/register {:name …})` is unrelated — it sets metadata on the caller's own account.\n\n## Standard names\n\n`convex.fungible` (fungible tokens) · `convex.trust` (authorisation) · `convex.asset` (generic assets) · `asset.nft.simple` (NFTs) · `asset.multi-token` (multi-token standard).\n"
+  },
+  "skill": {
+    "tools": [
+      "v/ops/convex/query",
+      "v/ops/convex/transact"
+    ]
+  }
+}

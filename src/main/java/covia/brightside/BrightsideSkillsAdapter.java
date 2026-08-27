@@ -42,6 +42,12 @@ import covia.venue.RequestContext;
  *   <li><b>tasks-scheduler-automation</b> — routes delegated work, reminders,
  *       repeatable workflows and human decisions to Covia's focused task,
  *       scheduling, orchestration and HITL skills.</li>
+ *   <li><b>convex</b> — the Convex network as the owner meets it; routes to
+ *       <b>accounts</b>, <b>smart-contracts</b>, <b>cns</b>, <b>key-security</b>,
+ *       <b>protonet</b> and the shared <b>convex-lattice</b> child (the same
+ *       resource as the harness child, so the index shows it once). The
+ *       on-chain children grant {@code convex:query} / {@code convex:transact};
+ *       key-security grants nothing and is loaded before anything that signs.</li>
  *   <li><b>writing</b>, <b>planning</b>, <b>research</b> and <b>coding</b> —
  *       everyday working methods, loaded only when the task calls for them;
  *       research reveals a guarded HTTP child for external evidence.</li>
@@ -91,6 +97,20 @@ public class BrightsideSkillsAdapter extends AAdapter {
 	public static final String CONVEX_LATTICE = HARNESS + "/convex-lattice";
 	/** On demand: routes tasks, schedules, automation and human checkpoints. */
 	public static final String TASKS_SCHEDULER_AUTOMATION = SKILLSET + "/tasks-scheduler-automation";
+	/** On demand: the Convex network — routes to topic children with their tools. */
+	public static final String CONVEX = SKILLSET + "/convex";
+	/** Accounts, balances, transfers and costs (query + transact). */
+	public static final String CONVEX_ACCOUNTS = CONVEX + "/accounts";
+	/** Actors, tokens, trust monitors, Convex Lisp (query + transact). */
+	public static final String CONVEX_SMART_CONTRACTS = CONVEX + "/smart-contracts";
+	/** Name resolution and registration (query + transact). */
+	public static final String CONVEX_CNS = CONVEX + "/cns";
+	/** How the owner's keys relate to Convex and what must never be revealed (no tools). */
+	public static final String CONVEX_KEY_SECURITY = CONVEX + "/key-security";
+	/** Protonet, testnets and local networks; which peer to talk to (query). */
+	public static final String CONVEX_PROTONET = CONVEX + "/protonet";
+	/** The lattice data model, shared with the harness router (same resource as {@link #CONVEX_LATTICE}). */
+	public static final String CONVEX_LATTICE_CHILD = CONVEX + "/convex-lattice";
 	/** On demand: drafting and editing useful prose. */
 	public static final String WRITING = SKILLSET + "/writing";
 	/** On demand: turning goals and decisions into executable plans. */
@@ -108,6 +128,8 @@ public class BrightsideSkillsAdapter extends AAdapter {
 			DIAGNOSTICS_AUDIT_LOGS, JOBS, SESSIONS, BRIGHTSIDE_LOGS,
 			HARNESS, COVIA_ENGINE, ETCH, CONVEX_LATTICE,
 			TASKS_SCHEDULER_AUTOMATION,
+			CONVEX, CONVEX_ACCOUNTS, CONVEX_SMART_CONTRACTS, CONVEX_CNS,
+			CONVEX_KEY_SECURITY, CONVEX_PROTONET, CONVEX_LATTICE_CHILD,
 			WRITING, PLANNING, RESEARCH, RESEARCH_HTTP, CODING);
 
 	@Override

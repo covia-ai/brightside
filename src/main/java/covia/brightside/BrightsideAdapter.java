@@ -327,11 +327,17 @@ public class BrightsideAdapter extends AAdapter {
 			K_SKILLS, shippedSkills());
 	}
 
-	/** The shipped skill names, from the skills adapter's own list (one source of truth). */
+	/**
+	 * The shipped skill names, from the skills adapter's own list (one source
+	 * of truth). A resource installed at more than one path (a child shared by
+	 * two routers) is listed once.
+	 */
 	private static AVector<ACell> shippedSkills() {
 		AVector<ACell> out = Vectors.empty();
+		java.util.Set<String> seen = new java.util.LinkedHashSet<>();
 		for (String path : BrightsideSkillsAdapter.SHIPPED) {
-			out = out.conj(Strings.create(path.substring(path.lastIndexOf('/') + 1)));
+			String name = path.substring(path.lastIndexOf('/') + 1);
+			if (seen.add(name)) out = out.conj(Strings.create(name));
 		}
 		return out;
 	}

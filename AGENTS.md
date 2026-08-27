@@ -296,8 +296,8 @@ window that talks to an agent on that venue. Single Maven module,
 - **Skills and memory, by namespace.** No shipped skill is pinned by default.
   `introduction`, `skills`, `conversations`, `lattice`, the work skills and the
   `vault-drives-files` / `diagnostics-audit-logs` / `harness` /
-  `tasks-scheduler-automation` routers are all selected on demand from precise
-  descriptions; `introduction` tells the agent to unload
+  `tasks-scheduler-automation` / `convex` routers are all selected on demand from
+  precise descriptions; `introduction` tells the agent to unload
   itself after a one-shot greeting. The configured `systemPrompt` remains the
   assistant's identity and role. Dynamic owner/product facts (display name,
   authenticated user DID, actual model route, local-storage boundary and the
@@ -324,7 +324,19 @@ window that talks to an agent on that venue. Single Maven module,
   not sources in themselves. The `tasks-scheduler-automation` router contributes
   no tools itself and reveals Covia's existing `tasks`, `scheduling`,
   `orchestration` and `hitl` skills; load only the children required by the
-  current request. When the user asks "what did we
+  current request. The `convex` router is the owner's view of the Convex
+  network and reveals topic children with their tools: `accounts`,
+  `smart-contracts` and `cns` grant `convex:query` + `convex:transact`,
+  `protonet` grants `convex:query`, `key-security` grants nothing (it is the
+  rulebook loaded before anything signs — keys by secret reference, never a
+  seed in a call or in chat), and `convex-lattice` is the **same resource** as
+  the harness child installed at a second path, so content-identity dedup shows
+  it once in the index. Their bodies are distilled from the Convex repository's
+  own `.claude/skills` (account, transfer, transact, query, convex-lisp, deploy,
+  token, trust, cns, juice, memory, protocol-versions) and use Convex's
+  canonical terms — never "gas", "fees", "blockchain", "block" or "mainnet".
+  Brightside does not yet create or link a Convex account for the owner; the
+  wallet-grade adapter work is Covia issue #433. When the user asks "what did we
   discuss before?", the agent loads `conversations`, gets the session tools and
   reads its own history rather than claiming it cannot. Skill
   **descriptions are the trigger**: pack the words the user actually says

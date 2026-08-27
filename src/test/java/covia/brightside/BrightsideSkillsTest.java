@@ -84,9 +84,12 @@ class BrightsideSkillsTest {
 		List<DynamicTest> tests = new ArrayList<>();
 		for (String path : BrightsideSkillsAdapter.SHIPPED) {
 			String name = path.substring(path.lastIndexOf('/') + 1);
-			tests.add(DynamicTest.dynamicTest(name + ": declarations resolve",
+			// Label by the path under the skillset: the same resource may be
+			// installed at more than one address (a shared child).
+			String rel = relative(path);
+			tests.add(DynamicTest.dynamicTest(rel + ": declarations resolve",
 				() -> declarationsResolve(path, name)));
-			tests.add(DynamicTest.dynamicTest(name + ": loaded palette offers every declared tool",
+			tests.add(DynamicTest.dynamicTest(rel + ": loaded palette offers every declared tool",
 				() -> loadedPaletteIsComplete(path, name)));
 		}
 		// Guard against the per-skill checks going hollow: the resolver must be
@@ -141,7 +144,7 @@ class BrightsideSkillsTest {
 	 * nothing it declares is reported unavailable.
 	 */
 	private static void loadedPaletteIsComplete(String path, String name) throws Exception {
-		String agentId = "skill-" + name;
+		String agentId = "skill-" + relative(path).replace('/', '-');
 		AMap<AString, ACell> config = Maps.of(
 			Fields.OPERATION, AppConfig.DEFAULT_OPERATION,
 			"llmOperation", AppConfig.ECHO_LLM_OPERATION,
@@ -172,6 +175,11 @@ class BrightsideSkillsTest {
 			assertTrue(offered.contains(op),
 				name + " declares " + op + " but the loaded palette offers only " + offered);
 		}
+	}
+
+	/** The skill's path below the Brightside skillset, e.g. {@code convex/accounts}. */
+	private static String relative(String path) {
+		return path.substring(BrightsideSkillsAdapter.SKILLSET.length() + 1);
 	}
 
 	/** {@code skills:read} for a ref that must be a skill; fails with {@code why} otherwise. */

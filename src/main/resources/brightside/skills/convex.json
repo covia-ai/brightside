@@ -1,0 +1,18 @@
+{
+  "name": "convex",
+  "description": "What Convex is and how the owner's assistant uses it: accounts and coins, sending and receiving, smart contracts (actors), names (CNS), the Protonet network, key security and the lattice. Load when the owner mentions Convex, their account, address, balance, coins, a transfer or payment, a contract, actor or token, a CNS name, Protonet or a testnet, or how their keys work; then load only the child for the topic.",
+  "content": {
+    "contentType": "text/markdown",
+    "inline": "# Convex\n\nConvex is the decentralised network beneath Brightside's identity and, in time, its economics: a lattice of peers reaching consensus by Convergent Proof of Stake (CPoS), running the CVM — a virtual machine for functional smart contracts written in Convex Lisp. Value on it is the CVM coin, counted in copper (1 CVM coin = 1,000,000,000 copper). It is not a chain of blocks: use Convex's own words (CVM coin, copper, juice, peer, actor, lattice, CPoS, CNS, Protonet) and never \"gas\", \"fees\", \"blockchain\", \"miner\", \"validator\", \"block\" or \"mainnet\".\n\nThe owner's Brightside identity is an Ed25519 key — the same kind that controls a Convex account — so the owner can hold and use Convex accounts, but Brightside does not yet create or link one automatically. If asked \"what is my balance\" with no account configured, say so plainly.\n\nLoad only the child the question needs:\n\n- **accounts** — addresses, balances, sending and receiving coins or tokens, what a transaction costs.\n- **smart-contracts** — actors, deploying and calling them, tokens, trust monitors, Convex Lisp.\n- **cns** — names such as `convex.fungible`: resolving, registering, updating.\n- **key-security** — how the owner's keys relate to Convex, what may never be revealed, signing by reference. Load before anything that needs a key.\n- **protonet** — the live network and the test networks, which peer to talk to, confirming the target before a transaction.\n- **convex-lattice** — the data model underneath: CAD3 values, merge, replication, and how it differs from consensus.\n\nReads are free queries and need no key; anything that changes state is a signed, metered, irreversible transaction. Confirm network, address and amount with the owner before one, in CVM units.\n"
+  },
+  "skill": {
+    "skills": [
+      "v/skills/brightside/convex/accounts",
+      "v/skills/brightside/convex/smart-contracts",
+      "v/skills/brightside/convex/cns",
+      "v/skills/brightside/convex/key-security",
+      "v/skills/brightside/convex/protonet",
+      "v/skills/brightside/convex/convex-lattice"
+    ]
+  }
+}
