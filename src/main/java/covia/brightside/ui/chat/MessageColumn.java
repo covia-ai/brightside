@@ -55,6 +55,8 @@ final class MessageColumn extends JPanel implements Scrollable {
 
 	@Override
 	public boolean getScrollableTracksViewportHeight() {
-		return false;
+		// Let the welcome state occupy the viewport so its card can centre itself.
+		// A real transcript remains content-height and scrolls normally.
+		return getComponentCount() == 1 && getComponent(0) instanceof EmptyChatState;
 	}
 }

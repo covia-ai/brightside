@@ -1,5 +1,5 @@
 <configuration>
-	<!-- BrightSide logging: console plus a rolling file under ~/.brightside/logs.
+	<!-- BrightSide logging: console plus a rolling file under the active app home.
 	     Loaded programmatically by BrightSide.configureLogging(), so it wins
 	     regardless of which dependency jars also ship a logback.xml. -->
 	<statusListener class="ch.qos.logback.core.status.NopStatusListener" />
@@ -11,9 +11,9 @@
 	</appender>
 
 	<appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-		<file>${user.home}/.brightside/logs/brightside.log</file>
+		<file>${brightside.home}/logs/brightside.log</file>
 		<rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-			<fileNamePattern>${user.home}/.brightside/logs/brightside.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+			<fileNamePattern>${brightside.home}/logs/brightside.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
 			<maxFileSize>10MB</maxFileSize>
 			<maxHistory>7</maxHistory>
 			<totalSizeCap>100MB</totalSizeCap>

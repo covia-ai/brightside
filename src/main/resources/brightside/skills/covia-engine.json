@@ -1,0 +1,16 @@
+{
+  "name": "covia-engine",
+  "description": "Explain or inspect Brightside's embedded Covia engine: venues, adapters, operations, jobs, agents, request context, identities, capabilities, REST, MCP, A2A and WebDAV.",
+  "content": {
+    "contentType": "text/markdown",
+    "inline": "# Covia engine\n\nBrightside embeds a complete Covia venue in the desktop JVM. Its `Engine` owns the venue identity, lattice application, adapters, operation catalogue, jobs and agents; `VenueServer` exposes the configured protocol surfaces. Brightside's chat uses the same agent operations and records as other authenticated clients rather than a private model shortcut.\n\nAdapters publish live operations under `v/ops`, facts under `v/info/adapters`, and optional skills or templates. Invoking a lifecycle-bearing operation creates a job; an agent is a persistent actor whose sessions and runs live in its lattice record. `RequestContext` carries caller, agent, session, job and capability scope through nested work. Authentication establishes a principal; capabilities independently authorise actions.\n\nFor a live explanation, inspect `v/info`, `v/info/adapters` or a specific operation schema. Use `auth_whoami` for the current authenticated principal. Do not infer an enabled adapter or protocol from the architecture alone.\n"
+  },
+  "skill": {
+    "tools": [
+      "v/ops/auth/whoami",
+      "v/ops/covia/inspect",
+      "v/ops/covia/list",
+      "v/ops/covia/read"
+    ]
+  }
+}

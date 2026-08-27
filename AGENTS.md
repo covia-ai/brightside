@@ -20,7 +20,7 @@ hardware. But Covia is the means, not the message. Design for the owner's real
 needs — usefulness, privacy, trust, control — and let the power underneath serve
 those, kept out of the way until it's wanted: the everyday screens carry no
 jargon (no "venue", "agent", "DID"), while the full technical surface stays
-available under Advanced and Help → About for those who want it.
+available under Settings for those who want it.
 
 ## What this is
 
@@ -81,17 +81,28 @@ window that talks to an agent on that venue. Single Maven module,
 - **The user is a named venue principal, not the venue.** The chat window
   acts as `<venueDID>:u:<slug>` (`Identity`) — the same suffix convention as
   Covia's `<venueDID>:public`. The name is chosen at a first-launch screen
-  (`WelcomePanel`/onboarding) and stored with its slug in
+  (`WelcomePanel`/onboarding) and stored with its slug and full Covia user DID in
   `~/.brightside/identity.json`, separate from the hand-edited `config.json`.
-  **The slug is fixed once chosen; only the display name changes.** The agent
+  The full DID is pinned as soon as the home venue first launches and must match
+  on every later launch. **The slug is fixed once chosen; only the display name changes.** The agent
   (`g/<agentId>`), its memory (`n/memory`) and its skills (`w/skills`) all live
   under that principal, so *Change my name* goes through `Identity.withName`
   (same slug, new name) — deriving a fresh slug from the new name would
   silently bind the window to a different, empty agent. Older `identity.json`
-  files without a `slug` derive it from the name, as before. Chatting as a distinct user (not the
+  files without a `slug` derive it from the name, as before. **Settings →
+  Identity must not conflate the principal layers:** it shows the human-facing
+  *Your name*, the full Covia user DID, the home venue DID, the venue's Ed25519
+  signing public key, and the passphrase-gated primary seed. The named user does
+  not currently have a separate signing key; the owner-controlled venue key is
+  its signing authority. DIDs, keys, seeds and other opaque credentials use a
+  selectable monospaced field. The user DID, venue DID, public-key and primary-
+  seed rows show Convex's standard 7x7 identicon, derived from that same venue
+  public key; it is a visual comparison aid, never a substitute for checking
+  the full value.
+  Chatting as a distinct user (not the
   venue DID) makes Covia attribute turns as coming from the agent's *owner*,
-  not from "the venue operator"; `ChatSession.ATTRIBUTION_GUIDANCE` tells the
-  agent to treat those venue notes as infrastructure. Because the user is not
+  not from "the venue operator"; the read-only `brightside:context` load tells
+  the agent to treat those venue notes as infrastructure. Because the user is not
   the venue principal, the API key must sit in the venue's `secrets.public`
   store (what `resolveSecret` falls back to), not `secrets.venue`.
 - **Chat goes through the agent framework** (`v/ops/agent/create|update|
@@ -110,9 +121,16 @@ window that talks to an agent on that venue. Single Maven module,
   "Unknown session" error (`isUnknownSession`) — any other failure keeps the
   session id, so a model or key problem never mints orphan conversations; and a
   turn's tool steps are only persisted when the cycle completes
-  (`AgentState`), so nothing can be shown mid-turn beyond the typing bubble's
-  elapsed time — hence the generous `timeout` default (300 s), since a timeout
-  cancels the job and loses the turn.
+  (`AgentState`). The in-flight `ThinkingBubble` therefore shows only real
+  client lifecycle state (preparing / accepted and running) plus elapsed time;
+  it must not invent activity from timing or poll partially persisted turns.
+  Covia issue #394 tracks the ordered in-process/SSE agent-event tap needed to
+  stream explicit narration and tool calls. When available, feed those events
+  into the same `ExpandableActivity`: add a pending tool row at call start,
+  fill its expandable result and tick/cross at completion, then reconcile the
+  live component with the committed `SessionHistory.Activity` without a
+  duplicate. Hidden reasoning is never an event. Hence the generous `timeout`
+  default (300 s), since a timeout cancels the job and loses the turn.
 - **Look and feel.** `LAF` installs FlatLaf's macOS-style themes
   (`FlatMacDarkLaf`/`FlatMacLightLaf`) with a purple accent and rounded
   geometry — keep it modern. The default font is **Lato**, bundled as OFL TTFs
@@ -124,8 +142,10 @@ window that talks to an agent on that venue. Single Maven module,
   new faces in that folder and update `FONT_FAMILY`/`FONT_RESOURCES` in `LAF`. The chat UI lives in its own
   `covia.brightside.ui.chat` package, one component per file: `ChatPanel` (the
   container, which owns send/copy), `Bubble` (a rounded, selectable message),
-  `MessageColumn` (the scrolling, width-tracking column), `TypingIndicator`
-  (the "typing…" dots), `ExpandableActivity` (the tool-steps chip),
+  `MessageColumn` (the scrolling, width-tracking column), `EmptyChatState` (the
+  centred branded welcome before an uncommitted chat has any turns),
+  `ThinkingBubble` (brief real progress + elapsed time), `TypingIndicator`
+  (its animated dots), `ExpandableActivity` (the tool-steps chip),
   `ConversationList` (the left-hand switcher — a *New conversation* button over a
   list of past sessions), `SelectableText` (the read-only, selectable text used
   for an activity's narration and tool results, so they can be copied) and
@@ -138,17 +158,38 @@ window that talks to an agent on that venue. Single Maven module,
   `ChatPanel`. Text in a bubble is selectable but the read-only caret is hidden
   (no insert cursor); right-click offers *Copy message* / *Copy conversation*
   (`conversationText()`) to get text out across messages.
+- **The window has no application menu bar.** Everyday actions, account actions,
+  tray preferences, desktop integration, About and Quit live under *Settings →
+  General*; model, identity, vault and authentication retain their dedicated
+  Settings pages. Platform shortcuts remain available without adding visual
+  menu clutter. The tray popup and local context menus remain appropriate where
+  their actions are contextual or must be reachable while the window is hidden.
+- **The chat composer grows with the message.** It starts at one row, with the
+  *Send* button the same height, and expands to at most six rows before scrolling.
+  Unmodified Enter sends; Ctrl+Enter and Shift+Enter insert a newline. It remains
+  enabled while the agent is working. The leading turn uses `agent:chat`; once
+  the venue accepts it and returns the session id (before the model reply), any
+  follow-ups submitted while that chat is in flight go immediately through
+  `agent:message` to the same session. Brightside serialises only these fast
+  intake calls to preserve click order — it never waits locally for the previous
+  model cycle. Covia owns the durable pending queue and decides how the inputs
+  are presented across cycles; a second concurrent `agent:chat` would violate
+  its one-in-flight-chat-per-session contract and fail fast.
 - **Brightside runs off the venue's live session state — no local transcript
   copy.** The venue is in-process, so agent-record reads go straight to the
   lattice with **no job**: `EmbeddedVenue.agentRecord(userDID, agentId)` calls
   `Engine.resolvePath("g/<agentId>", RequestContext.of(userDID))` — exactly what
-  `v/ops/covia/read` does internally, minus the job machinery. On start
-  `startChat` reads the record that way, projects it with
-  `SessionHistory.snapshotOf(record, null)` (newest session →
-  `sessions[sid].frames[0].conversation`, user + completed-assistant turns),
-  renders it, and `ChatSession.resume(sessionId)` continues that same session
-  (falling back to a new one if the id is stale). The UI just reflects turns as
-  they happen; the venue records them, and the next launch re-reads live state.
+  `v/ops/covia/read` does internally, minus the job machinery. On start,
+  `startChat` reads the record that way to populate the saved-conversation list,
+  but **Home is always a clean new chat**: it does not project or resume the
+  newest session, and `ChatSession.sessionId` stays null until the first message
+  is sent. Opening a saved conversation explicitly projects it with
+  `SessionHistory.snapshotOf(record, sessionId)` and calls
+  `ChatSession.resume(sessionId)`. The UI just reflects turns as they happen and
+  the venue records them. An optimistic follow-up must not disappear when a
+  watcher observes the necessarily incomplete stored conversation: a session is
+  still active while its record has a non-empty `pending` vector or an `inCycle`
+  claim, and `ChatPanel.refreshTo` defers replacement until both clear.
   It reads the `AgentState` schema directly (public field names) rather than the
   `agent:sessions` / `agent:session-read` projections: those are owner-callable
   since Covia 2026-08-24, but they are deliberately *safe* projections — they
@@ -164,9 +205,11 @@ window that talks to an agent on that venue. Single Maven module,
   `sessions`; `SessionHistory.listSessions` enumerates them (newest first,
   titled by each one's first user message) for the `ConversationList` switcher,
   and `SessionHistory.load(agentId, sessionId)` / `snapshotOf(record, sessionId)`
-  reopen a specific one. *New conversation* (the switcher button, or *File → New
-  chat*) resets the session so the next message mints a fresh one — it joins the
-  switcher once its first message lands. `BrightSide.openSession` resumes a
+  reopen a specific one. Entering *Home*, *New conversation* (the switcher
+  button), *Settings → General → New chat*, and the platform New-chat shortcut
+  reset the session and show a blank transcript;
+  the next message mints a fresh session, which joins the switcher once that
+  first message lands. `BrightSide.openSession` resumes a
   chosen past session and continues it. Right-clicking a conversation offers
   *Open*, *Rename…*, *Copy transcript* and *Delete*: rename/delete go through the
   owner-callable `v/ops/agent/rename-session` / `v/ops/agent/delete-session` (the
@@ -178,6 +221,17 @@ window that talks to an agent on that venue. Single Maven module,
   controller re-renders `viewedSessionId` (the session on screen), not always the
   latest — so a background update to another session never yanks you off the one
   you opened.
+- **Agents are rows; creation is a separate action.** The `AgentList` scroll area
+  contains only agent rows. Its full-width *New agent* button is fixed beneath
+  the list and opens `NewAgentPanel`, where the owner chooses a name, starting
+  template and model. Provider/model selection is the shared `ModelSelector`
+  component also used by onboarding and Settings — do not fork another picker.
+  Row order is deterministic: the default agent stays first and every other
+  agent is ordered by its immutable id; selection and activity never promote or
+  otherwise move a row.
+  The shared introduction skill respects the name/role supplied by the agent's
+  system prompt; it must not force every named agent to call itself Brightside.
+  Reopening a named agent preserves the configuration in its agent record.
 - **Transcript items and tool activity.** `SessionHistory` projects the
   conversation into a list of `Item`s: `Message` (user / final-assistant text)
   and `Activity` (the intermediate "let me try…" narration and tool calls/
@@ -221,53 +275,100 @@ window that talks to an agent on that venue. Single Maven module,
   refresh, and
   `ChatPanel.refreshTo` re-renders only if the projected turns actually differ
   from what's on screen (so the app's own turns don't cause a redundant
-  re-render). *File → Refresh* forces an immediate compare.
+  re-render). A successful local send also calls
+  `BrightSide.conversationCommitted(sessionId)` directly and re-reads that exact
+  session in-process. This deterministically adopts a newly minted session and
+  reconciles tool activity; it must not depend on whether the watcher happened
+  to poll before or after `ChatSession` received the id. *Settings → General →
+  Refresh* and the platform Refresh shortcut force an immediate compare.
 - **`BrightsideAdapter` is the venue extension.** A real Covia `AAdapter`
   (`covia.brightside.BrightsideAdapter`), registered on the embedded engine in
-  `EmbeddedVenue.launch`. Its `installAssets()` installs the shipped skills
-  under `v/skills/brightside/…` (via `installSkill` from the JSON resources in
-  `src/main/resources/brightside/skills/`) and the `brightside:info` op — its
-  assets live and die with the adapter, the idiomatic way (cf. `AuthAdapter`).
-  Add Brightside-specific operations here (a `brightside/<op>.json` resource +
-  a case in `invokeFuture`); ship a new default skill by adding a skill JSON
-  resource + an `installSkill(...)` line.
-- **Skills and memory, by namespace.** Two shipped skills are pinned into the
-  agent via `config.loads`: `introduction` (persona) and `skills` (how it
-  grows). Persona content is a **skill**, not system-prompt prose — the prompt
-  stays small.
-- **Tool-granting skills are loaded on demand, never pinned.** A `skill_load`
-  is what denormalises a skill's `skill.tools` into the palette; a hand-written
-  `config.loads` pin loads the skill's *body* but not its tools. So a skill that
-  grants tools (`conversations` → the read-only past-session tools
-  `agent:sessions`/`agent:session-read`; `skill-authoring` → `covia:write`) is
-  made **discoverable** and left for the agent to load when its description
-  matches, not pinned. `conversations` is revealed by the pinned `introduction`
-  (its `skill.skills`), so `skill_load conversations` resolves; that's how the
-  agent answers "what did we discuss before?" — it loads the skill, gets the
-  tools, and reads its own past sessions rather than claiming it can't. Skill
+  `EmbeddedVenue.launch`. It owns `brightside:info`, the read-only dynamic
+  `brightside:context` assembler, the caller-scoped
+  `brightside:delete-skill` operation, the append-only
+  `brightside:report-skill-feedback` operation and the operator-only shutdown
+  operation.
+  `BrightsideSkillsAdapter` separately installs the shipped skills under
+  `v/skills/brightside/…`; keeping operations and skill assets in their owning
+  adapters makes both lifecycles explicit. Add a Brightside operation as an
+  `adapters/brightside/<op>.json` resource plus an `invokeFuture` case; add a
+  shipped skill resource plus its path in `BrightsideSkillsAdapter.SHIPPED`.
+- **Skills and memory, by namespace.** No shipped skill is pinned by default.
+  `introduction`, `skills`, `conversations`, `lattice`, the work skills and the
+  `vault-drives-files` / `diagnostics-audit-logs` / `harness` /
+  `tasks-scheduler-automation` routers are all selected on demand from precise
+  descriptions; `introduction` tells the agent to unload
+  itself after a one-shot greeting. The configured `systemPrompt` remains the
+  assistant's identity and role. Dynamic owner/product facts (display name,
+  authenticated user DID, actual model route, local-storage boundary and the
+  skill-feedback rule) come from the read-only `brightside:context` operation,
+  declared as a **non-skill** `config.loads` entry. Existing agents with legacy
+  `identity`/`introduction`/`skills` pins are migrated by clearing and rebuilding
+  `config.loads`; `agent:update` recursively merges nested maps, so merely
+  omitting old keys would leave them behind. The migration preserves other
+  owner-configured pins and installs the context-operation entry.
+- **Tool-granting skills are loaded on demand, never pinned.** An effective
+  skill load contributes its declared tools; Brightside therefore makes skills
+  that grant tools (`conversations` → the read-only past-session tools
+  `agent:sessions`/`agent:session-read`; `skill-authoring` → `covia:write` and
+  the path-constrained `brightside:delete-skill`; the file and diagnostic
+  children → their focused operation sets) **discoverable**, then leaves
+  them for the agent to load when their descriptions match, rather than pinning
+  them. The file router reveals separate `vault`, `dlfs` and `files` children;
+  the diagnostic router reveals read-only `jobs`, `sessions` and
+  `brightside-logs` children; the harness router reveals explanatory
+  `covia-engine`, `etch` and `convex-lattice` children; `research` reveals an
+  `http` child which grants outbound HTTP only with explicit untrusted-content
+  guidance in context. That child includes a tested keyless keyword-search
+  route using compact Bing RSS results; result links remain discovery leads,
+  not sources in themselves. The `tasks-scheduler-automation` router contributes
+  no tools itself and reveals Covia's existing `tasks`, `scheduling`,
+  `orchestration` and `hitl` skills; load only the children required by the
+  current request. When the user asks "what did we
+  discuss before?", the agent loads `conversations`, gets the session tools and
+  reads its own history rather than claiming it cannot. Skill
   **descriptions are the trigger**: pack the words the user actually says
   ("past conversation sessions", "what we discussed", "history") into them.
+- **Pinned-child upstream issue.** Covia issue #415 tracks that hand-written
+  `config.loads` pins do not yet contribute their live `skill.skills` or
+  `skill.skillsets` declarations to name resolution. Brightside declares
+  `v/skills/brightside` as an explicit source for its top-level skills; child
+  skills are revealed by parents loaded through the live skill mechanism, not
+  hand-pinned loads. Bodies and tools remain unloaded until selected.
 - **Discovery is broad, authority stays deliberate.** The agent's
-  `config.skillsets` are `["w/skills", "v/skills/root"]` — its own skills plus
-  the venue's shipped library. `v/skills/root` is the *usable* skillset level
+  `config.skillsets` are `["w/skills", "v/skills/brightside",
+  "v/skills/root"]` — its own skills, Brightside's everyday skills and the
+  venue's shipped library. `v/skills/root` is the *usable* skillset level
   (the per-family entry routers — `covia`, `grid`, `agents`, `discovery`,
   `lattice`, `venue`, …, and adapter integrations once their modules are
   loaded); pointing at bare `v/skills` would be silently useless, as it holds
   skillsets, not skills (Covia issue #409). The agent sees the routers in its
   skills index and loads one to reveal and use that family's tools. Only
-  `defaultTools` (read-only `covia read`/`list`) and the memory tool are
-  always-on; every broader capability — writes, HTTP, files, agents — arrives
+  `defaultTools` (read-only `covia read`/`list`), the memory tool and the narrow
+  feedback reporter are always-on; every broader capability — writes, HTTP,
+  files, agents — arrives
   by loading the skill that grants it, so the gated `skill-authoring` model
   (write stays out of context until deliberately loaded) still holds. Enabling
   the optional module adapters (Telegram, Discord, …) in an embedded venue is
   an upstream ask — Covia issue #410.
-- **Self-authoring, gated hierarchically.** The pinned `skills` meta-skill
-  gates `skill-authoring` as a sub-skill (its `skill.skills` facet), and
+- **Self-authoring, gated hierarchically and reversible.** The on-demand `skills`
+  meta-skill reveals `skill-authoring` as a sub-skill (its `skill.skills` facet), and
   `skill-authoring` is the only skill whose facet grants the `covia:write`
   tool. So the assistant can extend itself — it loads `skill-authoring` and
   writes a new skill into its own `w/skills` (a declared skillset, so authored
-  skills become discoverable) — but the write capability is not in context
-  until it deliberately loads that sub-skill.
+  skills become discoverable), refines it with another write, or removes it
+  with `brightside:delete-skill`. That delete operation accepts only a validated
+  skill name and hard-codes the target to the acting user's `w/skills/<name>`;
+  it does not grant generic deletion over memory or other workspace data. These
+  mutation capabilities are not in context until the agent deliberately loads
+  the sub-skill.
+- **Misses become a private backlog.** The dynamic `brightside:context` load
+  tells the agent to call `brightside:report-skill-feedback` when a load fails,
+  an expected skill is absent, or instructions contradict the live system. The operation
+  accepts facts but no path or identity, derives provenance from the request,
+  and writes one immutable entry at `w/skill-feedback/<job-id>`. It cannot write
+  elsewhere. Ordinary user errors and expected task failures are not reports;
+  the feedback operation must never report its own failure recursively.
 - **Filesystem skills (agentskills.io).** `FilesystemSkills.sync` imports skills
   from `~/.brightside/skills/` (`AppConfig.skillsDir`) into the user's own
   `w/skills` on start — a folder with a `SKILL.md`, or a single `<name>.md`, in
@@ -286,18 +387,28 @@ window that talks to an agent on that venue. Single Maven module,
 - **Memory and scratch** live in `n/`: `n/memory` (recall pinned as a
   `v/ops/memory` context entry, with the `v/ops/memory` tool so it can write)
   and other scratch. See `docs/DESIGN.md`.
+- **File access is rooted and capability-gated.** Brightside's default file
+  configuration exposes only `<home>/files` as the writable `files` root and
+  `<home>/logs` as the server-enforced read-only `logs` root. File skills must
+  call `file:roots` rather than assume other host paths exist. The personal
+  vault and DLFS children use their own lattice-backed operations; the personal
+  file vault is distinct from `identity.enc`, `keys.enc` and `vault.salt`.
 - **Encrypted vault & identity.** One passphrase, hardened with **Argon2id**
   (`covia.brightside.vault.Vault`, BouncyCastle) over a per-vault `vault.salt`,
   yields a 32-byte passphrase key that AES-GCM-encrypts the Ed25519 seed in
   `identity.enc` and provider credentials in `keys.enc`. A domain-separated key
   derived from the identity seed encrypts the store (Etch v3, ChaCha20 — injected
   as `{seed, etch:{version:3,cipher,key}}` into the in-memory venue config, never
-  persisted). Nothing sensitive is written in the clear and there is no plaintext
-  `venue.key`. The identity is a BIP39 recovery phrase (`Mnemonic`, Convex
+  persisted). There is no plaintext `venue.key`; the sole opt-in exception is
+  "remember me", which openly stores the passphrase as `unlock.passphrase` and
+  relies on the trusted OS account's filesystem permissions. The identity is a
+  BIP39 recovery phrase (`Mnemonic`, Convex
   `BIP39`/`SLIP10`) → the same seed, independent of the passphrase. Model
   providers and their API-key secret names are `covia.brightside.model.Providers`
   (`v/models/<provider>/<id>`; `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY` for Gemini,
-  …). Full flow, screen mockups and threat model: **`docs/ONBOARDING.md`**.
+  …). The reviewer-facing security model, exact algorithms, key/file inventory
+  and recovery runbook are in **[docs/SECURITY.md](docs/SECURITY.md)**; the full
+  UI flow, screen mockups and threat model are in **`docs/ONBOARDING.md`**.
 - **Packaging.** The runnable jar is built by `maven-shade-plugin` with the
   services transformer (Jetty/Javalin/LangChain4j rely on
   `META-INF/services`) and drops `openapi-plugin/**` from
@@ -315,9 +426,12 @@ not bespoke app code. Access is capability-based, so you need a token:
   accepts a JWT with `iss == venueDID` verified against the venue key, and
   authenticates the bearer as the token's `sub`. This is the same mechanism the
   venue's OAuth login uses (`LoginProviders`).
-- **Mint an operator token** in *Settings → Auth*. To mint a token for a named
-  local user or use another SDK/tool directly, reveal and copy the 32-byte
-  Ed25519 seed from the passphrase-gated *Settings → Profile → Private key*
+- **Mint a token** in *Settings → Auth*, choosing *User* (the default) or *Venue
+  operator* (advanced). Both are signed by the venue; the choice controls the
+  token subject. The user token lets standard clients see the same private data
+  as the desktop chat. To mint a token with another subject or use another
+  SDK/tool directly, reveal and copy the 32-byte
+  Ed25519 seed from the passphrase-gated *Settings → Identity → Primary seed*
   control, then sign with the Covia/Convex SDK:
   `JWT.signPublic({sub, iss:venueDID, aud:venueDID, iat, exp}, AKeyPair.create(Blob.fromHex(seed)))`.
   Set `sub` to `<venueDID>` for the operator, or `<venueDID>:u:<name>` to act as

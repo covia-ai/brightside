@@ -45,7 +45,7 @@ src/main/java/covia/brightside/
 │                               mode (onboard / unlock), takeover, chat
 │                               and session actions, settings, desktop, exit
 ├── AppConfig.java              ~/.brightside/config.json (JSON5), defaults, model.txt
-├── Identity.java               the u:<slug> user + display name; identity.json
+├── Identity.java               display name + pinned full u:<slug> DID; identity.json
 ├── EmbeddedVenue.java          VenueServer + per-user LocalVenue client + in-process
 │                               lattice reads (agentRecord / resolve — no job)
 ├── Takeover.java               detect a running instance; venue-signed shutdown
@@ -61,21 +61,23 @@ src/main/java/covia/brightside/
 ├── vault/Mnemonic.java         BIP39 recovery phrase ↔ Ed25519 seed
 └── ui/
     ├── LAF.java                FlatLaf themes, purple accent, bundled Lato
-    ├── MainWindow.java         menus, cards (onboarding / unlock / name / chat)
+    ├── MainWindow.java         navigation, shortcuts and application cards
     ├── WelcomePanel.java       "What should I call you?" (rename)
-    ├── settings/               Model, Profile, Vault and Auth pages
+    ├── ModelSelector.java      shared provider/model picker
+    ├── settings/               General, Model, Identity, Vault and Auth pages
     ├── TrayManager.java        best-effort system tray
     ├── Icons.java
     ├── onboarding/             OnboardingWizard, UnlockPanel, OnboardingUI
-    ├── chat/                   ChatPanel, Bubble, MessageColumn, TypingIndicator,
-    │                           ExpandableActivity, ConversationList,
+    ├── chat/                   ChatPanel, Bubble, MessageColumn, EmptyChatState,
+    │                           ThinkingBubble, TypingIndicator, ExpandableActivity, ConversationList,
     │                           SelectableText, ChatIcons, ChatStyle
     └── inspect/                ContextInspector — the exact model input
 
 src/main/resources/
-├── brightside/skills/*.json    shipped skills: introduction, skills,
-│                               skill-authoring, conversations
-├── adapters/brightside/        info.json, shutdown.json — the brightside:* operations
+├── brightside/skills/*.json    on-demand conversation, work and
+│                               self-authoring skills
+├── adapters/brightside/        context, info, skill deletion/feedback and
+│                               shutdown ops
 ├── fonts/lato/                 bundled OFL faces, registered at startup
 └── brightside/logback.xml      logging (configured programmatically)
 
@@ -108,11 +110,28 @@ opens into per-tool rows with input and result. New message kinds are added as
 new item types and their own row components; the bubbles are separate components
 on purpose.
 
+**In-flight activity.** `ThinkingBubble` presents only lifecycle facts
+Brightside currently receives (preparing, accepted/running and elapsed time).
+Covia issue #394 tracks the live agent-event tap required for explicit interim
+narration and tool calls. Once supplied, an in-progress tool uses the existing
+`ExpandableActivity` row: it appears at call start, fills its result and status
+on completion, and is reconciled with the persisted activity when the cycle
+commits. Brightside never derives fake progress from elapsed time or exposes
+hidden model reasoning.
+
 **Every conversation is switchable, and the watcher knows which one you are
 looking at.** The agent record holds many sessions; the switcher enumerates them
 newest-first. When a background update lands, the controller re-renders the
 session on screen, not always the latest — a change elsewhere never yanks you
 off the conversation you opened.
+
+**Home is an uncommitted new chat.** Startup and entering Home reset the
+`ChatSession` to a null session id and show an empty transcript. Existing
+sessions are still listed under Sessions, but none is resumed implicitly. The
+agent framework mints the new session only when the user sends the first message.
+The completed send returns that id to the controller, which immediately re-reads
+the exact session and updates the switcher; session adoption does not depend on
+the polling watcher's timing.
 
 ## Skills, tools and memory
 
@@ -123,27 +142,68 @@ Namespaces do the separating:
 | `v/skills/brightside/…` | Brightside's shipped skills | the adapter, at venue launch |
 | `v/skills/root` | the venue's own skill library | the venue |
 | `w/skills` | the user's agent's own skills | the agent |
+| `w/skill-feedback/<id>` | append-only reports of concrete skill-system misses | the scoped feedback operation |
 | `n/…` | private scratch, including `n/memory` | the agent |
 
-**Discovery is broad; authority is deliberate.** The agent's skillsets are
-`w/skills` and `v/skills/root`, so it can see the whole shipped library. But
-only read-only tools and the memory tool are always on. A skill's tools reach
-the palette only when the agent *loads* that skill — pinning a skill's body in
-configuration does not grant its tools. So:
+**Discovery is broad; authority is deliberate.** No shipped skill is pinned by
+default. The agent's skillsets are
+`w/skills`, `v/skills/brightside` and `v/skills/root`, so it can see the user's,
+Brightside's and the venue's shipped libraries. Only read-only tools, memory and
+the path-constrained feedback reporter are always on. Tools declared by an
+effective load reach the palette while that load is active, so Brightside keeps
+tool-granting skills out of the baseline and loads them on demand. Thus:
 
-- `introduction` (persona) and `skills` (how it grows) are **pinned**; both are
-  prose, neither grants tools.
-- `conversations` grants read-only access to past sessions and is **revealed**
-  by `introduction`, loaded on demand when you ask what you discussed before.
-- `skill-authoring` is the only skill that grants `covia:write`, and it is
-  gated as a sub-skill of `skills`. The agent can extend itself — but the write
-  capability is not in context until it deliberately reaches for it.
+- `skills` (how it grows), `conversations` and the greeting-only `introduction`
+  are directly discoverable and on demand; `introduction` explicitly unloads
+  itself after a one-shot greeting.
+- `conversations` grants read-only access to past sessions when you ask what
+  you discussed before.
+- `skill-authoring` grants `covia:write` and the narrowly scoped
+  `brightside:delete-skill`; it is gated as a sub-skill of `skills`. The agent
+  can manage its own skills reversibly, but neither capability is in context
+  until it deliberately reaches for that skill.
+- `writing`, `planning`, `research` and `coding` provide focused working methods
+  on demand. They grant no imaginary tools and require the agent to distinguish
+  actual access and verification from unsupported claims.
+- `research` reveals an `http` child for web searches, page retrieval and API
+  queries. Its GET/POST tools arrive with instructions that treat every response
+  as untrusted external data rather than model instructions. A compact Bing RSS
+  query provides keyless keyword discovery; the agent then fetches and cites the
+  original result pages.
+- `vault-drives-files` reveals separate `vault`, `dlfs` and `files` children;
+  only the selected storage child contributes its management tools.
+- `diagnostics-audit-logs` reveals read-only job, session and Brightside-log
+  children. The log child contributes only read operations and identifies the
+  configured log root from the live `file:roots` result; the file adapter
+  independently enforces that root's read-only setting.
+- `harness` reveals `covia-engine`, `etch` and `convex-lattice` children for
+  internal architecture questions. Ordinary work skills stay at the harness
+  boundary and use live operations instead of encoding host configuration.
+- `tasks-scheduler-automation` is a tool-free router over Covia's existing
+  `tasks`, `scheduling`, `orchestration` and `hitl` skills. It loads only the
+  parts a request needs: for example, a reminder needs scheduling alone, while
+  a timed agent workflow with an approval checkpoint combines all four.
+
+Covia issue [#415](https://github.com/covia-ai/covia/issues/415) means a skill
+hand-pinned through `config.loads` does not currently contribute child sources
+to name resolution. Brightside declares `v/skills/brightside` as the explicit
+source of its top-level routers. Their children are revealed by ordinary live
+skill loads, without relying on hand-pinned child expansion.
+
+Concrete skill-system misses go to private append-only records at
+`w/skill-feedback/<job-id>`. The reporting operation chooses that path itself,
+captures request provenance and cannot write elsewhere; the agent's ordinary
+read/list tools can inspect the backlog.
 
 Skill **descriptions are the trigger**, so they are written with the words a
 person actually says.
 
-**The persona is a skill, not a system prompt.** The prompt stays small;
-behaviour lives in editable data.
+**Identity, runtime context and skills have separate jobs.** The configured
+system prompt names the assistant and its role. One non-skill `config.loads`
+entry calls the read-only `brightside:context` operation to assemble the current
+owner name/DID, model-processing boundary and product invariants. Optional
+behaviour and working methods stay in discoverable skills and load only when
+their descriptions match the task.
 
 ## Packaging
 

@@ -3,11 +3,16 @@
   "description": "How you grow new abilities by authoring skills. Load when asked to learn, improve, teach yourself, or upgrade, or when a repeatable task is worth capturing.",
   "content": {
     "contentType": "text/markdown",
-    "inline": "# Skills — growing your abilities\n\nYou can extend yourself with **skills**: reusable bundles of instructions (and\noptionally tools) that you save now and load later. This is how you \"upgrade\"\nyourself over time — when you find a better way to do something, or the user\nasks you to learn or remember how to do a task, capture it as a skill so it's\nthere next time.\n\n- Your own skills live in **`w/skills`** — yours to create and refine.\n- A compact index of your skills is always in view; load a skill's full body\n  only when a task needs it, and unload it when you're done.\n- To learn exactly how to write one, load the **skill-authoring** skill (below).\n\nWhen the user asks whether you can improve, teach, or upgrade yourself, the\nanswer is **yes** — you do it by authoring a skill. Offer it when it would\ngenuinely help next time; don't make a skill for one-off answers (use your\nmemory for durable facts about the user instead).\n"
+    "inline": "# Skills — growing your abilities\n\nYou can extend yourself with **skills**: reusable bundles of instructions (and\noptionally tools) that you save now and load later. This is how you \"upgrade\"\nyourself over time — when you find a better way to do something, or the user\nasks you to learn or remember how to do a task, capture it as a skill so it's\nthere next time.\n\n- Your own skills live in **`w/skills`** — yours to create and refine. One of\n  yours shadows a shipped skill of the same name.\n- A compact index of your skills is always in view; load a skill's full body\n  only when a task needs it, and unload it when you're done — a loaded body\n  costs context every turn.\n- Loading a skill can reveal further skills. They are discoverable, not\n  automatic: load only the child the task needs.\n- Loading never grants authority, and never invent a tool name from prose —\n  call only what is in your current palette, by its exact name.\n- Beyond your index: the skills-list tool surveys any skillset (list `v/skills`\n  for the venue's; omit the argument for the configured entry points) and the\n  skills-read tool shows one skill in full without loading it.\n- To learn exactly how to write one, load the **skill-authoring** skill (below).\n  To bring in a `SKILL.md` file the user already has, load **skill-import**.\n\nWhen the user asks whether you can improve, teach, or upgrade yourself, the\nanswer is **yes** — you do it by authoring a skill. Offer it when it would\ngenuinely help next time; don't make a skill for one-off answers (use your\nmemory for durable facts about the user instead).\n"
   },
   "skill": {
+    "tools": [
+      "v/ops/skills/list",
+      "v/ops/skills/read"
+    ],
     "skills": [
-      "v/skills/brightside/skill-authoring"
+      "v/skills/brightside/skills/skill-authoring",
+      "v/skills/building/skill-import"
     ]
   }
 }

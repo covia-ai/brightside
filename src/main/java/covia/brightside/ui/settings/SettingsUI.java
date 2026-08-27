@@ -2,6 +2,7 @@ package covia.brightside.ui.settings;
 
 import java.awt.Color;
 import java.awt.Cursor;
+import java.awt.Font;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -66,6 +67,18 @@ final class SettingsUI {
 		a.setBorder(null);
 		a.setFont(UIManager.getFont("Label.font"));
 		return a;
+	}
+
+	/** A read-only selectable value in the JVM's cross-platform logical mono font. */
+	static JTextArea technicalValue(String text) {
+		JTextArea a = selectable(text);
+		a.setFont(LAF.monospaced(a.getFont()));
+		return a;
+	}
+
+	/** Applies the technical-value font while preserving a component's size/style. */
+	static Font technicalFont(Font base) {
+		return LAF.monospaced(base);
 	}
 
 	/** A muted description for the top of a screen (full-width, wrapping). */

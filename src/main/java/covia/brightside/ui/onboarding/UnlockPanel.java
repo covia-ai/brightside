@@ -38,9 +38,9 @@ import covia.brightside.ui.LAF;
  * A wrong passphrase is caught by the authenticated encryption on
  * {@code identity.enc} and reported without leaking anything.
  *
- * <p>Optionally "Remember me on this computer" stores the passphrase locally
- * (with a hover warning); a "Forgot passphrase?" link opens recovery from the
- * recovery phrase.
+ * <p>The optional remembered-unlock choice explicitly stores the passphrase as
+ * plaintext; a "Forgot passphrase?" link opens recovery from the recovery
+ * phrase.
  */
 @SuppressWarnings("serial")
 public final class UnlockPanel extends JPanel {
@@ -53,7 +53,7 @@ public final class UnlockPanel extends JPanel {
 
 	private final Listener listener;
 	private final JPasswordField field = new JPasswordField(22);
-	private final JCheckBox remember = new JCheckBox("Remember me on this computer");
+	private final JCheckBox remember = new JCheckBox("Store passphrase in plaintext on this computer");
 	private final JButton unlock = OnboardingUI.primary("Unlock");
 	private final JLabel status = OnboardingUI.caption(" ");
 
@@ -77,11 +77,11 @@ public final class UnlockPanel extends JPanel {
 		field.setMaximumSize(new Dimension(320, field.getPreferredSize().height + 12));
 		field.setAlignmentX(CENTER_ALIGNMENT);
 
-		// Remember-me, with a little info symbol whose tooltip warns about local storage.
+		// Remember-me, with an explicit plaintext warning and fuller detail on hover.
 		remember.setOpaque(false);
 		remember.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		JLabel info = infoIcon("Stores your passphrase locally in .brightside on this computer, so you "
-			+ "won't have to type it here again. Untick to delete the stored passphrase.");
+		JLabel info = infoIcon("Anyone who can read files as your OS account can unlock Brightside. "
+			+ "Only enable this on a computer and account you trust; untick it to delete the file.");
 		JPanel rememberRow = new JPanel();
 		rememberRow.setOpaque(false);
 		rememberRow.setLayout(new BoxLayout(rememberRow, BoxLayout.X_AXIS));

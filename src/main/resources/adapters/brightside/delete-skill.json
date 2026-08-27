@@ -1,0 +1,25 @@
+{
+	"name": "Delete one of your skills",
+	"description": "Removes one caller-owned skill from w/skills by name. This operation cannot delete memory, conversations, operations or any other workspace path. Deleting a missing skill is a successful no-op.",
+	"operation": {
+		"adapter": "brightside:delete-skill",
+		"toolName": "brightside_delete_skill",
+		"input": {
+			"type": "object",
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "Exact kebab-case name under w/skills, without a path prefix."
+				}
+			},
+			"required": ["name"]
+		},
+		"output": {
+			"type": "object",
+			"properties": {
+				"name": { "type": "string", "description": "The validated skill name." },
+				"deleted": { "type": "boolean", "description": "True if the skill existed and was removed; false if it was already absent." }
+			}
+		}
+	}
+}

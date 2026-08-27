@@ -15,18 +15,36 @@ import covia.venue.RequestContext;
  *
  * <p>Skills, under {@code v/skills/brightside/…}:</p>
  * <ul>
- *   <li><b>introduction</b> — how the assistant presents itself (pinned); its
- *       {@code skill.skills} facet reveals <b>conversations</b>.</li>
+ *   <li><b>introduction</b> — greeting guidance, loaded on demand rather than
+ *       occupying every turn.</li>
  *   <li><b>conversations</b> — how it talks with the user and reviews past
  *       conversations. Loaded on demand, <em>not</em> pinned: its facet grants
  *       the read-only past-session tools ({@code agent:sessions},
- *       {@code agent:session-read}), and only a {@code skill_load} activates a
- *       skill's tools — a pinned load carries the body alone.</li>
- *   <li><b>skills</b> — how it grows new abilities (pinned); its
- *       {@code skill.skills} facet reveals <b>skill-authoring</b>.</li>
- *   <li><b>skill-authoring</b> — the gated sub-skill (on demand) whose facet
- *       grants the {@code covia:write} tool, so the assistant can author skills
- *       into its own {@code w/skills}.</li>
+ *       {@code agent:session-read}).</li>
+ *   <li><b>skills</b> — how it grows new abilities (on demand); grants the
+ *       read-only skills list/read tools for surveying skillsets, and its
+ *       {@code skill.skills} facet reveals <b>skill-authoring</b> plus Covia's
+ *       {@code skill-import} (SKILL.md files).</li>
+ *   <li><b>skill-authoring</b> — the gated child skill (on demand) whose facet
+ *       grants {@code covia:write} plus Brightside's path-constrained skill
+ *       deletion tool, so the assistant can reversibly manage skills in its
+ *       own {@code w/skills}.</li>
+ *   <li><b>lattice</b> — owner-facing guidance for choosing and managing
+ *       persistent workspace, agent, conversation and job-scoped data;
+ *       reveals Covia's {@code assets} child for immutable, shareable
+ *       snapshots.</li>
+ *   <li><b>vault-drives-files</b> — routes file work to separate personal
+ *       vault, DLFS-drive and host-filesystem child skills.</li>
+ *   <li><b>diagnostics-audit-logs</b> — routes read-only investigation to
+ *       separate job, session and Brightside-log child skills.</li>
+ *   <li><b>harness</b> — explains Brightside's technical foundation through
+ *       separate Covia-engine, Etch and Convex-lattice child skills.</li>
+ *   <li><b>tasks-scheduler-automation</b> — routes delegated work, reminders,
+ *       repeatable workflows and human decisions to Covia's focused task,
+ *       scheduling, orchestration and HITL skills.</li>
+ *   <li><b>writing</b>, <b>planning</b>, <b>research</b> and <b>coding</b> —
+ *       everyday working methods, loaded only when the task calls for them;
+ *       research reveals a guarded HTTP child for external evidence.</li>
  * </ul>
  *
  * <p>Registered on the embedded engine at launch ({@link EmbeddedVenue}); like
@@ -37,17 +55,60 @@ public class BrightsideSkillsAdapter extends AAdapter {
 
 	/** Brightside's default skillset under the venue namespace. */
 	public static final String SKILLSET = "v/skills/brightside";
-	/** Always-loaded: how the assistant introduces itself; reveals conversations. */
+	/** On demand: how the assistant greets someone and explains what it can do. */
 	public static final String INTRODUCTION = SKILLSET + "/introduction";
 	/** On demand: how it talks with the user and reviews past conversations (grants the session tools). */
 	public static final String CONVERSATIONS = SKILLSET + "/conversations";
-	/** Always-loaded: how the assistant grows new abilities; gates skill-authoring. */
+	/** On demand: how the assistant grows new abilities; gates skill-authoring. */
 	public static final String SKILLS = SKILLSET + "/skills";
-	/** Gated sub-skill: how to author a skill, and the write tool to do it. */
-	public static final String SKILL_AUTHORING = SKILLSET + "/skill-authoring";
+	/** Gated child: how to author a skill, and the write tool to do it. */
+	public static final String SKILL_AUTHORING = SKILLSET + "/skills/skill-authoring";
+	/** On demand: how to choose and manage Brightside's lattice data scopes. */
+	public static final String LATTICE = SKILLSET + "/lattice";
+	/** On demand: routes file-shaped work to the appropriate storage child. */
+	public static final String VAULT_DRIVES_FILES = SKILLSET + "/vault-drives-files";
+	/** Personal document vault child. */
+	public static final String VAULT = VAULT_DRIVES_FILES + "/vault";
+	/** Decentralised lattice filesystem child. */
+	public static final String DLFS = VAULT_DRIVES_FILES + "/dlfs";
+	/** Configured host and temporary filesystem roots child. */
+	public static final String FILES = VAULT_DRIVES_FILES + "/files";
+	/** On demand: routes read-only operational investigation to focused children. */
+	public static final String DIAGNOSTICS_AUDIT_LOGS = SKILLSET + "/diagnostics-audit-logs";
+	/** Read-only job audit child. */
+	public static final String JOBS = DIAGNOSTICS_AUDIT_LOGS + "/jobs";
+	/** Read-only session diagnostics child. */
+	public static final String SESSIONS = DIAGNOSTICS_AUDIT_LOGS + "/sessions";
+	/** Read-only Brightside log child. */
+	public static final String BRIGHTSIDE_LOGS = DIAGNOSTICS_AUDIT_LOGS + "/brightside-logs";
+	/** On demand: routes questions about Brightside's internal harness layers. */
+	public static final String HARNESS = SKILLSET + "/harness";
+	/** Covia venue-engine child. */
+	public static final String COVIA_ENGINE = HARNESS + "/covia-engine";
+	/** Etch persistence-engine child. */
+	public static final String ETCH = HARNESS + "/etch";
+	/** Convex lattice-model child. */
+	public static final String CONVEX_LATTICE = HARNESS + "/convex-lattice";
+	/** On demand: routes tasks, schedules, automation and human checkpoints. */
+	public static final String TASKS_SCHEDULER_AUTOMATION = SKILLSET + "/tasks-scheduler-automation";
+	/** On demand: drafting and editing useful prose. */
+	public static final String WRITING = SKILLSET + "/writing";
+	/** On demand: turning goals and decisions into executable plans. */
+	public static final String PLANNING = SKILLSET + "/planning";
+	/** On demand: evidence-led research with honest source handling. */
+	public static final String RESEARCH = SKILLSET + "/research";
+	/** External web and API access child, with an explicit untrusted-content boundary. */
+	public static final String RESEARCH_HTTP = RESEARCH + "/http";
+	/** On demand: evidence-led software design, implementation and review. */
+	public static final String CODING = SKILLSET + "/coding";
 	/** Every shipped skill path, in install order — the single list others derive from. */
 	public static final java.util.List<String> SHIPPED =
-		java.util.List.of(INTRODUCTION, CONVERSATIONS, SKILLS, SKILL_AUTHORING);
+		java.util.List.of(INTRODUCTION, CONVERSATIONS, SKILLS, SKILL_AUTHORING,
+			LATTICE, VAULT_DRIVES_FILES, VAULT, DLFS, FILES,
+			DIAGNOSTICS_AUDIT_LOGS, JOBS, SESSIONS, BRIGHTSIDE_LOGS,
+			HARNESS, COVIA_ENGINE, ETCH, CONVEX_LATTICE,
+			TASKS_SCHEDULER_AUTOMATION,
+			WRITING, PLANNING, RESEARCH, RESEARCH_HTTP, CODING);
 
 	@Override
 	public String getName() {
@@ -56,15 +117,16 @@ public class BrightsideSkillsAdapter extends AAdapter {
 
 	@Override
 	public String getDescription() {
-		return "Brightside's default skill library: the introduction, skills and "
-			+ "skill-authoring skills under v/skills/brightside.";
+		return "Brightside's default skill library: everyday work and "
+			+ "self-authoring skills under v/skills/brightside.";
 	}
 
 	@Override
 	protected void installAssets() {
 		for (String path : SHIPPED) {
 			String name = path.substring(path.lastIndexOf('/') + 1);
-			installSkill("brightside/" + name, "/brightside/skills/" + name + ".json");
+			String relative = path.substring("v/skills/".length());
+			installSkill(relative, "/brightside/skills/" + name + ".json");
 		}
 	}
 

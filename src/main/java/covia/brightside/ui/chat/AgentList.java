@@ -24,8 +24,8 @@ import covia.brightside.ui.LAF;
 /**
  * The agents pane (left of the sessions list on the Sessions screen): one row per
  * agent the user owns — e.g. Brightside and Bob — each with its own conversations.
- * Selecting one switches the chat (and the sessions list) to that agent. A "New"
- * button creates another agent.
+ * Selecting one switches the chat (and the sessions list) to that agent. The
+ * separate button beneath the scrollable list creates another agent.
  *
  * <p>Dumb like {@link ConversationList}: it renders what it's given and reports
  * clicks through a {@link Listener}; {@code BrightSide} owns switching/creating.
@@ -56,9 +56,8 @@ public final class AgentList extends JPanel {
 		JLabel header = new JLabel("Agents");
 		header.putClientProperty("FlatLaf.styleClass", "small");
 		header.setForeground(muted());
-		JButton add = new JButton("+ New");
+		JButton add = new JButton("New agent");
 		add.putClientProperty("JButton.buttonType", "roundRect");
-		add.putClientProperty("FlatLaf.styleClass", "small");
 		add.setFocusPainted(false);
 		add.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		add.setToolTipText("Create a new agent");
@@ -68,7 +67,6 @@ public final class AgentList extends JPanel {
 		top.setOpaque(false);
 		top.setBorder(BorderFactory.createEmptyBorder(10, 12, 8, 10));
 		top.add(header, BorderLayout.WEST);
-		top.add(add, BorderLayout.EAST);
 
 		rows.setOpaque(false);
 		rows.setLayout(new BoxLayout(rows, BoxLayout.Y_AXIS));
@@ -83,6 +81,11 @@ public final class AgentList extends JPanel {
 
 		add(top, BorderLayout.NORTH);
 		add(scroll, BorderLayout.CENTER);
+		JPanel bottom = new JPanel(new BorderLayout());
+		bottom.setOpaque(false);
+		bottom.setBorder(BorderFactory.createEmptyBorder(8, 10, 10, 10));
+		bottom.add(add, BorderLayout.CENTER);
+		add(bottom, BorderLayout.SOUTH);
 	}
 
 	/** Replace the agent list, highlighting {@code selectedId}. */

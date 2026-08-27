@@ -11,16 +11,17 @@ import javax.swing.JTextArea;
 
 /**
  * The <b>Auth</b> settings page: mint a venue-signed access-token JWT that
- * authenticates as the venue operator against the local venue API, with a chosen
- * expiry. Its single primary action is <b>Generate</b> (there is nothing to save);
- * the token is shown once (selectable) for copying and is never written to disk.
+ * authenticates as the current named user against the local venue API, with a
+ * chosen expiry. Its single primary action is <b>Generate</b> (there is nothing
+ * to save); the token is shown once (selectable) for copying and is never written
+ * to disk.
  */
 @SuppressWarnings("serial")
 public final class AuthPanel extends SettingsPage {
 
-	/** Mints a token valid for {@code seconds}, or returns null if unavailable. */
+	/** Mints a token for the selected subject, or returns null if unavailable. */
 	public interface Minter {
-		String mint(long seconds);
+		String mint(long seconds, boolean asOperator);
 	}
 
 	private record Exp(String label, long seconds) {
@@ -30,7 +31,15 @@ public final class AuthPanel extends SettingsPage {
 		}
 	}
 
+	private record Subject(String label, boolean operator) {
+		@Override
+		public String toString() {
+			return label;
+		}
+	}
+
 	private final Minter minter;
+	private final JComboBox<Subject> subject = new JComboBox<>();
 	private final JComboBox<Exp> expiry = new JComboBox<>();
 	private final JTextArea token = new JTextArea(4, 34);
 	private final JButton copy = new JButton("Copy");
@@ -42,6 +51,13 @@ public final class AuthPanel extends SettingsPage {
 	}
 
 	private void build() {
+		subject.setModel(new DefaultComboBoxModel<>(new Subject[] {
+			new Subject("User (recommended)", false),
+			new Subject("Venue operator (advanced)", true),
+		}));
+		subject.setSelectedIndex(0);
+		subject.setToolTipText("The identity and authority represented by the token");
+
 		expiry.setModel(new DefaultComboBoxModel<>(new Exp[] {
 			new Exp("5 minutes", 300L),
 			new Exp("1 hour", 3600L),
@@ -53,6 +69,7 @@ public final class AuthPanel extends SettingsPage {
 
 		token.setEditable(false);
 		token.setLineWrap(true);
+		token.setFont(SettingsUI.technicalFont(token.getFont()));
 		token.putClientProperty("JTextArea.placeholderText", "Generated token appears here");
 		token.setToolTipText("The bearer token — select and copy it");
 		JScrollPane tokenScroll = new JScrollPane(token);
@@ -65,8 +82,10 @@ public final class AuthPanel extends SettingsPage {
 		primary.setToolTipText("Mint a new access token with the chosen expiry");
 		onPrimary(this::onGenerate);
 
-		addDescription("A bearer token for this venue's local API (Authorization: Bearer …), authenticating as the "
-			+ "venue operator. This is highly privileged: treat it like a password. It is not stored on disk.");
+		addDescription("A bearer token for this venue's local API (Authorization: Bearer …). Choose the user "
+			+ "identity for private Brightside data, or the venue operator only for administration. Treat either "
+			+ "like a password; it is not stored on disk.");
+		addField("Authenticate as", subject);
 		addField("Expires in", expiry);
 		addSpan(tokenScroll, "h 96!, gaptop 6");
 		addSpanLeft(copy);
@@ -74,8 +93,10 @@ public final class AuthPanel extends SettingsPage {
 
 	private void onGenerate() {
 		Exp sel = (Exp) expiry.getSelectedItem();
+		Subject who = (Subject) subject.getSelectedItem();
 		long secs = (sel != null) ? sel.seconds() : 3600L;
-		String jwt = minter.mint(secs);
+		boolean asOperator = who != null && who.operator();
+		String jwt = minter.mint(secs, asOperator);
 		if (jwt == null) {
 			token.setText("");
 			copy.setEnabled(false);
@@ -85,7 +106,8 @@ public final class AuthPanel extends SettingsPage {
 		token.setText(jwt);
 		token.setCaretPosition(0);
 		copy.setEnabled(true);
-		setNote("Valid for " + sel.label() + ". Treat it like a password.", false);
+		setNote("Valid for " + sel.label() + (asOperator ? " with venue-operator authority." : " as the user."),
+			asOperator);
 	}
 
 	private void onCopy() {

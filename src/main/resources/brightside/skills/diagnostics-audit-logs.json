@@ -1,0 +1,15 @@
+{
+  "name": "diagnostics-audit-logs",
+  "description": "Diagnose Brightside using read-only evidence from jobs, agent sessions and application logs. Load for failures, stuck work, audit trails, tool calls, model context, errors or log investigation.",
+  "content": {
+    "contentType": "text/markdown",
+    "inline": "# Diagnostics and audit\n\nRead existing evidence before retrying work: a retry can create a second job. Load the narrow child that matches the evidence needed:\n\n- **jobs** — operation status, inputs, outputs, errors and provenance.\n- **sessions** — conversation projections, raw frames, tool activity and assembled model context.\n- **brightside-logs** — the application's rolling log files through the file harness.\n"
+  },
+  "skill": {
+    "skills": [
+      "v/skills/brightside/diagnostics-audit-logs/jobs",
+      "v/skills/brightside/diagnostics-audit-logs/sessions",
+      "v/skills/brightside/diagnostics-audit-logs/brightside-logs"
+    ]
+  }
+}

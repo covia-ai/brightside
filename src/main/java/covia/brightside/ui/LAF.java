@@ -41,6 +41,17 @@ public final class LAF {
 	private LAF() {
 	}
 
+	/**
+	 * Returns a logical monospaced font at the same size and style as a UI font.
+	 * The JVM maps the logical family on every supported desktop, so opaque values
+	 * such as keys, DIDs and tokens remain legible without another bundled font.
+	 */
+	public static Font monospaced(Font base) {
+		if (base == null) return new Font(Font.MONOSPACED, Font.PLAIN, BASE_FONT_SIZE);
+		return new Font(Font.MONOSPACED, base.getStyle(), Math.round(base.getSize2D()))
+			.deriveFont(base.getSize2D());
+	}
+
 	/** Installs the theme ({@code "dark"} unless {@code "light"}). */
 	public static void init(String theme) {
 		// Bundled Lato — register the faces, then make it the preferred family

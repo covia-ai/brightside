@@ -6,6 +6,8 @@ import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -30,6 +32,7 @@ import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.joran.JoranConfigurator;
 import convex.core.util.Shutdown;
 import covia.brightside.chat.ChatSession;
+import covia.brightside.model.AgentRef;
 import covia.brightside.model.Providers;
 import covia.brightside.ui.LAF;
 import covia.brightside.ui.MainWindow;
@@ -42,8 +45,8 @@ import covia.brightside.vault.Vault;
  *
  * <p>Runs an {@link EmbeddedVenue} inside the process and puts a chat window
  * in front of it. The window minimises (and closes) to a system-tray icon so
- * the venue keeps running in the background; Exit — from the tray menu or the
- * File menu — flushes the venue's state and stops the process.
+ * the venue keeps running in the background; Exit — from the tray menu or
+ * Settings → General — flushes the venue's state and stops the process.
  *
  * <p>Threading: the UI lives on the Swing event thread; the venue is launched
  * and closed, and the desktop (browser, editor) is opened, on background
@@ -94,8 +97,8 @@ public final class BrightSide {
 
 	/** Entry point. Optional argument: path to the configuration file. */
 	public static void main(String[] args) {
-		configureLogging();
 		Path path = (args.length > 0) ? Path.of(args[0]).toAbsolutePath().normalize() : AppConfig.DEFAULT_FILE;
+		configureLogging(path.getParent());
 		AppConfig config;
 		try {
 			config = AppConfig.load(path);
@@ -175,6 +178,8 @@ public final class BrightSide {
 			onVenueReady();
 		} catch (Throwable t) {
 			log.error("Venue failed to start", t);
+			closeVenue();
+			venue = null;
 			SwingUtilities.invokeLater(() -> window.startupFailed(t));
 		}
 	}
@@ -250,6 +255,7 @@ public final class BrightSide {
 				EmbeddedVenue running = venue;
 				if (running != null) {
 					if (saved == null) throw new IOException("The saved user identity is missing");
+					saved = bindIdentityToVenue(saved, running);
 					chatStarted.set(true);
 					SwingUtilities.invokeLater(window::showChatStartup);
 					startChat(running, saved, effectiveChat(), Bind.FIRST);
@@ -367,6 +373,7 @@ public final class BrightSide {
 				EmbeddedVenue running = venue;
 				if (running != null) {
 					if (saved == null) throw new IOException("The saved user identity is missing");
+					saved = bindIdentityToVenue(saved, running);
 					chatStarted.set(true);
 					SwingUtilities.invokeLater(window::showChatStartup);
 					startChat(running, saved, effectiveChat(), Bind.FIRST);
@@ -460,29 +467,37 @@ public final class BrightSide {
 	}
 
 	/**
-	 * Mints a venue-signed access-token JWT authenticating the bearer as this
-	 * venue's identity (the operator), valid for {@code expiresInSeconds}. Used by
-	 * Advanced settings to obtain a bearer token for the local venue's HTTP API
-	 * ({@code Authorization: Bearer …}, {@code aud = } venue DID). Returns null if
-	 * the venue isn't up yet or no seed is available.
+	 * Mints a venue-signed access-token JWT authenticating the bearer as the
+	 * current named user, valid for {@code expiresInSeconds}. The home venue is
+	 * the signing authority ({@code iss}) and audience, but the stable user DID is
+	 * the subject ({@code sub}); Settings must not silently hand a user the venue
+	 * operator's authority. Returns null if the venue isn't up yet or no seed is
+	 * available.
 	 */
-	public String mintAccessToken(long expiresInSeconds) {
+	public String mintAccessToken(long expiresInSeconds, boolean asOperator) {
 		if (identity == null || vault == null) return null;
 		EmbeddedVenue v = venue;
 		String seed = venueSeedHex;
 		if (v == null || seed == null || seed.isBlank()) return null;
 		try {
-			convex.core.crypto.AKeyPair keyPair =
-				convex.core.crypto.AKeyPair.create(convex.core.data.Blob.fromHex(seed.trim()));
-			String did = v.did();
+			String venueDID = v.did();
+			String subjectDID = asOperator ? venueDID : identity.userDID(venueDID);
 			long now = System.currentTimeMillis() / 1000;
-			return convex.auth.jwt.JWT.signPublic(Maps.of(
-				"sub", did, "iss", did, "aud", did,
-				"iat", now, "exp", now + expiresInSeconds), keyPair).toString();
+			return signAccessToken(seed, venueDID, subjectDID, now, expiresInSeconds);
 		} catch (Exception e) {
 			log.warn("Could not mint an access token", e);
 			return null;
 		}
+	}
+
+	/** Signs the claims used by Settings → Auth. Package-visible for claim-level tests. */
+	static String signAccessToken(String seedHex, String venueDID, String subjectDID,
+			long issuedAt, long expiresInSeconds) {
+		convex.core.crypto.AKeyPair keyPair =
+			convex.core.crypto.AKeyPair.create(convex.core.data.Blob.fromHex(seedHex.trim()));
+		return convex.auth.jwt.JWT.signPublic(Maps.of(
+			"sub", subjectDID, "iss", venueDID, "aud", venueDID,
+			"iat", issuedAt, "exp", issuedAt + expiresInSeconds), keyPair).toString();
 	}
 
 	/** Injects a public secret (an API key) into an in-memory venue config, merged. */
@@ -551,7 +566,7 @@ public final class BrightSide {
 	private void onVenueReady() {
 		// Default skills are installed by BrightsideAdapter at venue launch.
 		Identity id = identity;
-		if (id != null) startChatOnce(venue, id);
+		if (id != null) startChatOnce(venue, bindIdentityToVenue(id, venue));
 	}
 
 	/**
@@ -570,10 +585,11 @@ public final class BrightSide {
 			window.welcomeBusy(null); // clear any busy state; the panel shows its own error
 			return;
 		}
+		EmbeddedVenue v = venue;
+		if (v != null) id = id.withVenueDID(v.did());
 		boolean changing = chatStarted.get();
 		identity = id;
 		persistIdentity(id);
-		EmbeddedVenue v = venue;
 		if (changing) {
 			startChatBackground(v, id, currentChatConfig(), Bind.NAME_CHANGE);
 		} else if (v != null) {
@@ -604,6 +620,14 @@ public final class BrightSide {
 		}
 	}
 
+	/** Pins and persists the full user DID once the home venue identity is known. */
+	private Identity bindIdentityToVenue(Identity id, EmbeddedVenue v) {
+		Identity bound = id.withVenueDID(v.did());
+		identity = bound;
+		if (id.did() == null) persistIdentity(bound);
+		return bound;
+	}
+
 	/** Starts the first chat exactly once, whichever of name/venue arrives last. */
 	private void startChatOnce(EmbeddedVenue v, Identity id) {
 		if (v == null || id == null) return;
@@ -611,20 +635,32 @@ public final class BrightSide {
 	}
 
 	private void startChatBackground(EmbeddedVenue v, Identity id, AppConfig.Chat chatConfig, Bind bind) {
-		Thread t = new Thread(() -> startChat(v, id, chatConfig, bind), "brightside-chat");
+		boolean configureExisting = chatConfig.agentId().equals(config.chat().agentId());
+		startChatBackground(v, id, chatConfig, bind, configureExisting);
+	}
+
+	private void startChatBackground(EmbeddedVenue v, Identity id, AppConfig.Chat chatConfig, Bind bind,
+			boolean configureExisting) {
+		Thread t = new Thread(() -> startChat(v, id, chatConfig, bind, configureExisting), "brightside-chat");
 		t.setDaemon(true);
 		t.start();
 	}
 
-	/** Binds a chat session to {@code id}'s principal and reopens its live conversation. */
+	/** Binds a chat session to {@code id}'s principal and prepares its conversation view. */
 	private void startChat(EmbeddedVenue v, Identity id, AppConfig.Chat chatConfig, Bind bind) {
+		startChat(v, id, chatConfig, bind, true);
+	}
+
+	private void startChat(EmbeddedVenue v, Identity id, AppConfig.Chat chatConfig, Bind bind,
+			boolean configureExisting) {
 		String did = id.userDID(v.did());
 		covia.grid.Venue userClient = v.clientAs(did);
-		ChatSession session = new ChatSession(userClient, chatConfig, id.name());
+		ChatSession session = new ChatSession(userClient, chatConfig, id.name(), configureExisting);
 		chat = session;
 
-		// Create/refresh the agent (agent:create if it's a brand-new one), then read
-		// its last conversation from the venue's live session state and continue it.
+		// Create/refresh the agent (agent:create if it's a brand-new one). This does
+		// not create an agent session: Home leaves ChatSession.sessionId null until
+		// the user actually sends their first message.
 		try {
 			session.ensureAgent();
 		} catch (Exception e) {
@@ -649,14 +685,17 @@ public final class BrightSide {
 		// The venue is in-process: read the agent record straight from the lattice
 		// (no job) and project it, rather than submitting a covia:read.
 		convex.core.data.ACell record = v.agentRecord(did, aid);
-		SessionHistory.Snapshot history = SessionHistory.snapshotOf(record, null);
+		// Home is deliberately a clean new chat. Other rebinds (agent switch/name
+		// change) retain their existing latest-session behaviour.
+		SessionHistory.Snapshot history = (bind == Bind.FIRST)
+			? null : SessionHistory.snapshotOf(record, null);
 		if (history != null) session.resume(history.sessionId());
 		List<SessionHistory.Item> turns = (history != null) ? history.items() : List.of();
 		viewedSessionId = (history != null) ? history.sessionId() : null;
 		List<SessionHistory.Session> sessionList = (record != null) ? SessionHistory.sessionsOf(record) : List.of();
 		sessions = sessionList;
 		List<covia.brightside.model.AgentRef> agentRefs = listAgents(aid);
-		log.info("Chatting as {} with agent '{}' — reopened {} live message(s) across {} conversation(s)",
+		log.info("Chatting as {} with agent '{}' — showing {} live message(s) across {} saved conversation(s)",
 			id.label(), aid, turns.size(), sessionList.size());
 
 		SwingUtilities.invokeLater(() -> {
@@ -691,14 +730,27 @@ public final class BrightSide {
 		startChatBackground(v, id, chatConfigFor(agentId), Bind.AGENT_SWITCH);
 	}
 
-	/** Create (and switch to) a new agent with the given display name. */
+	/** Create a general-purpose agent using the current default model. */
 	public void createAgent(String rawName) {
+		String name = (rawName != null) ? rawName.trim() : "";
+		String prompt = covia.brightside.model.AgentTemplate.GENERAL.systemPrompt(name);
+		createAgent(name, currentModelOp(), prompt);
+	}
+
+	/** Create (and switch to) a new agent with the chosen model and starting prompt. */
+	public void createAgent(String rawName, String modelOp, String systemPrompt) {
 		String aid = slug(rawName);
 		EmbeddedVenue v = venue;
 		Identity id = identity;
 		if (aid.isEmpty() || v == null || id == null || aid.equals(this.agentId)) return;
-		// startChat's ensureAgent() creates it if it doesn't exist, with the named persona.
-		startChatBackground(v, id, chatConfigFor(aid), Bind.AGENT_SWITCH);
+		AppConfig.Chat base = effectiveChat();
+		String chosenModel = (modelOp == null || modelOp.isBlank()) ? base.llmOperation() : modelOp;
+		String chosenPrompt = (systemPrompt == null || systemPrompt.isBlank())
+			? covia.brightside.model.AgentTemplate.GENERAL.systemPrompt(displayNameFor(aid)) : systemPrompt;
+		AppConfig.Chat chosen = new AppConfig.Chat(aid, base.operation(), chosenModel, chosenPrompt, base.timeoutSeconds());
+		// Applying the supplied configuration is deliberate here. Later switches to
+		// the agent preserve what its record already holds.
+		startChatBackground(v, id, chosen, Bind.AGENT_SWITCH, true);
 	}
 
 	/** The chat config for {@code aid}: the default persona for the default agent, else a named one. */
@@ -717,12 +769,12 @@ public final class BrightSide {
 	}
 
 	/** Lists the user's agents (via agent:list), always including the default and current. */
-	private List<covia.brightside.model.AgentRef> listAgents(String currentAid) {
-		java.util.LinkedHashMap<String, covia.brightside.model.AgentRef> map = new java.util.LinkedHashMap<>();
+	private List<AgentRef> listAgents(String currentAid) {
+		java.util.LinkedHashMap<String, AgentRef> map = new java.util.LinkedHashMap<>();
 		String def = config.chat().agentId();
-		map.put(def, new covia.brightside.model.AgentRef(def, displayNameFor(def)));
+		map.put(def, new AgentRef(def, displayNameFor(def)));
 		if (currentAid != null) {
-			map.putIfAbsent(currentAid, new covia.brightside.model.AgentRef(currentAid, displayNameFor(currentAid)));
+			map.putIfAbsent(currentAid, new AgentRef(currentAid, displayNameFor(currentAid)));
 		}
 		try {
 			convex.core.data.ACell res = invokeOpResult(client, "v/ops/agent/list", Maps.empty());
@@ -732,14 +784,23 @@ public final class BrightSide {
 					AString aidS = convex.core.lang.RT.ensureString(convex.core.lang.RT.getIn(vec.get(i), "agentId"));
 					if (aidS != null) {
 						String aid = aidS.toString();
-						map.putIfAbsent(aid, new covia.brightside.model.AgentRef(aid, displayNameFor(aid)));
+						map.putIfAbsent(aid, new AgentRef(aid, displayNameFor(aid)));
 					}
 				}
 			}
 		} catch (Exception e) {
 			log.warn("Could not list agents: {}", e.getMessage());
 		}
-		return new java.util.ArrayList<>(map.values());
+		return stableAgentOrder(new ArrayList<>(map.values()), def);
+	}
+
+	/** Default agent first, then immutable ids: selection and activity never reorder rows. */
+	static List<AgentRef> stableAgentOrder(List<AgentRef> agents, String defaultId) {
+		ArrayList<AgentRef> ordered = new ArrayList<>(agents);
+		ordered.sort(Comparator
+			.comparing((AgentRef agent) -> !agent.id().equals(defaultId))
+			.thenComparing(AgentRef::id));
+		return List.copyOf(ordered);
 	}
 
 	/** A human display name from an agent id: {@code "bob"} → "Bob", {@code "bob-smith"} → "Bob Smith". */
@@ -777,15 +838,17 @@ public final class BrightSide {
 			private List<SessionHistory.Session> list;
 			private SessionHistory.Snapshot snap;
 			private String vsid;
+			private boolean sessionActive;
 
 			@Override
 			protected Void doInBackground() {
 				list = SessionHistory.sessionsOf(record);
-				// A brand-new chat has no session id until its first reply lands;
-				// adopt it once the session framework mints it.
+				// The send-completion reconciliation normally pins a newly minted id;
+				// this is also a safe fallback for changes made by another client.
 				vsid = (viewedSessionId != null) ? viewedSessionId
 					: (chat != null ? chat.sessionId() : null);
 				snap = (vsid != null) ? SessionHistory.snapshotOf(record, vsid) : null;
+				sessionActive = SessionHistory.isSessionActive(record, vsid);
 				return null;
 			}
 
@@ -794,11 +857,48 @@ public final class BrightSide {
 				sessions = list;
 				if (vsid != null) {
 					viewedSessionId = vsid;
-					if (snap != null) window.refreshConversation(snap.items());
+					if (snap != null) window.refreshConversation(snap.items(), sessionActive);
 				}
 				window.setConversations(list, viewedSessionId);
 			}
 		}.execute();
+	}
+
+	/**
+	 * Reconciles a successful local send directly from its returned session id.
+	 * This is deliberately event-driven: the watcher may have observed the record
+	 * before {@link ChatSession} received the id, so polling alone would make
+	 * selection of the first session timing-dependent.
+	 */
+	public void conversationCommitted(String sessionId) {
+		EmbeddedVenue v = venue;
+		ChatSession expected = chat;
+		String aid = agentId;
+		String did = userDID;
+		if (v == null || expected == null || aid == null || did == null || sessionId == null
+				|| !sessionId.equals(expected.sessionId())) return;
+
+		viewedSessionId = sessionId;
+		Thread t = new Thread(() -> {
+			try {
+				ACell record = v.agentRecord(did, aid);
+				SessionHistory.Snapshot snap = SessionHistory.snapshotOf(record, sessionId);
+				List<SessionHistory.Session> list = SessionHistory.sessionsOf(record);
+				boolean sessionActive = SessionHistory.isSessionActive(record, sessionId);
+				SwingUtilities.invokeLater(() -> {
+					if (chat != expected || !java.util.Objects.equals(agentId, aid)
+							|| !sessionId.equals(expected.sessionId())) return;
+					viewedSessionId = sessionId;
+					sessions = list;
+					if (snap != null) window.refreshConversation(snap.items(), sessionActive);
+					window.setConversations(list, sessionId);
+				});
+			} catch (Exception e) {
+				log.warn("Could not reconcile committed conversation {}: {}", sessionId, e.toString());
+			}
+		}, "brightside-chat-committed");
+		t.setDaemon(true);
+		t.start();
 	}
 
 	/** Switch the chat to a past conversation, reopening its transcript and continuing it. */
@@ -970,7 +1070,7 @@ public final class BrightSide {
 
 	/**
 	 * Window close button. Only stays resident in the tray if the user opted in
-	 * (Settings ▸ System tray ▸ Keep running in tray). By default, closing the
+	 * (Settings → General → System tray). By default, closing the
 	 * window shuts Brightside down cleanly (flushing the venue store).
 	 */
 	public void onWindowClosing() {
@@ -1017,24 +1117,23 @@ public final class BrightSide {
 		viewedSessionId = null;
 		SwingUtilities.invokeLater(() -> {
 			window.clearChat();
-			window.showSystemMessage("Started a new chat.");
 			window.setConversations(sessions, null);
 		});
 	}
 
-	/** Opens the Model &amp; API-key settings (once the venue is up; key storage needs the vault). */
+	/** Opens General settings (once the venue is up). */
 	public void openSettings() {
 		if (venue == null || identity == null || vault == null) {
 			SwingUtilities.invokeLater(() -> window.showSystemMessage("Settings are available once Brightside has started."));
 			return;
 		}
-		SwingUtilities.invokeLater(window::showModelSettings);
+		SwingUtilities.invokeLater(window::showGeneralSettings);
 	}
 
-	/** Opens the Profile tab of Settings (from the user menu). */
+	/** Opens the Identity section of Settings. */
 	public void openProfile() {
 		if (venue == null || identity == null || vault == null) {
-			SwingUtilities.invokeLater(() -> window.showSystemMessage("Your profile is available once Brightside has started."));
+			SwingUtilities.invokeLater(() -> window.showSystemMessage("Your identity is available once Brightside has started."));
 			return;
 		}
 		SwingUtilities.invokeLater(window::showProfileSettings);
@@ -1050,7 +1149,7 @@ public final class BrightSide {
 		RememberedPassphrase.clear(config.home());
 	}
 
-	/** Opens the Access-token minting dialog (Settings ▸ Access token), once the venue is up. */
+	/** Opens the Auth section of Settings, once the venue is up. */
 	public void openAccessToken() {
 		if (venue == null || identity == null || vault == null || venueSeedHex == null) {
 			SwingUtilities.invokeLater(() -> window.showSystemMessage("Access tokens are available once Brightside has started."));
@@ -1059,7 +1158,7 @@ public final class BrightSide {
 		SwingUtilities.invokeLater(window::showAuthSettings);
 	}
 
-	/** Opens the venue's own web dashboard (Advanced menu — a power-user surface). */
+	/** Opens the venue's own web dashboard (Settings → General → Advanced). */
 	public void openDashboard() {
 		EmbeddedVenue v = venue;
 		if (v == null) return;
@@ -1135,14 +1234,21 @@ public final class BrightSide {
 		}
 	}
 
-	/** Logback from the bundled resource, overriding any logback.xml a dependency jar ships. */
-	static void configureLogging() {
+	/** Logback from the bundled resource, rooted beside the active configuration. */
+	static void configureLogging(Path home) {
+		Path logHome = (home != null) ? home.toAbsolutePath().normalize() : AppConfig.HOME;
+		try {
+			Files.createDirectories(logHome.resolve("logs"));
+		} catch (IOException e) {
+			System.err.println("BrightSide: could not create log directory: " + e);
+		}
 		try (InputStream is = BrightSide.class.getResourceAsStream("/brightside/logback.xml")) {
 			if (is == null) return;
 			LoggerContext ctx = (LoggerContext) LoggerFactory.getILoggerFactory();
 			JoranConfigurator configurator = new JoranConfigurator();
 			configurator.setContext(ctx);
 			ctx.reset();
+			ctx.putProperty("brightside.home", logHome.toString());
 			configurator.doConfigure(is);
 		} catch (Exception e) {
 			System.err.println("BrightSide: logging configuration failed: " + e);

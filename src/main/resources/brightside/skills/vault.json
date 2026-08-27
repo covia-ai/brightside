@@ -1,0 +1,18 @@
+{
+  "name": "vault",
+  "description": "Manage files and folders in the owner's personal Brightside vault. Load for private documents, durable vault storage, or reading, creating, updating and deleting vault files.",
+  "content": {
+    "contentType": "text/markdown",
+    "inline": "# Personal file vault\n\nUse the dedicated vault operations for private document files. This capability is separate from account, login and recovery controls.\n\nPaths are relative to the vault; no drive name is needed. List before navigating. `create` refuses replacement, while `write` creates or overwrites; create parent directories first. Read as text, JSON or bytes according to the file. Deleting a non-empty directory uses the operation's recursive option. Report the paths changed.\n"
+  },
+  "skill": {
+    "tools": [
+      "v/ops/vault/list",
+      "v/ops/vault/read",
+      "v/ops/vault/create",
+      "v/ops/vault/write",
+      "v/ops/vault/mkdir",
+      "v/ops/vault/delete"
+    ]
+  }
+}

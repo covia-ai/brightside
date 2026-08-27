@@ -1,0 +1,25 @@
+{
+  "name": "dlfs",
+  "description": "Manage the owner's decentralised lattice filesystem drives: list or create drives, browse, read, write, organise, mount or delete DLFS content. Load when a named drive, replication or WebDAV matters.",
+  "content": {
+    "contentType": "text/markdown",
+    "inline": "# DLFS drives\n\nDLFS provides named, signed, lattice-backed filesystems with convergent merge semantics. Replication and secrecy are different properties.\n\nList drives first. Within a drive, list or tree to navigate; use stat before acting on an uncertain path. `create` refuses replacement, `write` creates or overwrites, and parent directories must exist. Read `v/info/adapters/dlfs/webdav` when asked how to mount a drive.\n\nCreating or deleting a drive changes durable state, and deleting a drive removes all of its contents. Deleting a non-empty directory uses the operation's recursive option. Report the drive and paths changed.\n"
+  },
+  "skill": {
+    "tools": [
+      "v/ops/covia/read",
+      "v/ops/dlfs/list-drives",
+      "v/ops/dlfs/create-drive",
+      "v/ops/dlfs/delete-drive",
+      "v/ops/dlfs/list",
+      "v/ops/dlfs/tree",
+      "v/ops/dlfs/stat",
+      "v/ops/dlfs/read",
+      "v/ops/dlfs/create",
+      "v/ops/dlfs/write",
+      "v/ops/dlfs/append",
+      "v/ops/dlfs/mkdir",
+      "v/ops/dlfs/delete"
+    ]
+  }
+}

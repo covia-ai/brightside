@@ -1,5 +1,6 @@
 package covia.brightside.ui.settings;
 
+import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
@@ -20,38 +21,42 @@ import javax.swing.JPasswordField;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingWorker;
-import javax.swing.UIManager;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
 /**
- * The <b>Profile</b> settings page: your display name (editable, with a dirty-gated
- * Save), your identity DID and public key (read-only, selectable), and the
- * <b>private key</b> (the Ed25519 seed) hidden behind a privacy (eye) toggle.
+ * The <b>Identity</b> settings page: the owner's editable name, stable Covia user
+ * DID, home venue identity and signing key, plus the primary Ed25519 seed hidden
+ * behind passphrase re-authentication and a privacy (eye) toggle.
  */
 @SuppressWarnings("serial")
 public final class ProfilePanel extends SettingsPage {
 
-	/** Actions the profile offers. */
+	/** Actions the identity page offers. */
 	public interface Host {
 		void saveName(String name);
 
-		String revealPrivateKey(char[] passphrase) throws Exception;
+		String revealPrimarySeed(char[] passphrase) throws Exception;
 	}
 
 	private static final String MASK = "•".repeat(64);
 
 	private final Host host;
 	private final JTextField nameField = new JTextField(18);
-	private final JTextArea didV = SettingsUI.selectable("—");
-	private final JTextArea pubV = SettingsUI.selectable("—");
-	private final JTextArea keyField = new JTextArea(1, 40);
+	private final JTextArea userDidV = SettingsUI.technicalValue("—");
+	private final JTextArea venueDidV = SettingsUI.technicalValue("—");
+	private final JTextArea pubV = SettingsUI.technicalValue("—");
+	private final JTextArea seedField = new JTextArea(1, 40);
+	private final ConvexIdenticon userDidIcon = new ConvexIdenticon();
+	private final ConvexIdenticon venueDidIcon = new ConvexIdenticon();
+	private final ConvexIdenticon publicKeyIcon = new ConvexIdenticon();
+	private final ConvexIdenticon seedIcon = new ConvexIdenticon();
 	private final JButton reveal = new JButton();
-	private final JButton copy = new JButton("Copy");
+	private final JButton copySeed = new JButton("Copy");
 	private final EyeIcon eye = new EyeIcon();
 	private String seedHex;
 	private String baselineName = "";
-	private boolean privateKeyAvailable;
+	private boolean seedAvailable;
 	private boolean revealed;
 	private long identityVersion;
 
@@ -61,21 +66,27 @@ public final class ProfilePanel extends SettingsPage {
 		build();
 	}
 
-	/** Refresh with the current identity; hides the private key and re-baselines Save. */
-	public void refresh(String name, String did, String publicKeyHex, boolean privateKeyAvailable) {
+	/** Refresh with the current identity; hides the primary seed and re-baselines Save. */
+	public void refresh(String name, String userDid, String venueDid, String publicKeyHex,
+			boolean seedAvailable) {
 		identityVersion++;
 		baselineName = (name != null) ? name : "";
 		nameField.setText(baselineName);
-		didV.setText(did != null ? did : "—");
+		userDidV.setText(userDid != null ? userDid : "—");
+		venueDidV.setText(venueDid != null ? venueDid : "—");
 		pubV.setText(publicKeyHex != null ? publicKeyHex : "—");
-		this.privateKeyAvailable = privateKeyAvailable;
+		userDidIcon.setPublicKeyHex(publicKeyHex);
+		venueDidIcon.setPublicKeyHex(publicKeyHex);
+		publicKeyIcon.setPublicKeyHex(publicKeyHex);
+		seedIcon.setPublicKeyHex(publicKeyHex);
+		this.seedAvailable = seedAvailable;
 		this.seedHex = null;
 		revealed = false;
 		eye.open = false;
-		keyField.setText(privateKeyAvailable ? MASK : "unavailable");
-		keyField.setCaretPosition(0);
-		reveal.setEnabled(privateKeyAvailable);
-		copy.setEnabled(false);
+		seedField.setText(seedAvailable ? MASK : "unavailable");
+		seedField.setCaretPosition(0);
+		reveal.setEnabled(seedAvailable);
+		copySeed.setEnabled(false);
 		clearNote();
 		updateDirty();
 		repaint();
@@ -91,26 +102,26 @@ public final class ProfilePanel extends SettingsPage {
 			if (!n.isEmpty()) host.saveName(n);
 		});
 
-		keyField.setEditable(false);
-		keyField.setLineWrap(true);
-		keyField.setOpaque(false);
-		keyField.setBorder(null);
-		keyField.setFont(UIManager.getFont("Label.font"));
-		keyField.setText(MASK);
+		seedField.setEditable(false);
+		seedField.setLineWrap(true);
+		seedField.setOpaque(false);
+		seedField.setBorder(null);
+		seedField.setFont(SettingsUI.technicalFont(seedField.getFont()));
+		seedField.setText(MASK);
 
 		reveal.setIcon(eye);
-		reveal.setToolTipText("Show / hide the private key");
+		reveal.setToolTipText("Show / hide the primary Ed25519 seed");
 		reveal.setContentAreaFilled(false);
 		reveal.setBorderPainted(false);
 		reveal.setFocusPainted(false);
 		reveal.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		reveal.addActionListener(e -> toggle());
 
-		copy.putClientProperty("FlatLaf.styleClass", "small");
-		copy.setEnabled(false);
-		copy.setToolTipText("Copy the private key to the clipboard");
-		copy.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		copy.addActionListener(e -> {
+		copySeed.putClientProperty("FlatLaf.styleClass", "small");
+		copySeed.setEnabled(false);
+		copySeed.setToolTipText("Copy the primary seed to the clipboard");
+		copySeed.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		copySeed.addActionListener(e -> {
 			if (seedHex != null) {
 				Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(seedHex), null);
 			}
@@ -119,24 +130,50 @@ public final class ProfilePanel extends SettingsPage {
 		JPanel keyRow = new JPanel();
 		keyRow.setOpaque(false);
 		keyRow.setLayout(new BoxLayout(keyRow, BoxLayout.X_AXIS));
-		keyField.setMaximumSize(new Dimension(360, 60));
-		keyRow.add(keyField);
+		seedField.setMaximumSize(new Dimension(360, 60));
+		keyRow.add(seedIcon);
+		keyRow.add(Box.createHorizontalStrut(8));
+		keyRow.add(seedField);
 		keyRow.add(Box.createHorizontalStrut(8));
 		keyRow.add(reveal);
 		keyRow.add(Box.createHorizontalStrut(4));
-		keyRow.add(copy);
+		keyRow.add(copySeed);
 		keyRow.add(Box.createHorizontalGlue());
 
-		JTextArea warn = SettingsUI.selectable("Your private key is the master secret for this identity — anyone who has "
-			+ "it can act as you. Reveal it only when you must, and never share it. (Your recovery phrase reproduces it too.)");
+		JTextArea warn = SettingsUI.selectable("The primary seed is the master secret for your venue identity — anyone who has "
+			+ "it can act as you and decrypt a copied vault. Reveal it only for recovery or advanced tools, and never share it. "
+			+ "Your recovery phrase reproduces the same seed.");
 		warn.setForeground(new Color(0xE5, 0x8A, 0x3A));
 
-		addDescription("Who you are on the Covia grid.");
-		addField("Name", nameField);
-		addFieldTop("Identity (DID)", didV);
-		addFieldTop("Public key", pubV);
-		addFieldTop("Private key", keyRow);
+		addDescription("Your name is what Brightside and other people call you. Your Covia user DID is the stable "
+			+ "identity peers use; changing your name does not change it. Your home venue controls that identity with "
+			+ "the Ed25519 signing key shown here.");
+		addField("Your name", nameField);
+		addFieldTop("Covia user DID", copyableRow(userDidIcon, userDidV, "Covia user DID"));
+		addFieldTop("Home venue DID", copyableRow(venueDidIcon, venueDidV, "home venue DID"));
+		addFieldTop("Venue signing key", copyableRow(publicKeyIcon, pubV, "Ed25519 venue signing public key"));
+		addFieldTop("Primary seed (Advanced)", keyRow);
 		addSpan(warn, "gaptop 4");
+	}
+
+	private static JPanel copyableRow(ConvexIdenticon identicon, JTextArea value, String subject) {
+		JButton copy = new JButton("Copy");
+		copy.putClientProperty("FlatLaf.styleClass", "small");
+		copy.setToolTipText("Copy the " + subject + " to the clipboard");
+		copy.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		copy.addActionListener(e -> {
+			String text = value.getText();
+			if (text != null && !text.isBlank() && !"—".equals(text)) {
+				Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(text), null);
+			}
+		});
+
+		JPanel row = new JPanel(new BorderLayout(8, 0));
+		row.setOpaque(false);
+		row.add(identicon, BorderLayout.WEST);
+		row.add(value, BorderLayout.CENTER);
+		row.add(copy, BorderLayout.EAST);
+		return row;
 	}
 
 	private void updateDirty() {
@@ -146,14 +183,14 @@ public final class ProfilePanel extends SettingsPage {
 
 	private void toggle() {
 		if (revealed) {
-			hidePrivateKey();
+			hidePrimarySeed();
 			return;
 		}
-		if (!privateKeyAvailable) return;
+		if (!seedAvailable) return;
 
 		JPasswordField passphrase = new JPasswordField(24);
 		int choice = JOptionPane.showConfirmDialog(this, passphrase,
-			"Enter your Brightside passphrase to reveal the private key",
+			"Enter your Brightside passphrase to reveal the primary seed",
 			JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
 		if (choice != JOptionPane.OK_OPTION) return;
 		char[] entered = passphrase.getPassword();
@@ -162,32 +199,32 @@ public final class ProfilePanel extends SettingsPage {
 		long version = identityVersion;
 
 		reveal.setEnabled(false);
-		copy.setEnabled(false);
+		copySeed.setEnabled(false);
 		setNote("Checking your passphrase…", false);
 		new SwingWorker<String, Void>() {
 			@Override
 			protected String doInBackground() throws Exception {
-				return host.revealPrivateKey(entered);
+				return host.revealPrimarySeed(entered);
 			}
 
 			@Override
 			protected void done() {
 				java.util.Arrays.fill(entered, '\0');
-				if (identityVersion != version || !privateKeyAvailable) {
-					hidePrivateKey();
-					reveal.setEnabled(privateKeyAvailable);
+				if (identityVersion != version || !seedAvailable) {
+					hidePrimarySeed();
+					reveal.setEnabled(seedAvailable);
 					return;
 				}
-				reveal.setEnabled(privateKeyAvailable);
+				reveal.setEnabled(seedAvailable);
 				try {
 					seedHex = get();
 					revealed = true;
 					eye.open = true;
-					keyField.setText(seedHex);
-					copy.setEnabled(true);
-					setNote("Private key revealed for this session only.", false);
+					seedField.setText(seedHex);
+					copySeed.setEnabled(true);
+					setNote("Primary seed revealed for this session only.", false);
 				} catch (Exception e) {
-					hidePrivateKey();
+					hidePrimarySeed();
 					setNote("That passphrase didn't unlock this identity.", true);
 				}
 				repaint();
@@ -195,13 +232,13 @@ public final class ProfilePanel extends SettingsPage {
 		}.execute();
 	}
 
-	private void hidePrivateKey() {
+	private void hidePrimarySeed() {
 		seedHex = null;
 		revealed = false;
 		eye.open = false;
-		keyField.setText(privateKeyAvailable ? MASK : "unavailable");
-		keyField.setCaretPosition(0);
-		copy.setEnabled(false);
+		seedField.setText(seedAvailable ? MASK : "unavailable");
+		seedField.setCaretPosition(0);
+		copySeed.setEnabled(false);
 		repaint();
 	}
 
@@ -210,10 +247,15 @@ public final class ProfilePanel extends SettingsPage {
 		identityVersion++;
 		baselineName = "";
 		nameField.setText("");
-		privateKeyAvailable = false;
-		hidePrivateKey();
-		didV.setText("—");
+		seedAvailable = false;
+		hidePrimarySeed();
+		userDidV.setText("—");
+		venueDidV.setText("—");
 		pubV.setText("—");
+		userDidIcon.setPublicKeyHex(null);
+		venueDidIcon.setPublicKeyHex(null);
+		publicKeyIcon.setPublicKeyHex(null);
+		seedIcon.setPublicKeyHex(null);
 		clearNote();
 		updateDirty();
 	}

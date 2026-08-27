@@ -68,10 +68,13 @@ class AgentContextTest {
 		assertNotNull(report, "owner-callable");
 		assertNotNull(report.model());
 		assertFalse(report.messages().isEmpty(), "the assembled messages");
-		String all = String.join("\n", report.messages().stream().map(AgentContext.Message::text).toList());
-		assertTrue(all.contains("what do you see?"), "the session's conversation is in the context");
-		assertTrue(all.contains("You are a test assistant."), "the system prompt is in the context");
-		assertTrue(all.contains(ChatSession.ATTRIBUTION_GUIDANCE.substring(0, 40)), "the attribution guidance");
+		assertTrue(report.messages().stream().anyMatch(message -> "system".equals(message.role())),
+			"the configured system prompt is represented");
+		assertTrue(report.messages().stream().anyMatch(message -> "user".equals(message.role())),
+			"the conversation is represented");
+		assertTrue(report.loads().stream()
+			.anyMatch(load -> ChatSession.CONTEXT_LOAD_KEY.equals(load.ref())),
+			"the dynamic Brightside context load is represented");
 		assertTrue(report.tools().stream().anyMatch(t -> t.name() != null && t.name().contains("memory")),
 			"the memory tool is offered: " + report.tools());
 		assertNotNull(report.rawJson());

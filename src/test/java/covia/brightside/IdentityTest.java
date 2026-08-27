@@ -67,22 +67,26 @@ class IdentityTest {
 	@Test
 	void savesAndReloadsRoundTrip() throws IOException {
 		assertNull(Identity.load(home), "no identity yet");
-		Identity id = Identity.of("Mike Smith");
+		Identity id = Identity.of("Mike Smith").withVenueDID("did:key:z6MkMike");
 		id.save(home);
 		Identity reloaded = Identity.load(home);
 		assertNotNull(reloaded);
 		assertEquals(id, reloaded);
 		assertEquals("Mike Smith", reloaded.name(), "display case survives a round trip");
 		assertEquals("mike-smith", reloaded.slug());
+		assertEquals("did:key:z6MkMike:u:mike-smith", reloaded.did());
+		assertTrue(java.nio.file.Files.readString(home.resolve(Identity.FILE_NAME))
+			.contains("did:key:z6MkMike:u:mike-smith"));
 	}
 
 	@Test
 	void renamingKeepsThePrincipal() throws IOException {
-		Identity mike = Identity.of("Mike");
+		Identity mike = Identity.of("Mike").withVenueDID("did:key:z6MkMike");
 		Identity michael = mike.withName("Michael Anderson");
 		assertEquals("Michael Anderson", michael.name(), "the display name changes");
 		assertEquals("mike", michael.slug(), "the slug — and so the DID, agent and memory — does not");
-		assertEquals(mike.userDID("did:x"), michael.userDID("did:x"));
+		assertEquals("did:key:z6MkMike:u:mike", michael.did());
+		assertEquals(mike.userDID("did:key:z6MkMike"), michael.userDID("did:key:z6MkMike"));
 		assertThrows(IllegalArgumentException.class, () -> mike.withName("   "));
 
 		// The pinned slug survives a save/load round trip.
@@ -91,6 +95,13 @@ class IdentityTest {
 		assertNotNull(reloaded);
 		assertEquals("Michael Anderson", reloaded.name());
 		assertEquals("mike", reloaded.slug());
+	}
+
+	@Test
+	void savedDidPinsTheIdentityToItsHomeVenue() {
+		Identity id = Identity.of("Mike").withVenueDID("did:key:z6MkMike");
+		assertEquals("did:key:z6MkMike:u:mike", id.userDID("did:key:z6MkMike"));
+		assertThrows(IllegalStateException.class, () -> id.userDID("did:key:z6MkOther"));
 	}
 
 	@Test
@@ -105,6 +116,14 @@ class IdentityTest {
 	@Test
 	void loadReturnsNullOnGarbage() throws IOException {
 		java.nio.file.Files.writeString(home.resolve(Identity.FILE_NAME), "not json at all {");
+		assertNull(Identity.load(home));
+	}
+
+	@Test
+	void loadRejectsDidThatDoesNotMatchTheSavedSlug() throws IOException {
+		java.nio.file.Files.writeString(home.resolve(Identity.FILE_NAME), """
+			{"name":"Mike", "slug":"mike", "did":"did:key:z6MkMike:u:someone-else"}
+			""");
 		assertNull(Identity.load(home));
 	}
 }

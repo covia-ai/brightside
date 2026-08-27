@@ -1,0 +1,14 @@
+{
+  "name": "convex-lattice",
+  "description": "Explain the Convex lattice beneath Brightside: CAD3 values, hashes, immutable snapshots, mutable cursors, CRDT merge, signed ownership, replication and how this differs from blockchain consensus.",
+  "content": {
+    "contentType": "text/markdown",
+    "inline": "# Convex lattice\n\nThe Convex lattice is a typed convergent state model. Values use canonical CAD3 encodings and content hashes, forming immutable Merkle-DAG snapshots. Mutable paths are cursors to a current immutable value; changing a path creates new values rather than mutating an old snapshot. That is why equal lattice values are cheap to compare and immutable references are reproducible.\n\nEach lattice node defines its own merge rule: maps merge by key, indexes retain keyed histories, and last-writer or owner-aware nodes resolve competing updates according to their type and signed context. A valid merge is deterministic, associative, commutative and idempotent, so replicas can converge without a global transaction order. Ownership and capability checks decide which updates are acceptable; convergence alone is not authorisation.\n\nCovia lays its users, workspaces, agents, jobs, assets and virtual namespaces over this model. DLFS uses specialised lattice nodes for file trees. This off-chain replicated state is distinct from Convex consensus, which is needed only where a globally ordered on-chain decision is required. Etch is one way to persist a lattice replica; it does not define the merge semantics.\n"
+  },
+  "skill": {
+    "tools": [
+      "v/ops/covia/inspect",
+      "v/ops/covia/read"
+    ]
+  }
+}

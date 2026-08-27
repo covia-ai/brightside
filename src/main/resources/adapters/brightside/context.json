@@ -1,0 +1,19 @@
+{
+	"name": "Brightside Context",
+	"description": "Assembles read-only runtime context for a Brightside chat agent from the authenticated owner and configured model route.",
+	"operation": {
+		"adapter": "brightside:context",
+		"readOnly": true,
+		"input": {
+			"type": "object",
+			"properties": {
+				"userName": { "type": "string", "maxLength": 200 },
+				"modelOperation": { "type": "string", "maxLength": 500 }
+			},
+			"additionalProperties": false
+		},
+		"output": {
+			"type": "string"
+		}
+	}
+}

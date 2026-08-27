@@ -88,12 +88,13 @@ public final class AppConfig {
 			// The embedded Covia venue. Any Covia venue config key is accepted here
 			// and replaces Brightside's default for that key. Defaults: bound to
 			// 127.0.0.1, encrypted persistent store at ~/.brightside/venue.etch,
-			// anonymous access disabled, users auto-created, MCP endpoint enabled.
+			// anonymous access disabled, users auto-created, MCP endpoint enabled,
+			// plus confined files (writable) and logs (read-only) roots.
 			"venue": {
 				"name": "Brightside",
 				"port": 8085
 				// Model API keys do NOT belong in this file. Enter them in the app
-				// (File → Model & API key…) — they are stored encrypted in the vault
+				// (Settings → Model) — they are stored encrypted in the vault
 				// and provisioned into the encrypted venue store at launch. Exporting
 				// e.g. ANTHROPIC_API_KEY before launching also works.
 			},
@@ -104,7 +105,7 @@ public final class AppConfig {
 				"agentId": "brightside",
 				"operation": "v/ops/llmagent/chat",
 				// Model operation used for replies. The model chosen in the app
-				// (onboarding or File → Model & API key…) is kept in model.txt
+				// (onboarding or Settings → Model) is kept in model.txt
 				// beside this file and takes precedence over this key.
 				// Use "v/test/ops/llm" for an offline echo bot.
 				"llmOperation": "v/models/anthropic/claude-sonnet-5",
@@ -192,6 +193,8 @@ public final class AppConfig {
 
 	/** BrightSide's venue defaults for a given data directory. */
 	public static AMap<AString, ACell> defaultVenue(Path home) {
+		Path files = ensureDirectory(home.resolve("files"));
+		Path logs = ensureDirectory(home.resolve("logs"));
 		return Maps.of(
 			Fields.NAME, DEFAULT_VENUE_NAME,
 			Fields.HOSTNAME, "localhost",
@@ -205,8 +208,30 @@ public final class AppConfig {
 			// This is a private personal venue: HTTP and MCP require authentication.
 			Config.AUTH, Maps.of(Config.PUBLIC, Maps.of(Config.ENABLED, false)),
 			Config.ALLOW_PRIVATE_NETWORK, true,
+			// Confined host-file roots: a durable area Brightside may manage and a
+			// server-enforced read-only view of its operational logs.
+			Config.FILE, Maps.of(Config.ROOTS, Maps.of(
+				"files", Maps.of(
+					"path", files.toString(),
+					"description", "Brightside-managed local files"),
+				"logs", Maps.of(
+					"path", logs.toString(),
+					Config.READ_ONLY, true,
+					"description", "Brightside operational logs (read-only)"))),
 			// MCP endpoint so local agent tooling can connect to the venue.
 			Fields.MCP, Maps.of());
+	}
+
+	/** Creates an app-owned file root without making configuration failure fatal. */
+	private static Path ensureDirectory(Path path) {
+		Path normal = path.toAbsolutePath().normalize();
+		try {
+			return Files.createDirectories(normal);
+		} catch (IOException e) {
+			// FileAdapter will skip a missing root and report it in the venue log.
+			log.warn("Could not create Brightside file directory {}", normal, e);
+			return normal;
+		}
 	}
 
 	/** Shallow merge: every key in {@code over} replaces the same key in {@code base}. */

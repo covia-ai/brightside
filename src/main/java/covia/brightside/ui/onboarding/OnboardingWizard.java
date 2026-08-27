@@ -15,10 +15,8 @@ import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
-import javax.swing.DefaultComboBoxModel;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
-import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -33,6 +31,8 @@ import javax.swing.event.DocumentListener;
 import covia.brightside.Identity;
 import covia.brightside.model.Providers;
 import covia.brightside.ui.Icons;
+import covia.brightside.ui.LAF;
+import covia.brightside.ui.ModelSelector;
 import covia.brightside.vault.Mnemonic;
 
 /**
@@ -81,8 +81,7 @@ public final class OnboardingWizard extends JPanel {
 	private final JTextArea importArea = new JTextArea(3, 30);
 	private final JLabel importStatus = OnboardingUI.caption(" ");
 	private final JTextField nameField = new JTextField(16);
-	private final JComboBox<Providers.Provider> providerCombo = new JComboBox<>();
-	private final JComboBox<Providers.Model> modelCombo = new JComboBox<>();
+	private final ModelSelector modelSelector = new ModelSelector();
 	private final JPasswordField keyField = new JPasswordField(30);
 	private final JLabel keyLink = OnboardingUI.link("Get an API key →", Providers.defaultProvider().consoleUrl());
 	private final JRadioButton useKey = new JRadioButton("Use my own model provider", true);
@@ -307,21 +306,14 @@ public final class OnboardingWizard extends JPanel {
 		g.add(useKey);
 		g.add(useOffline);
 
-		providerCombo.setModel(new DefaultComboBoxModel<>(Providers.ALL.toArray(new Providers.Provider[0])));
-		providerCombo.setRenderer(comboRenderer(p -> ((Providers.Provider) p).label()));
-		modelCombo.setRenderer(comboRenderer(m -> ((Providers.Model) m).label()));
-		providerCombo.addActionListener(e -> onProviderChanged());
+		modelSelector.addSelectionListener(this::onProviderChanged);
 		onProviderChanged();
 		big(keyField);
+		keyField.setFont(LAF.monospaced(keyField.getFont()));
 		keyField.putClientProperty("JTextField.placeholderText", "Paste your API key");
 
-		JPanel picker = new JPanel();
-		picker.setOpaque(false);
-		picker.setLayout(new BoxLayout(picker, BoxLayout.X_AXIS));
-		picker.setAlignmentX(CENTER_ALIGNMENT);
-		picker.add(labelledInline("Provider", providerCombo));
-		picker.add(Box.createHorizontalStrut(14));
-		picker.add(labelledInline("Model", modelCombo));
+		modelSelector.setAlignmentX(CENTER_ALIGNMENT);
+		modelSelector.setMaximumSize(new Dimension(420, modelSelector.getPreferredSize().height));
 
 		JPanel keyBox = new JPanel();
 		keyBox.setOpaque(false);
@@ -336,7 +328,7 @@ public final class OnboardingWizard extends JPanel {
 
 		c.add(useKey);
 		c.add(Box.createVerticalStrut(12));
-		c.add(picker);
+		c.add(modelSelector);
 		c.add(Box.createVerticalStrut(12));
 		c.add(keyBox);
 		c.add(Box.createVerticalStrut(16));
@@ -466,7 +458,8 @@ public final class OnboardingWizard extends JPanel {
 		String name = nameField.getText().trim();
 		boolean offline = useOffline.isSelected();
 		String provider = offline ? null : providerId();
-		String model = offline ? null : ((Providers.Model) modelCombo.getSelectedItem()).id();
+		Providers.Model selectedModel = modelSelector.selectedModel();
+		String model = offline || selectedModel == null ? null : selectedModel.id();
 		String apiKey = (offline || keyField.getPassword().length == 0) ? null : new String(keyField.getPassword());
 		listener.onComplete(new Setup(passphrase, seedHex, name, provider, model, apiKey));
 	}
@@ -514,9 +507,8 @@ public final class OnboardingWizard extends JPanel {
 	}
 
 	private void onProviderChanged() {
-		Providers.Provider p = (Providers.Provider) providerCombo.getSelectedItem();
+		Providers.Provider p = modelSelector.selectedProvider();
 		if (p == null) return;
-		modelCombo.setModel(new DefaultComboBoxModel<>(p.models().toArray(new Providers.Model[0])));
 		keyLink.setText("<html><a href=''>Get a " + p.label() + " key →</a></html>");
 		for (var l : keyLink.getMouseListeners()) keyLink.removeMouseListener(l);
 		keyLink.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -532,17 +524,16 @@ public final class OnboardingWizard extends JPanel {
 	}
 
 	private void setKeyEnabled(boolean on) {
-		Providers.Provider p = (Providers.Provider) providerCombo.getSelectedItem();
+		Providers.Provider p = modelSelector.selectedProvider();
 		boolean needsKey = on && p != null && p.needsApiKey();
 		keyField.setEnabled(on);
-		providerCombo.setEnabled(on);
-		modelCombo.setEnabled(on);
+		modelSelector.setEnabled(on);
 		keyField.setVisible(needsKey);
 		keyLink.setVisible(needsKey);
 	}
 
 	private String providerId() {
-		Providers.Provider p = (Providers.Provider) providerCombo.getSelectedItem();
+		Providers.Provider p = modelSelector.selectedProvider();
 		return (p != null) ? p.id() : Providers.defaultProvider().id();
 	}
 
@@ -586,29 +577,6 @@ public final class OnboardingWizard extends JPanel {
 		row.add(Box.createVerticalStrut(4));
 		row.add(field);
 		return row;
-	}
-
-	private static JPanel labelledInline(String labelText, JComponent field) {
-		JPanel row = new JPanel();
-		row.setOpaque(false);
-		row.setLayout(new BoxLayout(row, BoxLayout.Y_AXIS));
-		JLabel l = OnboardingUI.caption(labelText);
-		l.setAlignmentX(Component.LEFT_ALIGNMENT);
-		field.setAlignmentX(Component.LEFT_ALIGNMENT);
-		field.setMaximumSize(new Dimension(190, field.getPreferredSize().height + 6));
-		row.add(l);
-		row.add(Box.createVerticalStrut(4));
-		row.add(field);
-		return row;
-	}
-
-	private static javax.swing.ListCellRenderer<Object> comboRenderer(java.util.function.Function<Object, String> text) {
-		javax.swing.DefaultListCellRenderer base = new javax.swing.DefaultListCellRenderer();
-		return (list, value, index, selected, focus) -> {
-			Component comp = base.getListCellRendererComponent(list, value, index, selected, focus);
-			if (value != null && comp instanceof JLabel jl) jl.setText(text.apply(value));
-			return comp;
-		};
 	}
 
 	/** A DocumentListener whose three methods collapse to one callback. */

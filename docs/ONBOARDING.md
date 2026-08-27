@@ -17,7 +17,7 @@ things true without ever feeling like a crypto tutorial:
 
 Guiding rule (see `DESIGN.md`): the everyday flow is warm and jargon-free; the
 crypto is *felt* (it's yours, it's private, you have a recovery phrase), not
-explained. Every technical surface stays reachable under **Advanced**.
+explained. Every technical surface stays reachable under **Settings**.
 
 ---
 
@@ -31,16 +31,17 @@ Everything is under `~/.brightside/` (the data directory).
 | `vault.salt` | 16 random bytes | not secret (Argon2 salt) |
 | `identity.enc` | the 32-byte Ed25519 **seed**, encrypted | **Encrypted** (AES-GCM) with the passphrase key |
 | `keys.enc` | model-provider credentials | **Encrypted** (AES-GCM) with the passphrase key |
-| `unlock.enc` | optional remembered passphrase | convenience only; see the threat-model warning below |
-| `identity.json` | the chosen display name (`u:<name>`) | plaintext, not sensitive |
+| `unlock.passphrase` | optional remembered passphrase | **Plaintext**, after explicit user opt-in; relies on OS-account and filesystem protection |
+| `identity.json` | display name, stable slug and full Covia user DID | plaintext public recovery metadata; back it up |
 | `config.json` | theme, venue name/port, chosen **model** | plaintext, **no secrets** |
 | `skills/` | filesystem skills (agentskills.io) | plaintext (the user's own) |
 | `logs/` | app logs | plaintext |
 
-There is **no plaintext key and no plaintext API key on disk.** Brightside has no
-plaintext legacy mode: the seed is encrypted at rest in `identity.enc`, and API
-keys are encrypted in `keys.enc` then provisioned into the running venue's public
-secret scope in memory.
+There is **no plaintext identity seed and no plaintext API key on disk.**
+Brightside has no plaintext-vault legacy mode: the seed is encrypted at rest in
+`identity.enc`, and API keys are encrypted in `keys.enc` then provisioned into
+the running venue's public secret scope in memory. If the user explicitly enables
+remembered unlock, `unlock.passphrase` is the documented exception.
 
 ### The key hierarchy
 
@@ -65,10 +66,10 @@ the signing identity from the store-encryption key is tracked in
   passphrase or recovery phrase.
 - **Recovery:** the BIP39 phrase restores the identity and can reopen a retained
   encrypted store, but it does **not** restore vault contents from a lost disk.
-- **Remember me:** `unlock.enc` currently uses a key derived from non-secret
-  local identifiers. It prevents casual plaintext disclosure, not access by
-  software running as the same OS user or a sufficiently complete copied
-  profile. It is opt-in and its OS-backed replacement is tracked in issue #5.
+- **Remember me:** `unlock.passphrase` stores the passphrase as plaintext after
+  explicit opt-in. Anyone who can read it can unlock the vault. Brightside relies
+  on the trusted OS account and filesystem permissions and makes no additional
+  security claim for this convenience feature.
 - **Does not protect:** a compromised running process, keyloggers, or a weak
   passphrase (hence Argon2id, not PBKDF2). Loopback-only venue; the only thing
   that leaves the machine is the model call the user asked for.
@@ -276,8 +277,8 @@ On Continue: derive the Ed25519 seed, encrypt it with the *seed key* → write
 
 ## 5. Settings — model provider & API key
 
-Reachable from **Settings** (a first-class menu, and a gear in the status bar).
-Same widget as 3.4, pre-filled with the current provider/model. Non-modal.
+Reachable from the persistent **Settings** tab, then **Model**. Same widget as
+3.4, pre-filled with the current provider/model. Non-modal.
 
 ```
                         Model & API key

@@ -1,0 +1,9 @@
+{
+  "name": "writing",
+  "description": "Draft and revise emails, documents, messages and other prose. Load for writing, editing, rewriting, tone, structure or house style.",
+  "content": {
+    "contentType": "text/markdown",
+    "inline": "# Writing\n\nStart from the person's purpose, audience and constraints. Use relevant style\npreferences from memory. If the request is sufficiently clear, draft immediately\ninstead of making the person answer a questionnaire. Mark genuine assumptions or\nplaceholders plainly.\n\nFor a new draft, lead with the useful content and make it ready to send or paste.\nFor an edit, preserve the intended meaning while improving clarity, structure and\ntone; do not silently introduce new factual claims. Match the requested register\nand the person's established voice rather than defaulting to generic corporate\nprose.\n\nKeep explanation separate from the deliverable and proportionate to the request.\nNever claim to have read or changed a file that is not actually available; ask\nfor the text or access when it is needed.\n"
+  },
+  "skill": {}
+}

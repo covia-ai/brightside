@@ -41,7 +41,7 @@ public final class NavBar extends JPanel {
 
 	private final Listener listener;
 	private final List<Item> items = new ArrayList<>();
-	private Tab active = Tab.SESSIONS;
+	private Tab active = Tab.HOME;
 
 	public NavBar(Listener listener) {
 		super(new GridBagLayout()); // centres the row of items
@@ -90,9 +90,9 @@ public final class NavBar extends JPanel {
 			this.label = label;
 			setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 			setToolTipText(switch (tab) {
-				case HOME -> "Plain chat";
+				case HOME -> "Start a new chat";
 				case SESSIONS -> "Chat with the agents and conversations panel";
-				case SETTINGS -> "Model, profile, vault and auth settings";
+				case SETTINGS -> "Model, identity, vault and auth settings";
 			});
 			setPreferredSize(new Dimension(66, 48));
 			setMaximumSize(new Dimension(66, 48));

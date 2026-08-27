@@ -9,25 +9,32 @@ working default for anything you omit.
 | Path | What it is |
 |---|---|
 | `~/.brightside/config.json` | Settings (JSON5 — comments allowed). Hand-edited. |
-| `~/.brightside/identity.json` | Your name, kept apart so choosing a name never rewrites your settings. |
+| `~/.brightside/identity.json` | Your name, stable slug and full Covia user DID, kept apart so identity changes never rewrite settings. |
 | `~/.brightside/venue.etch` | The encrypted lattice store: conversations, memory, skills, agent state. |
 | `~/.brightside/vault.salt` | The non-secret salt for passphrase hardening. |
 | `~/.brightside/identity.enc` | The AES-GCM-encrypted Ed25519 identity seed. |
 | `~/.brightside/keys.enc` | Provider API keys encrypted under the passphrase-derived key. |
-| `~/.brightside/unlock.enc` | Optional remembered unlock material; see the warning in Settings → Vault. |
-| `~/.brightside/logs/` | Logs. |
+| `~/.brightside/unlock.passphrase` | Optional remembered passphrase, stored as plaintext after explicit opt-in; exclude it from ordinary vault backups. |
+| `~/.brightside/files/` | Brightside-managed local files; exposed to the assistant as the confined writable `files` root. |
+| `~/.brightside/logs/` | Plaintext rolling logs; exposed to the assistant as the server-enforced read-only `logs` root. |
 
 Back up the whole directory as one unit. To reset Brightside completely, remove
 the whole data directory while Brightside is stopped. There is no supported
 plaintext or unencrypted legacy-install mode.
 
-*Advanced → Open settings file* opens `config.json` in your editor; *Advanced →
-Open logs folder* opens the log directory. Changes to the file take effect on
-restart.
+If remembered unlock is enabled, omit `unlock.passphrase` from a normal backup:
+putting the plaintext passphrase beside the encrypted vault defeats the backup's
+passphrase protection. Include it only when the backup itself has equivalent
+access controls and that trade-off is intentional.
+
+*Settings → General → Open settings file* opens `config.json` in your editor;
+*Open logs folder* on the same page opens the log directory. Changes to the file
+take effect on restart.
 
 Running `java -jar target/brightside.jar path/to/config.json` uses a specific
 configuration file instead, and that file's directory becomes the data
-directory — handy for keeping several independent agents side by side.
+directory — including its `files/` and `logs/` roots — handy for keeping several
+independent agents side by side.
 
 ## The file
 
@@ -83,7 +90,7 @@ restarts and across configuration changes.
 | `agentId` | The agent's id under your namespace — `<venueDID>:u:<name>/g/<agentId>`. |
 | `operation` | The transition operation driving each turn. Default `v/ops/llmagent/chat`. |
 | `llmOperation` | The model operation. Default `v/models/anthropic/claude-sonnet-5`. |
-| `systemPrompt` | Deliberately small: identity, tone, pointers. Detail belongs in skills. |
+| `systemPrompt` | The assistant's identity, role and tone. Dynamic owner/model context comes from Brightside's read-only context operation; task detail belongs in on-demand skills. |
 | `timeout` | Seconds to wait for a reply before giving up. |
 
 ## Model API keys
@@ -121,17 +128,33 @@ u:<name>                                  the principal
 <venueDID>:u:<name>/g/brightside          your agent
 ```
 
+Here `<name>` is the stable, DID-safe slug chosen on first setup, not the
+editable display spelling. `identity.json` records both forms and pins the full
+user DID once the home venue first launches:
+
+```json
+{
+  "name": "Mike Anderson",
+  "slug": "mike-anderson",
+  "did": "did:key:z…:u:mike-anderson"
+}
+```
+
 Chatting as a distinct user rather than as the venue itself is what makes the
 venue attribute turns to the agent's *owner* — you — instead of to "the venue
-operator". You only ever see the name; the technical identity is in **Help →
-About**. Change it any time with **File → Change my name…**.
+operator". The everyday UI uses your name; the full user DID, home venue DID and
+Ed25519 signing public key are available under **Settings → Identity**. General
+runtime details are under **Settings → General → About**. Change the name from
+**Settings → General → Change name…**; the saved slug keeps the DID stable
+across renames.
 
 ## Reaching the venue from other tools
 
 The venue speaks HTTP, MCP and A2A on loopback. Anonymous access is disabled, so
-you need a token. *Settings → Auth* mints a short-lived operator token without
-writing it to disk. Advanced tools that need a different subject can use the
-passphrase-gated identity-seed export under *Settings → Profile* and the
+you need a token. *Settings → Auth* mints a short-lived token either for the
+current named user (the default) or the venue operator (advanced), without
+writing it to disk. Tools that need a different subject can use the
+passphrase-gated identity-seed export under *Settings → Identity* and the
 Covia/Convex SDK. Set the token's `sub` to the venue DID to act as the operator,
 or to `<venueDID>:u:<name>` to act as your local user — local principals have no
 key of their own, so a venue-signed token is how they authenticate off-process.

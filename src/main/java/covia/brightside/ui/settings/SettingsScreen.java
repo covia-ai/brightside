@@ -19,15 +19,15 @@ import javax.swing.UIManager;
 import java.awt.CardLayout;
 
 /**
- * The <b>Settings</b> screen: a vertical section nav on the left (Model, Profile,
- * Vault, Auth) selecting the content shown on the right. One consistent place for
- * a skilled user to find and configure what they need.
+ * The <b>Settings</b> screen: a vertical section nav on the left (General,
+ * Model, Identity, Vault, Auth) selecting the content shown on the right. One
+ * consistent place to find application actions and configuration.
  */
 @SuppressWarnings("serial")
 public final class SettingsScreen extends JPanel {
 
 	public enum Tab {
-		MODEL("Model"), PROFILE("Profile"), VAULT("Vault"), AUTH("Auth");
+		GENERAL("General"), MODEL("Model"), PROFILE("Identity"), VAULT("Vault"), AUTH("Auth");
 
 		final String label;
 
@@ -44,19 +44,22 @@ public final class SettingsScreen extends JPanel {
 	private final CardLayout cards = new CardLayout();
 	private final JPanel content = new JPanel(cards);
 	private final JList<Tab> nav = new JList<>(Tab.values());
+	private final GeneralPanel general;
 	private final ModelPanel model;
 	private final ProfilePanel profile;
 	private final VaultPanel vault;
 	private final AuthPanel auth;
 
-	public SettingsScreen(ModelPanel model, ProfilePanel profile, VaultPanel vault, AuthPanel auth) {
+	public SettingsScreen(GeneralPanel general, ModelPanel model, ProfilePanel profile, VaultPanel vault, AuthPanel auth) {
 		super(new BorderLayout());
+		this.general = general;
 		this.model = model;
 		this.profile = profile;
 		this.vault = vault;
 		this.auth = auth;
 
 		content.setOpaque(false);
+		content.add(general, Tab.GENERAL.name());
 		content.add(model, Tab.MODEL.name());
 		content.add(profile, Tab.PROFILE.name());
 		content.add(vault, Tab.VAULT.name());
@@ -89,6 +92,10 @@ public final class SettingsScreen extends JPanel {
 
 	public ModelPanel model() {
 		return model;
+	}
+
+	public GeneralPanel general() {
+		return general;
 	}
 
 	public ProfilePanel profile() {

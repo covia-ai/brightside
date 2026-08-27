@@ -1,0 +1,15 @@
+{
+  "name": "vault-drives-files",
+  "description": "Work with files, folders, documents, the personal vault, DLFS drives, WebDAV or local disk roots. Load to choose the right storage and reveal the focused vault, dlfs or files skill.",
+  "content": {
+    "contentType": "text/markdown",
+    "inline": "# Vault, drives and files\n\nChoose one child and load only that one:\n\n- **vault** — the personal document vault. Use for durable private files.\n- **dlfs** — named, signed lattice drives with merge and WebDAV support. Use when drive identity, replication or mounting matters.\n- **files** — configured local, temporary or DLFS-backed roots. Use for ordinary file management and exchange with desktop tools.\n\nStructured queryable state belongs in `w/`, not a file. Discover the available file roots from the harness instead of assuming a host path.\n"
+  },
+  "skill": {
+    "skills": [
+      "v/skills/brightside/vault-drives-files/vault",
+      "v/skills/brightside/vault-drives-files/dlfs",
+      "v/skills/brightside/vault-drives-files/files"
+    ]
+  }
+}

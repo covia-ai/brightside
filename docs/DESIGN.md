@@ -32,7 +32,8 @@ The power underneath is real — keep it reachable for those who want it, just n
 in the way.
 
 - Technical surfaces (the web dashboard, the identity/DID, the local URL, the
-  settings file, logs) live under an **Advanced** menu and the **About** box.
+  settings file and logs) live in **Settings**, with desktop tools and **About**
+  on the **General** page.
 - That's where a curious or technical user can pull back the curtain and see the
   venue, the grid, the DID. The everyday user never has to.
 
@@ -42,25 +43,34 @@ in the way.
   principal `u:<slug>`; the user only ever sees the name. The slug is fixed
   once chosen — changing the name later never changes *which* assistant (and
   memory, and skills) they are talking to.
-- Store the name in `~/.brightside/identity.json`, apart from the hand-edited
-  `config.json`, so choosing a name never rewrites their settings.
+- Store the name, stable slug and full Covia user DID in
+  `~/.brightside/identity.json`, apart from the hand-edited `config.json`, so
+  choosing a name never rewrites settings and the public identity is explicit
+  recovery metadata.
 
 ## 5. The assistant itself
 
-- Behaviour and knowledge that shape the assistant belong in **Covia skills**
-  (e.g. the `introduction` skill), not hard-coded prose — it shows the platform
-  off and keeps the persona editable as data.
+- Optional behaviour and working methods belong in discoverable **Covia
+  skills**, including the on-demand `introduction` skill. No shipped skill is
+  pinned by default; precise descriptions determine when each one loads.
 - Give the assistant a **memory** (`n/memory`) so it feels like *their*
   assistant across sessions. It should remember quietly and never narrate the
   mechanics.
-- The system prompt stays small: identity, tone, and pointers to skills and
-  memory. Detail lives in skills.
-- **It can grow.** The assistant can author its own skills into `w/skills` —
+- The configured system prompt owns the assistant's identity and role. Dynamic
+  owner/product facts are assembled by the read-only `brightside:context`
+  operation through a non-skill `config.loads` entry. Task detail lives in
+  skills.
+- **It can grow.** The assistant can create, refine and remove its own skills in `w/skills` —
   that's how it "upgrades" itself. Expose the ability the way a good product
-  gates power: a always-present *skills* skill explains growing abilities and
+  gates power: an on-demand *skills* skill explains growing abilities and
   reveals a *skill-authoring* sub-skill, which is the only thing that grants the
-  write tool. So self-improvement is possible and discoverable, but the ability
-  to write isn't loaded until the assistant deliberately reaches for it.
+  write tool and a Brightside operation restricted to deleting one named skill.
+  So self-improvement is possible, discoverable and reversible, but the ability
+  to mutate skills isn't loaded until the assistant deliberately reaches for it.
+- **It learns from misses.** A narrowly scoped always-available operation appends
+  concrete load failures, missing skills and instruction conflicts beneath
+  `w/skill-feedback/<job-id>`. The model cannot choose another path, and ordinary
+  task failures do not become backlog noise.
 
 ### Namespaces
 
@@ -68,8 +78,9 @@ Use Covia's namespaces for what they're for:
 
 | Namespace | Purpose | Written by |
 |-----------|---------|-----------|
-| `v/skills/brightside/…` | Brightside's **default, shipped skills** (e.g. `introduction`) | `BrightsideSkillsAdapter`, at venue launch |
+| `v/skills/brightside/…` | Brightside's **default, shipped skills** (introductions, self-authoring and everyday work) | `BrightsideSkillsAdapter`, at venue launch |
 | `w/skills` | The **user's own** skills, developed over time | the user (their agent) |
+| `w/skill-feedback` | The agent's private append-only skill-system backlog | `BrightsideAdapter` |
 | `n/…` | The assistant's **private scratch space**, including `n/memory` | the assistant, during a run |
 
 Only the venue may write `v/`; the user develops in `w/`; scratch and memory
@@ -79,7 +90,9 @@ live in `n/`.
 
 - First launch is a warm welcome screen, not a dialog box. Let people start
   typing their name immediately while the venue boots in the background.
-- Returning users skip straight to the chat.
+- Returning users skip straight to a clean Home chat. Saved conversations stay
+  available under Sessions, but Brightside does not resume one implicitly or
+  create a new session until the user sends a message.
 
 ## 7. Defaults that just work
 

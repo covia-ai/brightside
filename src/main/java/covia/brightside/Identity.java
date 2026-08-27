@@ -32,9 +32,9 @@ import convex.core.util.JSON;
  * {@code <venueDID>:public} principal and the {@code :u:} user segment of
  * {@code did:web} venues, so the agent's turns are attributed to their owner.
  * Persisted on its own in {@code <home>/identity.json}, apart from the
- * hand-edited {@code config.json}. The slug is saved alongside the name and
- * kept when the name changes ({@link #withName}) — the principal is where the
- * agent, its memory and its skills live, so it must outlive any rename.
+ * hand-edited {@code config.json}. The slug and full user DID are saved alongside
+ * the name and kept when the name changes ({@link #withName}) — the principal is
+ * where the agent, its memory and its skills live, so it must outlive any rename.
  */
 public final class Identity {
 
@@ -50,10 +50,12 @@ public final class Identity {
 
 	private final String display;
 	private final String slug;
+	private final String did;
 
-	private Identity(String display, String slug) {
+	private Identity(String display, String slug, String did) {
 		this.display = display;
 		this.slug = slug;
+		this.did = did;
 	}
 
 	/**
@@ -67,7 +69,7 @@ public final class Identity {
 		if (slug.isEmpty()) throw new IllegalArgumentException("A user name is required");
 		String display = normaliseDisplay(rawName);
 		if (display.isEmpty()) display = slug;
-		return new Identity(display, slug);
+		return new Identity(display, slug, null);
 	}
 
 	/**
@@ -80,7 +82,7 @@ public final class Identity {
 	public Identity withName(String rawName) {
 		if (sanitise(rawName).isEmpty()) throw new IllegalArgumentException("A user name is required");
 		String display = normaliseDisplay(rawName);
-		return new Identity(display.isEmpty() ? slug : display, slug);
+		return new Identity(display.isEmpty() ? slug : display, slug, did);
 	}
 
 	/** The name as the person typed it — what the UI and the assistant use. */
@@ -98,8 +100,32 @@ public final class Identity {
 		return "u:" + slug;
 	}
 
+	/** The saved full user DID, or null before the home venue has first launched. */
+	public String did() {
+		return did;
+	}
+
+	/**
+	 * Binds this identity to its home venue DID. A previously saved full DID is an
+	 * identity pin: it must match rather than silently moving the user to another
+	 * principal.
+	 */
+	public Identity withVenueDID(String venueDID) {
+		String expected = composeDID(venueDID, slug);
+		if (did != null && !did.equals(expected)) {
+			throw new IllegalStateException("Saved user DID " + did
+				+ " does not match the running home venue (expected " + expected + ")");
+		}
+		return did != null ? this : new Identity(display, slug, expected);
+	}
+
 	/** This user's DID on the given venue: {@code <venueDID>:u:<slug>}. */
 	public String userDID(String venueDID) {
+		return withVenueDID(venueDID).did;
+	}
+
+	private static String composeDID(String venueDID, String slug) {
+		if (venueDID == null || venueDID.isBlank()) throw new IllegalArgumentException("A venue DID is required");
 		return venueDID + USER_SEP + slug;
 	}
 
@@ -164,30 +190,43 @@ public final class Identity {
 			// only) derive it from the name, exactly as before.
 			AString s = RT.ensureString(map.get(Strings.create("slug")));
 			String savedSlug = (s == null) ? "" : sanitise(s.toString());
-			return savedSlug.isEmpty() ? id : new Identity(id.display, savedSlug);
+			String slug = savedSlug.isEmpty() ? id.slug : savedSlug;
+			AString d = RT.ensureString(map.get(Strings.create("did")));
+			String savedDID = (d == null) ? null : d.toString().strip();
+			if (savedDID != null && (savedDID.isEmpty() || !savedDID.endsWith(USER_SEP + slug))) {
+				log.warn("Could not read {} — saved DID does not match the user slug", file);
+				return null;
+			}
+			return new Identity(id.display, slug, savedDID);
 		} catch (Exception e) {
 			log.warn("Could not read {} — will ask for a name again: {}", file, e.toString());
 			return null;
 		}
 	}
 
-	/** Persists this identity (display name and slug) to {@code <home>/identity.json}. */
+	/** Persists this identity (display name, slug and full DID) to {@code <home>/identity.json}. */
 	public void save(Path home) throws IOException {
 		Files.createDirectories(home);
-		AMap<AString, ACell> map = Maps.of(
-			Strings.create("name"), Strings.create(display),
-			Strings.create("slug"), Strings.create(slug));
+		AMap<AString, ACell> map = (did == null)
+			? Maps.of(
+				Strings.create("name"), Strings.create(display),
+				Strings.create("slug"), Strings.create(slug))
+			: Maps.of(
+				Strings.create("name"), Strings.create(display),
+				Strings.create("slug"), Strings.create(slug),
+				Strings.create("did"), Strings.create(did));
 		Files.writeString(home.resolve(FILE_NAME), JSON.printPretty(map).toString() + "\n");
 	}
 
 	@Override
 	public boolean equals(Object o) {
-		return (o instanceof Identity other) && slug.equals(other.slug) && display.equals(other.display);
+		return (o instanceof Identity other) && slug.equals(other.slug) && display.equals(other.display)
+			&& java.util.Objects.equals(did, other.did);
 	}
 
 	@Override
 	public int hashCode() {
-		return 31 * slug.hashCode() + display.hashCode();
+		return java.util.Objects.hash(display, slug, did);
 	}
 
 	@Override

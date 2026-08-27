@@ -1,0 +1,34 @@
+{
+	"name": "Report Skill Feedback",
+	"description": "Records one concrete skill-system miss in the caller's private append-only w/skill-feedback log. Use when a skill fails to load, an expected skill is absent, required capability is missing, or loaded instructions contradict observed reality. The operation chooses the path and cannot write anywhere else.",
+	"dateCreated": "2026-08-27T00:00:00Z",
+	"operation": {
+		"adapter": "brightside:report-skill-feedback",
+		"internal": false,
+		"toolName": "brightside_report_skill_feedback",
+		"input": {
+			"type": "object",
+			"properties": {
+				"category": {
+					"type": "string",
+					"enum": ["failed-load", "missing-skill", "instruction-conflict", "missing-capability", "other"]
+				},
+				"summary": { "type": "string", "minLength": 1, "maxLength": 500 },
+				"details": { "type": "string", "maxLength": 4000 },
+				"failedAction": { "type": "string", "maxLength": 256 },
+				"error": { "type": "string", "maxLength": 2000 }
+			},
+			"required": ["category", "summary"],
+			"additionalProperties": false
+		},
+		"output": {
+			"type": "object",
+			"properties": {
+				"id": { "type": "string" },
+				"path": { "type": "string" },
+				"recorded": { "type": "boolean" }
+			},
+			"required": ["id", "path", "recorded"]
+		}
+	}
+}

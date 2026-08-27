@@ -1,0 +1,24 @@
+{
+  "name": "lattice",
+  "description": "Manage Brightside's lattice data and choose the right w/, n/, c/, t/, o/ or v/ path. Load when asked to save, find, inspect, organise, update, append, copy or delete structured data, notes, scratch or operation pins.",
+  "content": {
+    "contentType": "text/markdown",
+    "inline": "# Lattice data\n\nThe lattice is Brightside's structured local state. An unqualified path belongs to the authenticated owner; choose its scope by who should use the data and how long it remains relevant.\n\n- `w/` — the owner's durable workspace. Put finished work and data that should be available across agents here.\n- `n/` — your durable agent-private state across conversations, including `n/memory`.\n- `c/` — scratch for the current conversation; available only while acting in a session.\n- `t/` — scratch shared within the current job and its sub-operations. It remains in the job record for audit after completion, so temporary means scoped, not securely erased.\n- `o/` — the owner's named operation pins and shortcuts.\n- `v/` — the venue's shared, read-only catalogue: `v/ops`, `v/info`, `v/skills`, `v/models` and `v/agents/templates`.\n\nSystem-managed paths include `g/` agent records, `j/` jobs, immutable `a/` assets, `s/` secrets and `h/` human requests. Read them only with the owner's authority and use their dedicated operations for lifecycle changes. Never put credentials in ordinary lattice data; load the secrets skill and store an `s/NAME` reference instead. A DID-qualified path addresses another principal and requires delegated authority. For an immutable, shareable snapshot that others can reference by hash, load the **assets** child.\n\n## Work safely\n\n- Start unfamiliar or large data with `inspect`; use `list` for keys, `slice` for pages, `aggregate` for counts, and `read` for an exact bounded value (read has a size guard).\n- `write` replaces the addressed value and creates missing parent maps. Store structured values, not serialised JSON strings.\n- `append` extends a vector, `copy` snapshots or pins a value, and `delete` removes a value. Inspect first when replacement or deletion was not already explicit.\n- Any operation reference stored in data or configuration must be a full catalogue path (`v/ops/covia/read`), never adapter shorthand (`covia:read`) — shorthand does not resolve.\n- Report the paths changed. A capability denial means the authority is absent; do not work around it with a different namespace.\n"
+  },
+  "skill": {
+    "tools": [
+      "v/ops/covia/inspect",
+      "v/ops/covia/read",
+      "v/ops/covia/list",
+      "v/ops/covia/slice",
+      "v/ops/covia/aggregate",
+      "v/ops/covia/write",
+      "v/ops/covia/append",
+      "v/ops/covia/copy",
+      "v/ops/covia/delete"
+    ],
+    "skills": [
+      "v/skills/data/assets"
+    ]
+  }
+}

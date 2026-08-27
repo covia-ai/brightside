@@ -1,0 +1,20 @@
+{
+  "name": "sessions",
+  "description": "Inspect agent sessions and conversation diagnostics: session metadata, transcripts, raw frames, tool calls, failures and exact model context. Load for session-level debugging or audit, not ordinary recollection.",
+  "content": {
+    "contentType": "text/markdown",
+    "inline": "# Session diagnostics\n\nFor ordinary earlier-chat lookup, use the model-safe session list and read operations. They omit the current or unfinished session, tool scratch and diagnostics by design.\n\nFor an explicit diagnostic audit, inspect `g/<agent>/sessions`, then navigate the chosen session. Raw conversation entries live below `g/<agent>/sessions/<sid>/frames/0/conversation`; use list or slice before reading a large value. Agent info gives status and configuration, while agent context assembles the exact model input and tool palette for a session without calling the model.\n\nRaw frames can contain prompts, tool arguments, results and failure details. Read only what is relevant, preserve the session ID exactly, and distinguish stored evidence from your interpretation. These tools do not rename, delete or modify sessions.\n"
+  },
+  "skill": {
+    "tools": [
+      "v/ops/agent/info",
+      "v/ops/agent/sessions",
+      "v/ops/agent/session-read",
+      "v/ops/agent/context",
+      "v/ops/covia/inspect",
+      "v/ops/covia/list",
+      "v/ops/covia/read",
+      "v/ops/covia/slice"
+    ]
+  }
+}

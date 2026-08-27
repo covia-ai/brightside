@@ -3,35 +3,24 @@ package covia.brightside;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
-import java.security.MessageDigest;
-import java.security.SecureRandom;
 import java.util.Arrays;
 
-import javax.crypto.Cipher;
-import javax.crypto.spec.GCMParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
-
 /**
- * Optional "remember me" storage for the vault passphrase. <b>Opt-in only</b>,
- * with a clear warning in the UI: it stores the passphrase in the data home so
- * the vault can be unlocked without typing it on this computer.
- *
- * <p>The file is encrypted (AES-GCM) under a key derived from stable local
- * identifiers (this OS user + home directory). Those identifiers are not secret,
- * so this is only an accidental-disclosure barrier, not protection against a
- * copied profile or software running as this user. Enabling it trades the vault's
- * at-rest protection for convenience. It is off by default and cleared the moment
- * the user unticks it or recovery resets the vault.
+ * Optional plaintext "remember me" storage for the vault passphrase.
+ * <b>Opt-in only</b>, with a clear warning in the UI: anyone able to read this
+ * file can unlock the vault. This deliberately relies on the trusted computer's
+ * OS account and filesystem permissions instead of pretending that locally
+ * reproducible key material adds a security boundary.
  */
 public final class RememberedPassphrase {
 
-	private static final String FILE = "unlock.enc";
-	private static final int NONCE_LEN = 12;
-	private static final int TAG_BITS = 128;
+	private static final String FILE = "unlock.passphrase";
 
 	private RememberedPassphrase() {
 	}
@@ -48,60 +37,37 @@ public final class RememberedPassphrase {
 		}
 	}
 
-	/** Encrypts and stores {@code passphrase} in the data home. */
+	/** Stores {@code passphrase} as UTF-8 plaintext in the data home. */
 	public static void store(Path home, char[] passphrase) throws IOException {
 		byte[] plain = toBytes(passphrase);
 		try {
-			byte[] nonce = new byte[NONCE_LEN];
-			new SecureRandom().nextBytes(nonce);
-			Cipher c = Cipher.getInstance("AES/GCM/NoPadding");
-			c.init(Cipher.ENCRYPT_MODE, key(), new GCMParameterSpec(TAG_BITS, nonce));
-			byte[] ct = c.doFinal(plain);
-			byte[] out = new byte[nonce.length + ct.length];
-			System.arraycopy(nonce, 0, out, 0, nonce.length);
-			System.arraycopy(ct, 0, out, nonce.length, ct.length);
 			Files.createDirectories(home);
 			Path file = home.resolve(FILE);
-			Files.write(file, out);
+			Files.write(file, plain);
 			try {
 				Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("rw-------"));
 			} catch (UnsupportedOperationException ignored) {
 				// Windows/NTFS — the file inherits the user's directory ACL.
 			}
-		} catch (IOException e) {
-			throw e;
-		} catch (Exception e) {
-			throw new IOException("Could not store the remembered passphrase", e);
 		} finally {
 			Arrays.fill(plain, (byte) 0);
 		}
 	}
 
-	/** The remembered passphrase, or null if none / unreadable (e.g. moved machine). */
+	/** The remembered passphrase, or null if none, unreadable or not valid UTF-8. */
 	public static char[] load(Path home) {
 		Path f = home.resolve(FILE);
 		if (!Files.isRegularFile(f)) return null;
 		try {
-			byte[] in = Files.readAllBytes(f);
-			if (in.length <= NONCE_LEN) return null;
-			byte[] nonce = Arrays.copyOfRange(in, 0, NONCE_LEN);
-			byte[] ct = Arrays.copyOfRange(in, NONCE_LEN, in.length);
-			Cipher c = Cipher.getInstance("AES/GCM/NoPadding");
-			c.init(Cipher.DECRYPT_MODE, key(), new GCMParameterSpec(TAG_BITS, nonce));
-			byte[] plain = c.doFinal(ct);
-			char[] out = toChars(plain);
-			Arrays.fill(plain, (byte) 0);
-			return out;
-		} catch (Exception e) {
-			return null; // corrupt, tampered, or a different machine/user
+			byte[] plain = Files.readAllBytes(f);
+			try {
+				return toChars(plain);
+			} finally {
+				Arrays.fill(plain, (byte) 0);
+			}
+		} catch (IOException e) {
+			return null;
 		}
-	}
-
-	private static SecretKeySpec key() throws Exception {
-		String material = System.getProperty("user.name", "") + '|'
-			+ System.getProperty("user.home", "") + "|brightside-remember-v1";
-		byte[] k = MessageDigest.getInstance("SHA-256").digest(material.getBytes(StandardCharsets.UTF_8));
-		return new SecretKeySpec(k, "AES");
 	}
 
 	private static byte[] toBytes(char[] chars) {
@@ -111,8 +77,11 @@ public final class RememberedPassphrase {
 		return b;
 	}
 
-	private static char[] toChars(byte[] bytes) {
-		CharBuffer cb = StandardCharsets.UTF_8.decode(ByteBuffer.wrap(bytes));
+	private static char[] toChars(byte[] bytes) throws CharacterCodingException {
+		CharBuffer cb = StandardCharsets.UTF_8.newDecoder()
+			.onMalformedInput(CodingErrorAction.REPORT)
+			.onUnmappableCharacter(CodingErrorAction.REPORT)
+			.decode(ByteBuffer.wrap(bytes));
 		char[] c = new char[cb.remaining()];
 		cb.get(c);
 		return c;

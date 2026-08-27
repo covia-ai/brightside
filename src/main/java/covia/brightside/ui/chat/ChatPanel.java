@@ -4,9 +4,8 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
+import java.awt.GraphicsEnvironment;
+import java.awt.Insets;
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionEvent;
@@ -18,7 +17,10 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Consumer;
 
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
@@ -35,6 +37,8 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.text.DefaultEditorKit;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 
 import covia.brightside.SessionHistory;
 import covia.brightside.chat.ChatSession;
@@ -48,31 +52,32 @@ import covia.brightside.ui.LAF;
  * components (in this {@code ui.chat} package) so new item kinds (images, cards,
  * richer tool output) can be added as their own row types. Text within a bubble
  * is selectable; a right-click offers <em>Copy message</em> and <em>Copy
- * conversation</em>. Enter sends, Shift+Enter inserts a newline.
+ * conversation</em>. Enter sends; Ctrl+Enter or Shift+Enter inserts a newline.
  */
 @SuppressWarnings("serial")
 public final class ChatPanel extends JPanel {
 
 	private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ChatPanel.class);
+	private static final int MAX_INPUT_ROWS = 6;
 
 	private final MessageColumn column = new MessageColumn();
+	private final EmptyChatState emptyState = new EmptyChatState();
 	private final JScrollPane scroll;
 	private final JTextArea input = new JTextArea(1, 20);
+	private final JScrollPane inputScroll;
 	private final JButton send = new JButton("Send");
 
 	private final List<SessionHistory.Item> displayed = new ArrayList<>();
 	private JTextArea lastSelectedBubble; // the bubble holding the current selection, if any
-	private Component thinkingRow; // the assistant "typing…" row while a reply is pending
-	private TypingIndicator thinkingIndicator;
-	private JLabel thinkingElapsed; // "1:05" once a reply has taken a while (an agentic turn)
-	private javax.swing.Timer thinkingClock;
-	private long thinkingSince;
-
-	/** Show the elapsed time on the typing bubble once a reply has taken this long. */
-	private static final long SHOW_ELAPSED_AFTER_MS = 8_000;
+	private Component thinkingRow; // assistant progress row while a reply is pending
+	private ThinkingBubble thinkingBubble;
+	private Consumer<String> conversationCommitted = ignored -> {
+	};
 	private volatile ChatSession session;
 	private long bindingVersion;
 	private boolean busy;
+	private CompletableFuture<String> acceptedSession;
+	private CompletableFuture<Void> deliveryTail = CompletableFuture.completedFuture(null);
 
 	public ChatPanel() {
 		super(new BorderLayout());
@@ -99,6 +104,8 @@ public final class ChatPanel extends JPanel {
 			.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "send");
 		input.getInputMap(JComponent.WHEN_FOCUSED)
 			.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.SHIFT_DOWN_MASK), DefaultEditorKit.insertBreakAction);
+		input.getInputMap(JComponent.WHEN_FOCUSED)
+			.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.CTRL_DOWN_MASK), DefaultEditorKit.insertBreakAction);
 		input.getActionMap().put("send", new AbstractAction() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -108,7 +115,8 @@ public final class ChatPanel extends JPanel {
 		// The input keeps focus, so Ctrl/Cmd+C lands here: copy the input's own
 		// selection, or fall back to the last bubble the user selected in.
 		KeyStroke copyKey = KeyStroke.getKeyStroke(KeyEvent.VK_C,
-			Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx());
+			GraphicsEnvironment.isHeadless() ? InputEvent.CTRL_DOWN_MASK
+				: Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx());
 		input.getInputMap(JComponent.WHEN_FOCUSED).put(copyKey, "smartCopy");
 		input.getActionMap().put("smartCopy", new AbstractAction() {
 			@Override
@@ -121,16 +129,42 @@ public final class ChatPanel extends JPanel {
 			}
 		});
 
-		JScrollPane inputScroll = new JScrollPane(input,
+		inputScroll = new JScrollPane(input,
 			JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
 		inputScroll.putClientProperty("FlatLaf.style", "arc: 16");
 		inputScroll.setMaximumSize(new Dimension(Integer.MAX_VALUE, 120));
+		input.getDocument().addDocumentListener(new DocumentListener() {
+			@Override
+			public void insertUpdate(DocumentEvent e) {
+				scheduleInputResize();
+			}
+
+			@Override
+			public void removeUpdate(DocumentEvent e) {
+				scheduleInputResize();
+			}
+
+			@Override
+			public void changedUpdate(DocumentEvent e) {
+				scheduleInputResize();
+			}
+		});
+		input.addComponentListener(new ComponentAdapter() {
+			@Override
+			public void componentResized(ComponentEvent e) {
+				scheduleInputResize();
+			}
+		});
 
 		send.putClientProperty("JButton.buttonType", "roundRect");
 		send.setForeground(Color.WHITE);
 		send.setBackground(LAF.ACCENT);
 		send.setToolTipText("Send message (Enter)");
 		send.addActionListener(e -> send());
+		Dimension sendSize = send.getPreferredSize();
+		int defaultComposerHeight = inputScroll.getPreferredSize().height;
+		send.setPreferredSize(new Dimension(sendSize.width, defaultComposerHeight));
+		send.setMinimumSize(new Dimension(sendSize.width, defaultComposerHeight));
 
 		JPanel bottom = new JPanel(new BorderLayout(8, 0));
 		bottom.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
@@ -141,7 +175,31 @@ public final class ChatPanel extends JPanel {
 
 		add(scroll, BorderLayout.CENTER);
 		add(bottom, BorderLayout.SOUTH);
+		showEmptyState();
 		setInputEnabled(false);
+	}
+
+	private void scheduleInputResize() {
+		SwingUtilities.invokeLater(this::resizeInput);
+	}
+
+	/** Grow to the draft's visual line count, capped so the transcript keeps space. */
+	private void resizeInput() {
+		Insets insets = input.getInsets();
+		int width = input.getWidth() - insets.left - insets.right;
+		if (width <= 0) width = 420;
+		java.awt.FontMetrics fm = input.getFontMetrics(input.getFont());
+		int rows = 0;
+		for (String line : input.getText().split("\\R", -1)) {
+			int pixels = fm.stringWidth(line);
+			rows += Math.max(1, (pixels + width - 1) / width);
+		}
+		rows = Math.max(1, Math.min(MAX_INPUT_ROWS, rows));
+		if (input.getRows() == rows) return;
+		input.setRows(rows);
+		input.revalidate();
+		inputScroll.revalidate();
+		revalidate();
 	}
 
 	// ------------------------------------------------------------------
@@ -153,9 +211,17 @@ public final class ChatPanel extends JPanel {
 		this.session = session;
 		bindingVersion++;
 		busy = false;
+		acceptedSession = null;
+		deliveryTail = CompletableFuture.completedFuture(null);
 		hideThinking();
 		setInputEnabled(true);
 		focusInput();
+	}
+
+	/** Called after a successful send has committed and returned its session id. */
+	public void setConversationCommittedListener(Consumer<String> listener) {
+		conversationCommitted = (listener != null) ? listener : ignored -> {
+		};
 	}
 
 	/** Removes the current user's session and all locally rendered conversation data. */
@@ -163,6 +229,8 @@ public final class ChatPanel extends JPanel {
 		session = null;
 		bindingVersion++;
 		busy = false;
+		acceptedSession = null;
+		deliveryTail = CompletableFuture.completedFuture(null);
 		hideThinking();
 		input.setText("");
 		lastSelectedBubble = null;
@@ -178,6 +246,7 @@ public final class ChatPanel extends JPanel {
 			displayed.add(it);
 			column.add(rowFor(it));
 		}
+		if (items.isEmpty()) showEmptyState();
 		column.revalidate();
 		column.repaint();
 		scrollToBottom();
@@ -191,11 +260,20 @@ public final class ChatPanel extends JPanel {
 
 	/** Re-render only if the live items differ from what's shown (avoids flicker). */
 	public void refreshTo(List<SessionHistory.Item> live) {
+		refreshTo(live, false);
+	}
+
+	/**
+	 * Re-render a settled venue projection. While the session has pending or
+	 * in-cycle work, its stored conversation intentionally trails the optimistic
+	 * user bubbles, so replacing the UI would make accepted messages disappear.
+	 */
+	public void refreshTo(List<SessionHistory.Item> live, boolean sessionActive) {
 		// While a send is in flight the message sits in the agent's pending queue
 		// before it's minted into the conversation, so a mid-flight read wouldn't
 		// yet include it — don't clobber the optimistic bubble. The reply's own
 		// re-read reconciles once it lands.
-		if (busy) return;
+		if (busy || sessionActive) return;
 		if (live.equals(displayed)) return;
 		restore(live);
 	}
@@ -203,8 +281,23 @@ public final class ChatPanel extends JPanel {
 	public void clearMessages() {
 		column.clear();
 		displayed.clear();
+		showEmptyState();
 		column.revalidate();
 		column.repaint();
+	}
+
+	/** Clears transcript and draft state, leaving the bound session ready for a first send. */
+	public void startNewConversation() {
+		bindingVersion++;
+		busy = false;
+		acceptedSession = null;
+		deliveryTail = CompletableFuture.completedFuture(null);
+		hideThinking();
+		clearMessages();
+		input.setText("");
+		lastSelectedBubble = null;
+		setInputEnabled(session != null);
+		focusInput();
 	}
 
 	public void focusInput() {
@@ -223,41 +316,98 @@ public final class ChatPanel extends JPanel {
 
 	private void send() {
 		ChatSession s = session;
-		if (s == null || busy) return;
+		if (s == null) return;
 		long version = bindingVersion;
 		String text = input.getText().trim();
 		if (text.isEmpty()) return;
 		input.setText("");
 		addTurn("user", text);
+		if (busy) {
+			enqueue(s, version, text);
+			focusInput();
+			return;
+		}
+
 		busy = true;
-		setInputEnabled(false);
+		CompletableFuture<String> accepted = new CompletableFuture<>();
+		acceptedSession = accepted;
+		deliveryTail = CompletableFuture.completedFuture(null);
 		showThinking();
 
 		new SwingWorker<ChatSession.Reply, Void>() {
 			@Override
 			protected ChatSession.Reply doInBackground() throws Exception {
-				return s.send(text);
+				return s.send(text, sid -> {
+					accepted.complete(sid);
+					SwingUtilities.invokeLater(() -> {
+						if (session == s && bindingVersion == version && thinkingBubble != null) {
+							thinkingBubble.setSummary("Working…");
+						}
+					});
+				});
 			}
 
 			@Override
 			protected void done() {
+				ChatSession.Reply reply = null;
+				Throwable failure = null;
+				try {
+					reply = get();
+				} catch (ExecutionException e) {
+					failure = (e.getCause() != null) ? e.getCause() : e;
+				} catch (Exception e) {
+					failure = e;
+				}
+				if (failure != null) accepted.completeExceptionally(failure);
 				if (session != s || bindingVersion != version) return;
 				busy = false;
-				setInputEnabled(true);
+				acceptedSession = null;
 				hideThinking();
-				try {
-					addTurn("assistant", get().text());
-				} catch (ExecutionException e) {
-					Throwable cause = (e.getCause() != null) ? e.getCause() : e;
-					log.warn("Chat send failed", cause);
-					appendError(describe(cause));
-				} catch (Exception e) {
-					log.warn("Chat send failed", e);
-					appendError(describe(e));
+				if (failure == null) {
+					addTurn("assistant", reply.text());
+					conversationCommitted.accept(reply.sessionId());
+				} else {
+					log.warn("Chat send failed", failure);
+					appendError(describe(failure));
 				}
 				focusInput();
 			}
 		}.execute();
+	}
+
+	/** Deliver a follow-up to the venue queue without waiting for the active reply. */
+	private void enqueue(ChatSession s, long version, String text) {
+		CompletableFuture<String> accepted = acceptedSession;
+		if (accepted == null) {
+			appendError("The active conversation has not been accepted by the venue");
+			return;
+		}
+
+		// Chain only the fast intake calls, preserving click order. Each message is
+		// handed to agent:message as soon as the preceding intake has returned; no
+		// client-side wait for an agent cycle or model reply is introduced.
+		CompletableFuture<Void> previous = deliveryTail;
+		CompletableFuture<ChatSession.Delivery> delivery = previous
+			.handle((ignored, failure) -> null)
+			.thenCombine(accepted, (ignored, sid) -> sid)
+			.thenApplyAsync(sid -> {
+				try {
+					return s.enqueue(text, sid);
+				} catch (Exception e) {
+					throw new CompletionException(e);
+				}
+			});
+		deliveryTail = delivery.handle((ignored, failure) -> null);
+		delivery.whenComplete((result, failure) -> SwingUtilities.invokeLater(() -> {
+			if (session != s || bindingVersion != version) return;
+			if (failure != null) {
+				Throwable cause = unwrap(failure);
+				log.warn("Queued chat delivery failed", cause);
+				appendError(describe(cause));
+			} else {
+				conversationCommitted.accept(result.sessionId());
+			}
+		}));
 	}
 
 	private void addTurn(String role, String text) {
@@ -265,6 +415,7 @@ public final class ChatPanel extends JPanel {
 		// optimistically and keeps `displayed` in step so the watcher's compare
 		// doesn't re-render our own turns.
 		displayed.add(new SessionHistory.Message(role, text));
+		hideEmptyState();
 		column.add(bubbleRow(text, "user".equals(role)));
 		column.revalidate();
 		scrollToBottom();
@@ -275,55 +426,36 @@ public final class ChatPanel extends JPanel {
 		return (m == null || m.isBlank()) ? t.toString() : m;
 	}
 
-	/** Show an animated "typing…" bubble on the assistant side while a reply is pending. */
+	private static Throwable unwrap(Throwable t) {
+		Throwable current = t;
+		while ((current instanceof CompletionException || current instanceof ExecutionException)
+				&& current.getCause() != null && current.getCause() != current) {
+			current = current.getCause();
+		}
+		return current;
+	}
+
+	/** Show compact live progress on the assistant side while a reply is pending. */
 	private void showThinking() {
 		if (thinkingRow != null) return;
-		JPanel bubble = roundBubble(ChatStyle.assistantBg());
-		bubble.setBorder(BorderFactory.createEmptyBorder(14, 16, 14, 16));
-		thinkingIndicator = new TypingIndicator(ChatStyle.muted());
-		bubble.add(thinkingIndicator, BorderLayout.CENTER);
-		// A multi-tool turn can run for a minute or more with nothing else to
-		// show (the venue records its steps only when the turn completes), so
-		// after a few seconds the bubble shows how long it has been thinking.
-		thinkingElapsed = new JLabel("");
-		thinkingElapsed.setForeground(ChatStyle.muted());
-		thinkingElapsed.putClientProperty("FlatLaf.styleClass", "small");
-		thinkingElapsed.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 0));
-		thinkingElapsed.setVisible(false);
-		bubble.add(thinkingElapsed, BorderLayout.EAST);
+		hideEmptyState();
+		thinkingBubble = new ThinkingBubble("Preparing…");
 		JPanel row = new JPanel(new BorderLayout());
 		row.setOpaque(false);
 		row.setBorder(BorderFactory.createEmptyBorder(4, 2, 4, 2));
-		row.add(bubble, BorderLayout.WEST);
+		row.add(thinkingBubble, BorderLayout.WEST);
 		thinkingRow = row;
 		column.add(row);
 		column.revalidate();
 		scrollToBottom();
-		thinkingIndicator.start();
-		thinkingSince = System.currentTimeMillis();
-		thinkingClock = new javax.swing.Timer(1000, e -> {
-			long ms = System.currentTimeMillis() - thinkingSince;
-			if (ms < SHOW_ELAPSED_AFTER_MS || thinkingElapsed == null) return;
-			long s = ms / 1000;
-			thinkingElapsed.setText(String.format("%d:%02d", s / 60, s % 60));
-			if (!thinkingElapsed.isVisible()) {
-				thinkingElapsed.setVisible(true);
-				column.revalidate();
-			}
-		});
-		thinkingClock.start();
+		thinkingBubble.start();
 	}
 
 	private void hideThinking() {
 		if (thinkingRow == null) return;
-		if (thinkingClock != null) {
-			thinkingClock.stop();
-			thinkingClock = null;
-		}
-		thinkingElapsed = null;
-		if (thinkingIndicator != null) {
-			thinkingIndicator.stop();
-			thinkingIndicator = null;
+		if (thinkingBubble != null) {
+			thinkingBubble.stop();
+			thinkingBubble = null;
 		}
 		column.remove(thinkingRow);
 		thinkingRow = null;
@@ -331,31 +463,16 @@ public final class ChatPanel extends JPanel {
 		column.repaint();
 	}
 
-	@SuppressWarnings("serial")
-	private static JPanel roundBubble(Color bg) {
-		JPanel p = new JPanel(new BorderLayout()) {
-			@Override
-			protected void paintComponent(Graphics g) {
-				Graphics2D g2 = (Graphics2D) g.create();
-				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-				g2.setColor(bg);
-				g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
-				g2.dispose();
-				super.paintComponent(g);
-			}
-		};
-		p.setOpaque(false);
-		return p;
-	}
-
 	/** A note from Brightside itself (status, hints) — centred and muted. */
 	public void appendSystem(String text) {
+		hideEmptyState();
 		column.add(noticeRow(text, ChatStyle.muted(), false, false));
 		column.revalidate();
 		scrollToBottom();
 	}
 
 	public void appendError(String text) {
+		hideEmptyState();
 		column.add(noticeRow(text, ChatStyle.ERROR, true, true));
 		column.revalidate();
 		scrollToBottom();
@@ -479,6 +596,14 @@ public final class ChatPanel extends JPanel {
 
 	private static String escapeHtml(String s) {
 		return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+	}
+
+	private void showEmptyState() {
+		if (emptyState.getParent() != column) column.add(emptyState);
+	}
+
+	private void hideEmptyState() {
+		if (emptyState.getParent() == column) column.remove(emptyState);
 	}
 
 	/** An assistant-side, collapsed-by-default group of a turn's tool-use steps. */

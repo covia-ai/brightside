@@ -1,0 +1,13 @@
+{
+  "name": "research",
+  "description": "Investigate questions and produce evidence-backed findings. Load for research, web search, fact-checking, comparisons, sources, citations or current information.",
+  "content": {
+    "contentType": "text/markdown",
+    "inline": "# Research\n\nEstablish the actual question, relevant time window and decision the answer will\nsupport. When current or external evidence is needed, load the **http** child to\nsearch public sources, fetch pages or query web APIs. If no external tool is\navailable, say what evidence is missing instead of presenting recollection as\nverification.\n\nPrefer primary, authoritative sources. Cross-check consequential or disputed\nclaims, distinguish sourced fact from inference, and keep links or citations next\nto the claims they support. Note material uncertainty and disagreement without\nhiding behind an undifferentiated list of caveats.\n\nLead with the finding, then the evidence and implications.\n"
+  },
+  "skill": {
+    "skills": [
+      "v/skills/brightside/research/http"
+    ]
+  }
+}

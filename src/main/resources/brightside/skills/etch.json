@@ -1,0 +1,9 @@
+{
+  "name": "etch",
+  "description": "Explain Brightside's Etch persistence: venue.etch, Etch v3, ChaCha20 encryption, authenticated headers, clean shutdown, backup, seed-derived access and recovery boundaries.",
+  "content": {
+    "contentType": "text/markdown",
+    "inline": "# Etch persistence\n\nEtch is the local content-addressed persistence engine beneath the lattice; it is not the lattice merge model or the Covia agent engine. Brightside stores its lattice root and referenced CAD3 records in `venue.etch` and closes the venue on shutdown so the latest root is flushed cleanly. Two running processes cannot safely own the same store.\n\nBrightside requests Etch v3 with a 256-bit master key derived from the primary Ed25519 seed. Etch derives per-file keys with HKDF-SHA-256, encrypts data records through a ChaCha20 random-access overlay, and authenticates its dual header copies with HMAC-SHA-256. The index, file size and access patterns are outside that confidentiality boundary; Etch is not a whole-file AEAD container.\n\nThe primary seed reproduces the Etch master key, while a login passphrase only wraps that seed. Recovering the seed can reopen a retained store; it cannot reconstruct a lost `venue.etch`. A consistent backup therefore includes both recovery material and the stopped, flushed store.\n"
+  },
+  "skill": {}
+}

@@ -43,10 +43,11 @@ venue binds to loopback only. The only thing that leaves your machine is the
 model call you asked for, to the provider whose key you supplied.
 
 **It grows.** Most assistants are frozen at the shape their vendor shipped.
-Brightside's abilities are **Covia skills** — data, not code — and the agent can
-author new ones into its own `w/skills` namespace. Ask it to learn how you like
+Brightside's optional abilities are **Covia skills** — data, not code — and the agent can
+create, refine and remove them in its own `w/skills` namespace. Ask it to learn how you like
 your weekly report written, and it can capture that as a skill it loads next
-time. Even its own persona is a skill you can edit. You can also hand it skills
+time. Its configured identity stays separate, and no shipped skill is pinned by
+default: descriptions determine what loads for the task. You can also hand it skills
 as **files**: drop an [agentskills.io](https://agentskills.io) `SKILL.md` into
 `~/.brightside/skills/` and it's imported on the next start — the same open,
 portable format Claude Code and a dozen other agents use.
@@ -105,7 +106,13 @@ If the build cannot resolve `ai.covia:venue`, that is why.
   adapter, and an MCP endpoint at `http://127.0.0.1:8085/mcp` that other tools
   can talk to
 - **Self-authoring skills** — a gated `skill-authoring` ability lets the agent
-  write new skills into `w/skills`, where they become discoverable to itself
+  create, refine and remove skills in `w/skills`, where they become discoverable
+  to itself; removal uses a path-constrained Brightside operation rather than
+  general workspace deletion
+- **Useful work skills** — writing, planning, research and coding guidance loads
+  only when relevant; a separate greeting skill no longer occupies every turn
+- **A feedback loop** — concrete skill-loading and instruction misses append to
+  a private `w/skill-feedback` backlog through a path-constrained operation
 - **Filesystem skills** — drop an [agentskills.io](https://agentskills.io)
   `SKILL.md` folder (or a single `.md`) into `~/.brightside/skills/` and it's
   imported into your agent's `w/skills` on start; portable, editable, shareable

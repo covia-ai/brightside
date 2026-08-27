@@ -1,0 +1,16 @@
+{
+  "name": "brightside-logs",
+  "description": "Read Brightside's local rolling application logs to investigate startup, venue, adapter, model, network or UI errors. Load only for log-based diagnostics; access is read-only.",
+  "content": {
+    "contentType": "text/markdown",
+    "inline": "# Brightside logs\n\nCall `file_roots` and select the root whose live description identifies Brightside's operational logs. List its files by modification time and stat a candidate before reading it.\n\nLogs may contain stack traces, local paths and operation names. The file tool has no range or tail mode, so do not pull a multi-megabyte log into context; report when bounded log-tail support is needed. Correlate timestamps and identifiers with job or session evidence. This skill contributes only roots, list, stat and read operations.\n"
+  },
+  "skill": {
+    "tools": [
+      "v/ops/file/roots",
+      "v/ops/file/list",
+      "v/ops/file/stat",
+      "v/ops/file/read"
+    ]
+  }
+}

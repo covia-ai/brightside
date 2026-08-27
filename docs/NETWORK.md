@@ -132,6 +132,16 @@ messages from unknown parties are untrusted content by default, gated by a rule
 the owner set, and can never carry authority — an inbound message is data, and
 the capability model is what stops it becoming an instruction.
 
+**Identity self-inspection.** **Settings → Identity** is the canonical local
+surface for *Your name*, the full Covia user DID, home venue DID, venue signing
+public key and passphrase-gated primary seed. The current named user is a venue
+sub-principal and does not yet have an independent signing key. When P2P ships,
+the share action should produce a signed contact card containing the user DID,
+public name/CNS name when present, current reachability endpoints, signing key
+identifier and rotation/revocation references. Volatile endpoints and public
+profile data do not belong in `identity.json`, and the UI should not show fake
+placeholders before those facilities exist.
+
 ## Hiring another agent
 
 **What the person gets.** Their agent needs something it cannot do — transcribe
@@ -269,7 +279,9 @@ opens on a wallet it does not need has already broken principle 1.
   governs that part of the tree, and what stops squatting.
 - **Recovery.** Losing the key means losing the identity. Social recovery
   through contacts is the obvious shape and needs designing before anyone has
-  anything worth losing.
+  anything worth losing. The current recovery phrase reproduces the venue key
+  but not the saved `:u:<slug>` suffix if `identity.json` is also lost; the
+  public owner identity needs a canonical suffix or a signed recoverable record.
 - **Money without crypto framing.** Whether the everyday product ever shows a
   balance, and what an allowance means when funding it is the awkward step.
 - **Reputation without a popularity contest.** Completed jobs and vouches from

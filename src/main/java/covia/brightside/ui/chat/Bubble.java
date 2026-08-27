@@ -82,16 +82,19 @@ final class Bubble extends JPanel {
 
 	@Override
 	public Dimension getPreferredSize() {
-		int inner = Math.max(40, maxWidth - 2 * PAD_H);
+		int maxTextWidth = Math.max(40, maxWidth - 2 * PAD_H);
 		FontMetrics fm = ta.getFontMetrics(ta.getFont());
 		int longest = 0;
 		for (String line : ta.getText().split("\n", -1)) {
 			longest = Math.max(longest, fm.stringWidth(line));
 		}
-		int contentW = Math.min(longest + WRAP_SLACK, inner);
-		ta.setSize(contentW, Short.MAX_VALUE);
-		int h = ta.getPreferredSize().height;
-		return new Dimension(contentW + 2 * PAD_H, h + 2 * PAD_V);
+		int textWidth = Math.min(longest + WRAP_SLACK, maxTextWidth);
+		// The text area's border already supplies PAD_H/PAD_V. Size the area to
+		// the complete bubble width and return its complete preferred height;
+		// adding the padding again leaves a conspicuous blank band at the bottom.
+		int bubbleWidth = textWidth + 2 * PAD_H;
+		ta.setSize(bubbleWidth, Short.MAX_VALUE);
+		return new Dimension(bubbleWidth, ta.getPreferredSize().height);
 	}
 
 	@Override

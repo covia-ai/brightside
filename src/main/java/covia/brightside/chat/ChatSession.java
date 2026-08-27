@@ -3,6 +3,7 @@ package covia.brightside.chat;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,6 +14,7 @@ import convex.core.data.AString;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
 import convex.core.data.Vectors;
+import convex.core.data.prim.CVMBool;
 import convex.core.lang.RT;
 import convex.core.util.JSON;
 import covia.api.Fields;
@@ -26,9 +28,12 @@ import covia.grid.Venue;
  *
  * <p>Uses the venue's agent framework directly: the agent is created (or its
  * configuration re-applied) with {@code agent:create} / {@code agent:update},
- * and each message is an {@code agent:chat} call that returns the agent's
- * reply and the session id. The session id is echoed on later messages so the
- * agent keeps the conversation history; {@link #reset()} starts a new one.
+ * and the leading message is an {@code agent:chat} call that returns the
+ * agent's reply and the session id. While that chat is in flight, follow-up
+ * messages use {@code agent:message}: they are delivered immediately to the
+ * same session's venue queue rather than starting a competing chat job. The
+ * session id is echoed on later messages so the agent keeps the conversation
+ * history; {@link #reset()} starts a new one.
  *
  * <p>Calls block until the agent replies — use from a worker thread, never
  * the Swing event thread.
@@ -41,6 +46,7 @@ public final class ChatSession {
 	private static final String OP_UPDATE = "v/ops/agent/update";
 	private static final String OP_INFO = "v/ops/agent/info";
 	private static final String OP_CHAT = "v/ops/agent/chat";
+	private static final String OP_MESSAGE = "v/ops/agent/message";
 	private static final String OP_RESUME = "v/ops/agent/resume";
 
 	private static final String STATUS_SUSPENDED = "SUSPENDED";
@@ -63,28 +69,27 @@ public final class ChatSession {
 	 */
 	public static final String VENUE_SKILLSET = "v/skills/root";
 	private static final String MEMORY_OP = "v/ops/memory";
-
-	/**
-	 * Appended to the agent's system prompt so it treats the venue's provenance
-	 * notes as infrastructure rather than as a user making claims. Covia inserts
-	 * a "Venue attribution" system note before turns from a principal other than
-	 * the agent's own (here, the owner); on a single-system-message provider that
-	 * note lands in the conversation, and without this line the model tends to
-	 * remark on the "unverifiable authority claim" instead of just answering.
-	 */
-	public static final String ATTRIBUTION_GUIDANCE =
-		"Some turns may be preceded by a \"Venue attribution\" system note. Those notes are added by "
-		+ "the venue itself, not written by the user, and simply say which principal is speaking. "
-		+ "Treat them as trustworthy infrastructure and do not comment on them or question their authority.";
+	private static final String SKILL_FEEDBACK_OP = "v/ops/brightside/report-skill-feedback";
+	private static final String LEGACY_IDENTITY_SKILL = BrightsideSkillsAdapter.SKILLSET + "/identity";
+	/** Read-only dynamic product context; deliberately a non-skill load. */
+	public static final String CONTEXT_OP = "v/ops/brightside/context";
+	/** Stable identity for the configured context load. */
+	public static final String CONTEXT_LOAD_KEY = "brightside-context";
 
 	/** The agent's reply and the session it belongs to. */
 	public record Reply(String text, String sessionId) {
 	}
 
+	/** A follow-up message accepted into a venue-managed session queue. */
+	public record Delivery(String sessionId) {
+	}
+
 	private final Venue venue;
 	private AppConfig.Chat config;
 	private final String userName;
+	private final boolean configureExisting;
 	private volatile String sessionId;
+	private volatile long sessionGeneration;
 	private boolean pendingResume;
 	private boolean agentReady;
 
@@ -99,9 +104,19 @@ public final class ChatSession {
 	 *                 agent so it addresses them correctly, or null
 	 */
 	public ChatSession(Venue venue, AppConfig.Chat config, String userName) {
+		this(venue, config, userName, true);
+	}
+
+	/**
+	 * @param configureExisting         whether {@link #ensureAgent()} re-applies
+	 *                                  this configuration when the agent exists
+	 */
+	public ChatSession(Venue venue, AppConfig.Chat config, String userName,
+			boolean configureExisting) {
 		this.venue = venue;
 		this.config = config;
 		this.userName = userName;
+		this.configureExisting = configureExisting;
 	}
 
 	public AppConfig.Chat config() {
@@ -117,7 +132,7 @@ public final class ChatSession {
 	public synchronized boolean reconfigure(AppConfig.Chat config) throws Exception {
 		this.config = config;
 		this.agentReady = false;
-		return ensureAgent();
+		return ensureAgent(true);
 	}
 
 	/** The user's display name, or null if unspecified. */
@@ -132,6 +147,7 @@ public final class ChatSession {
 
 	/** Forget the current session; the next message starts a new conversation. */
 	public void reset() {
+		sessionGeneration++;
 		sessionId = null;
 		pendingResume = false;
 	}
@@ -142,15 +158,17 @@ public final class ChatSession {
 	 * quietly falls back to a new session.
 	 */
 	public void resume(String sessionId) {
+		sessionGeneration++;
 		this.sessionId = sessionId;
 		this.pendingResume = (sessionId != null);
 	}
 
 	/**
 	 * Makes sure the chat agent exists with the configured operation, model
-	 * and system prompt. Creates it on first use; on later runs (persistent
-	 * venue store) re-applies the configuration, keeping the agent's history.
-	 * Idempotent per session object.
+	 * and system prompt. Creates it on first use. For Brightside's standard agent
+	 * it re-applies configuration on later runs; named agents can instead retain
+	 * the configuration already stored in their agent record. Idempotent per
+	 * session object.
 	 *
 	 * @return true if the configuration is in force; false if the agent exists
 	 *         but could not be updated yet (e.g. it is mid-cycle) — chatting
@@ -159,46 +177,71 @@ public final class ChatSession {
 	 * @throws Exception if the agent does not exist and cannot be created
 	 */
 	public synchronized boolean ensureAgent() throws Exception {
+		return ensureAgent(configureExisting);
+	}
+
+	private boolean ensureAgent(boolean updateExisting) throws Exception {
 		if (agentReady) return true;
-		String systemPrompt = config.systemPrompt();
-		if (userName != null && !userName.isBlank()) {
-			systemPrompt += "\n\nThe user's name is " + userName + ". Address them by it naturally.";
-		}
-		systemPrompt += "\n\n" + ATTRIBUTION_GUIDANCE;
+		ACell info = agentInfo();
+		String status = agentStatus(info);
+		AMap<AString, ACell> existingLoads = configuredLoads(info);
+		boolean legacyPinnedBaseline = existingLoads != null
+			&& (existingLoads.containsKey(Strings.create(LEGACY_IDENTITY_SKILL))
+				|| existingLoads.containsKey(Strings.create(BrightsideSkillsAdapter.INTRODUCTION))
+				|| existingLoads.containsKey(Strings.create(BrightsideSkillsAdapter.SKILLS)));
+		AMap<AString, ACell> desiredLoads = desiredLoads(existingLoads);
 		AMap<AString, ACell> agentConfig = Maps.of(
 			Fields.OPERATION, config.operation(),
 			"llmOperation", config.llmOperation(),
-			"systemPrompt", systemPrompt,
+			"systemPrompt", config.systemPrompt(),
 			// Read-only workspace access (covia read/list) on top of the tools
 			// below — so it can inspect its own namespace out of the box.
 			"defaultTools", true,
-			// The memory tool, so the assistant can record and revise what it knows.
+			// The memory tool, plus a narrow append-only channel for concrete skill
+			// misses. Neither exposes general workspace mutation.
 			// Broader capabilities (writes, HTTP, files, agents, telegram/discord…)
 			// arrive by discovering and loading the skills that grant them — see
 			// skillsets below — so authority stays deliberate rather than always-on.
-			"tools", Vectors.of(Strings.create(MEMORY_OP)),
+			"tools", Vectors.of(Strings.create(MEMORY_OP), Strings.create(SKILL_FEEDBACK_OP)),
 			// Pin the assistant's memory (n/memory) into every turn's context.
 			"context", Vectors.of(Maps.of(
 				"op", MEMORY_OP,
 				"input", Maps.of("command", "recall", "path", MEMORY_PATH),
 				"label", "Your private memory of the user — edit with path " + MEMORY_PATH)),
-			// Always-loaded: how it introduces itself (which reveals the
-			// on-demand `conversations` skill), and how it grows new skills (the
-			// skills meta-skill gates skill-authoring as a sub-skill). Skills that
-			// grant tools — conversations, skill-authoring — are loaded on demand
-			// by their descriptions, not pinned: a `skill_load` is what activates a
-			// skill's facet tools, so pinning a tool-granting skill loads its
-			// guidance but not its tools.
-			"loads", Maps.of(
-				BrightsideSkillsAdapter.INTRODUCTION, Maps.of("skill", true, "budget", 4000L, "label", "introduction"),
-				BrightsideSkillsAdapter.SKILLS, Maps.of("skill", true, "budget", 2000L, "label", "skills")),
+			// No Brightside skill is pinned by default. The one app-owned load is a
+			// read-only context operation; owner pins are preserved and shipped skills
+			// are selected from their descriptions on demand.
+			"loads", desiredLoads,
+			// Replace the old two-entry compatibility vector. Brightside's complete
+			// skillset below is an explicit source, so lookup does not depend on Covia
+			// #415's unresolved operator-pin child expansion.
+			"skills", Vectors.empty(),
 			// Discovery surface: the user's own skills plus the venue's shipped
-			// library. The agent sees the entry routers in its skills index and
-			// loads one to reveal (and then use) that family's tools.
-			"skillsets", Vectors.of(Strings.create(USER_SKILLSET), Strings.create(VENUE_SKILLSET)));
+			// library and Brightside's everyday-work skills. The agent loads only the
+			// body (and any tools) relevant to the current task.
+			"skillsets", Vectors.of(
+				Strings.create(USER_SKILLSET),
+				Strings.create(BrightsideSkillsAdapter.SKILLSET),
+				Strings.create(VENUE_SKILLSET)));
 		AMap<AString, ACell> input = Maps.of(Fields.AGENT_ID, config.agentId(), Fields.CONFIG, agentConfig);
-		String status = agentStatus();
 		if (status != null) {
+			// agent:update recursively merges nested maps. Replace the loads map in
+			// two supported steps when retiring the old pinned baseline; the
+			// rebuilt map preserves any other operator pins and adds app context.
+			if (legacyPinnedBaseline) {
+				try {
+					replaceConfiguredLoads(desiredLoads);
+					log.info("Migrated legacy pinned skill baseline for agent '{}'", config.agentId());
+				} catch (Exception e) {
+					log.warn("Could not migrate pinned skill baseline for agent '{}' (will retry): {}",
+						config.agentId(), e.getMessage());
+					return false;
+				}
+			}
+			if (!updateExisting) {
+				agentReady = true;
+				return true;
+			}
 			// agent:update is a recursive *merge* (vectors replace, maps merge), not
 			// a replace: tools/skillsets/context above are re-applied wholesale, but
 			// a `loads` pin dropped from this map would linger on existing agents.
@@ -227,15 +270,55 @@ public final class ChatSession {
 	}
 
 	/** The agent's status (SLEEPING, RUNNING, SUSPENDED, TERMINATED), or null if it doesn't exist. */
-	private String agentStatus() {
+	private ACell agentInfo() {
 		try {
-			ACell info = run(OP_INFO, Maps.of(Fields.AGENT_ID, config.agentId()), ADMIN_TIMEOUT_SECONDS);
-			if (info == null) return null;
-			AString status = RT.ensureString(RT.getIn(info, Fields.STATUS));
-			return (status != null) ? status.toString() : "";
+			return run(OP_INFO, Maps.of(Fields.AGENT_ID, config.agentId()), ADMIN_TIMEOUT_SECONDS);
 		} catch (Exception e) {
 			return null;
 		}
+	}
+
+	private static String agentStatus(ACell info) {
+		if (info == null) return null;
+		AString status = RT.ensureString(RT.getIn(info, Fields.STATUS));
+		return (status != null) ? status.toString() : "";
+	}
+
+	@SuppressWarnings("unchecked")
+	private static AMap<AString, ACell> configuredLoads(ACell info) {
+		ACell loads = RT.getIn(info, Fields.CONFIG, Fields.LOADS);
+		return (loads instanceof AMap<?, ?>) ? (AMap<AString, ACell>) loads : null;
+	}
+
+	/** Owner pins plus Brightside context, after removing the three legacy skill defaults. */
+	private AMap<AString, ACell> desiredLoads(AMap<AString, ACell> existing) {
+		AMap<AString, ACell> loads = (existing != null) ? existing : Maps.empty();
+		loads = loads.dissoc(Strings.create(LEGACY_IDENTITY_SKILL));
+		loads = loads.dissoc(Strings.create(BrightsideSkillsAdapter.INTRODUCTION));
+		loads = loads.dissoc(Strings.create(BrightsideSkillsAdapter.SKILLS));
+
+		AMap<AString, ACell> input = Maps.of("modelOperation", config.llmOperation());
+		if (userName != null && !userName.isBlank()) {
+			input = input.assoc(Strings.create("userName"), Strings.create(userName));
+		}
+		return loads.assoc(Strings.create(CONTEXT_LOAD_KEY), Maps.of(
+			"op", CONTEXT_OP,
+			"input", input,
+			"label", "Brightside application context",
+			"budget", 4000L,
+			"volatile", CVMBool.FALSE));
+	}
+
+	/** Replaces config.loads despite agent:update's normal recursive map merge. */
+	private void replaceConfiguredLoads(AMap<AString, ACell> loads) throws Exception {
+		AMap<AString, ACell> clear = Maps.empty();
+		clear = clear.assoc(Fields.LOADS, null);
+		run(OP_UPDATE, Maps.of(
+			Fields.AGENT_ID, config.agentId(),
+			Fields.CONFIG, clear), ADMIN_TIMEOUT_SECONDS);
+		run(OP_UPDATE, Maps.of(
+			Fields.AGENT_ID, config.agentId(),
+			Fields.CONFIG, Maps.of(Fields.LOADS, loads)), ADMIN_TIMEOUT_SECONDS);
 	}
 
 	/** Clears a suspension (SUSPENDED → SLEEPING). Best-effort; logged, never thrown. */
@@ -260,9 +343,20 @@ public final class ChatSession {
 
 	/** Sends one user message and waits for the agent's reply. */
 	public Reply send(String message) throws Exception {
+		return send(message, ignored -> {
+		});
+	}
+
+	/**
+	 * Sends one user message and waits for the agent's reply.
+	 *
+	 * @param accepted called as soon as the venue has accepted the chat and
+	 *                 assigned its session id, before model work completes
+	 */
+	public Reply send(String message, Consumer<String> accepted) throws Exception {
 		ensureAgent();
 		try {
-			Reply reply = sendOnce(message);
+			Reply reply = sendOnce(message, accepted);
 			pendingResume = false;
 			return reply;
 		} catch (Exception e) {
@@ -271,7 +365,7 @@ public final class ChatSession {
 			if (isSuspended(e)) {
 				log.warn("Agent is suspended ({}); resuming and retrying", e.getMessage());
 				resume();
-				Reply reply = sendOnce(message);
+				Reply reply = sendOnce(message, accepted);
 				pendingResume = false;
 				return reply;
 			}
@@ -283,10 +377,31 @@ public final class ChatSession {
 					e.getMessage());
 				pendingResume = false;
 				sessionId = null;
-				return sendOnce(message);
+				return sendOnce(message, accepted);
 			}
 			throw e;
 		}
+	}
+
+	/**
+	 * Delivers a follow-up immediately to an existing session's venue queue.
+	 * This does not wait for, or manufacture, a reply; the live session watcher
+	 * observes the cycle(s) the venue subsequently runs.
+	 */
+	public Delivery enqueue(String message, String targetSessionId) throws Exception {
+		if (targetSessionId == null || targetSessionId.isBlank()) {
+			throw new IllegalStateException("Cannot queue a message before the venue assigns a session");
+		}
+		ensureAgent();
+		ACell result = run(OP_MESSAGE, Maps.of(
+			Fields.AGENT_ID, config.agentId(),
+			Fields.SESSION_ID, Strings.create(targetSessionId),
+			Fields.MESSAGE, message), ADMIN_TIMEOUT_SECONDS);
+		AString deliveredSid = RT.ensureString(RT.getIn(result, Fields.SESSION_ID));
+		if (deliveredSid == null) {
+			throw new IllegalStateException("The venue accepted a queued message without a session id");
+		}
+		return new Delivery(deliveredSid.toString());
 	}
 
 	/**
@@ -304,15 +419,27 @@ public final class ChatSession {
 		return false;
 	}
 
-	private Reply sendOnce(String message) throws Exception {
+	private Reply sendOnce(String message, Consumer<String> accepted) throws Exception {
 		AMap<AString, ACell> input = Maps.of(Fields.AGENT_ID, config.agentId(), Fields.MESSAGE, message);
+		long generation = sessionGeneration;
 		String sid = sessionId;
 		if (sid != null) input = input.assoc(Fields.SESSION_ID, Strings.create(sid));
 
-		ACell result = run(OP_CHAT, input, config.timeoutSeconds());
+		Job job = venue.invoke(OP_CHAT, input).get(ADMIN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		AString acceptedSidCell = RT.ensureString(RT.getIn(job.getData(), Fields.SESSION_ID));
+		if (acceptedSidCell != null) {
+			String acceptedSid = acceptedSidCell.toString();
+			if (sessionGeneration == generation) sessionId = acceptedSid;
+			if (accepted != null) accepted.accept(acceptedSid);
+		}
+
+		ACell result = await(job, OP_CHAT, config.timeoutSeconds());
 		AString newSid = RT.ensureString(RT.getIn(result, Fields.SESSION_ID));
-		if (newSid != null) sessionId = newSid.toString();
-		return new Reply(render(RT.getIn(result, Fields.RESPONSE)), sessionId);
+		String returnedSid = (newSid != null) ? newSid.toString() : sid;
+		// A user may enter Home while this call is in flight. The completed old
+		// turn remains valid history, but must not rebind the fresh composer.
+		if (newSid != null && sessionGeneration == generation) sessionId = returnedSid;
+		return new Reply(render(RT.getIn(result, Fields.RESPONSE)), returnedSid);
 	}
 
 	/**
@@ -322,6 +449,10 @@ public final class ChatSession {
 	 */
 	private ACell run(String operation, ACell input, long timeoutSeconds) throws Exception {
 		Job job = venue.invoke(operation, input).get(ADMIN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		return await(job, operation, timeoutSeconds);
+	}
+
+	private ACell await(Job job, String operation, long timeoutSeconds) throws Exception {
 		try {
 			return job.future().get(timeoutSeconds, TimeUnit.SECONDS);
 		} catch (ExecutionException e) {

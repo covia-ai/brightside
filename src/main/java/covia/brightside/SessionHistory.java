@@ -243,6 +243,27 @@ public final class SessionHistory {
 		return latestFrom(record);
 	}
 
+	/**
+	 * Whether a session currently has venue-managed work in flight or waiting.
+	 * A normal transition retains its presented messages in {@code pending}
+	 * until merge; a frames-owning transition drains them at cycle start and
+	 * records {@code inCycle}. Looking at both is therefore the schema-level,
+	 * timing-independent way to decide whether a live projection is final.
+	 */
+	public static boolean isSessionActive(ACell record, String sessionId) {
+		if (!(record instanceof AMap) || sessionId == null) return false;
+		AMap<ACell, ACell> sessions = asMap(RT.getIn(record, "sessions"));
+		if (sessions == null) return false;
+		for (long i = 0; i < sessions.count(); i++) {
+			MapEntry<ACell, ACell> entry = sessions.entryAt(i);
+			if (!sessionId.equals(sidHex(entry.getKey()))) continue;
+			ACell session = entry.getValue();
+			if (RT.getIn(session, "pending") instanceof AVector<?> pending && !pending.isEmpty()) return true;
+			return RT.getIn(session, "inCycle") != null;
+		}
+		return false;
+	}
+
 	/** Projects the most-recently-active session from an already-read record. */
 	private static Snapshot latestFrom(ACell record) {
 		if (!(record instanceof AMap)) return null;
