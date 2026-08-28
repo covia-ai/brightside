@@ -64,10 +64,21 @@ window that talks to an agent on that venue. Single Maven module,
   own HTTP surface — the `brightside:shutdown` op — then waits for the store to
   free before starting. **The control channel is the venue's embedded Javalin;
   the instruction is a plain shutdown; auth is venue-signed.** Both instances
-  unlock the same encrypted identity seed, so the newcomer reads the running
-  venue's DID from `/api/v1/status` and mints a venue-signed token (iss = sub = that DID) —
-  the venue trusts JWTs it signed itself and authenticates the bearer as the
-  operator. `BrightsideAdapter.handleShutdown` gates on
+  unlock the same encrypted identity seed, so the newcomer mints a venue-signed
+  token (iss = sub = the venue's DID) — the venue trusts JWTs it signed itself
+  and authenticates the bearer as the operator. **The venue is private** (public
+  access disabled). Covia keeps `/api/v1/status` reachable to strangers anyway
+  (`VenueRouteFeature.COVIA_DISCOVERY`: status is how a client finds and
+  verifies a venue before it can authenticate), but the probe does not depend
+  on that: `Takeover.isRunning` treats *any* HTTP answer as a running venue
+  (only a refused connection means none), and the DID is derived from the seed
+  — `Takeover.venueDIDFor` is `DID.forKey` of the public key, the same
+  derivation as `Engine.getDIDString` on loopback — with the anonymously
+  reported DID used, and cross-checked, when offered. Treating only `200` as
+  "running" once made a private instance invisible (status answered `401`
+  then), so the newcomer died on the store lock with no takeover offered.
+  `TakeoverTest` runs the whole handshake against a private venue, including
+  the refusal of a stranger's seed. `BrightsideAdapter.handleShutdown` gates on
   `ctx.getCallerDID().equals(engine.getDIDString())` (the `auth:whoami`
   "internal" test) and runs the `onShutdown` callback wired by
   `EmbeddedVenue.launch(config, this::exit)` — a clean `exit()`, so the store
