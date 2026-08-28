@@ -159,9 +159,15 @@ Covia/Convex SDK. Set the token's `sub` to the venue DID to act as the operator,
 or to `<venueDID>:u:<name>` to act as your local user — local principals have no
 key of their own, so a venue-signed token is how they authenticate off-process.
 
+The exact call, with the Covia/Convex SDK:
+`JWT.signPublic({sub, iss: venueDID, aud: venueDID, iat, exp}, AKeyPair.create(Blob.fromHex(seed)))`.
+The venue trusts JWTs it signed itself and authenticates the bearer as `sub`.
+
 Then use any standard client: `Authorization: Bearer <token>` against
-`/api/v1/…`, the Covia SDK, or the MCP endpoint. See the *Debugging / accessing
-the venue* section of [AGENTS.md](../AGENTS.md) for the exact call.
+`/api/v1/…`, the Covia SDK, or the MCP endpoint. A `u:<name>` token reads that
+user's own `w/` and `n/` as its own namespace. There is no operator backdoor
+into user data — the venue principal reading another user's namespace still
+needs a proof — so authenticate *as* the user rather than across users.
 
 ## Environment variables
 

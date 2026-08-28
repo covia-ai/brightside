@@ -5,9 +5,10 @@ Brightside is a single Maven module, `ai.covia:brightside`, main class
 a complete Covia venue, so there is no daemon to manage, no socket to secure and
 no serialisation between the UI and the agent's state.
 
-For the product principles behind these choices, see [DESIGN.md](DESIGN.md).
-For the full working rules — the ones a contributor or a coding agent needs —
-see [AGENTS.md](../AGENTS.md).
+For the product principles behind these choices, see [DESIGN.md](DESIGN.md);
+for startup, takeover and exit, [LAUNCH.md](LAUNCH.md); for keys and
+recovery, [SECURITY.md](SECURITY.md); for the file and API keys,
+[CONFIGURATION.md](CONFIGURATION.md).
 
 ## The shape of it
 
@@ -49,7 +50,8 @@ src/main/java/covia/brightside/
 ├── EmbeddedVenue.java          VenueServer + per-user LocalVenue client + in-process
 │                               lattice reads (agentRecord / resolve — no job)
 ├── Takeover.java               detect a running instance; venue-signed shutdown
-├── BrightsideAdapter.java      Covia adapter: brightside:info, brightside:shutdown
+├── BrightsideAdapter.java      Covia adapter: brightside:info, context, delete-skill,
+│                               report-skill-feedback, shutdown
 ├── BrightsideSkillsAdapter.java  installs the shipped skills under v/skills/brightside
 ├── SessionHistory.java         projects the live venue session into transcript items
 ├── ConversationWatcher.java    in-process value compare; refresh on change
@@ -101,6 +103,14 @@ idempotent.
 **Configuration is data, not code.** `AppConfig` merges the user's `venue` map
 over Brightside's defaults key-for-key and passes it straight to
 `VenueServer.launch`, so new venue options need no Brightside change.
+
+**The chat session absorbs the agent framework's quirks.** `agent:update` is a
+recursive merge and is refused while the agent is running, so `ChatSession`
+re-applies configuration on the next send; a failed transition leaves the agent
+SUSPENDED, so it is resumed after re-applying; only the venue's "Unknown
+session" error falls back to a fresh session, so a model or key failure never
+mints an orphan conversation; follow-ups sent while a reply is in flight go
+through `agent:message` to the same session.
 
 **Transcript items.** `SessionHistory` projects a conversation into `Message`
 (user / final assistant text) and `Activity` (the intermediate narration and

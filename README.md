@@ -233,8 +233,9 @@ are all local and work with no network. The *model* is the exception: point
 `v/test/ops/llm` for an echo bot.
 
 **Is my agent reachable from other tools?** Yes — that is rather the point. The
-venue exposes HTTP, MCP and A2A on loopback. See the debugging notes in
-[AGENTS.md](AGENTS.md) for how to mint a token and act as your own user.
+venue exposes HTTP, MCP and A2A on loopback. See *Reaching the venue from other
+tools* in [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for how to mint a token
+and act as your own user.
 
 **Is this production-ready?** Not yet — see the status badge. It is an early
 preview: usable every day, still moving quickly, and pre-1.0 in the way that
@@ -272,9 +273,9 @@ mvn exec:java # run from the build
   desktop. The chat tests use `v/test/ops/llm`, so they need no API key.
 - British English in comments, UI text and docs. Tabs for indentation in Java
   and XML, matching Covia.
-- [AGENTS.md](AGENTS.md) is the canonical guide for both humans and AI coding
-  agents working in this repository — read it before a first PR. The design
-  rules there explain *why* things are the way they are.
+- [AGENTS.md](AGENTS.md) is the short guide for anyone — human or AI — working
+  in this repository; read it and [docs/DESIGN.md](docs/DESIGN.md) before a
+  first PR. The `docs/` folder explains *why* things are the way they are.
 
 ## Licence
 
