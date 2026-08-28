@@ -1095,12 +1095,9 @@ public final class BrightSide {
 	}
 
 	/**
-	 * Whether minimising sends the window to the tray (default false: minimise
-	 * goes to the taskbar like any window). Off by default because on Windows
-	 * clicking the active window's taskbar button <em>is</em> a minimise, so
-	 * with this on a taskbar click made the window vanish into the tray. The
-	 * tray is reached deliberately — Settings → General → Hide to tray, the
-	 * hide shortcut, or close when {@link #keepInTray()} is on.
+	 * Whether minimising sends the window to the tray (default false — on Windows a
+	 * click on the active window's taskbar button is a minimise, so hiding on
+	 * minimise made the window vanish). The tray is reached deliberately instead.
 	 */
 	public boolean minimiseToTray() {
 		return prefs.getBool("tray.minimise", false);

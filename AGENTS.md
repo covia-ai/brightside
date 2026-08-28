@@ -67,18 +67,9 @@ window that talks to an agent on that venue. Single Maven module,
   unlock the same encrypted identity seed, so the newcomer mints a venue-signed
   token (iss = sub = the venue's DID) — the venue trusts JWTs it signed itself
   and authenticates the bearer as the operator. **The venue is private** (public
-  access disabled). Covia keeps `/api/v1/status` reachable to strangers anyway
-  (`VenueRouteFeature.COVIA_DISCOVERY`: status is how a client finds and
-  verifies a venue before it can authenticate), but the probe does not depend
-  on that: `Takeover.isRunning` treats *any* HTTP answer as a running venue
-  (only a refused connection means none), and the DID is derived from the seed
-  — `Takeover.venueDIDFor` is `DID.forKey` of the public key, the same
-  derivation as `Engine.getDIDString` on loopback — with the anonymously
-  reported DID used, and cross-checked, when offered. Treating only `200` as
-  "running" once made a private instance invisible (status answered `401`
-  then), so the newcomer died on the store lock with no takeover offered.
-  `TakeoverTest` runs the whole handshake against a private venue, including
-  the refusal of a stranger's seed. `BrightsideAdapter.handleShutdown` gates on
+  access disabled), so the takeover must not depend on an anonymous HTTP
+  answer: any answer counts as a running venue and the DID comes from the
+  shared seed — see `Takeover` and `TakeoverTest`. `BrightsideAdapter.handleShutdown` gates on
   `ctx.getCallerDID().equals(engine.getDIDString())` (the `auth:whoami`
   "internal" test) and runs the `onShutdown` callback wired by
   `EmbeddedVenue.launch(config, this::exit)` — a clean `exit()`, so the store
@@ -335,19 +326,9 @@ window that talks to an agent on that venue. Single Maven module,
   not sources in themselves. The `tasks-scheduler-automation` router contributes
   no tools itself and reveals Covia's existing `tasks`, `scheduling`,
   `orchestration` and `hitl` skills; load only the children required by the
-  current request. The `convex` router is the owner's view of the Convex
-  network and reveals topic children with their tools: `accounts`,
-  `smart-contracts` and `cns` grant `convex:query` + `convex:transact`,
-  `protonet` grants `convex:query`, `key-security` grants nothing (it is the
-  rulebook loaded before anything signs — keys by secret reference, never a
-  seed in a call or in chat), and `convex-lattice` is the **same resource** as
-  the harness child installed at a second path, so content-identity dedup shows
-  it once in the index. Their bodies are distilled from the Convex repository's
-  own `.claude/skills` (account, transfer, transact, query, convex-lisp, deploy,
-  token, trust, cns, juice, memory, protocol-versions) and use Convex's
-  canonical terms — never "gas", "fees", "blockchain", "block" or "mainnet".
-  Brightside does not yet create or link a Convex account for the owner; the
-  wallet-grade adapter work is Covia issue #433. When the user asks "what did we
+  current request. The `convex` router reveals Convex topic children with their
+  tools (see `BrightsideSkillsAdapter`); a seed never appears in a tool call or
+  in chat — signing keys go by secret reference. When the user asks "what did we
   discuss before?", the agent loads `conversations`, gets the session tools and
   reads its own history rather than claiming it cannot. Skill
   **descriptions are the trigger**: pack the words the user actually says
