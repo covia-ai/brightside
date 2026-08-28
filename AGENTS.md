@@ -23,29 +23,6 @@ full technical surface lives under Settings. One Maven module,
   `v/test/ops/llm`, so no API key. Test mechanism (wiring, state, behaviour),
   not the wording of assembled prose.
 
-## Rules that matter
-
-- **Swing on the event thread only.** Venue, agent and desktop work run on
-  background threads.
-- **The UI is a client.** Chat goes through the venue's agent operations
-  (`v/ops/agent/*`), never a private LLM call. Only lattice *reads* go
-  in-process.
-- **The user is a named venue principal** (`<venueDID>:u:<slug>`), not the
-  venue. The slug is fixed once chosen; the API key lives in `secrets.public`.
-- **One process owns `venue.etch`.** A new launch takes over the running
-  instance through `brightside:shutdown` with a venue-signed token; it never
-  fights the lock.
-- **Configuration is data.** The owner's `venue` map is merged over the
-  defaults; `{}` is valid.
-- **Capability is deliberate.** Only read-only tools, memory and the feedback
-  reporter are always on; every other tool arrives by loading the skill that
-  grants it. No shipped skill is pinned; descriptions are the trigger.
-- **Secrets never reach a model, a log or a chat.** Signing keys go by secret
-  reference.
-- **The tray is best-effort**; the app must work without it, and exit always
-  flushes the store.
-- **No application menu bar**; everyday actions live under Settings.
-
 ## Where the detail lives
 
 | Topic | See |
