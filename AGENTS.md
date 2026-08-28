@@ -30,6 +30,7 @@ full technical surface lives under Settings. One Maven module,
 | Product principles, namespaces, how the assistant is shaped | `docs/DESIGN.md` |
 | Structure, threading, chat session, transcript, watcher, skills, packaging | `docs/ARCHITECTURE.md` |
 | Startup, takeover, tray, exit | `docs/LAUNCH.md` |
+| Venue, user and agent identity | `docs/IDENTITY.md` |
 | Vault, keys, recovery, authentication, network exposure | `docs/SECURITY.md` |
 | Onboarding flows and identity | `docs/ONBOARDING.md` |
 | `config.json`, API keys, reaching the venue from other tools | `docs/CONFIGURATION.md` |
