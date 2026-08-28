@@ -805,22 +805,24 @@ public final class BrightSide {
 		return List.copyOf(ordered);
 	}
 
-	/** A human display name from an agent id: {@code "bob"} → "Bob", {@code "bob-smith"} → "Bob Smith". */
-	private static String displayNameFor(String agentId) {
-		if (agentId == null || agentId.isBlank()) return "Agent";
-		StringBuilder sb = new StringBuilder();
-		for (String part : agentId.split("[-_]")) {
-			if (part.isEmpty()) continue;
-			if (sb.length() > 0) sb.append(' ');
-			sb.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
+	/** An agent's display name: an explicit {@code config.name} in its record, else the id exactly as written. */
+	private String displayNameFor(String agentId) {
+		EmbeddedVenue v = venue;
+		String did = userDID;
+		if (v != null && did != null && agentId != null) {
+			convex.core.data.ACell record = v.agentRecord(did, agentId);
+			AString name = (record == null) ? null
+				: convex.core.lang.RT.ensureString(convex.core.lang.RT.getIn(record, "config", "name"));
+			if (name != null && !name.toString().isBlank()) return name.toString();
 		}
-		return (sb.length() > 0) ? sb.toString() : agentId;
+		return agentId;
 	}
 
 	/** An agent id (path segment) from a display name: lowercase, hyphenated. */
+	/** An agent id from a typed name: case kept, anything a path or DID cannot carry becomes {@code -}. */
 	private static String slug(String name) {
 		if (name == null) return "";
-		return name.trim().toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]+", "-").replaceAll("(^-|-$)", "");
+		return name.trim().replaceAll("[^A-Za-z0-9._-]+", "-").replaceAll("(^-|-$)", "");
 	}
 
 	private static convex.core.data.ACell invokeOpResult(Venue client, String operation, AMap<AString, ACell> input)

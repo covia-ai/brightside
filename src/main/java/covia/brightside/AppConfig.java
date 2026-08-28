@@ -50,7 +50,7 @@ public final class AppConfig {
 	public static final String DEFAULT_VENUE_NAME = "Brightside";
 	public static final String DEFAULT_THEME = "dark";
 
-	public static final String DEFAULT_AGENT_ID = "brightside";
+	public static final String DEFAULT_AGENT_ID = "Brightside";
 	/** Plain persona chat transition — the recommended choice for a chat agent. */
 	public static final String DEFAULT_OPERATION = "v/ops/llmagent/chat";
 	/** The venue's own default model operation (see AbstractLLMAdapter). */
@@ -102,7 +102,7 @@ public final class AppConfig {
 			// The agent the chat window talks to. Created on first use at
 			// <your DID>/g/<agentId>; the settings below are re-applied on startup.
 			"chat": {
-				"agentId": "brightside",
+				"agentId": "Brightside",
 				"operation": "v/ops/llmagent/chat",
 				// Model operation used for replies. The model chosen in the app
 				// (onboarding or Settings → Model) is kept in model.txt

@@ -48,7 +48,7 @@ independent agents side by side.
   },
 
   "chat": {
-    "agentId": "brightside",            // agent at <venue DID>/g/brightside
+    "agentId": "Brightside",            // agent at <venue DID>/g/Brightside
     "operation": "v/ops/llmagent/chat", // transition operation
     "llmOperation": "v/models/anthropic/claude-sonnet-5",
     "systemPrompt": "You are Brightside, ...",
@@ -125,7 +125,7 @@ you give it. Behind the scenes it makes you a principal on your own venue:
 ```
 u:<name>                                  the principal
 <venueDID>:u:<name>                       your DID
-<venueDID>:u:<name>/g/brightside          your agent
+<venueDID>:u:<name>/g/Brightside          your agent
 ```
 
 Here `<name>` is the stable, DID-safe slug chosen on first setup, not the

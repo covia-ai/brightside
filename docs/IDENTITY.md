@@ -72,11 +72,12 @@ An agent is a sub-principal of its owner (Covia `Principals`):
 `n/memory` — still means the *owner's* namespace: the DID says who acted, not
 whose data a path names.
 
-In Brightside the default agent's id is `brightside` (`chat.agentId` in
-`config.json`). A new agent gets an immutable id slugged from the name the
-owner gives it (`Research helper` → `research-helper`), and its display name
-is that id title-cased. The list shows the default agent first and the rest by
-id.
+In Brightside the default agent's id is `Brightside` (`chat.agentId` in
+`config.json`). A new agent's id is the name the owner typed, case kept, with
+anything a path cannot carry turned into `-` (`Research helper` →
+`Research-helper`); it never changes. The display name is the id exactly,
+unless the record sets an explicit `config.name`. The list shows the default
+agent first and the rest by id.
 
 What makes an agent *itself* is its record: the system prompt (its name and
 role, from a template), its model, its private memory at `n/memory` — which

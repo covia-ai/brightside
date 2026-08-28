@@ -198,7 +198,7 @@ comments — and **every key in it is optional**:
   "theme": "dark",                      // or "light"
   "venue": { "name": "Brightside Venue", "port": 8085 },
   "chat": {
-    "agentId": "brightside",
+    "agentId": "Brightside",
     "llmOperation": "v/models/anthropic/claude-sonnet-5",
     "timeout": 120
   }
