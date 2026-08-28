@@ -129,7 +129,7 @@ If the build cannot resolve `ai.covia:venue`, that is why.
   in-process to notice changes, so refresh is near-free and silent
 - **A proper desktop app** — [FlatLaf](https://www.formdev.com/flatlaf/)
   macOS-style themes, bundled Lato, rounded chat bubbles, dark by default; it
-  minimises to the system tray and keeps running
+  can hide to the system tray and keep running
 - **Configuration is data** — an empty `{}` config is valid; every venue option
   Covia understands can be set without a Brightside change
 
@@ -181,9 +181,12 @@ venues meet other venues.
 | Right-click a message | copy the message or the whole conversation |
 | Right-click a conversation | open, rename, copy transcript, delete, inspect context |
 
-Minimising or closing hides the window to the tray; the agent keeps running.
-**Quit** stops it and flushes state. Without a system tray (or with
-`BRIGHTSIDE_NO_TRAY=1`) closing the window quits.
+Minimising goes to the taskbar like any window. **Hide to tray** (Settings →
+General, or the hide shortcut) keeps the agent running out of sight; Settings →
+General can also send the window to the tray on close or on minimise if you
+prefer. By default closing quits, and **Quit** always stops it and flushes state.
+Without a system tray (or with `BRIGHTSIDE_NO_TRAY=1`) there is nowhere to hide
+to, so closing the window quits.
 
 ## Configuration
 

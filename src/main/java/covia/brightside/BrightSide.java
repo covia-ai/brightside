@@ -44,8 +44,10 @@ import covia.brightside.vault.Vault;
  * BrightSide: a Covia venue on the desktop.
  *
  * <p>Runs an {@link EmbeddedVenue} inside the process and puts a chat window
- * in front of it. The window minimises (and closes) to a system-tray icon so
- * the venue keeps running in the background; Exit — from the tray menu or
+ * in front of it. The window can be hidden to a system-tray icon so the venue
+ * keeps running in the background — explicitly (Hide to tray), or on close /
+ * minimise when the owner opts in under Settings → General; by default
+ * minimise goes to the taskbar and close quits. Exit — from the tray menu or
  * Settings → General — flushes the venue's state and stops the process.
  *
  * <p>Threading: the UI lives on the Swing event thread; the venue is launched
@@ -1092,9 +1094,16 @@ public final class BrightSide {
 		prefs.setBool("tray.keepOpen", value);
 	}
 
-	/** Whether minimising sends the window to the tray (default true). */
+	/**
+	 * Whether minimising sends the window to the tray (default false: minimise
+	 * goes to the taskbar like any window). Off by default because on Windows
+	 * clicking the active window's taskbar button <em>is</em> a minimise, so
+	 * with this on a taskbar click made the window vanish into the tray. The
+	 * tray is reached deliberately — Settings → General → Hide to tray, the
+	 * hide shortcut, or close when {@link #keepInTray()} is on.
+	 */
 	public boolean minimiseToTray() {
-		return prefs.getBool("tray.minimise", true);
+		return prefs.getBool("tray.minimise", false);
 	}
 
 	public void setMinimiseToTray(boolean value) {
