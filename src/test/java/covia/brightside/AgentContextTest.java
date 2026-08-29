@@ -85,6 +85,47 @@ class AgentContextTest {
 		assertEquals("user", turns.get(0).role());
 	}
 
+	/**
+	 * A tool exchange reaches the model as an assistant message that only makes
+	 * the call, then a tool message whose result is {@code structuredContent},
+	 * not {@code content}. Both halves must come through the projection — call,
+	 * result and the id pairing them — or the inspector shows the exchange as
+	 * two blank headings. The venue's tool-calling test model calls
+	 * {@code v/test/ops/echo}, whose result is a map.
+	 */
+	@Test
+	void projectsToolCallsAndStructuredResults() throws Exception {
+		String userDID = Identity.of("caller").userDID(venue.did());
+		Venue client = venue.clientAs(userDID);
+		AppConfig.Chat chat = new AppConfig.Chat("tool-agent", AppConfig.DEFAULT_OPERATION,
+			"v/test/ops/toolllm", "You are a test assistant.", 30);
+		ChatSession session = new ChatSession(client, chat, "Caller");
+		String sid = session.send("echo this back").sessionId();
+		assertNotNull(sid);
+
+		AgentContext.Report report = AgentContext.load(client, "tool-agent", sid);
+		assertNotNull(report);
+		AgentContext.Message result = report.messages().stream()
+			.filter(m -> "tool".equals(m.role()))
+			.findFirst()
+			.orElseThrow(() -> new AssertionError("a tool result is projected: " + report.messages()));
+		assertNotNull(result.id(), "the result names its call: " + result);
+		assertTrue(result.result() != null && !result.result().isBlank(),
+			"a structured result is rendered, not dropped for lacking content: " + result);
+		AgentContext.Message call = report.messages().stream()
+			.filter(m -> m.calls().stream().anyMatch(c -> result.id().equals(c.id())))
+			.findFirst()
+			.orElseThrow(() -> new AssertionError("the assistant call it answers is projected: " + report.messages()));
+		assertEquals("assistant", call.role());
+		assertEquals(result.name(), call.calls().get(0).name(), "the result carries its call's name");
+
+		// The cycle-detail view reads the same exchange from the stored turns.
+		List<SessionHistory.RawTurn> turns = SessionHistory.rawTurnsOf(
+			venue.agentRecord(userDID, "tool-agent"), sid);
+		assertTrue(turns.stream().anyMatch(t -> "tool".equals(t.role())
+			&& t.toolResult() != null && !t.toolResult().isBlank()), "the stored tool result: " + turns);
+	}
+
 	@Test
 	void nullForAMissingAgent() {
 		Venue client = venue.clientAs(Identity.of("nobody").userDID(venue.did()));

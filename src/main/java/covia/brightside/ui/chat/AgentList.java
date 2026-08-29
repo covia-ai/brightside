@@ -13,9 +13,13 @@ import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
+import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.ScrollPaneConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 
 import covia.brightside.model.AgentRef;
@@ -24,8 +28,9 @@ import covia.brightside.ui.LAF;
 /**
  * The agents pane (left of the sessions list on the Sessions screen): one row per
  * agent the user owns — e.g. Brightside and Bob — each with its own conversations.
- * Selecting one switches the chat (and the sessions list) to that agent. The
- * separate button beneath the scrollable list creates another agent.
+ * Selecting one switches the chat (and the sessions list) to that agent; a
+ * right-click offers its info screen and deletion. The separate button beneath
+ * the scrollable list creates another agent.
  *
  * <p>Dumb like {@link ConversationList}: it renders what it's given and reports
  * clicks through a {@link Listener}; {@code BrightSide} owns switching/creating.
@@ -33,10 +38,17 @@ import covia.brightside.ui.LAF;
 @SuppressWarnings("serial")
 public final class AgentList extends JPanel {
 
+	/** Reports the user's intent; the app performs the action. */
 	public interface Listener {
 		void onSelectAgent(String agentId);
 
 		void onNewAgent();
+
+		/** Show what the agent is: identity, status, model, instructions, capabilities. */
+		void onAgentInfo(String agentId);
+
+		/** Delete the agent outright — record, conversations and memory. Already confirmed. */
+		void onDeleteAgent(String agentId);
 	}
 
 	private static final int WIDTH = 158;
@@ -44,6 +56,7 @@ public final class AgentList extends JPanel {
 	private final Listener listener;
 	private final JPanel rows = new JPanel();
 	private String selectedId;
+	private String defaultId;
 
 	public AgentList(Listener listener) {
 		super(new BorderLayout());
@@ -88,9 +101,10 @@ public final class AgentList extends JPanel {
 		add(bottom, BorderLayout.SOUTH);
 	}
 
-	/** Replace the agent list, highlighting {@code selectedId}. */
-	public void setAgents(List<AgentRef> agents, String selectedId) {
+	/** Replace the agent list, highlighting {@code selectedId}; {@code defaultId} is the standard agent, which can't be deleted. */
+	public void setAgents(List<AgentRef> agents, String selectedId, String defaultId) {
 		this.selectedId = selectedId;
+		this.defaultId = defaultId;
 		rows.removeAll();
 		for (AgentRef a : agents) rows.add(agentRow(a));
 		rows.revalidate();
@@ -113,10 +127,48 @@ public final class AgentList extends JPanel {
 		row.addMouseListener(new MouseAdapter() {
 			@Override
 			public void mousePressed(MouseEvent e) {
-				listener.onSelectAgent(agent.id());
+				if (e.isPopupTrigger()) {
+					menuFor(agent).show(row, e.getX(), e.getY());
+				} else if (SwingUtilities.isLeftMouseButton(e)) {
+					listener.onSelectAgent(agent.id());
+				}
+			}
+
+			@Override
+			public void mouseReleased(MouseEvent e) {
+				if (e.isPopupTrigger()) menuFor(agent).show(row, e.getX(), e.getY());
 			}
 		});
 		return row;
+	}
+
+	/** The right-click menu for one agent. */
+	JPopupMenu menuFor(AgentRef agent) {
+		String aid = agent.id();
+		JPopupMenu menu = new JPopupMenu();
+
+		JMenuItem open = new JMenuItem("Open");
+		open.setEnabled(!aid.equals(selectedId));
+		open.addActionListener(e -> listener.onSelectAgent(aid));
+		menu.add(open);
+
+		JMenuItem info = new JMenuItem("Agent info…");
+		info.addActionListener(e -> listener.onAgentInfo(aid));
+		menu.add(info);
+
+		menu.addSeparator();
+
+		JMenuItem delete = new JMenuItem("Delete…");
+		delete.setEnabled(!aid.equals(defaultId));
+		delete.addActionListener(e -> {
+			int choice = JOptionPane.showConfirmDialog(this,
+				"Delete " + agent.name() + "? Its conversations and memory will be removed. This can't be undone.",
+				"Delete agent", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
+			if (choice == JOptionPane.OK_OPTION) listener.onDeleteAgent(aid);
+		});
+		menu.add(delete);
+
+		return menu;
 	}
 
 	private static Color muted() {

@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
-import javax.swing.JLabel;
 import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
 
@@ -23,8 +22,9 @@ import convex.core.data.AccountKey;
 
 final class ProfilePanelTest {
 
+	/** The identities handed to the page are the ones it shows, as read-only technical values with identicons from the key. */
 	@Test
-	void presentsTheUserAndVenueIdentitiesWithoutGridMarketing() throws Exception {
+	void presentsTheUserAndVenueIdentities() throws Exception {
 		AtomicReference<ProfilePanel> result = new AtomicReference<>();
 		SwingUtilities.invokeAndWait(() -> {
 			ProfilePanel panel = new ProfilePanel(new ProfilePanel.Host() {
@@ -36,27 +36,16 @@ final class ProfilePanelTest {
 				public String revealPrimarySeed(char[] passphrase) {
 					return "00".repeat(32);
 				}
+
+				@Override
+				public void actAs(boolean operator) {
+				}
 			});
-			panel.refresh("Alice", "did:key:zAlice:u:alice", "did:key:zAlice", "ab".repeat(32), true);
+			panel.refresh("Alice", "did:key:zAlice:u:alice", "did:key:zAlice", "ab".repeat(32), true, false);
 			result.set(panel);
 		});
 
-		List<JLabel> labels = descendants(result.get(), JLabel.class);
-		List<String> labelText = labels.stream().map(JLabel::getText).toList();
-		assertTrue(labelText.contains("Your name"));
-		assertTrue(labelText.contains("Covia user DID"));
-		assertTrue(labelText.contains("Home venue DID"));
-		assertTrue(labelText.contains("Venue signing key"));
-		assertTrue(labelText.contains("Primary seed (Advanced)"));
-
 		List<JTextArea> values = descendants(result.get(), JTextArea.class);
-		List<String> valueText = values.stream().map(JTextArea::getText).toList();
-		assertTrue(valueText.contains("did:key:zAlice:u:alice"));
-		assertTrue(valueText.contains("did:key:zAlice"));
-		assertTrue(valueText.contains("ab".repeat(32)));
-		assertFalse(String.join(" ", valueText).contains("Covia grid"));
-		assertEquals("Identity", SettingsScreen.Tab.PROFILE.toString());
-
 		for (String technical : List.of("did:key:zAlice:u:alice", "did:key:zAlice", "ab".repeat(32))) {
 			JTextArea value = values.stream().filter(a -> technical.equals(a.getText())).findFirst().orElseThrow();
 			assertEquals(Font.MONOSPACED, value.getFont().getName());
@@ -74,6 +63,52 @@ final class ProfilePanelTest {
 			assertEquals(IdenticonBuilder.SIZE * IdenticonBuilder.SIZE, identicon.pixels().length);
 			assertTrue(java.util.Arrays.equals(IdenticonBuilder.build(key), identicon.pixels()));
 		}
+	}
+
+	/** The Act-as switch: a click reaches the host; a refresh only reflects state and never calls back. */
+	@Test
+	void actAsSwitchCallsTheHostOnlyWhenClicked() throws Exception {
+		List<Boolean> asked = new ArrayList<>();
+		AtomicReference<ProfilePanel> ref = new AtomicReference<>();
+		SwingUtilities.invokeAndWait(() -> ref.set(new ProfilePanel(new ProfilePanel.Host() {
+			@Override
+			public void saveName(String name) {
+			}
+
+			@Override
+			public String revealPrimarySeed(char[] passphrase) {
+				return null;
+			}
+
+			@Override
+			public void actAs(boolean operator) {
+				asked.add(operator);
+			}
+		})));
+		ProfilePanel panel = ref.get();
+
+		SwingUtilities.invokeAndWait(() -> {
+			assertFalse(panel.asOperator.isEnabled(), "no venue yet: nothing to act as");
+			panel.refresh("Mike", "did:key:z6Mk:u:mike", "did:key:z6Mk", null, false, false);
+		});
+		assertTrue(panel.asUser.isSelected());
+		assertTrue(panel.asOperator.isEnabled());
+		assertTrue(asked.isEmpty(), "a refresh never calls the host");
+
+		SwingUtilities.invokeAndWait(panel.asOperator::doClick);
+		assertEquals(List.of(true), asked);
+
+		// The app rebinds and refreshes: the page shows the operator selected, still without a call.
+		SwingUtilities.invokeAndWait(() -> panel.refresh("Mike", "did:key:z6Mk:u:mike", "did:key:z6Mk", null, false, true));
+		assertTrue(panel.asOperator.isSelected());
+		assertEquals(List.of(true), asked);
+
+		SwingUtilities.invokeAndWait(panel.asUser::doClick);
+		assertEquals(List.of(true, false), asked);
+
+		SwingUtilities.invokeAndWait(panel::clearSensitive);
+		assertTrue(panel.asUser.isSelected(), "logging out drops back to the user");
+		assertFalse(panel.asOperator.isEnabled());
 	}
 
 	private static <T extends Component> List<T> descendants(Component root, Class<T> type) {

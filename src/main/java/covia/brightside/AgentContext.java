@@ -37,8 +37,23 @@ public final class AgentContext {
 	private static final Logger log = LoggerFactory.getLogger(AgentContext.class);
 	private static final long TIMEOUT_SECONDS = 30;
 
-	/** One assembled message the model receives ({@code system}/{@code user}/…). */
-	public record Message(String role, String text) {
+	/** One tool call on an assembled assistant message: its {@code name}, {@code id}, and rendered {@code args}. */
+	public record Call(String name, String id, String args) {
+	}
+
+	/**
+	 * One assembled message the model receives ({@code system}/{@code user}/
+	 * {@code assistant}/{@code tool}). {@code text} is its content — blank for
+	 * an assistant message that only makes {@code calls}, and for a tool message
+	 * whose result is structured. A {@code tool} message pairs with its call by
+	 * {@code name} and {@code id}; {@code result} renders its
+	 * {@code structuredContent} (null when the result is plain text, in
+	 * {@code text}) and {@code error} its {@code isError}. Loaded context and job
+	 * results arrive this way too, as {@code pinned_context}/{@code loaded_context}/
+	 * {@code get_job_results} exchanges, so nothing the model sees is elided.
+	 */
+	public record Message(String role, String text, List<Call> calls, String name, String id,
+			String result, boolean error) {
 	}
 
 	/** One offered tool: its name, description, and where it came from (harness/config/a loaded skill). */
@@ -85,10 +100,7 @@ public final class AgentContext {
 
 		List<Message> messages = new ArrayList<>();
 		if (RT.getIn(report, "messages") instanceof AVector<?> ms) {
-			for (long i = 0; i < ms.count(); i++) {
-				ACell m = (ACell) ms.get(i);
-				messages.add(new Message(str(RT.getIn(m, "role")), render(RT.getIn(m, "content"))));
-			}
+			for (long i = 0; i < ms.count(); i++) messages.add(message((ACell) ms.get(i)));
 		}
 
 		// Provenance for each tool (harness / config / a loaded skill).
@@ -127,6 +139,26 @@ public final class AgentContext {
 
 		return new Report(render(RT.getIn(report, "model")), bytes, used, remaining, sessionTokens,
 			messages, tools, unavailable, loads, JSON.toStringPretty(report));
+	}
+
+	/**
+	 * The provider-facing message shape {@code {role, content?, toolCalls?, id?,
+	 * name?, structuredContent?, isError?}}: a tool result is in
+	 * {@code structuredContent} when typed, {@code content} when plain text.
+	 */
+	private static Message message(ACell m) {
+		List<Call> calls = new ArrayList<>();
+		if (RT.getIn(m, "toolCalls") instanceof AVector<?> tcs) {
+			for (long i = 0; i < tcs.count(); i++) {
+				ACell c = (ACell) tcs.get(i);
+				calls.add(new Call(str(RT.getIn(c, "name")), str(RT.getIn(c, "id")),
+					render(RT.getIn(c, "arguments"))));
+			}
+		}
+		ACell structured = RT.getIn(m, "structuredContent");
+		return new Message(str(RT.getIn(m, "role")), render(RT.getIn(m, "content")), List.copyOf(calls),
+			str(RT.getIn(m, "name")), str(RT.getIn(m, "id")),
+			(structured != null) ? render(structured) : null, bool(RT.getIn(m, "isError")));
 	}
 
 	private static String str(ACell cell) {

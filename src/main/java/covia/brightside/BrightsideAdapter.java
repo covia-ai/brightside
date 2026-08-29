@@ -4,7 +4,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.Set;
 import java.util.UUID;
 
+import convex.auth.jwt.JWT;
 import convex.auth.ucan.Capability;
+import convex.auth.ucan.UCAN;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
@@ -19,9 +21,12 @@ import convex.core.lang.RT;
 import convex.core.util.Utils;
 import covia.adapter.AAdapter;
 import covia.adapter.CoviaAdapter;
+import covia.api.Abilities;
+import covia.api.Fields;
 import covia.brightside.model.Providers;
 import covia.venue.Engine.UserPathTarget;
 import covia.venue.RequestContext;
+import covia.venue.UcanJwtValidator;
 
 /**
  * The Brightside venue adapter: Brightside-specific operations.
@@ -41,6 +46,12 @@ import covia.venue.RequestContext;
  *   <li>{@code brightside:shutdown} — clean process shutdown, venue-operator
  *       only, so a newly launched instance can take over (see
  *       {@link covia.brightside.Takeover}).</li>
+ *   <li>{@code brightside:ask-odin} — an assistant's request to {@link Odin},
+ *       submitted as the calling user with a short-lived venue-rooted
+ *       delegation, so the task is the user's own job and Odin sees who asked.</li>
+ *   <li>{@code brightside:odin-run} — Odin's hands: one allowlisted operator
+ *       operation under the venue's authority, or inside a user's namespace via
+ *       {@code user:sudo}. Odin alone may call it.</li>
  * </ul>
  *
  * <p>Add further Brightside operations by adding a {@code brightside/<op>.json}
@@ -70,6 +81,22 @@ public class BrightsideAdapter extends AAdapter {
 	private static final AString K_SESSION_ID = Strings.intern("sessionId");
 	private static final AString K_USER_NAME = Strings.intern("userName");
 	private static final AString K_MODEL_OPERATION = Strings.intern("modelOperation");
+	private static final AString K_REQUEST = Strings.intern("request");
+	private static final AString K_CONTEXT = Strings.intern("context");
+	private static final AString K_TIMEOUT = Strings.intern("timeout");
+	private static final AString K_TASK = Strings.intern("task");
+	private static final AString K_FROM = Strings.intern("from");
+	private static final AString K_AGENT = Strings.intern("agent");
+	private static final AString K_INPUT = Strings.intern("input");
+	private static final AString K_OPERATION = Strings.intern("operation");
+	private static final AString K_USER = Strings.intern("user");
+	private static final AString K_DID_FIELD = Strings.intern("did");
+	private static final String OP_AGENT_REQUEST = "v/ops/agent/request";
+	private static final String OP_USER_SUDO = "v/ops/user/sudo";
+	private static final long DEFAULT_ASK_TIMEOUT_MS = 30_000;
+	private static final long MAX_ASK_TIMEOUT_MS = 300_000;
+	/** Lifetime of the per-call delegations the bridges mint: long enough to submit, never to keep. */
+	private static final long BRIDGE_GRANT_SECONDS = 300;
 	private static final int MAX_SKILL_NAME = 64;
 	private static final Set<String> FEEDBACK_CATEGORIES = Set.of(
 		"failed-load", "missing-skill", "instruction-conflict", "missing-capability", "other");
@@ -103,6 +130,8 @@ public class BrightsideAdapter extends AAdapter {
 		installAsset("brightside/delete-skill", "/adapters/brightside/delete-skill.json");
 		installAsset("brightside/report-skill-feedback", "/adapters/brightside/report-skill-feedback.json");
 		installAsset("brightside/shutdown", "/adapters/brightside/shutdown.json");
+		installAsset("brightside/ask-odin", "/adapters/brightside/ask-odin.json");
+		installAsset("brightside/odin-run", "/adapters/brightside/odin-run.json");
 	}
 
 	@Override
@@ -122,6 +151,12 @@ public class BrightsideAdapter extends AAdapter {
 		}
 		if ("shutdown".equals(op)) {
 			return handleShutdown(ctx);
+		}
+		if ("ask-odin".equals(op)) {
+			return handleAskOdin(ctx, input);
+		}
+		if ("odin-run".equals(op)) {
+			return handleOdinRun(ctx, input);
 		}
 		return CompletableFuture.failedFuture(
 			new IllegalArgumentException("Unknown brightside operation: " + op));
@@ -313,6 +348,134 @@ public class BrightsideAdapter extends AAdapter {
 			t.start();
 		}
 		return CompletableFuture.completedFuture(Maps.of(K_ACCEPTED, CVMBool.TRUE));
+	}
+
+	// ------------------------------------------------------------------
+	// Odin bridges
+	// ------------------------------------------------------------------
+
+	/**
+	 * An assistant's request to Odin. Agents carry no delegations and Odin lives
+	 * under the venue principal, so a plain {@code agent:request} from a user
+	 * would be refused. The bridge mints a five-minute venue-rooted
+	 * {@code agent/request} delegation to the <em>calling user</em> and submits
+	 * the request as that user with it: the task is the user's own job (so the
+	 * usual job tools can follow it), Covia attributes the caller to Odin
+	 * natively, and the {@code from}/{@code agent} fields on the task come from
+	 * the authenticated context — never from the request text.
+	 */
+	private CompletableFuture<ACell> handleAskOdin(RequestContext ctx, ACell input) {
+		try {
+			AString user = (ctx != null) ? ctx.getUserDID() : null;
+			if (user == null || engine.isPublicPrincipal(user)) {
+				throw new IllegalStateException("ask-odin requires an authenticated user of this venue");
+			}
+			String request = requiredText(input, K_REQUEST, 4000);
+			AString context = optionalText(input, K_CONTEXT, 8000);
+			long timeout = timeoutMillis(input);
+
+			AMap<AString, ACell> task = Maps.of(K_TASK, request, K_FROM, user);
+			if (context != null) task = task.assoc(K_CONTEXT, context);
+			if (ctx.getAgentId() != null) task = task.assoc(K_AGENT, ctx.getAgentId());
+
+			AString address = Strings.create(Odin.address(engine.getDIDString().toString()));
+			ACell proof = venueGrant(user, Vectors.of(cap(address, Abilities.AGENT_REQUEST)));
+			RequestContext asUser = RequestContext.of(user, Vectors.of(proof));
+			AMap<AString, ACell> requestInput = Maps.of(
+				Fields.AGENT_ID, address,
+				K_INPUT, task,
+				K_TIMEOUT, CVMLong.create(timeout));
+			return engine.jobs().invokeInternal(OP_AGENT_REQUEST, requestInput, asUser);
+		} catch (Exception e) {
+			return CompletableFuture.failedFuture(e);
+		}
+	}
+
+	/**
+	 * Odin's hands. Covia admits venue authority only to the venue DID itself,
+	 * never to an agent it owns, so Odin's tool call arrives here as his own
+	 * sub-principal and the bridge supplies the operator context — for an
+	 * allowlisted venue operation, or for an allowlisted namespace operation run
+	 * on a user's behalf through {@code user:sudo} under a per-call venue-rooted
+	 * {@code user/sudo} delegation. The allowlists, not the caller, bound what
+	 * the venue context is lent for.
+	 */
+	private CompletableFuture<ACell> handleOdinRun(RequestContext ctx, ACell input) {
+		try {
+			AString venueDID = engine.getDIDString();
+			AString caller = (ctx != null) ? ctx.getCallerDID() : null;
+			if (caller == null || !caller.toString().equals(Odin.did(venueDID.toString()))) {
+				throw new IllegalStateException("odin-run may only be invoked by " + Odin.AGENT_ID);
+			}
+			String operation = requiredText(input, K_OPERATION, 200);
+			ACell operationInput = RT.getIn(input, K_INPUT);
+			if (operationInput == null) operationInput = Maps.empty();
+			AString user = optionalText(input, K_USER, 300);
+
+			if (user == null) {
+				if (!Odin.VENUE_OPERATIONS.contains(operation)) {
+					throw new IllegalArgumentException("Not a venue operation Odin may run: " + operation
+						+ " (allowed: " + String.join(", ", new java.util.TreeSet<>(Odin.VENUE_OPERATIONS)) + ")");
+				}
+				return engine.jobs().invokeInternal(operation, operationInput, engine.venueContext());
+			}
+			if (!Odin.SUDO_OPERATIONS.contains(operation)) {
+				throw new IllegalArgumentException("Not an operation Odin may run in a user's namespace: " + operation
+					+ " (allowed: " + String.join(", ", new java.util.TreeSet<>(Odin.SUDO_OPERATIONS)) + ")");
+			}
+			if (!user.toString().startsWith(venueDID + ":u:")) {
+				throw new IllegalArgumentException("sudo is limited to this venue's own users; not " + user);
+			}
+			// Covia bounds a sudo context to the presented proofs — the venue's own
+			// ambient authority does not leak in — so the delegation carries the
+			// namespace scope as well as the sudo right. The allowlist above is what
+			// bounds the operation; the scope only lets its points of action pass.
+			ACell proof = venueGrant(venueDID, Vectors.of(
+				cap(user, Abilities.USER_SUDO),
+				cap(Strings.create(user + "/"), Strings.create("*"))));
+			RequestContext operator = RequestContext.of(venueDID, Vectors.of(proof));
+			AMap<AString, ACell> sudo = Maps.of(K_DID_FIELD, user, K_OPERATION, operation, K_INPUT, operationInput);
+			return engine.jobs().invokeInternal(OP_USER_SUDO, sudo, operator);
+		} catch (Exception e) {
+			return CompletableFuture.failedFuture(e);
+		}
+	}
+
+	/**
+	 * A venue-signed UCAN — the same claims {@code ucan:issue} mints — granting
+	 * {@code aud} the single capability {@code can} over {@code with} for
+	 * {@link #BRIDGE_GRANT_SECONDS}, as the verified token map a request context
+	 * presents. It passes through Covia's own JWT trust boundary rather than
+	 * being trusted by construction. The venue is root authority for its own
+	 * resources and for the users it issued, which is exactly what the bridges
+	 * lend: it never signs for a foreign DID.
+	 */
+	private ACell venueGrant(AString aud, AVector<ACell> att) {
+		long now = Utils.getCurrentTimestamp() / 1000;
+		AMap<AString, ACell> claims = Maps.of(
+			UCAN.ISS, engine.getDIDString(),
+			UCAN.AUD, aud,
+			UCAN.UCV, UCAN.VERSION,
+			UCAN.ATT, att,
+			UCAN.PRF, Vectors.empty());
+		claims = claims.assoc(UCAN.EXP, CVMLong.create(now + BRIDGE_GRANT_SECONDS));
+		AString jwt = JWT.signPublic(claims, engine.getKeyPair());
+		UCAN token = UcanJwtValidator.validateJWT(jwt, now, engine.didVerifier());
+		if (token == null) throw new IllegalStateException("The venue could not verify its own delegation");
+		return token.toMap();
+	}
+
+	private static AMap<AString, ACell> cap(AString with, AString can) {
+		return Maps.of(Capability.WITH, with, Capability.CAN, can);
+	}
+
+	/** {@code timeout} in milliseconds: the default when absent, clamped to [0, MAX]. */
+	private static long timeoutMillis(ACell input) {
+		ACell cell = RT.getIn(input, K_TIMEOUT);
+		if (cell == null) return DEFAULT_ASK_TIMEOUT_MS;
+		CVMLong n = RT.ensureLong(cell);
+		if (n == null) throw new IllegalArgumentException("timeout must be an integer number of milliseconds");
+		return Math.max(0, Math.min(MAX_ASK_TIMEOUT_MS, n.longValue()));
 	}
 
 	private AMap<AString, ACell> buildInfo() {

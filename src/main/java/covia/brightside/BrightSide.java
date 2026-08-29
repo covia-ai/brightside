@@ -66,6 +66,9 @@ public final class BrightSide {
 	private volatile EmbeddedVenue venue;
 	private volatile ChatSession chat;
 	private volatile ConversationWatcher watcher; // event thread
+	private volatile ConversationWatcher inboxWatcher; // event thread; the owner's h/ inbox
+	private final java.util.Set<String> notifiedRequests = java.util.concurrent.ConcurrentHashMap.newKeySet();
+	private volatile List<Inbox.Request> inboxRequests = List.of(); // the owner's and the venue's, as shown
 	private volatile Identity identity;
 	private volatile covia.grid.Venue client; // in-process client for the acting user
 	private volatile String userDID; // the acting user's DID (for in-process lattice reads)
@@ -86,10 +89,18 @@ public final class BrightSide {
 		ONBOARD, UNLOCK
 	}
 
-	/** How a chat (re)bind should be presented: first launch, a name change, or an agent switch. */
+	/** How a chat (re)bind should be presented: first launch, a name change, an agent switch, or a change of acting principal. */
 	private enum Bind {
-		FIRST, NAME_CHANGE, AGENT_SWITCH
+		FIRST, NAME_CHANGE, AGENT_SWITCH, PRINCIPAL_SWITCH
 	}
+
+	/**
+	 * Whether the app is acting as the venue operator rather than as the named
+	 * user (Settings → Identity → Act as). The operator sees and chats with the
+	 * venue's own agents — Odin — and answers the venue's Inbox; everyday use is
+	 * as the user. Never persisted: every launch starts as the user.
+	 */
+	private volatile boolean actingAsOperator;
 
 	BrightSide(AppConfig config, Path configPath) {
 		this.config = config;
@@ -322,7 +333,10 @@ public final class BrightSide {
 			return;
 		}
 		ConversationWatcher oldWatcher = watcher;
+		ConversationWatcher oldInbox = inboxWatcher;
 		watcher = null;
+		inboxWatcher = null;
+		notifiedRequests.clear();
 		chat = null;
 		client = null;
 		userDID = null;
@@ -331,9 +345,11 @@ public final class BrightSide {
 		sessions = List.of();
 		identity = null;
 		vault = null;
+		actingAsOperator = false;
 		chatStarted.set(false);
 		SwingUtilities.invokeLater(() -> {
 			if (oldWatcher != null) oldWatcher.stop();
+			if (oldInbox != null) oldInbox.stop();
 			window.userLoggedOut();
 			window.showUnlock(null);
 		});
@@ -430,6 +446,7 @@ public final class BrightSide {
 				"Saved. Restart Brightside to switch to " + label + " — its API key is applied at launch."));
 			return;
 		}
+		ensureOdin(venue);
 		ChatSession c = chat;
 		if (c == null) return;
 		Thread t = new Thread(() -> {
@@ -567,8 +584,28 @@ public final class BrightSide {
 	 */
 	private void onVenueReady() {
 		// Default skills are installed by BrightsideAdapter at venue launch.
+		ensureOdin(venue);
 		Identity id = identity;
 		if (id != null) startChatOnce(venue, bindIdentityToVenue(id, venue));
+	}
+
+	/**
+	 * Keeps {@link Odin}, the operator's administrative agent, configured with
+	 * the chat's model — at launch and whenever the model changes. Best-effort
+	 * and off the calling thread: the chat never waits on him.
+	 */
+	private void ensureOdin(EmbeddedVenue v) {
+		if (v == null) return;
+		String model = effectiveChat().llmOperation();
+		Thread t = new Thread(() -> {
+			try {
+				Odin.ensure(v, model);
+			} catch (Exception e) {
+				log.warn("{} is not available: {}", Odin.AGENT_ID, e.toString());
+			}
+		}, "brightside-odin");
+		t.setDaemon(true);
+		t.start();
 	}
 
 	/**
@@ -637,8 +674,43 @@ public final class BrightSide {
 	}
 
 	private void startChatBackground(EmbeddedVenue v, Identity id, AppConfig.Chat chatConfig, Bind bind) {
-		boolean configureExisting = chatConfig.agentId().equals(config.chat().agentId());
+		// The operator's agents keep the configuration their records hold —
+		// Odin's is owned by Odin.ensure, never by the chat's persona config.
+		boolean configureExisting = !actingAsOperator && chatConfig.agentId().equals(config.chat().agentId());
 		startChatBackground(v, id, chatConfig, bind, configureExisting);
+	}
+
+	// ------------------------------------------------------------------
+	// Acting principal (the named user, or the venue operator)
+	// ------------------------------------------------------------------
+
+	public boolean actingAsOperator() {
+		return actingAsOperator;
+	}
+
+	/**
+	 * Switch the app between acting as the named user and as the venue operator,
+	 * rebinding the chat, agents, conversations and Inbox to that principal. As
+	 * the operator the default agent is Odin. No-op before the venue and identity
+	 * are up, or when nothing changes.
+	 */
+	public void actAs(boolean operator) {
+		EmbeddedVenue v = venue;
+		Identity id = identity;
+		if (v == null || id == null || operator == actingAsOperator) return;
+		actingAsOperator = operator;
+		log.info("Acting as {}", operator ? "the venue operator" : id.label());
+		startChatBackground(v, id, chatConfigFor(defaultAgentId()), Bind.PRINCIPAL_SWITCH);
+	}
+
+	/** The principal the app acts as: the venue itself as operator, else {@code id}'s user. */
+	private String actingDID(Identity id, EmbeddedVenue v) {
+		return actingAsOperator ? v.did() : id.userDID(v.did());
+	}
+
+	/** The standard agent for the acting principal: Odin for the operator, the configured chat agent otherwise. */
+	private String defaultAgentId() {
+		return actingAsOperator ? Odin.AGENT_ID : config.chat().agentId();
 	}
 
 	private void startChatBackground(EmbeddedVenue v, Identity id, AppConfig.Chat chatConfig, Bind bind,
@@ -655,15 +727,17 @@ public final class BrightSide {
 
 	private void startChat(EmbeddedVenue v, Identity id, AppConfig.Chat chatConfig, Bind bind,
 			boolean configureExisting) {
-		String did = id.userDID(v.did());
+		String did = actingDID(id, v);
 		covia.grid.Venue userClient = v.clientAs(did);
 		ChatSession session = new ChatSession(userClient, chatConfig, id.name(), configureExisting);
 		chat = session;
 
 		// Create/refresh the agent (agent:create if it's a brand-new one). This does
 		// not create an agent session: Home leaves ChatSession.sessionId null until
-		// the user actually sends their first message.
+		// the user actually sends their first message. Odin is configured by his
+		// own ensure, so the session must find him already there.
 		try {
+			if (actingAsOperator && Odin.AGENT_ID.equals(chatConfig.agentId())) Odin.ensure(v, chatConfig.llmOperation());
 			session.ensureAgent();
 		} catch (Exception e) {
 			log.warn("Chat agent not ready", e);
@@ -697,6 +771,10 @@ public final class BrightSide {
 		List<SessionHistory.Session> sessionList = (record != null) ? SessionHistory.sessionsOf(record) : List.of();
 		sessions = sessionList;
 		List<covia.brightside.model.AgentRef> agentRefs = listAgents(aid);
+		// The inbox is per user, not per agent: (re)bind it with the user. It
+		// shows the venue's own requests too — the app is the operator.
+		convex.core.data.ACell inboxValue = (bind == Bind.AGENT_SWITCH) ? null : inboxes(v, did);
+		List<Inbox.Request> inbox = parseInboxes(v, did, inboxValue);
 		log.info("Chatting as {} with agent '{}' — showing {} live message(s) across {} saved conversation(s)",
 			id.label(), aid, turns.size(), sessionList.size());
 
@@ -705,10 +783,17 @@ public final class BrightSide {
 				case FIRST -> window.showChat(v, session, id, turns);
 				case NAME_CHANGE -> window.userChanged(session, id, turns);
 				case AGENT_SWITCH -> window.showAgentChat(session, turns, displayNameFor(aid));
+				case PRINCIPAL_SWITCH -> {
+					window.showAgentChat(session, turns, displayNameFor(aid));
+					window.showSystemMessage(actingAsOperator
+						? "You're acting as the venue operator now: the venue's own agents are listed, and " + displayNameFor(aid) + " is on the line."
+						: "Back to acting as " + id.name() + ".");
+				}
 			}
-			window.setAgents(agentRefs, aid);
+			window.setAgents(agentRefs, aid, defaultAgentId());
 			window.setConversations(sessionList, viewedSessionId);
-			if (tray != null) tray.setTooltip(APP_NAME + " — " + id.name());
+			if (bind != Bind.AGENT_SWITCH) bindInbox(v, did, inboxValue, inbox);
+			if (tray != null) tray.setTooltip(APP_NAME + " — " + id.name() + (actingAsOperator ? " (operator)" : ""));
 			// Watch this agent's value; on any change, refresh the switcher and
 			// re-render the conversation on screen. An in-process compare — no job.
 			ConversationWatcher w = watcher;
@@ -755,9 +840,180 @@ public final class BrightSide {
 		startChatBackground(v, id, chosen, Bind.AGENT_SWITCH, true);
 	}
 
-	/** The chat config for {@code aid}: the default persona for the default agent, else a named one. */
+	/** Show the agent info screen for {@code agentId}. */
+	public void showAgentInfo(String agentId) {
+		Venue c = client;
+		EmbeddedVenue v = venue;
+		Identity id = identity;
+		String did = userDID;
+		if (c == null || v == null || id == null || did == null || agentId == null) return;
+		boolean standard = agentId.equals(defaultAgentId());
+		Thread t = new Thread(() -> {
+			AgentInfo.Summary info = AgentInfo.load(c, v.agentRecord(did, agentId), agentId, did, id.name(), standard);
+			SwingUtilities.invokeLater(() -> {
+				if (info == null) window.showSystemMessage("Sorry — I couldn't read that agent.");
+				else window.showAgentInfo(info);
+			});
+		}, "brightside-agent-info");
+		t.setDaemon(true);
+		t.start();
+	}
+
+	/**
+	 * Delete an agent outright — record, conversations and memory. The standard
+	 * agent is never deleted; if the deleted agent was on screen, the chat drops
+	 * back to the standard one.
+	 */
+	public void deleteAgent(String agentId) {
+		Venue c = client;
+		EmbeddedVenue v = venue;
+		Identity id = identity;
+		String def = defaultAgentId();
+		if (c == null || v == null || id == null || agentId == null || agentId.equals(def)) return;
+		String name = displayNameFor(agentId);
+		Thread t = new Thread(() -> {
+			try {
+				deleteAgent(c, agentId);
+			} catch (Exception e) {
+				log.warn("Could not delete agent {}: {}", agentId, e.toString());
+				SwingUtilities.invokeLater(() -> window.showSystemMessage("Sorry — I couldn't delete " + name + "."));
+				return;
+			}
+			log.info("Deleted agent '{}'", agentId);
+			if (agentId.equals(this.agentId)) {
+				// Rebind to the standard agent first; its screen update is queued
+				// before the note, so the note lands on the new conversation.
+				startChat(v, id, chatConfigFor(def), Bind.AGENT_SWITCH);
+			} else {
+				String current = this.agentId;
+				List<AgentRef> refs = listAgents(current);
+				SwingUtilities.invokeLater(() -> window.setAgents(refs, current, def));
+			}
+			SwingUtilities.invokeLater(() -> window.showSystemMessage("Deleted " + name + "."));
+		}, "brightside-delete-agent");
+		t.setDaemon(true);
+		t.start();
+	}
+
+	/** Removes an agent's record ({@code agent:delete} with {@code remove}), not merely marking it terminated. */
+	static void deleteAgent(Venue client, String agentId) throws Exception {
+		invokeOp(client, "v/ops/agent/delete", Maps.of("agentId", agentId, "remove", true));
+	}
+
+	// ------------------------------------------------------------------
+	// Inbox (HITL requests to the owner)
+	// ------------------------------------------------------------------
+
+	/**
+	 * Shows the owner's inbox and watches its value. Event thread; called whenever
+	 * the acting user (re)binds. Requests already waiting just badge the tab —
+	 * only ones that arrive while running get a tray balloon.
+	 */
+	private void bindInbox(EmbeddedVenue v, String did, convex.core.data.ACell value, List<Inbox.Request> requests) {
+		ConversationWatcher old = inboxWatcher;
+		if (old != null) old.stop();
+		notifiedRequests.clear();
+		for (Inbox.Request r : requests) if (r.open()) notifiedRequests.add(r.id());
+		inboxRequests = requests;
+		window.setInbox(requests);
+		inboxWatcher = new ConversationWatcher(() -> inboxes(v, did), value, () -> window.isShowing(), this::onInboxChanged);
+		inboxWatcher.start();
+	}
+
+	/**
+	 * The owner's inbox and the venue's own, as one value the watcher can
+	 * compare. The venue's holds what {@link Odin} asks his owner; the person at
+	 * the keyboard is that owner, so it belongs in the same Inbox.
+	 */
+	private static convex.core.data.ACell inboxes(EmbeddedVenue v, String did) {
+		// As the operator the two are one inbox; list it once.
+		convex.core.data.ACell own = did.equals(v.did()) ? null : v.inbox(did);
+		return convex.core.data.Vectors.of(own, v.inbox(v.did()));
+	}
+
+	private static List<Inbox.Request> parseInboxes(EmbeddedVenue v, String did, convex.core.data.ACell value) {
+		if (!(value instanceof convex.core.data.AVector<?> pair) || pair.count() != 2) return List.of();
+		return Inbox.merge(Inbox.parse((convex.core.data.ACell) pair.get(0), did),
+			Inbox.parse((convex.core.data.ACell) pair.get(1), v.did()));
+	}
+
+	/** The inbox value changed: refresh the tab and badge; balloon each request seen waiting for the first time. */
+	private void onInboxChanged(convex.core.data.ACell value) {
+		EmbeddedVenue v = venue;
+		String did = userDID;
+		List<Inbox.Request> requests = (v != null && did != null) ? parseInboxes(v, did, value) : List.of();
+		inboxRequests = requests;
+		window.setInbox(requests);
+		for (Inbox.Request r : requests) {
+			if (r.open() && notifiedRequests.add(r.id()) && tray != null) {
+				tray.notify(APP_NAME + " needs your decision", r.title());
+			}
+		}
+	}
+
+	/**
+	 * Answer a request as the inbox's owner — the named user, or the operator for
+	 * a request to the venue — never as an agent; then refresh the inbox.
+	 */
+	public void answerRequest(String id, Inbox.Answer answer) {
+		respond(id, c -> Inbox.answer(c, id, answer), "Answered.");
+	}
+
+	public void rejectRequest(String id, String reason) {
+		respond(id, c -> Inbox.reject(c, id, reason), "Rejected.");
+	}
+
+	private interface InboxAction {
+		void run(Venue client) throws Exception;
+	}
+
+	private void respond(String id, InboxAction action, String done) {
+		Venue c = (id != null) ? clientFor(id) : null;
+		if (c == null) return;
+		Thread t = new Thread(() -> {
+			String note;
+			try {
+				action.run(c);
+				note = done;
+			} catch (Exception e) {
+				log.warn("Could not respond to request {}: {}", id, e.toString());
+				note = "Sorry — that didn't go through: " + rootMessage(e);
+			}
+			String n = note;
+			SwingUtilities.invokeLater(() -> {
+				window.showInboxNotice(n);
+				ConversationWatcher w = inboxWatcher;
+				if (w != null) w.checkNow();
+			});
+		}, "brightside-hitl-respond");
+		t.setDaemon(true);
+		t.start();
+	}
+
+	/** The client that owns the inbox holding request {@code id}: the named user's, or the operator's for the venue's own. */
+	private Venue clientFor(String id) {
+		EmbeddedVenue v = venue;
+		for (Inbox.Request r : inboxRequests) {
+			if (id.equals(r.id())) return (v != null && v.did().equals(r.owner())) ? v.operator() : client;
+		}
+		return client;
+	}
+
+	private static String rootMessage(Throwable e) {
+		Throwable t = e;
+		while (t.getCause() != null && t.getCause() != t) t = t.getCause();
+		return (t.getMessage() != null) ? t.getMessage() : t.toString();
+	}
+
+	/**
+	 * The chat config for {@code aid}: Odin's own identity for the operator's
+	 * default, the default persona for the configured chat agent, else a named one.
+	 */
 	private AppConfig.Chat chatConfigFor(String aid) {
 		AppConfig.Chat base = effectiveChat();
+		if (actingAsOperator && aid.equals(Odin.AGENT_ID)) {
+			return new AppConfig.Chat(aid, base.operation(), base.llmOperation(), Odin.SYSTEM_PROMPT, base.timeoutSeconds());
+		}
 		if (aid.equals(config.chat().agentId())) {
 			return new AppConfig.Chat(aid, base.operation(), base.llmOperation(), base.systemPrompt(), base.timeoutSeconds());
 		}
@@ -767,13 +1023,13 @@ public final class BrightSide {
 	}
 
 	private AppConfig.Chat currentChatConfig() {
-		return chatConfigFor((agentId != null) ? agentId : config.chat().agentId());
+		return chatConfigFor((agentId != null) ? agentId : defaultAgentId());
 	}
 
-	/** Lists the user's agents (via agent:list), always including the default and current. */
+	/** Lists the acting principal's agents (via agent:list), always including the default and current. */
 	private List<AgentRef> listAgents(String currentAid) {
 		java.util.LinkedHashMap<String, AgentRef> map = new java.util.LinkedHashMap<>();
-		String def = config.chat().agentId();
+		String def = defaultAgentId();
 		map.put(def, new AgentRef(def, displayNameFor(def)));
 		if (currentAid != null) {
 			map.putIfAbsent(currentAid, new AgentRef(currentAid, displayNameFor(currentAid)));
@@ -818,7 +1074,6 @@ public final class BrightSide {
 		return agentId;
 	}
 
-	/** An agent id (path segment) from a display name: lowercase, hyphenated. */
 	/** An agent id from a typed name: case kept, anything a path or DID cannot carry becomes {@code -}. */
 	private static String slug(String name) {
 		if (name == null) return "";
@@ -1113,6 +1368,8 @@ public final class BrightSide {
 	public void refreshNow() {
 		ConversationWatcher w = watcher;
 		if (w != null) w.checkNow();
+		ConversationWatcher i = inboxWatcher;
+		if (i != null) i.checkNow();
 	}
 
 	public void newConversation() {
@@ -1217,6 +1474,8 @@ public final class BrightSide {
 		SwingUtilities.invokeLater(() -> {
 			ConversationWatcher w = watcher;
 			if (w != null) w.stop();
+			ConversationWatcher i = inboxWatcher;
+			if (i != null) i.stop();
 			if (window != null) window.setVisible(false);
 			if (tray != null) tray.remove();
 		});

@@ -51,11 +51,16 @@ src/main/java/covia/brightside/
 │                               lattice reads (agentRecord / resolve — no job)
 ├── Takeover.java               detect a running instance; venue-signed shutdown
 ├── BrightsideAdapter.java      Covia adapter: brightside:info, context, delete-skill,
-│                               report-skill-feedback, shutdown
+│                               report-skill-feedback, shutdown, ask-odin, odin-run
+├── Odin.java                   the operator's administrative agent: config, ensure,
+│                               the operation allowlists (docs/ODIN.md)
 ├── BrightsideSkillsAdapter.java  installs the shipped skills under v/skills/brightside
 ├── SessionHistory.java         projects the live venue session into transcript items
 ├── ConversationWatcher.java    in-process value compare; refresh on change
 ├── AgentContext.java           "what the assistant sees" — v/ops/agent/context
+├── AgentInfo.java              what an agent is — v/ops/agent/info joined with its record
+├── Inbox.java                  the owner's HITL inbox (h/, read in-process) merged with
+│                               the venue's own, and hitl:respond
 ├── chat/ChatSession.java       agent config (skills, n/memory) + agent:chat
 ├── model/Providers.java        model providers, v/models/<provider>/<id>, secret names
 ├── skills/FilesystemSkills.java  imports agentskills.io SKILL.md folders into w/skills
@@ -73,13 +78,14 @@ src/main/java/covia/brightside/
     ├── chat/                   ChatPanel, Bubble, MessageColumn, EmptyChatState,
     │                           ThinkingBubble, TypingIndicator, ExpandableActivity, ConversationList,
     │                           SelectableText, ChatIcons, ChatStyle
-    └── inspect/                ContextInspector — the exact model input
+    ├── inspect/                ContextInspector — the exact model input; AgentInspector — the agent info screen
+    └── inbox/                  InboxScreen, RequestForm — requests waiting for the owner's decision
 
 src/main/resources/
 ├── brightside/skills/*.json    on-demand conversation, work and
 │                               self-authoring skills
-├── adapters/brightside/        context, info, skill deletion/feedback and
-│                               shutdown ops
+├── adapters/brightside/        context, info, skill deletion/feedback, shutdown
+│                               and the two Odin bridge ops
 ├── fonts/lato/                 bundled OFL faces, registered at startup
 └── brightside/logback.xml      logging (configured programmatically)
 
@@ -190,9 +196,19 @@ tool-granting skills out of the baseline and loads them on demand. Thus:
   internal architecture questions. Ordinary work skills stay at the harness
   boundary and use live operations instead of encoding host configuration.
 - `tasks-scheduler-automation` is a tool-free router over Covia's existing
-  `tasks`, `scheduling`, `orchestration` and `hitl` skills. It loads only the
-  parts a request needs: for example, a reminder needs scheduling alone, while
-  a timed agent workflow with an approval checkpoint combines all four.
+  `tasks`, `scheduling` and `orchestration` skills and Brightside's own `hitl`.
+  It loads only the parts a request needs: for example, a reminder needs
+  scheduling alone, while a timed agent workflow with an approval checkpoint
+  combines all four.
+- `hitl` replaces Covia's skill of the same name in the index (first name
+  wins). It is judgement, not mechanics: what the owner sees in the Inbox,
+  when and how to ask, and that token asks and offered grants must not be
+  used here ([covia#440](https://github.com/covia-ai/covia/issues/440)). How
+  the request call behaves is the tool's own description.
+- `administration` is how the assistant reaches Odin, the operator's agent,
+  for changes beyond its own authority; it grants `brightside:ask-odin` and
+  the job tools. What Odin is and how the bridges work is in
+  [ODIN.md](ODIN.md).
 
 Covia issue [#415](https://github.com/covia-ai/covia/issues/415) means a skill
 hand-pinned through `config.loads` does not currently contribute child sources

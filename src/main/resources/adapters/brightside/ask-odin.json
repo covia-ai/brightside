@@ -1,0 +1,32 @@
+{
+	"name": "Ask Odin",
+	"description": "Send a request to Odin, this Brightside's administrator, for a change that needs administrator rights — integrations and adapters, venue settings, users, access grants, or repairs to your own configuration. Odin decides whether to do it, ask the owner through their Inbox, or decline; he sees who is asking. Best-effort synchronous: waits up to `timeout` milliseconds (default 30000) for his answer and returns it; otherwise returns a snapshot {id, status: STARTED, address, sessionId} — poll grid_job_result(id=<that id>, timeout=<ms>) for the outcome, which may take as long as the owner takes to answer him. Set timeout=0 for pure async.",
+	"operation": {
+		"adapter": "brightside:ask-odin",
+		"toolName": "ask_odin",
+		"internal": false,
+		"input": {
+			"type": "object",
+			"properties": {
+				"request": {
+					"type": "string",
+					"description": "What you want changed and why it serves the owner — self-contained, in the owner's words where possible. Up to 4000 characters."
+				},
+				"context": {
+					"type": "string",
+					"description": "Optional: what you tried, what failed, or what the owner said. Up to 8000 characters."
+				},
+				"timeout": {
+					"type": "integer",
+					"description": "Milliseconds to wait for Odin's answer. Default 30000; 0 returns a snapshot at once; at most 300000."
+				}
+			},
+			"required": ["request"]
+		},
+		"output": {
+			"type": "object",
+			"description": "Odin's outcome — what he did, declined, or asked the owner — or a {id, status: STARTED, address, sessionId} snapshot to poll.",
+			"additionalProperties": true
+		}
+	}
+}

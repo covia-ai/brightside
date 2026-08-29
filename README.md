@@ -117,6 +117,15 @@ If the build cannot resolve `ai.covia:venue`, that is why.
   `SKILL.md` folder (or a single `.md`) into `~/.brightside/skills/` and it's
   imported into your agent's `w/skills` on start; portable, editable, shareable
 - **Persistent memory** — `n/memory`, kept quietly, across every conversation
+- **You stay in the loop** — an agent that needs a decision, an approval or a
+  missing detail asks through a Covia HITL request; it lands in the **Inbox**
+  tab with a badge, and only you can answer it — an agent can never approve its
+  own request, and an offered grant is conferred only if you tick it
+- **An administrator with judgement** — changes that need operator rights
+  (integrations, venue settings, users, access grants, repairs to an assistant)
+  go to **Odin**, the venue's own agent; he does them, declines, or asks you in
+  the Inbox first, and treats anything that looks manipulated as a question
+  for you ([docs/ODIN.md](docs/ODIN.md))
 - **Every conversation, switchable** — a sidebar of past sessions with rename,
   delete and copy-transcript; the agent can read its own history when you ask
   what you discussed last week
@@ -180,6 +189,8 @@ venues meet other venues.
 | **Help → About** | local address and your technical identity |
 | Right-click a message | copy the message or the whole conversation |
 | Right-click a conversation | open, rename, copy transcript, delete, inspect context |
+| Right-click an agent | open, agent info, delete |
+| **Inbox** tab | requests from your agents waiting for your decision — answer or reject |
 
 Minimising goes to the taskbar like any window. **Hide to tray** (Settings →
 General, or the hide shortcut) keeps the agent running out of sight; Settings →

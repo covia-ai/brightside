@@ -100,6 +100,15 @@ public final class TrayManager {
 		}
 	}
 
+	/** A balloon from the tray icon — decoration, never fatal. */
+	public void notify(String title, String text) {
+		try {
+			icon.displayMessage(title, text, TrayIcon.MessageType.INFO);
+		} catch (Exception e) {
+			// balloons are decoration
+		}
+	}
+
 	public void remove() {
 		try {
 			SystemTray.getSystemTray().remove(icon);

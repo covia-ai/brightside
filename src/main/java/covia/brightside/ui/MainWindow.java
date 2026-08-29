@@ -55,6 +55,7 @@ public final class MainWindow extends JFrame {
 	private static final int SIDEBAR_WIDTH = 400; // agents pane + sessions list
 	private static final String MAIN_CHAT = "chat-main";
 	private static final String MAIN_SETTINGS = "settings";
+	private static final String MAIN_INBOX = "inbox";
 
 	private final BrightSide app;
 	private final CardLayout cards = new CardLayout();
@@ -67,6 +68,7 @@ public final class MainWindow extends JFrame {
 	private JPanel sessionsPane; // agents + sessions, the split's left side
 	private NavBar navBar;
 	private SettingsScreen settingsScreen;
+	private covia.brightside.ui.inbox.InboxScreen inboxScreen;
 	private covia.brightside.ui.chat.AgentList agentList;
 	private int sidebarWidth = SIDEBAR_WIDTH;
 	private final covia.brightside.ui.onboarding.OnboardingWizard onboarding;
@@ -157,6 +159,16 @@ public final class MainWindow extends JFrame {
 			public void onNewAgent() {
 				NewAgentPanel.Options options = NewAgentPanel.showDialog(MainWindow.this, app.currentModelOp());
 				if (options != null) app.createAgent(options.name(), options.modelOp(), options.systemPrompt());
+			}
+
+			@Override
+			public void onAgentInfo(String agentId) {
+				app.showAgentInfo(agentId);
+			}
+
+			@Override
+			public void onDeleteAgent(String agentId) {
+				app.deleteAgent(agentId);
 			}
 		});
 		sessionsPane = new JPanel(new BorderLayout());
@@ -258,6 +270,11 @@ public final class MainWindow extends JFrame {
 			public String revealPrimarySeed(char[] passphrase) throws Exception {
 				return app.revealPrivateSeed(passphrase);
 			}
+
+			@Override
+			public void actAs(boolean operator) {
+				app.actAs(operator);
+			}
 		});
 		VaultPanel vaultPanel = new VaultPanel(app::forgetRememberedPassphrase);
 		AuthPanel authPanel = new AuthPanel(app::mintAccessToken);
@@ -266,6 +283,18 @@ public final class MainWindow extends JFrame {
 		mainDeck = new JPanel(mainCards);
 		mainDeck.add(split, MAIN_CHAT);
 		mainDeck.add(settingsScreen, MAIN_SETTINGS);
+		inboxScreen = new covia.brightside.ui.inbox.InboxScreen(new covia.brightside.ui.inbox.RequestForm.Listener() {
+			@Override
+			public void onAnswer(String id, covia.brightside.Inbox.Answer answer) {
+				app.answerRequest(id, answer);
+			}
+
+			@Override
+			public void onReject(String id, String reason) {
+				app.rejectRequest(id, reason);
+			}
+		});
+		mainDeck.add(inboxScreen, MAIN_INBOX);
 
 		navBar = new NavBar(this::selectTab);
 
@@ -407,7 +436,8 @@ public final class MainWindow extends JFrame {
 		identity = null;
 		chatPanel.clearSession();
 		conversations.setSessions(List.of(), null);
-		agentList.setAgents(List.of(), null);
+		agentList.setAgents(List.of(), null, null);
+		setInbox(List.of());
 		settingsScreen.profile().clearSensitive();
 		settingsScreen.auth().clearSensitive();
 		settingsScreen.general().refresh(app.hasTray(), app.keepInTray(), app.minimiseToTray(), false, venue != null);
@@ -428,9 +458,9 @@ public final class MainWindow extends JFrame {
 		conversations.setSessions(sessions, selectedId);
 	}
 
-	/** Replace the agents pane's list, highlighting the current agent. */
-	public void setAgents(List<covia.brightside.model.AgentRef> agents, String selectedId) {
-		agentList.setAgents(agents, selectedId);
+	/** Replace the agents pane's list, highlighting the current agent; {@code defaultId} is the standard agent. */
+	public void setAgents(List<covia.brightside.model.AgentRef> agents, String selectedId, String defaultId) {
+		agentList.setAgents(agents, selectedId, defaultId);
 	}
 
 	/** Show a chosen past conversation's transcript (a definite switch, not a poll). */
@@ -452,6 +482,7 @@ public final class MainWindow extends JFrame {
 				mainCards.show(mainDeck, MAIN_CHAT);
 				setSidebar(true);
 			}
+			case INBOX -> mainCards.show(mainDeck, MAIN_INBOX);
 			case SETTINGS -> {
 				refreshSettings();
 				mainCards.show(mainDeck, MAIN_SETTINGS);
@@ -483,7 +514,8 @@ public final class MainWindow extends JFrame {
 		settingsScreen.general().refresh(app.hasTray(), app.keepInTray(), app.minimiseToTray(),
 			identity != null, venue != null);
 		settingsScreen.model().preselect(app.currentModelOp());
-		settingsScreen.profile().refresh(name, userDid, venueDid, app.publicKeyHex(), app.canRevealPrivateSeed());
+		settingsScreen.profile().refresh(name, userDid, venueDid, app.publicKeyHex(), app.canRevealPrivateSeed(),
+			app.actingAsOperator());
 		settingsScreen.vault().refresh(app.hasRememberedPassphrase());
 	}
 
@@ -518,6 +550,32 @@ public final class MainWindow extends JFrame {
 		dialog.setMinimumSize(new Dimension(640, 460));
 		dialog.setLocationRelativeTo(this);
 		dialog.setVisible(true);
+	}
+
+	/** Open a (non-modal) window describing an agent: identity, status, model, instructions, capabilities. */
+	public void showAgentInfo(covia.brightside.AgentInfo.Summary info) {
+		JDialog dialog = new JDialog(this, "Agent — " + info.name(), false);
+		dialog.setContentPane(new covia.brightside.ui.inspect.AgentInspector(info));
+		dialog.setSize(760, 600);
+		dialog.setMinimumSize(new Dimension(520, 400));
+		dialog.setLocationRelativeTo(this);
+		dialog.setVisible(true);
+	}
+
+	/** Replace the Inbox's requests (open first) and badge the tab with the number waiting. */
+	public void setInbox(List<covia.brightside.Inbox.Request> requests) {
+		inboxScreen.setRequests(requests);
+		navBar.setBadge(NavBar.Tab.INBOX, covia.brightside.Inbox.pending(requests));
+	}
+
+	/** A line under the open request: the result of the last answer or rejection. */
+	public void showInboxNotice(String text) {
+		inboxScreen.showNotice(text);
+	}
+
+	/** Switch to the Inbox tab. */
+	public void showInbox() {
+		selectTab(NavBar.Tab.INBOX);
 	}
 
 	/** True while the chat is on screen — the watcher only polls then. */

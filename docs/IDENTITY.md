@@ -53,7 +53,11 @@ changes** — renaming yourself must never switch you to a different, empty
 agent.
 
 The user has no key of its own: the owner-controlled venue key is its signing
-authority. Off-process tools act as the user with a venue-signed token whose
+authority. One gap follows from the venue being a `did:key`: Covia's
+root-authority policy only lets a venue mint UCAN grants for users under a
+`did:web` namespace, so approving an Inbox request that *offers a grant* fails
+until [covia#440](https://github.com/covia-ai/covia/issues/440) lands; answers
+without a grant are unaffected. Off-process tools act as the user with a venue-signed token whose
 `sub` is the user DID ([CONFIGURATION.md](CONFIGURATION.md)). *Settings →
 Identity* shows the name, the user DID, the home venue DID, the venue's public
 key and — behind the passphrase — the primary seed; the identicons beside them
@@ -63,6 +67,12 @@ substitute for checking the value.
 Two limits, both on the roadmap: the recovery phrase reproduces the venue but
 not the `:u:` suffix, so `identity.json` travels with vault backups; and one
 venue currently serves one owner ([#3](https://github.com/covia-ai/brightside/issues/3)).
+
+**Acting as the operator.** *Settings → Identity → Act as* switches the app
+from the named user to the venue principal itself, for the session only: the
+agents pane then lists the venue's own agents ([Odin](ODIN.md) first), the chat
+talks to them, and the Inbox is the venue's. Everyday use is as the user; each
+launch starts there.
 
 ## Agent identity
 
@@ -77,7 +87,9 @@ In Brightside the default agent's id is `Brightside` (`chat.agentId` in
 anything a path cannot carry turned into `-` (`Research helper` →
 `Research-helper`); it never changes. The display name is the id exactly,
 unless the record sets an explicit `config.name`. The list shows the default
-agent first and the rest by id.
+agent first and the rest by id. Right-click an agent for its info screen — id,
+DID, status, model, instructions, capabilities — or to delete it outright
+(record, conversations and memory); the default agent cannot be deleted.
 
 What makes an agent *itself* is its record: the system prompt (its name and
 role, from a template), its model, its private memory at `n/memory` — which

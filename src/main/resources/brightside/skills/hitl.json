@@ -1,0 +1,15 @@
+{
+  "name": "hitl",
+  "description": "Ask the owner for a decision, approval, choice or missing detail through Brightside's Inbox. Load before anything that needs the owner's sign-off, a choice only they can make, or information you do not have.",
+  "content": {
+    "contentType": "text/markdown",
+    "inline": "# Asking the owner\n\nThe owner answers in Brightside's **Inbox** and sees only the request — title, description, asks, and that you asked — never this conversation. Write it so it stands alone: what you want to do, why, what happens either way, and what you already know.\n\nAsk only when the decision is genuinely theirs or the information is genuinely missing, and ask once: gather related questions into a single request rather than interrupting repeatedly. Use the narrowest ask that fits — an approval or a choice over free text — and mark an ask required only if you cannot proceed without it.\n\nDo not use token asks or offer grants: Brightside cannot sign for the owner, and grants cannot be conferred on this venue yet. Ask for the decision and act within the authority you already have.\n\nA rejection is a decision, not an error — do not retry or rephrase the same ask. You cannot answer requests, including your own. Never describe something as agreed until the owner has answered.\n"
+  },
+  "skill": {
+    "tools": [
+      "v/ops/hitl/request",
+      "v/ops/hitl/list",
+      "v/ops/grid/job-status"
+    ]
+  }
+}

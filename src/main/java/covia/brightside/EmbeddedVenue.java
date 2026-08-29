@@ -10,6 +10,7 @@ import covia.grid.Venue;
 import covia.venue.Engine;
 import covia.venue.LocalVenue;
 import covia.venue.RequestContext;
+import covia.venue.User;
 import covia.venue.server.VenueServer;
 
 /**
@@ -69,6 +70,16 @@ public final class EmbeddedVenue implements AutoCloseable {
 		return resolve(userDID, "g/" + agentId);
 	}
 
+	/** The user's HITL inbox ({@code h/}): request id → record, straight from the in-process lattice. Null before the user exists. */
+	public AMap<AString, ACell> inbox(String userDID) {
+		try {
+			User user = engine().getVenueState().users().get(Strings.create(userDID));
+			return (user == null) ? null : user.getHitlRequests();
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
 	/**
 	 * Resolves any lattice {@code path} as {@code userDID} straight from the
 	 * in-process engine — no job. Null if absent or on any resolution error.
@@ -91,6 +102,16 @@ public final class EmbeddedVenue implements AutoCloseable {
 		LocalVenue local = LocalVenue.create(engine());
 		local.setUser(userDID);
 		return local;
+	}
+
+	/**
+	 * A trusted in-process client acting as the venue itself — the operator.
+	 * Covia's administrative gates admit exactly this principal; Brightside uses
+	 * it for the things the app does on the owner's behalf as operator, such as
+	 * keeping {@link Odin} configured and answering his Inbox requests.
+	 */
+	public Venue operator() {
+		return clientAs(did());
 	}
 
 	public int port() {

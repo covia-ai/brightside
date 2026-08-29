@@ -39,9 +39,15 @@ import covia.venue.RequestContext;
  *       separate job, session and Brightside-log child skills.</li>
  *   <li><b>harness</b> — explains Brightside's technical foundation through
  *       separate Covia-engine, Etch and Convex-lattice child skills.</li>
- *   <li><b>tasks-scheduler-automation</b> — routes delegated work, reminders,
- *       repeatable workflows and human decisions to Covia's focused task,
- *       scheduling, orchestration and HITL skills.</li>
+ *   <li><b>tasks-scheduler-automation</b> — routes delegated work, reminders
+ *       and repeatable workflows to Covia's task, scheduling and orchestration
+ *       skills, and human decisions to Brightside's own <b>hitl</b>.</li>
+ *   <li><b>hitl</b> — when and how to ask the owner through the Inbox, and
+ *       what they will see. Shadows Covia's skill of the same name in the
+ *       index; grants the request, inbox-listing and job-status tools.</li>
+ *   <li><b>administration</b> — when and how to ask {@link Odin}, the
+ *       operator's administrative agent, for changes beyond the assistant's
+ *       own authority; grants {@code brightside:ask-odin} and the job tools.</li>
  *   <li><b>convex</b> — the Convex network as the owner meets it; routes to
  *       <b>accounts</b>, <b>smart-contracts</b>, <b>cns</b>, <b>key-security</b>,
  *       <b>protonet</b> and the shared <b>convex-lattice</b> child (the same
@@ -97,6 +103,10 @@ public class BrightsideSkillsAdapter extends AAdapter {
 	public static final String CONVEX_LATTICE = HARNESS + "/convex-lattice";
 	/** On demand: routes tasks, schedules, automation and human checkpoints. */
 	public static final String TASKS_SCHEDULER_AUTOMATION = SKILLSET + "/tasks-scheduler-automation";
+	/** Asking the owner through the Inbox; grants the request, inbox-listing and job-status tools. */
+	public static final String HITL = SKILLSET + "/hitl";
+	/** Asking Odin for administrator changes; grants the ask-odin and job tools. */
+	public static final String ADMINISTRATION = SKILLSET + "/administration";
 	/** On demand: the Convex network — routes to topic children with their tools. */
 	public static final String CONVEX = SKILLSET + "/convex";
 	/** Accounts, balances, transfers and costs (query + transact). */
@@ -127,7 +137,7 @@ public class BrightsideSkillsAdapter extends AAdapter {
 			LATTICE, VAULT_DRIVES_FILES, VAULT, DLFS, FILES,
 			DIAGNOSTICS_AUDIT_LOGS, JOBS, SESSIONS, BRIGHTSIDE_LOGS,
 			HARNESS, COVIA_ENGINE, ETCH, CONVEX_LATTICE,
-			TASKS_SCHEDULER_AUTOMATION,
+			TASKS_SCHEDULER_AUTOMATION, HITL, ADMINISTRATION,
 			CONVEX, CONVEX_ACCOUNTS, CONVEX_SMART_CONTRACTS, CONVEX_CNS,
 			CONVEX_KEY_SECURITY, CONVEX_PROTONET, CONVEX_LATTICE_CHILD,
 			WRITING, PLANNING, RESEARCH, RESEARCH_HTTP, CODING);

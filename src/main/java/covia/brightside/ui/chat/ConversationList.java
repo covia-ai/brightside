@@ -181,7 +181,7 @@ public final class ConversationList extends JPanel {
 	}
 
 	/** A relative "3 min ago" / "yesterday" / date label for the last-active time. */
-	static String relativeTime(long ts) {
+	public static String relativeTime(long ts) {
 		if (ts <= 0) return "";
 		long d = System.currentTimeMillis() - ts;
 		if (d < 60_000L) return "just now";

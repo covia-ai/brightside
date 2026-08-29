@@ -13,11 +13,13 @@ import java.awt.datatransfer.StringSelection;
 
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.ButtonGroup;
 import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
+import javax.swing.JRadioButton;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingWorker;
@@ -25,9 +27,10 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
 /**
- * The <b>Identity</b> settings page: the owner's editable name, stable Covia user
- * DID, home venue identity and signing key, plus the primary Ed25519 seed hidden
- * behind passphrase re-authentication and a privacy (eye) toggle.
+ * The <b>Identity</b> settings page: the owner's editable name, which principal
+ * the app acts as (themselves, or the venue operator — advanced), stable Covia
+ * user DID, home venue identity and signing key, plus the primary Ed25519 seed
+ * hidden behind passphrase re-authentication and a privacy (eye) toggle.
  */
 @SuppressWarnings("serial")
 public final class ProfilePanel extends SettingsPage {
@@ -37,6 +40,9 @@ public final class ProfilePanel extends SettingsPage {
 		void saveName(String name);
 
 		String revealPrimarySeed(char[] passphrase) throws Exception;
+
+		/** Act as the venue operator ({@code true}) or as the named user. */
+		void actAs(boolean operator);
 	}
 
 	private static final String MASK = "•".repeat(64);
@@ -54,6 +60,9 @@ public final class ProfilePanel extends SettingsPage {
 	private final JButton reveal = new JButton();
 	private final JButton copySeed = new JButton("Copy");
 	private final EyeIcon eye = new EyeIcon();
+	/** Act as: the named user (everyday), or the venue operator (advanced). Package-visible for tests. */
+	final JRadioButton asUser = new JRadioButton("Me");
+	final JRadioButton asOperator = new JRadioButton("Venue operator");
 	private String seedHex;
 	private String baselineName = "";
 	private boolean seedAvailable;
@@ -66,12 +75,20 @@ public final class ProfilePanel extends SettingsPage {
 		build();
 	}
 
-	/** Refresh with the current identity; hides the primary seed and re-baselines Save. */
+	/**
+	 * Refresh with the current identity and acting principal; hides the primary
+	 * seed and re-baselines Save. Selecting a principal here fires no host call.
+	 */
 	public void refresh(String name, String userDid, String venueDid, String publicKeyHex,
-			boolean seedAvailable) {
+			boolean seedAvailable, boolean actingAsOperator) {
 		identityVersion++;
 		baselineName = (name != null) ? name : "";
 		nameField.setText(baselineName);
+		asUser.setText((name != null && !name.isBlank()) ? name : "Me");
+		(actingAsOperator ? asOperator : asUser).setSelected(true);
+		boolean canSwitch = name != null && venueDid != null;
+		asUser.setEnabled(canSwitch);
+		asOperator.setEnabled(canSwitch);
 		userDidV.setText(userDid != null ? userDid : "—");
 		venueDidV.setText(venueDid != null ? venueDid : "—");
 		pubV.setText(publicKeyHex != null ? publicKeyHex : "—");
@@ -145,10 +162,35 @@ public final class ProfilePanel extends SettingsPage {
 			+ "Your recovery phrase reproduces the same seed.");
 		warn.setForeground(new Color(0xE5, 0x8A, 0x3A));
 
+		ButtonGroup actAs = new ButtonGroup();
+		actAs.add(asUser);
+		actAs.add(asOperator);
+		asUser.setOpaque(false);
+		asOperator.setOpaque(false);
+		asUser.setToolTipText("Everyday use: your own assistant, conversations and Inbox");
+		asOperator.setToolTipText("Advanced: the venue's own agents — Odin, the administrator — and the venue's Inbox");
+		// Action events fire only on a click, so refresh() can select without calling the host.
+		asUser.addActionListener(e -> host.actAs(false));
+		asOperator.addActionListener(e -> host.actAs(true));
+		asUser.setEnabled(false);
+		asOperator.setEnabled(false);
+		JPanel actAsRow = new JPanel();
+		actAsRow.setOpaque(false);
+		actAsRow.setLayout(new BoxLayout(actAsRow, BoxLayout.X_AXIS));
+		actAsRow.add(asUser);
+		actAsRow.add(Box.createHorizontalStrut(16));
+		actAsRow.add(asOperator);
+		actAsRow.add(Box.createHorizontalGlue());
+		JTextArea actAsNote = SettingsUI.selectable("As the venue operator you see and talk to the venue's own agents "
+			+ "— Odin, who administers this Brightside — and answer the venue's Inbox. Everything else is as yourself; "
+			+ "Brightside starts as you on every launch.");
+
 		addDescription("Your name is what Brightside and other people call you. Your Covia user DID is the stable "
 			+ "identity peers use; changing your name does not change it. Your home venue controls that identity with "
 			+ "the Ed25519 signing key shown here.");
 		addField("Your name", nameField);
+		addField("Act as", actAsRow);
+		addSpan(actAsNote, "gapbottom 8");
 		addFieldTop("Covia user DID", copyableRow(userDidIcon, userDidV, "Covia user DID"));
 		addFieldTop("Home venue DID", copyableRow(venueDidIcon, venueDidV, "home venue DID"));
 		addFieldTop("Venue signing key", copyableRow(publicKeyIcon, pubV, "Ed25519 venue signing public key"));
@@ -247,6 +289,10 @@ public final class ProfilePanel extends SettingsPage {
 		identityVersion++;
 		baselineName = "";
 		nameField.setText("");
+		asUser.setText("Me");
+		asUser.setSelected(true);
+		asUser.setEnabled(false);
+		asOperator.setEnabled(false);
 		seedAvailable = false;
 		hidePrimarySeed();
 		userDidV.setText("—");

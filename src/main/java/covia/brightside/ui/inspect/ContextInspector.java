@@ -1,21 +1,23 @@
 package covia.brightside.ui.inspect;
 
+import static covia.brightside.ui.inspect.Blocks.body;
+import static covia.brightside.ui.inspect.Blocks.column;
+import static covia.brightside.ui.inspect.Blocks.divider;
+import static covia.brightside.ui.inspect.Blocks.errorColor;
+import static covia.brightside.ui.inspect.Blocks.heading;
+import static covia.brightside.ui.inspect.Blocks.kv;
+import static covia.brightside.ui.inspect.Blocks.raw;
+import static covia.brightside.ui.inspect.Blocks.scroll;
+import static covia.brightside.ui.inspect.Blocks.small;
+
 import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Dimension;
-import java.awt.Font;
 import java.util.List;
 
 import javax.swing.BorderFactory;
-import javax.swing.BoxLayout;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
-import javax.swing.JTextArea;
-import javax.swing.UIManager;
 
 import covia.brightside.AgentContext;
 import covia.brightside.SessionHistory;
@@ -42,7 +44,7 @@ public final class ContextInspector extends JPanel {
 		tabs.addTab("Cycle detail (" + turns.size() + ")", scroll(cycle(turns)));
 		tabs.addTab("Tools (" + report.tools().size() + ")", scroll(tools(report)));
 		tabs.addTab("Skills (" + report.loads().size() + ")", scroll(loads(report)));
-		tabs.addTab("Raw", rawTab(report));
+		tabs.addTab("Raw", raw(report.rawJson()));
 		add(tabs, BorderLayout.CENTER);
 	}
 
@@ -68,11 +70,29 @@ public final class ContextInspector extends JPanel {
 		return p;
 	}
 
+	/**
+	 * Every message as the model sees it. A tool exchange is an assistant
+	 * message whose only content is its calls, then a tool message whose result
+	 * is structured — both rendered, so loaded context, job results and tool
+	 * results are visible rather than two blank headings.
+	 */
 	private static JComponent messages(AgentContext.Report r) {
 		JPanel p = column();
 		for (AgentContext.Message m : r.messages()) {
-			p.add(heading(m.role()));
-			p.add(body(m.text(), false));
+			String head = m.role();
+			if (m.name() != null) head += "   ·  " + m.name() + (m.id() != null ? "  (" + shortId(m.id()) + ")" : "");
+			JLabel h = heading(head);
+			if (m.error()) h.setForeground(errorColor());
+			p.add(h);
+			if (!m.text().isBlank()) p.add(body(m.text(), false));
+			for (AgentContext.Call c : m.calls()) {
+				p.add(small("→ " + c.name() + (c.id() != null ? "  (" + shortId(c.id()) + ")" : "")));
+				if (c.args() != null && !c.args().isBlank()) p.add(body(c.args(), true));
+			}
+			if (m.result() != null) {
+				p.add(small(m.error() ? "error result" : "result"));
+				p.add(body(m.result(), true));
+			}
 			p.add(divider());
 		}
 		if (r.messages().isEmpty()) p.add(small("No messages."));
@@ -143,106 +163,4 @@ public final class ContextInspector extends JPanel {
 		return p;
 	}
 
-	private static JComponent rawTab(AgentContext.Report r) {
-		JTextArea ta = new JTextArea(r.rawJson());
-		ta.setEditable(false);
-		ta.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
-		ta.setCaretPosition(0);
-		JScrollPane sp = new JScrollPane(ta);
-		sp.setBorder(BorderFactory.createEmptyBorder());
-		return sp;
-	}
-
-	// ------------------------------------------------------------------
-	// Building blocks
-	// ------------------------------------------------------------------
-
-	private static JPanel column() {
-		JPanel p = new JPanel();
-		p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
-		p.setBorder(BorderFactory.createEmptyBorder(12, 14, 12, 14));
-		p.setOpaque(false);
-		return p;
-	}
-
-	private static JScrollPane scroll(JComponent inner) {
-		JScrollPane sp = new JScrollPane(inner);
-		sp.setBorder(BorderFactory.createEmptyBorder());
-		sp.getVerticalScrollBar().setUnitIncrement(24);
-		return sp;
-	}
-
-	private static JPanel kv(String key, String value) {
-		JPanel row = new JPanel(new BorderLayout(12, 0));
-		row.setOpaque(false);
-		row.setBorder(BorderFactory.createEmptyBorder(3, 0, 3, 0));
-		row.setAlignmentX(LEFT_ALIGNMENT);
-		JLabel k = new JLabel(key);
-		k.setForeground(muted());
-		k.setPreferredSize(new Dimension(130, k.getPreferredSize().height));
-		JTextArea v = body(value, false);
-		row.add(k, BorderLayout.WEST);
-		row.add(v, BorderLayout.CENTER);
-		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
-		return row;
-	}
-
-	private static JLabel heading(String text) {
-		JLabel l = new JLabel(text);
-		l.setFont(l.getFont().deriveFont(Font.BOLD));
-		l.setForeground(accentText());
-		l.setBorder(BorderFactory.createEmptyBorder(6, 0, 4, 0));
-		l.setAlignmentX(LEFT_ALIGNMENT);
-		return l;
-	}
-
-	/** A read-only, wrapping, selectable block. Focusable, so native copy works in the dialog. */
-	private static JTextArea body(String text, boolean mono) {
-		JTextArea ta = new JTextArea(text);
-		ta.setEditable(false);
-		ta.setLineWrap(!mono);
-		ta.setWrapStyleWord(true);
-		ta.setOpaque(false);
-		ta.setBorder(null);
-		if (mono) ta.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
-		ta.setAlignmentX(LEFT_ALIGNMENT);
-		return ta;
-	}
-
-	private static JLabel small(String text) {
-		JLabel l = new JLabel(text);
-		l.putClientProperty("FlatLaf.styleClass", "small");
-		l.setForeground(muted());
-		l.setAlignmentX(LEFT_ALIGNMENT);
-		return l;
-	}
-
-	private static Component divider() {
-		JPanel d = new JPanel();
-		d.setOpaque(true);
-		d.setBackground(line());
-		d.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
-		d.setAlignmentX(LEFT_ALIGNMENT);
-		d.setBorder(BorderFactory.createEmptyBorder());
-		return d;
-	}
-
-	private static Color muted() {
-		Color c = UIManager.getColor("Label.disabledForeground");
-		return (c != null) ? c : Color.GRAY;
-	}
-
-	private static Color accentText() {
-		Color c = UIManager.getColor("Component.accentColor");
-		return (c != null) ? c : UIManager.getColor("Label.foreground");
-	}
-
-	private static Color line() {
-		Color c = UIManager.getColor("Separator.foreground");
-		return (c != null) ? c : Color.GRAY;
-	}
-
-	private static Color errorColor() {
-		return new Color(0xE5, 0x53, 0x53);
-	}
 }
