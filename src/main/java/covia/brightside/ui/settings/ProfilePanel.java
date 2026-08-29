@@ -13,13 +13,12 @@ import java.awt.datatransfer.StringSelection;
 
 import javax.swing.Box;
 import javax.swing.BoxLayout;
-import javax.swing.ButtonGroup;
 import javax.swing.Icon;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
-import javax.swing.JRadioButton;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingWorker;
@@ -27,10 +26,11 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
 /**
- * The <b>Identity</b> settings page: the owner's editable name, which principal
- * the app acts as (themselves, or the venue operator — advanced), stable Covia
- * user DID, home venue identity and signing key, plus the primary Ed25519 seed
- * hidden behind passphrase re-authentication and a privacy (eye) toggle.
+ * The <b>Identity</b> settings page: first, the user switcher — which principal
+ * the app acts as (the named user, or the venue operator — advanced); then the
+ * owner's editable name, stable Covia user DID, home venue identity and signing
+ * key, plus the primary Ed25519 seed hidden behind passphrase re-authentication
+ * and a privacy (eye) toggle.
  */
 @SuppressWarnings("serial")
 public final class ProfilePanel extends SettingsPage {
@@ -41,8 +41,20 @@ public final class ProfilePanel extends SettingsPage {
 
 		String revealPrimarySeed(char[] passphrase) throws Exception;
 
-		/** Act as the venue operator ({@code true}) or as the named user. */
+		/** Switch to acting as the venue operator ({@code true}) or as the named user. */
 		void actAs(boolean operator);
+	}
+
+	/**
+	 * A principal the app can act as: the named user ({@code <venueDID>:u:<slug>})
+	 * or the venue operator (the venue's own DID). {@code label} is what the
+	 * switcher shows.
+	 */
+	public record Principal(String label, String did, boolean operator) {
+		@Override
+		public String toString() {
+			return label;
+		}
 	}
 
 	private static final String MASK = "•".repeat(64);
@@ -60,9 +72,12 @@ public final class ProfilePanel extends SettingsPage {
 	private final JButton reveal = new JButton();
 	private final JButton copySeed = new JButton("Copy");
 	private final EyeIcon eye = new EyeIcon();
-	/** Act as: the named user (everyday), or the venue operator (advanced). Package-visible for tests. */
-	final JRadioButton asUser = new JRadioButton("Me");
-	final JRadioButton asOperator = new JRadioButton("Venue operator");
+	/** Switch user: the named user (everyday) or the venue operator (advanced). */
+	private final JComboBox<Principal> principal = new JComboBox<>();
+	/** True while {@link #refresh} sets the selection, so the host is only told about a person's choice. */
+	private boolean refreshing;
+	/** Whether the rows show the venue (operator) rather than the named user; the name is then read-only. */
+	private boolean actingAsOperator;
 	private String seedHex;
 	private String baselineName = "";
 	private boolean seedAvailable;
@@ -77,19 +92,38 @@ public final class ProfilePanel extends SettingsPage {
 
 	/**
 	 * Refresh with the current identity and acting principal; hides the primary
-	 * seed and re-baselines Save. Selecting a principal here fires no host call.
+	 * seed and re-baselines Save. The name and DID rows show the principal the
+	 * app is acting as — the named user, or the venue itself when acting as the
+	 * operator (its name, read-only, and its DID). Selecting a principal here
+	 * fires no host call.
 	 */
 	public void refresh(String name, String userDid, String venueDid, String publicKeyHex,
-			boolean seedAvailable, boolean actingAsOperator) {
+			boolean seedAvailable, boolean actingAsOperator, String venueName) {
 		identityVersion++;
+		this.actingAsOperator = actingAsOperator;
 		baselineName = (name != null) ? name : "";
-		nameField.setText(baselineName);
-		asUser.setText((name != null && !name.isBlank()) ? name : "Me");
-		(actingAsOperator ? asOperator : asUser).setSelected(true);
-		boolean canSwitch = name != null && venueDid != null;
-		asUser.setEnabled(canSwitch);
-		asOperator.setEnabled(canSwitch);
-		userDidV.setText(userDid != null ? userDid : "—");
+		nameField.setText(actingAsOperator ? ((venueName != null) ? venueName : "") : baselineName);
+		nameField.setEditable(!actingAsOperator);
+		nameField.setToolTipText(actingAsOperator
+			? "The venue's name; change it in the settings file"
+			: "The name your assistant addresses you by");
+		refreshing = true;
+		try {
+			principal.removeAllItems();
+			boolean canSwitch = name != null && userDid != null && venueDid != null;
+			if (canSwitch) {
+				Principal user = new Principal(name + " (" + suffix(userDid) + ")", userDid, false);
+				Principal operator = new Principal("Venue operator", venueDid, true);
+				principal.addItem(user);
+				principal.addItem(operator);
+				principal.setSelectedItem(actingAsOperator ? operator : user);
+			}
+			principal.setEnabled(canSwitch);
+		} finally {
+			refreshing = false;
+		}
+		String actingDid = actingAsOperator ? venueDid : userDid;
+		userDidV.setText(actingDid != null ? actingDid : "—");
 		venueDidV.setText(venueDid != null ? venueDid : "—");
 		pubV.setText(publicKeyHex != null ? publicKeyHex : "—");
 		userDidIcon.setPublicKeyHex(publicKeyHex);
@@ -110,7 +144,6 @@ public final class ProfilePanel extends SettingsPage {
 	}
 
 	private void build() {
-		nameField.setToolTipText("The name your assistant addresses you by");
 		nameField.getDocument().addDocumentListener((SimpleDoc) e -> updateDirty());
 		primary.setEnabled(false);
 		primary.setToolTipText("Save your name");
@@ -162,40 +195,34 @@ public final class ProfilePanel extends SettingsPage {
 			+ "Your recovery phrase reproduces the same seed.");
 		warn.setForeground(new Color(0xE5, 0x8A, 0x3A));
 
-		ButtonGroup actAs = new ButtonGroup();
-		actAs.add(asUser);
-		actAs.add(asOperator);
-		asUser.setOpaque(false);
-		asOperator.setOpaque(false);
-		asUser.setToolTipText("Everyday use: your own assistant, conversations and Inbox");
-		asOperator.setToolTipText("Advanced: the venue's own agents — Odin, the administrator — and the venue's Inbox");
-		// Action events fire only on a click, so refresh() can select without calling the host.
-		asUser.addActionListener(e -> host.actAs(false));
-		asOperator.addActionListener(e -> host.actAs(true));
-		asUser.setEnabled(false);
-		asOperator.setEnabled(false);
-		JPanel actAsRow = new JPanel();
-		actAsRow.setOpaque(false);
-		actAsRow.setLayout(new BoxLayout(actAsRow, BoxLayout.X_AXIS));
-		actAsRow.add(asUser);
-		actAsRow.add(Box.createHorizontalStrut(16));
-		actAsRow.add(asOperator);
-		actAsRow.add(Box.createHorizontalGlue());
-		JTextArea actAsNote = SettingsUI.selectable("As the venue operator you see and talk to the venue's own agents "
+		principal.setToolTipText("Who Brightside acts as: you (everyday), or the venue operator — the venue's own "
+			+ "agents, Odin among them, and the venue's Inbox");
+		principal.setEnabled(false);
+		principal.addActionListener(e -> {
+			Principal chosen = (Principal) principal.getSelectedItem();
+			if (!refreshing && chosen != null) host.actAs(chosen.operator());
+		});
+		JTextArea switchNote = SettingsUI.selectable("As the venue operator you see and talk to the venue's own agents "
 			+ "— Odin, who administers this Brightside — and answer the venue's Inbox. Everything else is as yourself; "
 			+ "Brightside starts as you on every launch.");
 
+		addField("Switch user", principal);
+		addSpan(switchNote, "gapbottom 14");
 		addDescription("Your name is what Brightside and other people call you. Your Covia user DID is the stable "
 			+ "identity peers use; changing your name does not change it. Your home venue controls that identity with "
 			+ "the Ed25519 signing key shown here.");
 		addField("Your name", nameField);
-		addField("Act as", actAsRow);
-		addSpan(actAsNote, "gapbottom 8");
-		addFieldTop("Covia user DID", copyableRow(userDidIcon, userDidV, "Covia user DID"));
+		addFieldTop("Covia DID", copyableRow(userDidIcon, userDidV, "Covia DID"));
 		addFieldTop("Home venue DID", copyableRow(venueDidIcon, venueDidV, "home venue DID"));
 		addFieldTop("Venue signing key", copyableRow(publicKeyIcon, pubV, "Ed25519 venue signing public key"));
 		addFieldTop("Primary seed (Advanced)", keyRow);
 		addSpan(warn, "gaptop 4");
+	}
+
+	/** The principal's own suffix — {@code :u:mike} of {@code did:key:z6Mk…:u:mike} — or the whole DID if it has none. */
+	private static String suffix(String did) {
+		int at = did.indexOf(":u:");
+		return (at >= 0) ? did.substring(at) : did;
 	}
 
 	private static JPanel copyableRow(ConvexIdenticon identicon, JTextArea value, String subject) {
@@ -220,7 +247,7 @@ public final class ProfilePanel extends SettingsPage {
 
 	private void updateDirty() {
 		String n = nameField.getText().trim();
-		primary.setEnabled(!n.equals(baselineName) && !n.isEmpty());
+		primary.setEnabled(!actingAsOperator && !n.equals(baselineName) && !n.isEmpty());
 	}
 
 	private void toggle() {
@@ -287,12 +314,17 @@ public final class ProfilePanel extends SettingsPage {
 	/** Drops any displayed or cached private material when the user logs out. */
 	public void clearSensitive() {
 		identityVersion++;
+		actingAsOperator = false;
 		baselineName = "";
 		nameField.setText("");
-		asUser.setText("Me");
-		asUser.setSelected(true);
-		asUser.setEnabled(false);
-		asOperator.setEnabled(false);
+		nameField.setEditable(true);
+		refreshing = true;
+		try {
+			principal.removeAllItems();
+			principal.setEnabled(false);
+		} finally {
+			refreshing = false;
+		}
 		seedAvailable = false;
 		hidePrimarySeed();
 		userDidV.setText("—");

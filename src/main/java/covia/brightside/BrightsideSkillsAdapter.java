@@ -49,11 +49,15 @@ import covia.venue.RequestContext;
  *       operator's administrative agent, for changes beyond the assistant's
  *       own authority; grants {@code brightside:ask-odin} and the job tools.</li>
  *   <li><b>convex</b> — the Convex network as the owner meets it; routes to
- *       <b>accounts</b>, <b>smart-contracts</b>, <b>cns</b>, <b>key-security</b>,
- *       <b>protonet</b> and the shared <b>convex-lattice</b> child (the same
- *       resource as the harness child, so the index shows it once). The
- *       on-chain children grant {@code convex:query} / {@code convex:transact};
- *       key-security grants nothing and is loaded before anything that signs.</li>
+ *       <b>accounts</b>, <b>convex-lisp</b>, <b>smart-contracts</b> (whose own
+ *       child <b>trust</b> covers trust monitors), <b>cns</b>, <b>costs</b>,
+ *       <b>security</b>, <b>cpos-consensus</b>, <b>cad3-data</b>,
+ *       <b>protonet</b>, <b>ecosystem</b> and the shared <b>convex-lattice</b>
+ *       child (the same resource as the harness child, so the index shows it
+ *       once). The on-chain children grant {@code convex:query} /
+ *       {@code convex:transact}; the knowledge children (security, consensus,
+ *       encoding, ecosystem) grant nothing, and security is loaded before
+ *       anything that signs.</li>
  *   <li><b>writing</b>, <b>planning</b>, <b>research</b> and <b>coding</b> —
  *       everyday working methods, loaded only when the task calls for them;
  *       research reveals a guarded HTTP child for external evidence.</li>
@@ -109,18 +113,30 @@ public class BrightsideSkillsAdapter extends AAdapter {
 	public static final String ADMINISTRATION = SKILLSET + "/administration";
 	/** On demand: the Convex network — routes to topic children with their tools. */
 	public static final String CONVEX = SKILLSET + "/convex";
-	/** Accounts, balances, transfers and costs (query + transact). */
+	/** Accounts, balances, transfers, creating an account (query + transact). */
 	public static final String CONVEX_ACCOUNTS = CONVEX + "/accounts";
-	/** Actors, tokens, trust monitors, Convex Lisp (query + transact). */
+	/** The language: syntax, values, core forms, query versus transaction, error codes (query + transact). */
+	public static final String CONVEX_LISP = CONVEX + "/convex-lisp";
+	/** Actors: deploy, call, upgrade, tokens (query + transact); reveals {@link #CONVEX_TRUST}. */
 	public static final String CONVEX_SMART_CONTRACTS = CONVEX + "/smart-contracts";
+	/** Trust monitors — the authorisation model — as a child of smart contracts (query + transact). */
+	public static final String CONVEX_TRUST = CONVEX_SMART_CONTRACTS + "/trust";
 	/** Name resolution and registration (query + transact). */
 	public static final String CONVEX_CNS = CONVEX + "/cns";
-	/** How the owner's keys relate to Convex and what must never be revealed (no tools). */
-	public static final String CONVEX_KEY_SECURITY = CONVEX + "/key-security";
+	/** Juice and memory: what things cost, why they fail, keeping storage small (query). */
+	public static final String CONVEX_COSTS = CONVEX + "/costs";
+	/** Keys, what must never be revealed, transaction hygiene, untrusted network content (no tools). */
+	public static final String CONVEX_SECURITY = CONVEX + "/security";
+	/** Convergent Proof of Stake: beliefs, stake, finality, timing, tolerated attacks (no tools). */
+	public static final String CONVEX_CPOS = CONVEX + "/cpos-consensus";
+	/** CAD3: cells, value IDs, embedded versus branch, validity (no tools). */
+	public static final String CONVEX_CAD3 = CONVEX + "/cad3-data";
 	/** Protonet, testnets and local networks; which peer to talk to (query). */
 	public static final String CONVEX_PROTONET = CONVEX + "/protonet";
 	/** The lattice data model, shared with the harness router (same resource as {@link #CONVEX_LATTICE}). */
 	public static final String CONVEX_LATTICE_CHILD = CONVEX + "/convex-lattice";
+	/** Repositories, CADs by number, docs, client libraries, vocabulary (no tools). */
+	public static final String CONVEX_ECOSYSTEM = CONVEX + "/ecosystem";
 	/** On demand: drafting and editing useful prose. */
 	public static final String WRITING = SKILLSET + "/writing";
 	/** On demand: turning goals and decisions into executable plans. */
@@ -138,8 +154,9 @@ public class BrightsideSkillsAdapter extends AAdapter {
 			DIAGNOSTICS_AUDIT_LOGS, JOBS, SESSIONS, BRIGHTSIDE_LOGS,
 			HARNESS, COVIA_ENGINE, ETCH, CONVEX_LATTICE,
 			TASKS_SCHEDULER_AUTOMATION, HITL, ADMINISTRATION,
-			CONVEX, CONVEX_ACCOUNTS, CONVEX_SMART_CONTRACTS, CONVEX_CNS,
-			CONVEX_KEY_SECURITY, CONVEX_PROTONET, CONVEX_LATTICE_CHILD,
+			CONVEX, CONVEX_ACCOUNTS, CONVEX_LISP, CONVEX_SMART_CONTRACTS, CONVEX_TRUST, CONVEX_CNS,
+			CONVEX_COSTS, CONVEX_SECURITY, CONVEX_CPOS, CONVEX_CAD3, CONVEX_PROTONET,
+			CONVEX_LATTICE_CHILD, CONVEX_ECOSYSTEM,
 			WRITING, PLANNING, RESEARCH, RESEARCH_HTTP, CODING);
 
 	@Override

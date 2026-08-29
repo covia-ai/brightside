@@ -143,10 +143,11 @@ final class OnboardingUI {
 		l.putClientProperty("FlatLaf.styleClass", "small");
 		l.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		l.setAlignmentX(Component.CENTER_ALIGNMENT);
+		// On press, like every other control: a click needs a motionless release.
 		l.addMouseListener(new MouseAdapter() {
 			@Override
-			public void mouseClicked(MouseEvent e) {
-				open(url);
+			public void mousePressed(MouseEvent e) {
+				if (javax.swing.SwingUtilities.isLeftMouseButton(e)) open(url);
 			}
 		});
 		return l;

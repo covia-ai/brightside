@@ -5,8 +5,7 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.awt.Insets;
 import java.util.List;
 
 import javax.swing.BorderFactory;
@@ -19,11 +18,12 @@ import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.ScrollPaneConstants;
-import javax.swing.SwingUtilities;
+import javax.swing.SwingConstants;
 import javax.swing.UIManager;
 
 import covia.brightside.model.AgentRef;
-import covia.brightside.ui.LAF;
+import covia.brightside.ui.Lucide;
+import covia.brightside.ui.PressButton;
 
 /**
  * The agents pane (left of the sessions list on the Sessions screen): one row per
@@ -69,7 +69,7 @@ public final class AgentList extends JPanel {
 		JLabel header = new JLabel("Agents");
 		header.putClientProperty("FlatLaf.styleClass", "small");
 		header.setForeground(muted());
-		JButton add = new JButton("New agent");
+		JButton add = new JButton("New agent", Lucide.icon("plus", 16, uiColor("Button.foreground", Color.WHITE)));
 		add.putClientProperty("JButton.buttonType", "roundRect");
 		add.setFocusPainted(false);
 		add.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -111,34 +111,16 @@ public final class AgentList extends JPanel {
 		rows.repaint();
 	}
 
+	/** One agent: a {@link PressButton} row, selected when it is the one open. */
 	private Component agentRow(AgentRef agent) {
-		boolean selected = agent.id().equals(selectedId);
-		JLabel row = new JLabel(agent.name());
-		row.setOpaque(selected);
-		if (selected) {
-			row.setBackground(LAF.ACCENT);
-			row.setForeground(Color.WHITE);
-		} else {
-			row.setForeground(uiColor("Label.foreground", Color.WHITE));
-		}
-		row.setBorder(BorderFactory.createEmptyBorder(9, 12, 9, 12));
-		row.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height + 18));
-		row.addMouseListener(new MouseAdapter() {
-			@Override
-			public void mousePressed(MouseEvent e) {
-				if (e.isPopupTrigger()) {
-					menuFor(agent).show(row, e.getX(), e.getY());
-				} else if (SwingUtilities.isLeftMouseButton(e)) {
-					listener.onSelectAgent(agent.id());
-				}
-			}
-
-			@Override
-			public void mouseReleased(MouseEvent e) {
-				if (e.isPopupTrigger()) menuFor(agent).show(row, e.getX(), e.getY());
-			}
-		});
+		PressButton row = new PressButton(agent.name());
+		row.setHorizontalAlignment(SwingConstants.LEFT);
+		row.setMargin(new Insets(9, 12, 9, 12));
+		row.setAlignmentX(LEFT_ALIGNMENT);
+		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
+		row.setSelected(agent.id().equals(selectedId));
+		row.onPress(() -> listener.onSelectAgent(agent.id()));
+		row.onPopup(() -> menuFor(agent));
 		return row;
 	}
 

@@ -507,7 +507,8 @@ public final class MainWindow extends JFrame {
 		split.revalidate();
 	}
 
-	private void refreshSettings() {
+	/** Re-read every settings page from the app's state — on entering Settings, and after the acting principal changes. */
+	public void refreshSettings() {
 		String name = (identity != null) ? identity.name() : null;
 		String venueDid = (venue != null) ? venue.did() : null;
 		String userDid = (identity != null && venueDid != null) ? identity.userDID(venueDid) : null;
@@ -515,7 +516,7 @@ public final class MainWindow extends JFrame {
 			identity != null, venue != null);
 		settingsScreen.model().preselect(app.currentModelOp());
 		settingsScreen.profile().refresh(name, userDid, venueDid, app.publicKeyHex(), app.canRevealPrivateSeed(),
-			app.actingAsOperator());
+			app.actingAsOperator(), (venue != null) ? venue.name() : null);
 		settingsScreen.vault().refresh(app.hasRememberedPassphrase());
 	}
 

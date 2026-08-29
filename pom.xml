@@ -65,6 +65,12 @@
 			<artifactId>flatlaf</artifactId>
 			<version>${flatlaf.version}</version>
 		</dependency>
+		<!-- FlatSVGIcon for the Lucide icon set (src/main/resources/icons/lucide). -->
+		<dependency>
+			<groupId>com.formdev</groupId>
+			<artifactId>flatlaf-extras</artifactId>
+			<version>${flatlaf.version}</version>
+		</dependency>
 
 		<!-- MigLayout: clean, aligned form layouts for the settings screens. -->
 		<dependency>

@@ -86,6 +86,13 @@ public final class LAF {
 		UIManager.put("ScrollBar.track", new Color(0, 0, 0, 0));
 		UIManager.put("ScrollPane.arc", 12);
 
+		// Navigation and list rows are tool-bar-style buttons (PressButton): the
+		// theme paints their hover and pressed looks; the selected one — the
+		// active tab, the open agent or conversation — carries an accent tint.
+		Color selectedTint = new Color(ACCENT.getRed(), ACCENT.getGreen(), ACCENT.getBlue(), 56);
+		UIManager.put("Button.toolbar.selectedBackground", selectedTint);
+		UIManager.put("ToggleButton.toolbar.selectedBackground", selectedTint);
+
 		// Roomier menus and controls.
 		UIManager.put("MenuItem.selectionArc", 8);
 		UIManager.put("Menu.selectionArc", 8);

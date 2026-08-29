@@ -96,7 +96,7 @@ public final class BrightSide {
 
 	/**
 	 * Whether the app is acting as the venue operator rather than as the named
-	 * user (Settings → Identity → Act as). The operator sees and chats with the
+	 * user (Settings → Identity → Switch user). The operator sees and chats with the
 	 * venue's own agents — Odin — and answers the venue's Inbox; everyday use is
 	 * as the user. Never persisted: every launch starts as the user.
 	 */
@@ -788,6 +788,9 @@ public final class BrightSide {
 					window.showSystemMessage(actingAsOperator
 						? "You're acting as the venue operator now: the venue's own agents are listed, and " + displayNameFor(aid) + " is on the line."
 						: "Back to acting as " + id.name() + ".");
+					// The switch is made from Settings → Identity, which is still on
+					// screen: show the identity the app now acts as.
+					window.refreshSettings();
 				}
 			}
 			window.setAgents(agentRefs, aid, defaultAgentId());

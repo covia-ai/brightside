@@ -1,33 +1,34 @@
 package covia.brightside.ui.settings;
 
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Insets;
+import java.util.EnumMap;
+import java.util.Map;
 
 import javax.swing.BorderFactory;
-import javax.swing.DefaultListCellRenderer;
-import javax.swing.JComponent;
-import javax.swing.JLabel;
-import javax.swing.JList;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.ListCellRenderer;
-import javax.swing.ListSelectionModel;
-import javax.swing.ScrollPaneConstants;
+import javax.swing.SwingConstants;
 import javax.swing.UIManager;
 
-import java.awt.CardLayout;
+import covia.brightside.ui.LAF;
+import covia.brightside.ui.PressButton;
 
 /**
- * The <b>Settings</b> screen: a vertical section nav on the left (General,
- * Model, Identity, Vault, Auth) selecting the content shown on the right. One
- * consistent place to find application actions and configuration.
+ * The <b>Settings</b> screen: a vertical section nav on the left (Identity,
+ * General, Model, Vault, Auth) selecting the content shown on the right. One
+ * consistent place to find application actions and configuration. Identity
+ * comes first: who the app is acting as frames everything below it.
  */
 @SuppressWarnings("serial")
 public final class SettingsScreen extends JPanel {
 
 	public enum Tab {
-		GENERAL("General"), MODEL("Model"), PROFILE("Identity"), VAULT("Vault"), AUTH("Auth");
+		PROFILE("Identity"), GENERAL("General"), MODEL("Model"), VAULT("Vault"), AUTH("Auth");
 
 		final String label;
 
@@ -43,7 +44,7 @@ public final class SettingsScreen extends JPanel {
 
 	private final CardLayout cards = new CardLayout();
 	private final JPanel content = new JPanel(cards);
-	private final JList<Tab> nav = new JList<>(Tab.values());
+	private final Map<Tab, PressButton> nav = new EnumMap<>(Tab.class);
 	private final GeneralPanel general;
 	private final ModelPanel model;
 	private final ProfilePanel profile;
@@ -59,35 +60,51 @@ public final class SettingsScreen extends JPanel {
 		this.auth = auth;
 
 		content.setOpaque(false);
+		content.add(profile, Tab.PROFILE.name());
 		content.add(general, Tab.GENERAL.name());
 		content.add(model, Tab.MODEL.name());
-		content.add(profile, Tab.PROFILE.name());
 		content.add(vault, Tab.VAULT.name());
 		content.add(auth, Tab.AUTH.name());
 
-		nav.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-		nav.setCellRenderer(navRenderer());
-		nav.setFixedCellHeight(38);
-		nav.setBorder(BorderFactory.createEmptyBorder(8, 6, 8, 6));
-		nav.setSelectedIndex(0);
-		nav.addListSelectionListener(e -> {
-			if (!e.getValueIsAdjusting() && nav.getSelectedValue() != null) {
-				cards.show(content, nav.getSelectedValue().name());
-			}
-		});
+		// The section nav: one PressButton per section, the same control as the
+		// bottom tabs — hover, pressed and selected looks from the theme, acting
+		// on the press.
+		JPanel column = new JPanel();
+		column.setOpaque(false);
+		column.setLayout(new BoxLayout(column, BoxLayout.Y_AXIS));
+		column.setBorder(BorderFactory.createEmptyBorder(8, 6, 8, 6));
+		for (Tab t : Tab.values()) {
+			PressButton b = new PressButton(t.label);
+			b.setHorizontalAlignment(SwingConstants.LEFT);
+			b.setMargin(new Insets(8, 12, 8, 12));
+			b.setFont(b.getFont().deriveFont(b.getFont().getSize2D() + 1f));
+			b.setAlignmentX(LEFT_ALIGNMENT);
+			b.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
+			b.setPreferredSize(new Dimension(138, 38));
+			b.onPress(() -> select(t));
+			nav.put(t, b);
+			column.add(b);
+			column.add(Box.createVerticalStrut(2));
+		}
+		JPanel navHolder = new JPanel(new BorderLayout());
+		navHolder.setOpaque(false);
+		navHolder.add(column, BorderLayout.NORTH);
+		navHolder.setPreferredSize(new Dimension(150, 0));
+		navHolder.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, sep()));
 
-		JScrollPane navScroll = new JScrollPane(nav,
-			ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-		navScroll.setPreferredSize(new Dimension(150, 0));
-		navScroll.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, sep()));
-
-		add(navScroll, BorderLayout.WEST);
+		add(navHolder, BorderLayout.WEST);
 		add(content, BorderLayout.CENTER);
+		select(Tab.values()[0]);
 	}
 
 	/** Select a section (also shows its content). */
 	public void select(Tab t) {
-		nav.setSelectedValue(t, true);
+		for (Map.Entry<Tab, PressButton> e : nav.entrySet()) {
+			boolean on = e.getKey() == t;
+			e.getValue().setSelected(on);
+			e.getValue().setForeground(on ? LAF.ACCENT : UIManager.getColor("Button.foreground"));
+		}
+		cards.show(content, t.name());
 	}
 
 	public ModelPanel model() {
@@ -108,17 +125,6 @@ public final class SettingsScreen extends JPanel {
 
 	public AuthPanel auth() {
 		return auth;
-	}
-
-	private static ListCellRenderer<? super Tab> navRenderer() {
-		DefaultListCellRenderer base = new DefaultListCellRenderer();
-		return (list, value, index, selected, focus) -> {
-			JLabel l = (JLabel) base.getListCellRendererComponent(list, value, index, selected, focus);
-			l.setText(value.label);
-			l.setBorder(BorderFactory.createEmptyBorder(0, 12, 0, 12));
-			l.setFont(l.getFont().deriveFont(l.getFont().getSize2D() + 1f));
-			return l;
-		};
 	}
 
 	private static Color sep() {

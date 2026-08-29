@@ -513,8 +513,8 @@ public final class OnboardingWizard extends JPanel {
 		for (var l : keyLink.getMouseListeners()) keyLink.removeMouseListener(l);
 		keyLink.addMouseListener(new java.awt.event.MouseAdapter() {
 			@Override
-			public void mouseClicked(java.awt.event.MouseEvent e) {
-				OnboardingUI.open(p.consoleUrl());
+			public void mousePressed(java.awt.event.MouseEvent e) {
+				if (javax.swing.SwingUtilities.isLeftMouseButton(e)) OnboardingUI.open(p.consoleUrl());
 			}
 		});
 		boolean needsKey = p.needsApiKey();

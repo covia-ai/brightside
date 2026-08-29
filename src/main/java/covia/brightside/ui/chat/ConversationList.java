@@ -5,8 +5,7 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.awt.Insets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -21,10 +20,11 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
-import javax.swing.SwingUtilities;
 
 import covia.brightside.SessionHistory;
 import covia.brightside.ui.LAF;
+import covia.brightside.ui.Lucide;
+import covia.brightside.ui.PressButton;
 
 /**
  * The conversation switcher: a "New conversation" button above a scrolling list
@@ -74,7 +74,7 @@ public final class ConversationList extends JPanel {
 			BorderFactory.createMatteBorder(0, 0, 0, 1, line),
 			BorderFactory.createEmptyBorder(10, 10, 10, 10)));
 
-		JButton newChat = new JButton("New conversation");
+		JButton newChat = new JButton("New conversation", Lucide.icon("plus", 16, Color.WHITE));
 		newChat.putClientProperty("JButton.buttonType", "roundRect");
 		newChat.setForeground(Color.WHITE);
 		newChat.setBackground(LAF.ACCENT);
@@ -120,23 +120,12 @@ public final class ConversationList extends JPanel {
 
 	private Component rowFor(SessionHistory.Session s) {
 		boolean selected = s.sessionId() != null && s.sessionId().equals(selectedId);
-		Row row = new Row(s, selected);
-		row.addMouseListener(new MouseAdapter() {
-			@Override
-			public void mousePressed(MouseEvent e) {
-				// Select on press for a snappier feel; right-click opens the menu.
-				if (e.isPopupTrigger()) {
-					menuFor(s).show(row, e.getX(), e.getY());
-				} else if (SwingUtilities.isLeftMouseButton(e) && !s.sessionId().equals(selectedId)) {
-					listener.onSelectSession(s.sessionId());
-				}
-			}
-
-			@Override
-			public void mouseReleased(MouseEvent e) {
-				if (e.isPopupTrigger()) menuFor(s).show(row, e.getX(), e.getY());
-			}
+		Row row = new Row(s);
+		row.setSelected(selected);
+		row.onPress(() -> {
+			if (!s.sessionId().equals(selectedId)) listener.onSelectSession(s.sessionId());
 		});
+		row.onPopup(() -> menuFor(s));
 		return row;
 	}
 
@@ -202,26 +191,37 @@ public final class ConversationList extends JPanel {
 		return (c != null) ? c : fallback;
 	}
 
-	/** One conversation row: title over a muted relative time, tinted when selected. */
+	/**
+	 * One conversation row: a {@link PressButton} laid out with its own labels —
+	 * the title over a muted relative time — so the theme paints its hover and
+	 * selected looks while the labels keep their own styles. The labels take no
+	 * mouse events, so a press anywhere on the row reaches the button.
+	 */
 	@SuppressWarnings("serial")
-	private final class Row extends JPanel {
+	private static final class Row extends PressButton {
 
-		Row(SessionHistory.Session s, boolean selected) {
-			super(new BorderLayout(0, 1));
-			setOpaque(selected);
-			if (selected) setBackground(ChatStyle.mix(uiColor("Panel.background", Color.DARK_GRAY), LAF.ACCENT, 0.22f));
-			setBorder(BorderFactory.createEmptyBorder(7, 9, 7, 9));
-			setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		Row(SessionHistory.Session s) {
+			super("");
+			setLayout(new BorderLayout(0, 1));
+			setMargin(new Insets(7, 9, 7, 9));
 			setAlignmentX(LEFT_ALIGNMENT);
 
 			JLabel title = new JLabel(s.title());
-			if (selected) title.setForeground(ChatStyle.foreground());
+			title.putClientProperty("html.disable", Boolean.TRUE);
 			JLabel when = new JLabel(relativeTime(s.lastTs()));
 			when.putClientProperty("FlatLaf.styleClass", "small");
 			when.setForeground(ChatStyle.muted());
 
 			add(title, BorderLayout.CENTER);
 			add(when, BorderLayout.SOUTH);
+		}
+
+		/** Sized by the labels, not by the (empty) button text. */
+		@Override
+		public Dimension getPreferredSize() {
+			Dimension inner = getLayout().preferredLayoutSize(this);
+			Insets in = getInsets();
+			return new Dimension(inner.width + in.left + in.right, inner.height + in.top + in.bottom);
 		}
 
 		@Override

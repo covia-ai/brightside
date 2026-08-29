@@ -68,11 +68,12 @@ Two limits, both on the roadmap: the recovery phrase reproduces the venue but
 not the `:u:` suffix, so `identity.json` travels with vault backups; and one
 venue currently serves one owner ([#3](https://github.com/covia-ai/brightside/issues/3)).
 
-**Acting as the operator.** *Settings → Identity → Act as* switches the app
+**Switching user.** *Settings → Identity → Switch user* switches the app
 from the named user to the venue principal itself, for the session only: the
 agents pane then lists the venue's own agents ([Odin](ODIN.md) first), the chat
-talks to them, and the Inbox is the venue's. Everyday use is as the user; each
-launch starts there.
+talks to them, the Inbox is the venue's, and the Identity page shows the
+venue's name (read-only) and DID as the acting principal. Everyday use is as
+the user; each launch starts there.
 
 ## Agent identity
 

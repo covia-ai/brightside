@@ -14,7 +14,7 @@ the owner alone.
 | Memory | `n/memory` under the venue — durable decisions the owner has made |
 | Skills | the venue's own library (`v/skills/root`) |
 | Tools | `brightside:odin-run`, `hitl_request` / `hitl_list`, job status/result, memory, read-only venue reads |
-| Visible | only while acting as the venue operator (Settings → Identity → *Act as*): then the agents pane lists the venue's agents with Odin as the default, you can talk to him directly, and the Inbox is the venue's. Every launch starts as the user. |
+| Visible | only while acting as the venue operator (Settings → Identity → *Switch user*): then the agents pane lists the venue's agents with Odin as the default, you can talk to him directly, and the Inbox is the venue's. Every launch starts as the user. |
 
 ## Why bridges
 

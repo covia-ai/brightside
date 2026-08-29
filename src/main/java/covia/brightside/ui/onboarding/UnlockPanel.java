@@ -101,8 +101,8 @@ public final class UnlockPanel extends JPanel {
 		forgot.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		forgot.addMouseListener(new MouseAdapter() {
 			@Override
-			public void mouseClicked(MouseEvent e) {
-				listener.onForgot();
+			public void mousePressed(MouseEvent e) {
+				if (javax.swing.SwingUtilities.isLeftMouseButton(e)) listener.onForgot();
 			}
 		});
 

@@ -68,6 +68,9 @@ src/main/java/covia/brightside/
 ├── vault/Mnemonic.java         BIP39 recovery phrase ↔ Ed25519 seed
 └── ui/
     ├── LAF.java                FlatLaf themes, purple accent, bundled Lato
+    ├── Lucide.java             the icon set: FlatSVGIcon over icons/lucide, tinted
+    ├── PressButton.java        the one nav/list control: acts on press, host-owned
+    │                           selection, theme hover — tabs, sections, rows
     ├── MainWindow.java         navigation, shortcuts and application cards
     ├── WelcomePanel.java       "What should I call you?" (rename)
     ├── ModelSelector.java      shared provider/model picker
@@ -87,6 +90,8 @@ src/main/resources/
 ├── adapters/brightside/        context, info, skill deletion/feedback, shutdown
 │                               and the two Odin bridge ops
 ├── fonts/lato/                 bundled OFL faces, registered at startup
+├── icons/lucide/               the Lucide SVG icons the UI uses (ISC; LICENSE
+│                               alongside), rendered and tinted by ui/Lucide
 └── brightside/logback.xml      logging (configured programmatically)
 
 src/test/java/…                 unit tests; boot temporary venue engines, headless
@@ -195,6 +200,14 @@ tool-granting skills out of the baseline and loads them on demand. Thus:
 - `harness` reveals `covia-engine`, `etch` and `convex-lattice` children for
   internal architecture questions. Ordinary work skills stay at the harness
   boundary and use live operations instead of encoding host configuration.
+- `convex` is a router over the Convex network as the owner meets it:
+  `accounts`, `convex-lisp`, `smart-contracts` (with its own child `trust`),
+  `cns`, `costs`, `security`, `cpos-consensus`, `cad3-data`, `protonet`,
+  `ecosystem` and the shared `convex-lattice`. Each child's description says
+  when to load it once the router is in context; the on-chain children grant
+  `convex:query`/`convex:transact`, the knowledge children nothing. Bodies are
+  distilled from the Convex repository's own skills and `CONSENSUS.md`, in
+  Convex's vocabulary.
 - `tasks-scheduler-automation` is a tool-free router over Covia's existing
   `tasks`, `scheduling` and `orchestration` skills and Brightside's own `hitl`.
   It loads only the parts a request needs: for example, a reminder needs

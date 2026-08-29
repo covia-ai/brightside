@@ -20,8 +20,9 @@ full technical surface lives under Settings. One Maven module,
 - `mvn package` → `target/brightside.jar`; `mvn test`; `mvn exec:java`.
 - Tests boot real venues headless (`-Djava.awt.headless=true`) and must never
   put a window or a tray icon on a desktop. Chat tests use the echo LLM
-  `v/test/ops/llm`, so no API key. Test mechanism (wiring, state, behaviour),
-  not the wording of assembled prose.
+  `v/test/ops/llm`, so no API key. Test mechanism (wiring, state, behaviour).
+  No tests for the UI or for prose content — those are obvious in use and a
+  test would only say the words twice.
 
 ## Where the detail lives
 
