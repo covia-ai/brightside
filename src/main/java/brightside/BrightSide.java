@@ -60,6 +60,15 @@ public final class BrightSide {
 
 	public static final String APP_NAME = "Brightside";
 
+	/**
+	 * Preference keys for the look chosen in Settings → Theme: the mode (light or
+	 * dark), each mode's theme (a {@link LAF.Choice#id()}) and the accent.
+	 */
+	private static final String PREF_MODE = "ui.mode";
+	private static final String PREF_THEME_DARK = "ui.theme.dark";
+	private static final String PREF_THEME_LIGHT = "ui.theme.light";
+	private static final String PREF_ACCENT = "ui.accent";
+
 	private final AppConfig config;
 	private final Path configPath;
 	private final Prefs prefs;
@@ -102,10 +111,10 @@ public final class BrightSide {
 	 */
 	private volatile boolean actingAsOperator;
 
-	BrightSide(AppConfig config, Path configPath) {
+	BrightSide(AppConfig config, Path configPath, Prefs prefs) {
 		this.config = config;
 		this.configPath = configPath;
-		this.prefs = Prefs.load(config.home());
+		this.prefs = prefs;
 	}
 
 	/** Entry point. Optional argument: path to the configuration file. */
@@ -118,15 +127,18 @@ public final class BrightSide {
 			log.info("Configuration loaded from {}", path);
 		} catch (Exception e) {
 			log.error("Could not load configuration from {}", path, e);
-			LAF.init(AppConfig.DEFAULT_THEME);
+			LAF.init(null, AppConfig.DEFAULT_THEME, null, null);
 			JOptionPane.showMessageDialog(null,
 				"Could not load the configuration file\n" + path + "\n\n" + e.getMessage(),
 				APP_NAME, JOptionPane.ERROR_MESSAGE);
 			System.exit(66); // EX_NOINPUT, as the Covia venue does
 			return;
 		}
-		LAF.init(config.theme());
-		new BrightSide(config, path).start();
+		// The look chosen in Settings → Theme (remembered in prefs) wins over config.json's light/dark.
+		Prefs prefs = Prefs.load(config.home());
+		String mode = prefs.getString(PREF_MODE, config.theme());
+		LAF.init(prefs.getString(themeKey(mode), null), mode, prefs.getString(PREF_ACCENT, null), themesDir(config));
+		new BrightSide(config, path, prefs).start();
 	}
 
 	/**
@@ -1475,6 +1487,73 @@ public final class BrightSide {
 
 	public void setMinimiseToTray(boolean value) {
 		prefs.setBool("tray.minimise", value);
+	}
+
+	/** {@link LAF#LIGHT} or {@link LAF#DARK}: the mode in use. */
+	public String mode() {
+		return LAF.mode();
+	}
+
+	/** The id of the theme in use (the chosen one for the mode, else the mode's default). */
+	public String theme() {
+		return LAF.current().id();
+	}
+
+	/** The accent chosen in Settings → Theme as {@code #RRGGBB}, or null for the default. */
+	public String accent() {
+		return LAF.accent();
+	}
+
+	/** Switches to light or dark — each mode keeps its own chosen theme — and remembers it. */
+	public void setMode(String mode) {
+		prefs.setString(PREF_MODE, mode);
+		applyLook(prefs.getString(themeKey(mode), LAF.defaultTheme(mode)), accent());
+	}
+
+	/** Remembers the theme as its mode's choice, switches to that mode, and switches every window to it. */
+	public void setTheme(String id) {
+		LAF.Choice chosen = LAF.choice(id);
+		if (chosen == null) return;
+		String mode = chosen.dark() ? LAF.DARK : LAF.LIGHT;
+		prefs.setString(themeKey(mode), id);
+		prefs.setString(PREF_MODE, mode);
+		applyLook(id, accent());
+	}
+
+	/** Switches every window to the theme and accent, then lets the Theme page reflect what is now in use. */
+	private void applyLook(String themeId, String accent) {
+		SwingUtilities.invokeLater(() -> {
+			LAF.apply(themeId, accent);
+			if (window != null) window.refreshTheme();
+		});
+	}
+
+	private static String themeKey(String mode) {
+		return LAF.isLight(mode) ? PREF_THEME_LIGHT : PREF_THEME_DARK;
+	}
+
+	/** Remembers the accent (null: the default) and switches every window to it. */
+	public void setAccent(String accent) {
+		prefs.setString(PREF_ACCENT, accent);
+		applyLook(theme(), accent);
+	}
+
+	/** Where the owner's own {@code .theme.json} files live: {@code <home>/themes}. */
+	private static Path themesDir(AppConfig config) {
+		return config.home().resolve("themes");
+	}
+
+	/** Opens (creating if needed) the folder for the owner's own themes. */
+	public void openThemesFolder() {
+		Path dir = themesDir(config);
+		desktop("open the themes folder", d -> {
+			try {
+				Files.createDirectories(dir);
+			} catch (IOException ignored) {
+				// best effort; open will simply fail if it truly cannot be created
+			}
+			d.open(dir.toFile());
+		});
 	}
 
 	/** Force an immediate lattice value compare and refresh the transcript if it changed. */

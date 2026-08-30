@@ -77,7 +77,7 @@ public final class UnlockPanel extends JPanel {
 		// Remember-me, with an explicit plaintext warning and fuller detail on hover.
 		remember.setOpaque(false);
 		remember.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		JLabel info = Labels.icon(Lucide.icon("info", 16, Theme.muted()));
+		JLabel info = Labels.icon(Lucide.icon("info", 16, Theme::muted));
 		info.setToolTipText("Anyone who can read files as your OS account can unlock Brightside. "
 			+ "Only enable this on a computer and account you trust; untick it to delete the file.");
 		info.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));

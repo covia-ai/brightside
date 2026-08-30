@@ -47,7 +47,6 @@ import brightside.ui.components.Scrolls;
 import brightside.ui.components.SelectableText;
 import brightside.ui.components.Styles;
 import brightside.ui.components.TextArea;
-import brightside.ui.components.Theme;
 
 /**
  * The chat: a scrolling {@link MessageColumn} of message components above a
@@ -448,14 +447,14 @@ public final class ChatPanel extends JPanel {
 	/** A note from Brightside itself (status, hints) — centred and muted. */
 	public void appendSystem(String text) {
 		hideEmptyState();
-		column.add(noticeRow(text, Theme.muted(), false, false));
+		column.add(noticeRow(text, Styles.MUTED, false, false));
 		column.revalidate();
 		scrollToBottom();
 	}
 
 	public void appendError(String text) {
 		hideEmptyState();
-		column.add(noticeRow(text, Theme.error(), true, true));
+		column.add(noticeRow(text, Styles.ERROR, true, true));
 		column.revalidate();
 		scrollToBottom();
 	}
@@ -507,8 +506,7 @@ public final class ChatPanel extends JPanel {
 	// ------------------------------------------------------------------
 
 	private Component bubbleRow(String text, boolean user) {
-		// The user's side is the accent; the assistant's is the theme's surface.
-		Bubble bubble = new Bubble(text, user ? Theme.accent() : null, user ? Color.WHITE : Theme.foreground());
+		Bubble bubble = new Bubble(text, user);
 		bubble.setAvailableWidth(scroll.getViewport().getWidth());
 
 		// The bubble is a dumb display component; the panel owns copy behaviour.
@@ -537,21 +535,20 @@ public final class ChatPanel extends JPanel {
 		return row;
 	}
 
-	private Component noticeRow(String text, Color fg, boolean bold, boolean selectable) {
+	/** A centred note in a {@link Styles} tone ({@link Styles#MUTED}, {@link Styles#ERROR}). */
+	private Component noticeRow(String text, String tone, boolean bold, boolean selectable) {
 		Component content;
 		if (selectable) {
 			// A selectable, wrapping run — an error can be read AND copied
 			// (Ctrl/Cmd+C). Transparent and borderless so it reads as a notice, not
 			// an input.
-			SelectableText ta = new SelectableText(text).colour(fg).small();
+			SelectableText ta = new SelectableText(text).tone(tone).small();
 			if (bold) ta.bold();
 			content = ta;
 		} else {
 			// Short status line: a centred, wrapping label. Newlines become <br>.
 			String body = escapeHtml(text).replace("\n", "<br>");
-			JLabel label = Labels.html(body, 520, SwingConstants.CENTER);
-			label.setForeground(fg);
-			Styles.classes(label, Styles.SMALL);
+			JLabel label = Styles.classes(Labels.html(body, 520, SwingConstants.CENTER), Styles.SMALL, tone);
 			if (bold) Styles.style(label, "font: bold -2");
 			content = label;
 		}

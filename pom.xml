@@ -67,10 +67,18 @@
 			<artifactId>flatlaf</artifactId>
 			<version>${flatlaf.version}</version>
 		</dependency>
-		<!-- FlatSVGIcon for the Lucide icon set (src/main/resources/icons/lucide). -->
+		<!-- FlatSVGIcon for the Lucide icon set (src/main/resources/icons/lucide),
+		     and the animated look-and-feel change behind Settings → Theme. -->
 		<dependency>
 			<groupId>com.formdev</groupId>
 			<artifactId>flatlaf-extras</artifactId>
+			<version>${flatlaf.version}</version>
+		</dependency>
+		<!-- FlatLaf's IntelliJ theme pack (Dracula, Nord, One Dark, Solarized, …),
+		     offered alongside the core themes in Settings → Theme. -->
+		<dependency>
+			<groupId>com.formdev</groupId>
+			<artifactId>flatlaf-intellij-themes</artifactId>
 			<version>${flatlaf.version}</version>
 		</dependency>
 

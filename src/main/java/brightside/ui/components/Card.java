@@ -3,6 +3,7 @@ package brightside.ui.components;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.util.function.Supplier;
 
 import javax.swing.JPanel;
 
@@ -25,8 +26,8 @@ public class Card extends JPanel {
 	public static final int ARC = 14;
 
 	private final int arc;
-	private Color fill;
-	private Color outline;
+	private Supplier<Color> fill;
+	private Supplier<Color> outline;
 
 	public Card() {
 		this(ARC);
@@ -39,6 +40,11 @@ public class Card extends JPanel {
 
 	/** A fixed fill colour; null (the default) paints the theme's surface. */
 	public Card fill(Color colour) {
+		return fill(colour == null ? null : () -> colour);
+	}
+
+	/** A fill read when painting — a {@link Theme} accessor such as {@code Theme::accent} follows a theme change. */
+	public Card fill(Supplier<Color> colour) {
 		this.fill = colour;
 		repaint();
 		return this;
@@ -46,17 +52,22 @@ public class Card extends JPanel {
 
 	/** A hairline around the card; null (the default) for none. */
 	public Card outline(Color colour) {
+		return outline(colour == null ? null : () -> colour);
+	}
+
+	/** An outline read when painting, so it follows a theme change. */
+	public Card outline(Supplier<Color> colour) {
 		this.outline = colour;
 		repaint();
 		return this;
 	}
 
 	protected Color fill() {
-		return (fill != null) ? fill : Theme.surface();
+		return (fill != null) ? fill.get() : Theme.surface();
 	}
 
 	protected Color outline() {
-		return outline;
+		return (outline != null) ? outline.get() : null;
 	}
 
 	@Override

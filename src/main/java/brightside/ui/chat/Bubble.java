@@ -10,6 +10,7 @@ import javax.swing.JTextArea;
 
 import brightside.ui.components.Card;
 import brightside.ui.components.SelectableText;
+import brightside.ui.components.Theme;
 
 /**
  * A rounded message bubble — a {@link Card} — wrapping a run of
@@ -17,6 +18,10 @@ import brightside.ui.components.SelectableText;
  * keyboard focus (so the chat input keeps it) and shows no insert caret, but
  * stays mouse-selectable with the selection painted even without focus. Its
  * width reflows to a share of the viewport.
+ *
+ * <p>The user's side is the accent with white text; the assistant's is the
+ * theme's surface in the ordinary text colour — both read from the theme when
+ * painted, so a theme change carries through.
  *
  * <p>The bubble is deliberately dumb — selection tracking and the context menu
  * are wired by {@link ChatPanel} onto {@link #textArea()}, so a bubble can be
@@ -34,12 +39,14 @@ final class Bubble extends Card {
 	private final SelectableText ta;
 	private int maxWidth = 460;
 
-	/** {@code bg} null paints the theme's surface (the assistant's side). */
-	Bubble(String text, Color bg, Color fg) {
+	Bubble(String text, boolean user) {
 		super(ARC);
 		setLayout(new BorderLayout());
-		fill(bg);
-		ta = new SelectableText(text).unfocusable().colour(fg).size(1f);
+		ta = new SelectableText(text).unfocusable().size(1f);
+		if (user) {
+			fill(Theme::accent);
+			ta.colour(Color.WHITE);
+		}
 		ta.setBorder(BorderFactory.createEmptyBorder(PAD_V, PAD_H, PAD_V, PAD_H));
 		add(ta, BorderLayout.CENTER);
 	}

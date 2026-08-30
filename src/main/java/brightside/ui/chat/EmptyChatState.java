@@ -34,7 +34,7 @@ final class EmptyChatState extends JPanel {
 		setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
 
 		// A quiet elevated surface with a subtle brand-coloured keyline.
-		JPanel card = new Card(28).outline(Theme.fade(Theme.accent(), 0.35f));
+		JPanel card = new Card(28).outline(() -> Theme.fade(Theme.accent(), 0.35f));
 		card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
 		card.setBorder(BorderFactory.createEmptyBorder(28, 38, 30, 38));
 		card.setPreferredSize(new Dimension(CARD_WIDTH, 276));

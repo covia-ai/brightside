@@ -36,6 +36,7 @@ import brightside.ui.settings.IntegrationsPanel;
 import brightside.ui.settings.ModelPanel;
 import brightside.ui.settings.ProfilePanel;
 import brightside.ui.settings.SettingsScreen;
+import brightside.ui.settings.ThemePanel;
 import brightside.ui.settings.VaultPanel;
 
 /**
@@ -249,6 +250,28 @@ public final class MainWindow extends JFrame {
 			}
 		});
 
+		ThemePanel themePanel = new ThemePanel(new ThemePanel.Host() {
+			@Override
+			public void setMode(String mode) {
+				app.setMode(mode);
+			}
+
+			@Override
+			public void setTheme(String id) {
+				app.setTheme(id);
+			}
+
+			@Override
+			public void setAccent(String accent) {
+				app.setAccent(accent);
+			}
+
+			@Override
+			public void openThemesFolder() {
+				app.openThemesFolder();
+			}
+		});
+
 		ModelPanel modelPanel = new ModelPanel(new ModelPanel.Handler() {
 			@Override
 			public void applyModel(String providerId, String modelId) {
@@ -289,7 +312,8 @@ public final class MainWindow extends JFrame {
 		});
 		VaultPanel vaultPanel = new VaultPanel(app::forgetRememberedPassphrase);
 		AuthPanel authPanel = new AuthPanel(app::mintAccessToken);
-		settingsScreen = new SettingsScreen(generalPanel, modelPanel, profilePanel, integrationsPanel, vaultPanel, authPanel);
+		settingsScreen = new SettingsScreen(generalPanel, themePanel, modelPanel, profilePanel, integrationsPanel,
+			vaultPanel, authPanel);
 
 		mainDeck = new JPanel(mainCards);
 		mainDeck.add(split, MAIN_CHAT);
@@ -526,11 +550,17 @@ public final class MainWindow extends JFrame {
 		String userDid = (identity != null && venueDid != null) ? identity.userDID(venueDid) : null;
 		settingsScreen.general().refresh(app.hasTray(), app.keepInTray(), app.minimiseToTray(),
 			identity != null, venue != null);
+		settingsScreen.theme().refresh(app.mode(), app.theme(), app.accent());
 		settingsScreen.model().preselect(app.currentModelOp());
 		settingsScreen.profile().refresh(name, userDid, venueDid, app.publicKeyHex(), app.canRevealPrivateSeed(),
 			app.actingAsOperator(), app.operatorName());
 		app.refreshDiscordStatus(); // answers through showDiscordStatus, off the event thread
 		settingsScreen.vault().refresh(app.hasRememberedPassphrase());
+	}
+
+	/** Re-read the Theme page after the look changed: the mode's list, its selected theme and the accent. */
+	public void refreshTheme() {
+		settingsScreen.theme().refresh(app.mode(), app.theme(), app.accent());
 	}
 
 	private void showSettings(SettingsScreen.Tab tab) {

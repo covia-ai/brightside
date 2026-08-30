@@ -9,7 +9,6 @@ import javax.swing.Timer;
 import brightside.ui.components.Card;
 import brightside.ui.components.Labels;
 import brightside.ui.components.Styles;
-import brightside.ui.components.Theme;
 
 /**
  * Compact assistant-side progress bubble for an in-flight turn.
@@ -23,7 +22,7 @@ final class ThinkingBubble extends Card {
 
 	private static final long SHOW_ELAPSED_AFTER_MS = 8_000;
 
-	private final TypingIndicator indicator = new TypingIndicator(Theme.muted());
+	private final TypingIndicator indicator = new TypingIndicator();
 	private final JLabel summary = Styles.classes(Labels.text(""), Styles.SMALL);
 	private final JLabel elapsed = Labels.small("");
 	private final Timer clock;

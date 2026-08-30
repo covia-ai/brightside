@@ -20,7 +20,7 @@ import brightside.ui.components.Styles;
 
 /**
  * The <b>Settings</b> screen: a vertical section nav on the left (Identity,
- * General, Model, Integrations, Vault, Auth) selecting the content shown on the right. One
+ * General, Theme, Model, Integrations, Vault, Auth) selecting the content shown on the right. One
  * consistent place to find application actions and configuration. Identity
  * comes first: who the app is acting as frames everything below it.
  */
@@ -28,7 +28,8 @@ import brightside.ui.components.Styles;
 public final class SettingsScreen extends JPanel {
 
 	public enum Tab {
-		PROFILE("Identity"), GENERAL("General"), MODEL("Model"), INTEGRATIONS("Integrations"), VAULT("Vault"), AUTH("Auth");
+		PROFILE("Identity"), GENERAL("General"), THEME("Theme"), MODEL("Model"), INTEGRATIONS("Integrations"),
+		VAULT("Vault"), AUTH("Auth");
 
 		final String label;
 
@@ -46,16 +47,18 @@ public final class SettingsScreen extends JPanel {
 	private final JPanel content = new JPanel(cards);
 	private final Map<Tab, PressButton> nav = new EnumMap<>(Tab.class);
 	private final GeneralPanel general;
+	private final ThemePanel theme;
 	private final ModelPanel model;
 	private final ProfilePanel profile;
 	private final IntegrationsPanel integrations;
 	private final VaultPanel vault;
 	private final AuthPanel auth;
 
-	public SettingsScreen(GeneralPanel general, ModelPanel model, ProfilePanel profile,
+	public SettingsScreen(GeneralPanel general, ThemePanel theme, ModelPanel model, ProfilePanel profile,
 			IntegrationsPanel integrations, VaultPanel vault, AuthPanel auth) {
 		super(new BorderLayout());
 		this.general = general;
+		this.theme = theme;
 		this.model = model;
 		this.profile = profile;
 		this.integrations = integrations;
@@ -65,6 +68,7 @@ public final class SettingsScreen extends JPanel {
 		content.setOpaque(false);
 		content.add(profile, Tab.PROFILE.name());
 		content.add(general, Tab.GENERAL.name());
+		content.add(theme, Tab.THEME.name());
 		content.add(model, Tab.MODEL.name());
 		content.add(integrations, Tab.INTEGRATIONS.name());
 		content.add(vault, Tab.VAULT.name());
@@ -114,6 +118,10 @@ public final class SettingsScreen extends JPanel {
 
 	public GeneralPanel general() {
 		return general;
+	}
+
+	public ThemePanel theme() {
+		return theme;
 	}
 
 	public ProfilePanel profile() {

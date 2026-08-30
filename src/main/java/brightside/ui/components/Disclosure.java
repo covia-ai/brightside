@@ -5,6 +5,7 @@ import java.awt.Dimension;
 import java.util.function.Supplier;
 
 import javax.swing.BoxLayout;
+import javax.swing.Icon;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -29,8 +30,9 @@ public class Disclosure extends JPanel {
 
 	private final PressButton header;
 	private final JLabel chevron = new JLabel();
+	private final Icon open;
+	private final Icon closed;
 	private final JComponent body;
-	private final int chevronSize;
 	private boolean expanded;
 	private boolean compact;
 	private Runnable onToggle;
@@ -42,7 +44,8 @@ public class Disclosure extends JPanel {
 	/** {@code chevronSize} in unscaled pixels: 16 for a card header, 12 beside small text. */
 	public Disclosure(JComponent headerContent, JComponent body, int chevronSize) {
 		this.body = body;
-		this.chevronSize = chevronSize;
+		this.open = Lucide.icon("chevron-down", chevronSize, Theme::muted);
+		this.closed = Lucide.icon("chevron-right", chevronSize, Theme::muted);
 		setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 		setOpaque(false);
 		setAlignmentX(LEFT_ALIGNMENT);
@@ -114,7 +117,7 @@ public class Disclosure extends JPanel {
 
 	private void apply() {
 		body.setVisible(expanded);
-		chevron.setIcon(Lucide.icon(expanded ? "chevron-down" : "chevron-right", chevronSize, Theme.muted()));
+		chevron.setIcon(expanded ? open : closed);
 		revalidate();
 		repaint();
 	}

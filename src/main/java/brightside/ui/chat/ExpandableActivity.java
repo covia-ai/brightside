@@ -1,8 +1,10 @@
 package brightside.ui.chat;
 
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Insets;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
@@ -95,7 +97,8 @@ final class ExpandableActivity extends JPanel {
 	/** The header of a tool step: a ✓/✕ mark and the tool's name. */
 	private static JPanel stepHeader(SessionHistory.Step s) {
 		JPanel row = Panels.row();
-		JLabel status = Labels.icon(Lucide.icon(s.error() ? "x" : "check", MARK, s.error() ? Theme.error() : Theme.success()));
+		Supplier<Color> tone = s.error() ? Theme::error : Theme::success;
+		JLabel status = Labels.icon(Lucide.icon(s.error() ? "x" : "check", MARK, tone));
 		status.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 5));
 		JLabel name = Styles.classes(Labels.text(s.title()), Styles.SMALL);
 		if (s.error()) Styles.add(name, Styles.ERROR);

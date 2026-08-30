@@ -118,7 +118,7 @@ public final class NavBar extends JPanel {
 				case HOME -> "Start a new chat";
 				case SESSIONS -> "Chat with the agents and conversations panel";
 				case INBOX -> "Requests from your agents waiting for your decision";
-				case SETTINGS -> "Model, identity, vault and auth settings";
+				case SETTINGS -> "Identity, theme, model, vault and auth settings";
 			});
 			onPress(() -> listener.onSelect(tab));
 			getModel().addChangeListener(e -> repaint()); // rollover brightens the glyph
@@ -140,9 +140,9 @@ public final class NavBar extends JPanel {
 		 * so reporting anything else would shift the two apart on a scaled display.
 		 */
 		private final class TabIcon implements Icon {
-			private final Icon accent = Lucide.icon(glyph(tab), ICON, Theme.accent());
-			private final Icon bright = Lucide.icon(glyph(tab), ICON, Theme.foreground());
-			private final Icon quiet = Lucide.icon(glyph(tab), ICON, Theme.muted());
+			private final Icon accent = Lucide.icon(glyph(tab), ICON, Theme::accent);
+			private final Icon bright = Lucide.icon(glyph(tab), ICON, Theme::foreground);
+			private final Icon quiet = Lucide.icon(glyph(tab), ICON, Theme::muted);
 
 			@Override
 			public int getIconWidth() {

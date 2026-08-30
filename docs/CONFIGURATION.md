@@ -59,8 +59,17 @@ independent agents side by side.
 
 ### `theme`
 
-`"dark"` (default) or `"light"`. FlatLaf's macOS-style themes with a purple
-accent.
+`"dark"` (default) or `"light"`: the mode to start in — FlatLaf's Dark or
+Light theme with Brightside's purple accent. *Settings → Theme* has the
+Light/Dark switch, and under it the themes of that mode that FlatLaf provides
+— its own, the IntelliJ theme pack (Dracula, Nord, One Dark, Solarized, …) and
+any `.theme.json` in the same format you drop into `themes/` beside this file
+(*Open themes folder* on that page; restart to pick new files up) — so each
+mode keeps its own theme and the switch flips between them; on FlatLaf's own
+themes there is an accent colour too. Choices apply at once and are remembered
+in `prefs.properties` (`ui.mode`, `ui.theme.dark`, `ui.theme.light`, and
+`ui.accent` as `#RRGGBB`), which then take precedence over this key; delete
+those lines to return to the file's setting and Brightside's purple.
 
 ### `venue`
 

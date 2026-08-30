@@ -51,6 +51,18 @@ public final class Prefs {
 		save();
 	}
 
+	public String getString(String key, String fallback) {
+		String v = props.getProperty(key);
+		return (v == null || v.isBlank()) ? fallback : v;
+	}
+
+	/** Stores {@code value}, or forgets the key when it is null or blank. */
+	public synchronized void setString(String key, String value) {
+		if (value == null || value.isBlank()) props.remove(key);
+		else props.setProperty(key, value);
+		save();
+	}
+
 	private void save() {
 		try {
 			Files.createDirectories(file.getParent());

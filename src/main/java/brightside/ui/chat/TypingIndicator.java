@@ -1,13 +1,16 @@
 package brightside.ui.chat;
 
-import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.RenderingHints;
 
 import javax.swing.JComponent;
 import javax.swing.Timer;
+
+import com.formdev.flatlaf.ui.FlatUIUtils;
+import com.formdev.flatlaf.util.UIScale;
+
+import brightside.ui.components.Theme;
 
 /** A three-dot "typing…" animation shown on the assistant side while a reply is pending. */
 @SuppressWarnings("serial")
@@ -16,14 +19,12 @@ final class TypingIndicator extends JComponent {
 	private static final int DOT = 8;
 	private static final int GAP = 6;
 
-	private final Color color;
 	private final Timer timer;
 	private int phase;
 
-	TypingIndicator(Color color) {
-		this.color = color;
+	TypingIndicator() {
 		setOpaque(false);
-		setPreferredSize(new Dimension(COUNT * DOT + (COUNT - 1) * GAP, DOT + 6));
+		setPreferredSize(new Dimension(UIScale.scale(COUNT * DOT + (COUNT - 1) * GAP), UIScale.scale(DOT + 6)));
 		// COUNT+1 phases: each dot lifts in turn, then a brief rest.
 		timer = new Timer(280, e -> {
 			phase = (phase + 1) % (COUNT + 1);
@@ -43,15 +44,18 @@ final class TypingIndicator extends JComponent {
 	@Override
 	protected void paintComponent(Graphics g) {
 		Graphics2D g2 = (Graphics2D) g.create();
-		g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-		int y = (getHeight() - DOT) / 2;
-		for (int i = 0; i < COUNT; i++) {
-			boolean active = (i == phase);
-			int alpha = active ? 235 : 110;
-			int lift = active ? 2 : 0;
-			g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), alpha));
-			g2.fillOval(i * (DOT + GAP), y - lift, DOT, DOT);
+		try {
+			FlatUIUtils.setRenderingHints(g2);
+			int dot = UIScale.scale(DOT);
+			int gap = UIScale.scale(GAP);
+			int y = (getHeight() - dot) / 2;
+			for (int i = 0; i < COUNT; i++) {
+				boolean active = (i == phase);
+				g2.setColor(Theme.fade(Theme.muted(), active ? 0.92f : 0.43f));
+				g2.fillOval(i * (dot + gap), y - (active ? UIScale.scale(2) : 0), dot, dot);
+			}
+		} finally {
+			g2.dispose();
 		}
-		g2.dispose();
 	}
 }

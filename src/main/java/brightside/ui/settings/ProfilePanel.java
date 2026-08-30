@@ -318,6 +318,6 @@ public final class ProfilePanel extends SettingsPage {
 	}
 
 	private static javax.swing.Icon eye(boolean open) {
-		return Lucide.icon(open ? "eye" : "eye-off", EYE, Theme.muted());
+		return Lucide.icon(open ? "eye" : "eye-off", EYE, Theme::muted);
 	}
 }

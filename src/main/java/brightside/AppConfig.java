@@ -24,7 +24,9 @@ import covia.venue.Config;
  * with three sections.
  *
  * <ul>
- *   <li>{@code theme} — {@code "dark"} (default) or {@code "light"}</li>
+ *   <li>{@code theme} — {@code "dark"} (default) or {@code "light"}, the mode to start
+ *       in; the mode and themes chosen in Settings → Theme are kept in
+ *       {@code prefs.properties} and take precedence</li>
  *   <li>{@code venue} — a Covia venue config map. Keys given here replace
  *       BrightSide's defaults key-for-key (a shallow merge), so any venue
  *       option the Covia runtime understands can be set without BrightSide
@@ -82,7 +84,8 @@ public final class AppConfig {
 			// Every key is optional; delete this file to restore the defaults.
 			// Your chosen name lives separately in identity.json (not here).
 
-			// Look and feel: "dark" or "light"
+			// Look and feel to start in: "dark" or "light". The mode and themes chosen
+			// in the app (Settings → Theme) are remembered in prefs.properties and win over this.
 			"theme": "dark",
 
 			// The embedded Covia venue. Any Covia venue config key is accepted here

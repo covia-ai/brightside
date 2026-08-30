@@ -69,8 +69,10 @@ src/main/java/brightside/
 ├── vault/Vault.java            passphrase key + seed-derived Etch v3 key
 ├── vault/Mnemonic.java         BIP39 recovery phrase ↔ Ed25519 seed
 └── ui/
-    ├── LAF.java                installs FlatLaf light/dark plus Brightside's UI
-    │                           defaults, in the bundled Lato
+    ├── LAF.java                the theme catalogue (FlatLaf's core themes, the IntelliJ
+    │                           pack, the owner's .theme.json files) and its installation
+    │                           with Brightside's UI defaults, in the bundled Lato;
+    │                           switches the running app with a cross-fade
     ├── MainWindow.java         navigation, shortcuts and application cards
     ├── NavBar.java             the bottom tabs
     ├── WelcomePanel.java       "What should I call you?" (rename)
@@ -81,8 +83,9 @@ src/main/java/brightside/
     │                           SelectableText, Card, Disclosure, PressButton, Lucide,
     │                           ModelSelector, Scrolls, Panels, Borders, Dialogs,
     │                           Clipboard, Documents, Links
-    ├── settings/               Identity, General, Model, Integrations (Discord),
-    │                           Vault and Auth pages on a shared SettingsPage
+    ├── settings/               Identity, General, Theme (light/dark switch, a FlatLaf theme
+    │                           per mode, an accent; applies live), Model, Integrations
+    │                           (Discord), Vault and Auth
     ├── onboarding/             OnboardingWizard, UnlockPanel, RecoveryDialog;
     │                           OnboardingUI holds their own dots, strength bar and word chip
     ├── chat/                   ChatPanel, Bubble, MessageColumn, EmptyChatState,

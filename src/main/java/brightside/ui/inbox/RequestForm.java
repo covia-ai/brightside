@@ -28,13 +28,13 @@ import javax.swing.JTextField;
 import com.formdev.flatlaf.FlatClientProperties;
 
 import brightside.Inbox;
+import brightside.ui.components.Borders;
 import brightside.ui.components.Buttons;
 import brightside.ui.components.Dialogs;
 import brightside.ui.components.Labels;
 import brightside.ui.components.Panels;
 import brightside.ui.components.SelectableText;
 import brightside.ui.components.Styles;
-import brightside.ui.components.Theme;
 
 /**
  * The body of one request: the description, every ask with the control to
@@ -239,8 +239,7 @@ public final class RequestForm extends JPanel {
 		JTextArea ta = new JTextArea(rows, 30);
 		ta.setLineWrap(true);
 		ta.setWrapStyleWord(true);
-		ta.setBorder(BorderFactory.createCompoundBorder(
-			BorderFactory.createLineBorder(Theme.line()), BorderFactory.createEmptyBorder(4, 6, 4, 6)));
+		ta.setBorder(Borders.field());
 		ta.setAlignmentX(LEFT_ALIGNMENT);
 		ta.setMaximumSize(new Dimension(Integer.MAX_VALUE, ta.getPreferredSize().height + 8));
 		return ta;
