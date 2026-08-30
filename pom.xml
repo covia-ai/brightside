@@ -45,10 +45,12 @@
 		     locally with mvn install. -->
 		<covia.version>0.9.7</covia.version>
 		<flatlaf.version>3.7.2</flatlaf.version>
+		<!-- The JDA version covia-discord ${covia.version} was built against. -->
+		<jda.version>6.5.0</jda.version>
 		<bouncycastle.version>1.85</bouncycastle.version>
 		<junit.version>6.1.3</junit.version>
 
-		<main.class>covia.brightside.BrightSide</main.class>
+		<main.class>brightside.BrightSide</main.class>
 	</properties>
 
 	<dependencies>
@@ -70,6 +72,20 @@
 			<groupId>com.formdev</groupId>
 			<artifactId>flatlaf-extras</artifactId>
 			<version>${flatlaf.version}</version>
+		</dependency>
+
+		<!-- Covia's Discord module, registered in-process by EmbeddedVenue rather
+		     than loaded as a module jar. The published 0.9.7 jar declares no
+		     dependencies of its own, so its Discord client (JDA) is named here. -->
+		<dependency>
+			<groupId>ai.covia</groupId>
+			<artifactId>covia-discord</artifactId>
+			<version>${covia.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>net.dv8tion</groupId>
+			<artifactId>JDA</artifactId>
+			<version>${jda.version}</version>
 		</dependency>
 
 		<!-- MigLayout: clean, aligned form layouts for the settings screens. -->

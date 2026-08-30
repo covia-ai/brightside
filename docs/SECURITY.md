@@ -7,9 +7,9 @@ computer, Java process, model provider or user-installed skills are trusted in
 all circumstances.
 
 The implementation entry points are
-[`Vault`](../src/main/java/covia/brightside/vault/Vault.java),
-[`Mnemonic`](../src/main/java/covia/brightside/vault/Mnemonic.java) and the
-[`BrightSide` recovery flow](../src/main/java/covia/brightside/BrightSide.java).
+[`Vault`](../src/main/java/brightside/vault/Vault.java),
+[`Mnemonic`](../src/main/java/brightside/vault/Mnemonic.java) and the
+[`BrightSide` recovery flow](../src/main/java/brightside/BrightSide.java).
 The user-facing flow is described separately in [ONBOARDING.md](ONBOARDING.md).
 
 ## The recovery invariant
@@ -308,9 +308,9 @@ until then, retain `identity.json` with vault backups as described above.
 ## Reviewer verification
 
 The focused tests are
-[`MnemonicTest`](../src/test/java/covia/brightside/vault/MnemonicTest.java) and
-[`VaultTest`](../src/test/java/covia/brightside/vault/VaultTest.java), plus
-[`RememberedPassphraseTest`](../src/test/java/covia/brightside/RememberedPassphraseTest.java).
+[`MnemonicTest`](../src/test/java/brightside/vault/MnemonicTest.java) and
+[`VaultTest`](../src/test/java/brightside/vault/VaultTest.java), plus
+[`RememberedPassphraseTest`](../src/test/java/brightside/RememberedPassphraseTest.java).
 They verify deterministic BIP39-to-seed derivation, authenticated failure on a
 wrong passphrase, preservation of `vault.salt`, rejection of a wrong recovery
 seed, reopening the same written Etch value with the same seed under a different

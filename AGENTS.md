@@ -11,7 +11,7 @@ named principal, with an agent on that venue. It is a product, not a demo. The
 owner's needs — usefulness, privacy, trust, control — come first; Covia is the
 means, not the message. Everyday screens carry no venue/agent/DID jargon; the
 full technical surface lives under Settings. One Maven module,
-`ai.covia:brightside`, main class `covia.brightside.BrightSide`.
+`ai.covia:brightside`, main class `brightside.BrightSide`.
 
 ## Build and test
 

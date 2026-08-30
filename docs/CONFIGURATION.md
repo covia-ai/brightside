@@ -13,7 +13,7 @@ working default for anything you omit.
 | `~/.brightside/venue.etch` | The encrypted lattice store: conversations, memory, skills, agent state. |
 | `~/.brightside/vault.salt` | The non-secret salt for passphrase hardening. |
 | `~/.brightside/identity.enc` | The AES-GCM-encrypted Ed25519 identity seed. |
-| `~/.brightside/keys.enc` | Provider API keys encrypted under the passphrase-derived key. |
+| `~/.brightside/keys.enc` | Provider API keys — and the Discord bot token — encrypted under the passphrase-derived key. |
 | `~/.brightside/unlock.passphrase` | Optional remembered passphrase, stored as plaintext after explicit opt-in; exclude it from ordinary vault backups. |
 | `~/.brightside/files/` | Brightside-managed local files; exposed to the assistant as the confined writable `files` root. |
 | `~/.brightside/logs/` | Plaintext rolling logs; exposed to the assistant as the server-enforced read-only `logs` root. |
@@ -117,6 +117,41 @@ For an offline smoke test with no key at all, set:
 — the venue's echo test LLM. The app works end to end; the replies are just
 echoes.
 
+## Discord
+
+*Settings → Integrations* puts your assistant on Discord as a bot you can
+message from your phone or any server it is in. Covia's `covia-discord`
+adapter runs inside Brightside's venue (registered in-process, not loaded as a
+module jar); Brightside only stores the token and creates the bot through the
+adapter's own operations. Nothing about it goes in `config.json`.
+
+1. In the [Discord Developer Portal](https://discord.com/developers/applications)
+   create an application and add a Bot to it.
+2. Under *Bot*, enable the **Message Content Intent**, then *Reset Token* and
+   copy the token.
+3. Under *OAuth2 → URL Generator*, tick the `bot` scope with *View Channels*,
+   *Read Message History* and *Send Messages*, open the link and add the bot to
+   a server — or skip this and message the bot directly.
+4. Paste the token into *Settings → Integrations*, list who may talk to it, and
+   save. The bot connects within a moment and reconnects at every launch.
+
+| What | Where |
+|---|---|
+| The token | encrypted in `keys.enc` as `DISCORD_BOT_TOKEN` (provisioned into the venue's secrets at launch) and in your user's encrypted secret store on the venue; the bot record holds only the reference `s/DISCORD_BOT_TOKEN` |
+| The bot | one, named `brightside`, owned by your user, answering as the configured chat agent; persisted by the adapter under the venue's private `w/adapters/discord/…` workspace and re-armed at boot |
+| Conversations | one per Discord channel or DM, kept by the adapter; `!new` in Discord starts a fresh one |
+
+Access fails closed: only the Discord user ids or usernames you list can talk
+to the bot. Anyone else who messages it is told their own user id — the easy
+way to find yours is to DM the bot and paste what it says. Direct messages
+always reach the assistant; in a server it answers only when mentioned.
+Replies are split at Discord's 2,000-character limit. `!help`, `!new` and `!id`
+work as commands.
+
+The assistant can also send Discord messages itself, through the module's
+`discord` skill in the venue's library (`v/skills/adapters/discord`), which it
+loads on demand like any other.
+
 ## Your identity
 
 At first launch Brightside asks *"What should I call you?"*. That name is all
@@ -136,9 +171,14 @@ user DID once the home venue first launches:
 {
   "name": "Mike Anderson",
   "slug": "mike-anderson",
-  "did": "did:key:z…:u:mike-anderson"
+  "did": "did:key:z…:u:mike-anderson",
+  "operator": "Operator"
 }
 ```
+
+`operator` is what the app calls the venue operator when you switch to acting
+as it (*Settings → Identity*); rename it there. It is a label only — the
+operator is the venue principal itself.
 
 Chatting as a distinct user rather than as the venue itself is what makes the
 venue attribute turns to the agent's *owner* — you — instead of to "the venue
@@ -169,9 +209,41 @@ user's own `w/` and `n/` as its own namespace. There is no operator backdoor
 into user data — the venue principal reading another user's namespace still
 needs a proof — so authenticate *as* the user rather than across users.
 
+### From Claude Code
+
+A project-scoped MCP server named `brightside` in a `.mcp.json` at the
+repository root gives Claude Code the running venue's MCP endpoint. The file is
+git-ignored because it carries a bearer token. Create it as:
+
+```json
+{
+  "mcpServers": {
+    "brightside": {
+      "type": "http",
+      "url": "http://127.0.0.1:8085/mcp",
+      "headers": { "Authorization": "Bearer <token>" }
+    }
+  }
+}
+```
+
+1. With Brightside running, mint the token under *Settings → Auth* — *30 days*
+   is the practical choice — and paste it in place of `<token>` (or write
+   `${BRIGHTSIDE_MCP_TOKEN}` there and keep the token in that environment
+   variable instead).
+2. Start Claude Code in this repository and approve the project server when
+   asked; `claude mcp list` should show `brightside … ✔ Connected`.
+
+Mint it **as the user** for Claude Code to see what you see — your workspace,
+agents, conversations and inbox. A token minted as the venue operator sees the
+venue's own namespace and its administration, but not your private data: even
+the operator needs your user's authority for that. Mint a new token when it
+expires; for a different port, edit the URL.
+
 ## Environment variables
 
 | Variable | Effect |
 |---|---|
 | `ANTHROPIC_API_KEY` | Key for the default model operation. |
 | `BRIGHTSIDE_NO_TRAY=1` | Skip the system tray; closing the window quits. |
+| `BRIGHTSIDE_MCP_TOKEN` | Optional home for the venue-signed token a `.mcp.json` can reference as `${BRIGHTSIDE_MCP_TOKEN}` instead of embedding it. |

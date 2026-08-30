@@ -18,6 +18,10 @@ CLAUDE.local.md
 !/.claude/README.md
 !/.claude/settings.json
 
+# Claude Code's MCP server for the running venue carries a bearer token
+# (docs/CONFIGURATION.md, "From Claude Code") — never commit it.
+/.mcp.json
+
 # Local scratch: personal configs, stores, keys, logs
 /dev/
 *.etch

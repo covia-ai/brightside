@@ -121,6 +121,10 @@ If the build cannot resolve `ai.covia:venue`, that is why.
   missing detail asks through a Covia HITL request; it lands in the **Inbox**
   tab with a badge, and only you can answer it — an agent can never approve its
   own request, and an offered grant is conferred only if you tick it
+- **Meet it on Discord** — paste a bot token under *Settings → Integrations*
+  and your assistant answers your DMs and mentions, from your phone or any
+  server; only the Discord users you list can talk to it
+  ([docs/CONFIGURATION.md](docs/CONFIGURATION.md#discord))
 - **An administrator with judgement** — changes that need operator rights
   (integrations, venue settings, users, access grants, repairs to an assistant)
   go to **Odin**, the venue's own agent; he does them, declines, or asks you in
@@ -258,8 +262,8 @@ implies.
   Sharing a skill, delegating to a friend's agent, or reaching a remote tool
   without giving up ownership of your own state. The target state is written up
   in [docs/NETWORK.md](docs/NETWORK.md).
-- **Module adapters in-process** — Telegram, Discord and the rest, so your agent
-  can meet you where you already are ([Covia #410](https://github.com/covia-ai/covia/issues/410))
+- **More channels in-process** — Telegram and the rest, the way Discord already
+  is, so your agent can meet you where you already are
 - **Native packaging** — signed installers per platform instead of `java -jar`
 - **Richer message kinds** — images, cards and structured tool output as
   first-class rows in the transcript

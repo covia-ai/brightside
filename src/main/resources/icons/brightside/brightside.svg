@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The Brightside mark — the same geometry brightside.ui.Icons paints:
+  a Covia-purple moon (radius 46 in a 100-unit box, 4% padding) with its bright
+  phase lit from the upper right. The phase's outer limb and its elliptical
+  terminator (minor radius 0.28 of the moon's) meet at the same two antipodal
+  points, so the light spans a true diameter; KAPPA = 0.5522847498 gives the
+  cubic quarter-circles. Scale freely; the PNGs alongside are rendered from
+  the Java painter at the common sizes.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="512" height="512">
+  <circle cx="50" cy="50" r="46" fill="#6B46C1"/>
+  <path fill="#FFC83D" transform="rotate(-45 50 50)"
+        d="M50 4
+           C75.4051 4 96 24.5949 96 50
+           C96 75.4051 75.4051 96 50 96
+           C57.1134 96 62.88 75.4051 62.88 50
+           C62.88 24.5949 57.1134 4 50 4
+           Z"/>
+</svg>

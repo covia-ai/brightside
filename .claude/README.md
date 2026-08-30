@@ -15,3 +15,8 @@ What git keeps and ignores here (`../.gitignore`):
 
 Keep shared settings minimal and explain them in a commit; personal ones
 belong in `settings.local.json`.
+
+The MCP server that lets Claude Code see the running Brightside venue is not
+here but in the repository root's `.mcp.json` (project scope, git-ignored
+because it carries the venue token) — see `docs/CONFIGURATION.md`, *From
+Claude Code*, for the file to create.

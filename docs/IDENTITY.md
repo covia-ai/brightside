@@ -72,8 +72,11 @@ venue currently serves one owner ([#3](https://github.com/covia-ai/brightside/is
 from the named user to the venue principal itself, for the session only: the
 agents pane then lists the venue's own agents ([Odin](ODIN.md) first), the chat
 talks to them, the Inbox is the venue's, and the Identity page shows the
-venue's name (read-only) and DID as the acting principal. Everyday use is as
-the user; each launch starts there.
+venue's DID as the acting principal. The operator has a display name of its
+own — *Operator* until you change it under *Your name* while acting as it —
+kept in `identity.json` as `operator`. It is a label only: the operator is the
+venue itself and has no slug or user DID. Everyday use is as the user; each
+launch starts there.
 
 ## Agent identity
 

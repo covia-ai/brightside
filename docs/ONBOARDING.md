@@ -369,15 +369,15 @@ issue #5.
 
 ## 7. Implementation map
 
-- `covia.brightside.vault.Vault` — salt, Argon2id passphrase key; encrypt/decrypt
+- `brightside.vault.Vault` — salt, Argon2id passphrase key; encrypt/decrypt
   `identity.enc` and `keys.enc`; derive the store key from the identity seed;
   build and verify the Etch configuration.
-- `covia.brightside.vault.Mnemonic` — thin BIP39/SLIP10 wrapper: `generate(12)`,
+- `brightside.vault.Mnemonic` — thin BIP39/SLIP10 wrapper: `generate(12)`,
   `validate`, `toSeedHex`, `fromSeedHex` (round-trip helpers).
-- `covia.brightside.model.Providers` — the static catalog (name → op prefix,
+- `brightside.model.Providers` — the static catalog (name → op prefix,
   secret name, console URL, default model) + `modelOp(provider, id)`.
-- UI: `covia.brightside.ui.onboarding.*` (`OnboardingWizard`,
-  `RecoveryDialog`, `UnlockPanel`) and `covia.brightside.ui.settings.*`.
+- UI: `brightside.ui.onboarding.*` (`OnboardingWizard`,
+  `RecoveryDialog`, `UnlockPanel`) and `brightside.ui.settings.*`.
 - `BrightSide` orchestration: choose wizard/unlock at launch, persist encrypted
   identity/provider material, then call `EmbeddedVenue.launch(seed, etchConfig,
   …)`.

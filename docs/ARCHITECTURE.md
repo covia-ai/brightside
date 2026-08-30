@@ -1,7 +1,7 @@
 # Architecture
 
 Brightside is a single Maven module, `ai.covia:brightside`, main class
-`covia.brightside.BrightSide`. One JVM process holds a Swing desktop app **and**
+`brightside.BrightSide`. One JVM process holds a Swing desktop app **and**
 a complete Covia venue, so there is no daemon to manage, no socket to secure and
 no serialisation between the UI and the agent's state.
 
@@ -41,7 +41,7 @@ go through the op/job path.
 ## Project layout
 
 ```
-src/main/java/covia/brightside/
+src/main/java/brightside/
 ├── BrightSide.java             entry point and application controller: startup
 │                               mode (onboard / unlock), takeover, chat
 │                               and session actions, settings, desktop, exit
@@ -54,6 +54,8 @@ src/main/java/covia/brightside/
 │                               report-skill-feedback, shutdown, ask-odin, odin-run
 ├── Odin.java                   the operator's administrative agent: config, ensure,
 │                               the operation allowlists (docs/ODIN.md)
+├── Discord.java                the owner's Discord bot through covia-discord's ops:
+│                               token as a secret, create/status/remove
 ├── BrightsideSkillsAdapter.java  installs the shipped skills under v/skills/brightside
 ├── SessionHistory.java         projects the live venue session into transcript items
 ├── ConversationWatcher.java    in-process value compare; refresh on change
@@ -74,7 +76,8 @@ src/main/java/covia/brightside/
     ├── MainWindow.java         navigation, shortcuts and application cards
     ├── WelcomePanel.java       "What should I call you?" (rename)
     ├── ModelSelector.java      shared provider/model picker
-    ├── settings/               General, Model, Identity, Vault and Auth pages
+    ├── settings/               Identity, General, Model, Integrations (Discord),
+    │                           Vault and Auth pages
     ├── TrayManager.java        best-effort system tray
     ├── Icons.java
     ├── onboarding/             OnboardingWizard, UnlockPanel, OnboardingUI
@@ -82,7 +85,8 @@ src/main/java/covia/brightside/
     │                           ThinkingBubble, TypingIndicator, ExpandableActivity, ConversationList,
     │                           SelectableText, ChatIcons, ChatStyle
     ├── inspect/                ContextInspector — the exact model input; AgentInspector — the agent info screen
-    └── inbox/                  InboxScreen, RequestForm — requests waiting for the owner's decision
+    └── inbox/                  InboxScreen — a column of collapsible RequestCards, each
+                                wrapping a RequestForm — requests waiting for the owner
 
 src/main/resources/
 ├── brightside/skills/*.json    on-demand conversation, work and
@@ -92,6 +96,8 @@ src/main/resources/
 ├── fonts/lato/                 bundled OFL faces, registered at startup
 ├── icons/lucide/               the Lucide SVG icons the UI uses (ISC; LICENSE
 │                               alongside), rendered and tinted by ui/Lucide
+├── icons/brightside/           the Brightside mark for use elsewhere: brightside.svg
+│                               (the geometry ui/Icons paints) and PNGs at 16–1024 px
 └── brightside/logback.xml      logging (configured programmatically)
 
 src/test/java/…                 unit tests; boot temporary venue engines, headless
