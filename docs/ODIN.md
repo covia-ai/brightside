@@ -9,7 +9,7 @@ the owner alone.
 |---|---|
 | Owner | the venue principal (`<venueDID>`), not the user |
 | Address / DID | `<venueDID>/g/Odin` / `<venueDID>:g:Odin` |
-| Created | at venue launch by Brightside as operator (`Odin.ensure`); re-applied when the model changes |
+| Created | when first needed, by Brightside as operator (`Odin.ensure`): on first acting as the operator, or when the model changes — never at launch, which submits no jobs |
 | Model | the chat's chosen model |
 | Memory | `n/memory` under the venue — durable decisions the owner has made |
 | Skills | the venue's own library (`v/skills/root`) |

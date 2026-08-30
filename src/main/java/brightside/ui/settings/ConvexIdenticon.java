@@ -23,7 +23,7 @@ import convex.core.data.AccountKey;
 final class ConvexIdenticon extends JLabel {
 
 	static final int GRID_SIZE = IdenticonBuilder.SIZE;
-	static final int CELL_SIZE = 4;
+	static final int CELL_SIZE = 3;
 	static final int INSET = 2;
 	static final int DISPLAY_SIZE = GRID_SIZE * CELL_SIZE + INSET * 2;
 

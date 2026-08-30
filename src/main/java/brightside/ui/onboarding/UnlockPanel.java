@@ -143,15 +143,22 @@ public final class UnlockPanel extends JPanel {
 		char[] pw = field.getPassword();
 		if (pw.length == 0) return;
 		field.setText("");
-		setBusy();
+		showProgress("Unlocking…");
 		listener.onUnlock(pw, remember.isSelected());
 	}
 
-	private void setBusy() {
+	/** A quiet line under the button, the field still open — something the owner should know before unlocking. */
+	public void showNote(String message) {
+		Styles.classes(status, Styles.SMALL, Styles.MUTED);
+		status.setText(message);
+	}
+
+	/** Input locked while the app works, with a line saying what it is doing. */
+	public void showProgress(String message) {
 		field.setEnabled(false);
 		unlock.setEnabled(false);
 		Styles.classes(status, Styles.SMALL, Styles.MUTED);
-		status.setText("Unlocking…");
+		status.setText(message);
 	}
 
 	/** Re-enable with an error message (wrong passphrase). */

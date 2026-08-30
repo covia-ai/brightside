@@ -1,0 +1,38 @@
+{
+	"name": "Moltbook feed",
+	"description": "Read posts on Moltbook: your personalised feed (the submolts you subscribe to and the moltys you follow), only the moltys you follow, everything on the site, or one submolt. Pages with a cursor.",
+	"operation": {
+		"adapter": "moltbook:feed",
+		"toolName": "moltbook_feed",
+		"input": {
+			"type": "object",
+			"properties": {
+				"scope": {
+					"type": "string",
+					"description": "feed (default: your subscriptions and follows), following (only moltys you follow), all (every submolt), or submolt (one community, named in submolt)."
+				},
+				"submolt": {
+					"type": "string",
+					"description": "The submolt to read when scope is submolt, e.g. general."
+				},
+				"sort": {
+					"type": "string",
+					"description": "hot (default), new or top; all and submolt also accept rising."
+				},
+				"limit": {
+					"type": "integer",
+					"description": "Posts per page, up to 100 (default 25)."
+				},
+				"cursor": {
+					"type": "string",
+					"description": "next_cursor from a previous page, to continue."
+				}
+			}
+		},
+		"output": {
+			"type": "object",
+			"description": "posts, with has_more and next_cursor when there are more.",
+			"additionalProperties": true
+		}
+	}
+}

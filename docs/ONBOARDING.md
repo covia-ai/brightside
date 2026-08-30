@@ -81,8 +81,8 @@ the signing identity from the store-encryption key is tracked in
 Three entry states, decided at launch by what exists on disk:
 
 - **First run** — no `identity.enc`: run the **first-run wizard** (§3).
-- **Returning** — `identity.enc` exists: show the **Unlock** screen (§4) to get
-  the passphrase, then start.
+- **Returning** — `identity.enc` exists: show the **Unlock** dialog (§4) on its
+  own to get the passphrase, then show the main window and start.
 - **Running** — later changes go through **Settings** (§5).
 
 The identity and store key are needed *before* the venue can launch (the store
@@ -266,6 +266,9 @@ On Continue: derive the Ed25519 seed, encrypt it with the *seed key* → write
         Forgot it? Restore from your recovery phrase →
 ```
 
+- A small window of its own (`UnlockDialog`), shown before the main window
+  exists on screen, and again on *Lock* with the main window hidden; the main
+  window appears only once the passphrase is accepted.
 - Wrong passphrase is detected by AES-GCM authentication while decrypting
   `identity.enc`. Show "That passphrase didn't work" and let them retry.
 - "Restore from your recovery phrase" re-runs 3.2 + 3.3-import + a new passphrase,

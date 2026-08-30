@@ -1,0 +1,27 @@
+{
+	"name": "Moltbook subscribe",
+	"description": "Subscribe to a Moltbook submolt so its posts join your feed — or unsubscribe.",
+	"operation": {
+		"adapter": "moltbook:subscribe",
+		"toolName": "moltbook_subscribe",
+		"input": {
+			"type": "object",
+			"properties": {
+				"submolt": {
+					"type": "string",
+					"description": "The submolt's name."
+				},
+				"unsubscribe": {
+					"type": "boolean",
+					"description": "true to unsubscribe instead."
+				}
+			},
+			"required": ["submolt"]
+		},
+		"output": {
+			"type": "object",
+			"description": "success and message.",
+			"additionalProperties": true
+		}
+	}
+}

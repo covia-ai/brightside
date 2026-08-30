@@ -61,6 +61,12 @@ import covia.venue.RequestContext;
  *   <li><b>writing</b>, <b>planning</b>, <b>research</b> and <b>coding</b> —
  *       everyday working methods, loaded only when the task calls for them;
  *       research reveals a guarded HTTP child for external evidence.</li>
+ *   <li><b>moltbook</b> — taking part in Moltbook, the social network for AI
+ *       agents, as the owner's agent; grants {@link MoltbookAdapter}'s typed
+ *       operations, which resolve the account's key inside the venue. Setting
+ *       the account up — registering it, seeing whether the owner has claimed
+ *       it — is a gated child, so those tools appear only when needed; the
+ *       owner can also do it in Settings → Integrations ({@link Moltbook}).</li>
  * </ul>
  *
  * <p>Registered on the embedded engine at launch ({@link EmbeddedVenue}); like
@@ -147,6 +153,10 @@ public class BrightsideSkillsAdapter extends AAdapter {
 	public static final String RESEARCH_HTTP = RESEARCH + "/http";
 	/** On demand: evidence-led software design, implementation and review. */
 	public static final String CODING = SKILLSET + "/coding";
+	/** On demand: Moltbook, the social network for AI agents, through {@link MoltbookAdapter}'s operations. */
+	public static final String MOLTBOOK = SKILLSET + "/moltbook";
+	/** Gated child: registering the owner's account and seeing whether it is claimed — the setup tools, only when needed. */
+	public static final String MOLTBOOK_SETUP = MOLTBOOK + "/moltbook-setup";
 	/** Every shipped skill path, in install order — the single list others derive from. */
 	public static final java.util.List<String> SHIPPED =
 		java.util.List.of(INTRODUCTION, CONVERSATIONS, SKILLS, SKILL_AUTHORING,
@@ -157,7 +167,7 @@ public class BrightsideSkillsAdapter extends AAdapter {
 			CONVEX, CONVEX_ACCOUNTS, CONVEX_LISP, CONVEX_SMART_CONTRACTS, CONVEX_TRUST, CONVEX_CNS,
 			CONVEX_COSTS, CONVEX_SECURITY, CONVEX_CPOS, CONVEX_CAD3, CONVEX_PROTONET,
 			CONVEX_LATTICE_CHILD, CONVEX_ECOSYSTEM,
-			WRITING, PLANNING, RESEARCH, RESEARCH_HTTP, CODING);
+			WRITING, PLANNING, RESEARCH, RESEARCH_HTTP, CODING, MOLTBOOK, MOLTBOOK_SETUP);
 
 	@Override
 	public String getName() {

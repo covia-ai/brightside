@@ -31,9 +31,11 @@ import brightside.ui.chat.NewAgentPanel;
 import brightside.ui.components.Dialogs;
 import brightside.ui.components.SelectableText;
 import brightside.ui.settings.AuthPanel;
+import brightside.ui.settings.DiscordPanel;
 import brightside.ui.settings.GeneralPanel;
 import brightside.ui.settings.IntegrationsPanel;
 import brightside.ui.settings.ModelPanel;
+import brightside.ui.settings.MoltbookPanel;
 import brightside.ui.settings.ProfilePanel;
 import brightside.ui.settings.SettingsScreen;
 import brightside.ui.settings.ThemePanel;
@@ -49,7 +51,6 @@ import brightside.ui.settings.VaultPanel;
 public final class MainWindow extends JFrame {
 
 	private static final String CARD_ONBOARD = "onboarding";
-	private static final String CARD_UNLOCK = "unlock";
 	private static final String CARD_WELCOME = "welcome";
 	private static final String CARD_CHAT = "chat";
 
@@ -73,7 +74,6 @@ public final class MainWindow extends JFrame {
 	private brightside.ui.chat.AgentList agentList;
 	private int sidebarWidth = SIDEBAR_WIDTH;
 	private final brightside.ui.onboarding.OnboardingWizard onboarding;
-	private final brightside.ui.onboarding.UnlockPanel unlock;
 	private final WelcomePanel welcomePanel;
 	private final ChatPanel chatPanel = new ChatPanel();
 	private final ConversationList conversations;
@@ -92,17 +92,6 @@ public final class MainWindow extends JFrame {
 		installShortcuts();
 
 		onboarding = new brightside.ui.onboarding.OnboardingWizard(app::onOnboardingComplete);
-		unlock = new brightside.ui.onboarding.UnlockPanel(new brightside.ui.onboarding.UnlockPanel.Listener() {
-			@Override
-			public void onUnlock(char[] passphrase, boolean remember) {
-				app.onUnlock(passphrase, remember);
-			}
-
-			@Override
-			public void onForgot() {
-				app.openRecovery();
-			}
-		});
 
 		welcomePanel = new WelcomePanel(new WelcomePanel.Listener() {
 			@Override
@@ -299,7 +288,7 @@ public final class MainWindow extends JFrame {
 				app.actAs(operator);
 			}
 		});
-		IntegrationsPanel integrationsPanel = new IntegrationsPanel(new IntegrationsPanel.Host() {
+		IntegrationsPanel integrationsPanel = new IntegrationsPanel(new DiscordPanel.Host() {
 			@Override
 			public void saveDiscord(String token, List<String> allow) {
 				app.saveDiscord(token, allow);
@@ -308,6 +297,26 @@ public final class MainWindow extends JFrame {
 			@Override
 			public void removeDiscord() {
 				app.removeDiscord();
+			}
+		}, new MoltbookPanel.Host() {
+			@Override
+			public void registerMoltbook(String name, String description) {
+				app.registerMoltbook(name, description);
+			}
+
+			@Override
+			public void connectMoltbook(String apiKey) {
+				app.connectMoltbook(apiKey);
+			}
+
+			@Override
+			public void forgetMoltbook() {
+				app.forgetMoltbook();
+			}
+
+			@Override
+			public void refreshMoltbookStatus() {
+				app.refreshMoltbookStatus();
 			}
 		});
 		VaultPanel vaultPanel = new VaultPanel(app::forgetRememberedPassphrase);
@@ -338,7 +347,6 @@ public final class MainWindow extends JFrame {
 		chatCard.add(navBar, BorderLayout.SOUTH);
 
 		deck.add(onboarding, CARD_ONBOARD);
-		deck.add(unlock, CARD_UNLOCK);
 		deck.add(welcomePanel, CARD_WELCOME);
 		deck.add(chatCard, CARD_CHAT);
 		add(deck, BorderLayout.CENTER);
@@ -358,8 +366,9 @@ public final class MainWindow extends JFrame {
 		setSize(1040, 760);
 		setMinimumSize(new Dimension(720, 520));
 		setLocationRelativeTo(null);
-		// The first screen is chosen by BrightSide.start() (onboarding / unlock /
-		// name / chat), via the show* methods below.
+		// The first screen is chosen by BrightSide.start() (onboarding / name /
+		// chat), via the show* methods below; a returning owner unlocks in the
+		// UnlockDialog before this window is shown at all.
 	}
 
 	/** First-run: the onboarding wizard. */
@@ -367,34 +376,13 @@ public final class MainWindow extends JFrame {
 		show(CARD_ONBOARD);
 	}
 
-	/** Returning with a vault: the unlock screen. */
-	public void showUnlock(char[] prefill) {
-		unlock.reset();
-		if (prefill != null) {
-			try {
-				unlock.prefill(prefill);
-			} finally {
-				java.util.Arrays.fill(prefill, '\0');
-			}
-		}
-		show(CARD_UNLOCK);
-		java.awt.EventQueue.invokeLater(unlock::focusField);
-	}
-
-	/** Open the (modal) recovery dialog, wired to recover via the app. */
-	public void openRecoveryDialog(brightside.ui.onboarding.RecoveryDialog.Listener listener) {
-		new brightside.ui.onboarding.RecoveryDialog(this, listener).setVisible(true);
-	}
-
-	/** A wrong passphrase on the unlock screen. */
-	public void unlockError(String message) {
-		unlock.showError(message);
-	}
-
-	/** Returning after unlock: the chat is starting up. */
+	/**
+	 * Returning after unlock: Home, exactly as it will be once the chat is
+	 * bound — the composer's hint alone says the app is still starting.
+	 */
 	public void showChatStartup() {
 		selectTab(NavBar.Tab.HOME);
-		chatPanel.appendSystem("Just a moment while everything starts up…");
+		chatPanel.setStartingUp(true);
 		show(CARD_CHAT);
 	}
 
@@ -555,6 +543,7 @@ public final class MainWindow extends JFrame {
 		settingsScreen.profile().refresh(name, userDid, venueDid, app.publicKeyHex(), app.canRevealPrivateSeed(),
 			app.actingAsOperator(), app.operatorName());
 		app.refreshDiscordStatus(); // answers through showDiscordStatus, off the event thread
+		app.refreshMoltbookStatus(); // likewise, through showMoltbookStatus
 		settingsScreen.vault().refresh(app.hasRememberedPassphrase());
 	}
 
@@ -587,7 +576,12 @@ public final class MainWindow extends JFrame {
 
 	/** The owner's Discord bot as the venue reports it (null: none), with an optional note for Settings → Integrations. */
 	public void showDiscordStatus(brightside.Discord.Bot bot, String note) {
-		settingsScreen.integrations().showStatus(bot, note);
+		settingsScreen.integrations().discord().showStatus(bot, note);
+	}
+
+	/** The owner's Moltbook account as Brightside reads it (null: none), with an optional note for Settings → Integrations. */
+	public void showMoltbookStatus(brightside.Moltbook.Account account, String note) {
+		settingsScreen.integrations().moltbook().showStatus(account, note);
 	}
 
 	/** Open a (non-modal) inspector showing exactly what the model receives for a conversation. */

@@ -1,0 +1,23 @@
+{
+	"name": "Moltbook post (delete)",
+	"description": "Delete one of your own Moltbook posts.",
+	"operation": {
+		"adapter": "moltbook:delete-post",
+		"toolName": "moltbook_delete_post",
+		"input": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "The post id."
+				}
+			},
+			"required": ["id"]
+		},
+		"output": {
+			"type": "object",
+			"description": "success and message.",
+			"additionalProperties": true
+		}
+	}
+}

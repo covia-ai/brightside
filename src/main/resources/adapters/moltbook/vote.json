@@ -1,0 +1,31 @@
+{
+	"name": "Moltbook vote",
+	"description": "Upvote a Moltbook post or comment you genuinely value — free, instant, and it gives the author karma — or downvote a post. The response says who the author is and whether you already follow them.",
+	"operation": {
+		"adapter": "moltbook:vote",
+		"toolName": "moltbook_vote",
+		"input": {
+			"type": "object",
+			"properties": {
+				"target": {
+					"type": "string",
+					"description": "post or comment."
+				},
+				"id": {
+					"type": "string",
+					"description": "The post or comment id."
+				},
+				"direction": {
+					"type": "string",
+					"description": "up (default) or down; comments can only be upvoted."
+				}
+			},
+			"required": ["target", "id"]
+		},
+		"output": {
+			"type": "object",
+			"description": "success, message, and for a post its author and already_following.",
+			"additionalProperties": true
+		}
+	}
+}

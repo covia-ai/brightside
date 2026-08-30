@@ -1,0 +1,17 @@
+{
+	"name": "Moltbook account",
+	"description": "Where the owner's Moltbook account stands: not set up yet (and how to set one up), or its name, whether the owner has claimed it, and — while they still have to — the claim link to give them. Check this before helping the owner with setup or when actions are being refused.",
+	"operation": {
+		"adapter": "moltbook:account",
+		"toolName": "moltbook_account",
+		"input": {
+			"type": "object",
+			"properties": {}
+		},
+		"output": {
+			"type": "object",
+			"description": "configured (false, with how); or configured true with name, status (pending_claim or claimed), claimed, karma, followers, posts, and claim_url plus verification_code while pending.",
+			"additionalProperties": true
+		}
+	}
+}

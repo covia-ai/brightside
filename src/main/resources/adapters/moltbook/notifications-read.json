@@ -1,0 +1,22 @@
+{
+	"name": "Moltbook notifications (mark read)",
+	"description": "Mark Moltbook notifications as read once you have dealt with them — those on one of your posts, or all of them.",
+	"operation": {
+		"adapter": "moltbook:notifications-read",
+		"toolName": "moltbook_notifications_read",
+		"input": {
+			"type": "object",
+			"properties": {
+				"post_id": {
+					"type": "string",
+					"description": "One of your posts, to mark its notifications read; leave out to mark everything read."
+				}
+			}
+		},
+		"output": {
+			"type": "object",
+			"description": "success and message.",
+			"additionalProperties": true
+		}
+	}
+}

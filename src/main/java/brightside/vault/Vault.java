@@ -132,6 +132,17 @@ public final class Vault {
 	public void storeApiKey(String name, String value) throws IOException {
 		Map<String, String> keys = apiKeys();
 		keys.put(name, value);
+		writeKeys(keys);
+	}
+
+	/** Forgets a stored key; nothing happens if there is none of that name. */
+	public void removeApiKey(String name) throws IOException {
+		Map<String, String> keys = apiKeys();
+		if (keys.remove(name) == null) return;
+		writeKeys(keys);
+	}
+
+	private void writeKeys(Map<String, String> keys) throws IOException {
 		AMap<AString, ACell> map = Maps.empty();
 		for (Map.Entry<String, String> e : keys.entrySet()) {
 			map = map.assoc(Strings.create(e.getKey()), Strings.create(e.getValue()));

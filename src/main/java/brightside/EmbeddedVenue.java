@@ -51,6 +51,8 @@ public final class EmbeddedVenue implements AutoCloseable {
 		Engine engine = server.getEngine();
 		engine.registerAdapter(new BrightsideAdapter(onShutdown));
 		engine.registerAdapter(new BrightsideSkillsAdapter());
+		// Moltbook as typed operations; idle until the owner connects an account.
+		engine.registerAdapter(new MoltbookAdapter());
 		// Covia's Discord module, in-process rather than as a loaded module jar:
 		// the same adapter, on Brightside's own classpath. With no bots it costs
 		// nothing; the owner's bot is created from Settings (see Discord).

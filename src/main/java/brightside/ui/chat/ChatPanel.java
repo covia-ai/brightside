@@ -67,7 +67,9 @@ public final class ChatPanel extends JPanel {
 	private final MessageColumn column = new MessageColumn();
 	private final EmptyChatState emptyState = new EmptyChatState();
 	private final JScrollPane scroll;
-	private final TextArea input = new TextArea(1, 20).placeholder("Message Brightside…");
+	private static final String COMPOSER_HINT = "Message Brightside…";
+
+	private final TextArea input = new TextArea(1, 20).placeholder(COMPOSER_HINT);
 	private final JScrollPane inputScroll;
 	private final JButton send = Buttons.primary("Send");
 
@@ -195,8 +197,18 @@ public final class ChatPanel extends JPanel {
 		acceptedSession = null;
 		deliveryTail = CompletableFuture.completedFuture(null);
 		hideThinking();
+		setStartingUp(false);
 		setInputEnabled(true);
 		focusInput();
+	}
+
+	/**
+	 * While the app is still starting, Home stays exactly as it will be — the
+	 * welcome card, the composer — and only the composer's hint says so; nothing
+	 * is added to the transcript that would have to be taken away again.
+	 */
+	public void setStartingUp(boolean starting) {
+		input.placeholder(starting ? "Just a moment while everything starts up…" : COMPOSER_HINT);
 	}
 
 	/** Called after a successful send has committed and returned its session id. */
@@ -221,6 +233,9 @@ public final class ChatPanel extends JPanel {
 
 	/** Replaces the transcript with the venue's live conversation items. */
 	public void restore(List<SessionHistory.Item> items) {
+		// Already the clean Home it is being asked for: leave it be, rather than
+		// take the welcome card down and put it straight back.
+		if (items.isEmpty() && displayed.isEmpty() && emptyState.getParent() == column) return;
 		column.clear();
 		displayed.clear();
 		for (SessionHistory.Item it : items) {

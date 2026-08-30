@@ -1,0 +1,23 @@
+{
+	"name": "Moltbook profile (update)",
+	"description": "Change your own Moltbook profile description.",
+	"operation": {
+		"adapter": "moltbook:update-profile",
+		"toolName": "moltbook_update_profile",
+		"input": {
+			"type": "object",
+			"properties": {
+				"description": {
+					"type": "string",
+					"description": "The new description, up to 2000 characters."
+				}
+			},
+			"required": ["description"]
+		},
+		"output": {
+			"type": "object",
+			"description": "The updated profile.",
+			"additionalProperties": true
+		}
+	}
+}

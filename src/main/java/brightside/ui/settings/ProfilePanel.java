@@ -1,14 +1,12 @@
 package brightside.ui.settings;
 
 import java.awt.BorderLayout;
-import java.awt.Dimension;
 
 import javax.swing.Box;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
-import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingWorker;
 
@@ -16,10 +14,10 @@ import brightside.ui.components.Buttons;
 import brightside.ui.components.Clipboard;
 import brightside.ui.components.Dialogs;
 import brightside.ui.components.Documents;
+import brightside.ui.components.ElidedText;
+import brightside.ui.components.HintLabel;
 import brightside.ui.components.Lucide;
 import brightside.ui.components.Panels;
-import brightside.ui.components.SelectableText;
-import brightside.ui.components.Styles;
 import brightside.ui.components.Theme;
 
 /**
@@ -27,7 +25,9 @@ import brightside.ui.components.Theme;
  * the app acts as (the named user, or the venue operator — advanced); then the
  * owner's editable name, stable Covia user DID, home venue identity and signing
  * key, plus the primary Ed25519 seed hidden behind passphrase re-authentication
- * and a privacy (eye) toggle.
+ * and a privacy (eye) toggle. Each row explains itself through the ⓘ beside its
+ * label; the values are one line each, elided in the middle, with a copy button
+ * (or a right-click) taking the whole.
  */
 @SuppressWarnings("serial")
 public final class ProfilePanel extends SettingsPage {
@@ -55,22 +55,42 @@ public final class ProfilePanel extends SettingsPage {
 	}
 
 	private static final String MASK = "•".repeat(64);
+	private static final String NONE = "—";
 	private static final int EYE = 18;
+	private static final int COPY = 16;
+
+	private static final String SWITCH_HINT = "Who Brightside acts as: you, for everyday use, or the venue operator "
+		+ "(advanced) — the venue's own agents, Odin among them, and the venue's Inbox. Everything else is as yourself; "
+		+ "Brightside starts as you on every launch.";
+	private static final String NAME_HINT = "What Brightside and other people call you. Changing it does not change "
+		+ "your identity.";
+	private static final String OPERATOR_NAME_HINT = "What Brightside calls the venue operator — a label only; the "
+		+ "operator is the venue itself.";
+	private static final String USER_DID_HINT = "Your Covia user DID: the stable identity peers use for you. Your home "
+		+ "venue controls it; changing your name does not change it.";
+	private static final String OPERATOR_DID_HINT = "The venue's own DID — the identity the operator acts under.";
+	private static final String VENUE_DID_HINT = "Your home venue's DID: the venue that controls your identity.";
+	private static final String KEY_HINT = "The Ed25519 public key your home venue signs with.";
+	private static final String SEED_HINT = "The primary seed is the master secret for your venue identity — anyone "
+		+ "who has it can act as you and decrypt a copied vault. Reveal it only for recovery or advanced tools, and "
+		+ "never share it. Your recovery phrase reproduces the same seed.";
 
 	private final Host host;
 	private final JTextField nameField = new JTextField(18);
-	private final SelectableText userDidV = SelectableText.technical("—");
-	private final SelectableText venueDidV = SelectableText.technical("—");
-	private final SelectableText pubV = SelectableText.technical("—");
-	private final JTextArea seedField = new JTextArea(1, 40);
+	private final ElidedText userDidV = ElidedText.mono(NONE).copyable();
+	private final ElidedText venueDidV = ElidedText.mono(NONE).copyable();
+	private final ElidedText pubV = ElidedText.mono(NONE).copyable();
+	private final ElidedText seedV = ElidedText.mono(MASK).tooltip(false);
 	private final ConvexIdenticon userDidIcon = new ConvexIdenticon();
 	private final ConvexIdenticon venueDidIcon = new ConvexIdenticon();
 	private final ConvexIdenticon publicKeyIcon = new ConvexIdenticon();
 	private final ConvexIdenticon seedIcon = new ConvexIdenticon();
 	private final JButton reveal = Buttons.icon(eye(false), "Show / hide the primary Ed25519 seed");
-	private final JButton copySeed = Buttons.small("Copy");
+	private final JButton copySeed = copyButton("the primary seed");
 	/** Switch user: the named user (everyday) or the venue operator (advanced). */
 	private final JComboBox<Principal> principal = new JComboBox<>();
+	private HintLabel nameLabel;
+	private HintLabel userDidLabel;
 	/** True while {@link #refresh} sets the selection, so the host is only told about a person's choice. */
 	private boolean refreshing;
 	/** Whether the rows show the venue operator rather than the named user; the name field then edits the operator's label. */
@@ -101,9 +121,10 @@ public final class ProfilePanel extends SettingsPage {
 		String operatorLabel = (operatorName != null && !operatorName.isBlank()) ? operatorName : "Operator";
 		baselineName = actingAsOperator ? operatorLabel : ((name != null) ? name : "");
 		nameField.setText(baselineName);
-		nameField.setToolTipText(actingAsOperator
-			? "What Brightside calls the venue operator — a label only; the operator is the venue itself"
-			: "The name your assistant addresses you by");
+		nameLabel.setText(actingAsOperator ? "Operator name" : "Your name");
+		nameLabel.setHint(actingAsOperator ? OPERATOR_NAME_HINT : NAME_HINT);
+		userDidLabel.setText(actingAsOperator ? "Operator DID" : "Covia DID");
+		userDidLabel.setHint(actingAsOperator ? OPERATOR_DID_HINT : USER_DID_HINT);
 		refreshing = true;
 		try {
 			principal.removeAllItems();
@@ -120,9 +141,9 @@ public final class ProfilePanel extends SettingsPage {
 			refreshing = false;
 		}
 		String actingDid = actingAsOperator ? venueDid : userDid;
-		userDidV.setText(actingDid != null ? actingDid : "—");
-		venueDidV.setText(venueDid != null ? venueDid : "—");
-		pubV.setText(publicKeyHex != null ? publicKeyHex : "—");
+		userDidV.setText(actingDid != null ? actingDid : NONE);
+		venueDidV.setText(venueDid != null ? venueDid : NONE);
+		pubV.setText(publicKeyHex != null ? publicKeyHex : NONE);
 		userDidIcon.setPublicKeyHex(publicKeyHex);
 		venueDidIcon.setPublicKeyHex(publicKeyHex);
 		publicKeyIcon.setPublicKeyHex(publicKeyHex);
@@ -131,8 +152,7 @@ public final class ProfilePanel extends SettingsPage {
 		this.seedHex = null;
 		revealed = false;
 		showEye(false);
-		seedField.setText(seedAvailable ? MASK : "unavailable");
-		seedField.setCaretPosition(0);
+		seedV.setText(seedAvailable ? MASK : "unavailable");
 		reveal.setEnabled(seedAvailable);
 		copySeed.setEnabled(false);
 		clearNote();
@@ -149,56 +169,28 @@ public final class ProfilePanel extends SettingsPage {
 			if (!n.isEmpty()) host.saveName(n);
 		});
 
-		seedField.setEditable(false);
-		seedField.setLineWrap(true);
-		seedField.setOpaque(false);
-		seedField.setBorder(null);
-		Styles.classes(seedField, Styles.MONOSPACED);
-		seedField.setText(MASK);
-
 		reveal.addActionListener(e -> toggle());
-
 		copySeed.setEnabled(false);
-		copySeed.setToolTipText("Copy the primary seed to the clipboard");
 		copySeed.addActionListener(e -> Clipboard.copy(seedHex));
 
-		JPanel keyRow = Panels.row();
-		seedField.setMaximumSize(new Dimension(360, 60));
-		keyRow.add(seedIcon);
-		keyRow.add(Box.createHorizontalStrut(8));
-		keyRow.add(seedField);
-		keyRow.add(Box.createHorizontalStrut(8));
-		keyRow.add(reveal);
-		keyRow.add(Box.createHorizontalStrut(4));
-		keyRow.add(copySeed);
-		keyRow.add(Box.createHorizontalGlue());
+		JPanel seedActions = Panels.row();
+		seedActions.add(reveal);
+		seedActions.add(Box.createHorizontalStrut(2));
+		seedActions.add(copySeed);
 
-		SelectableText warn = new SelectableText("The primary seed is the master secret for your venue identity — anyone who has "
-			+ "it can act as you and decrypt a copied vault. Reveal it only for recovery or advanced tools, and never share it. "
-			+ "Your recovery phrase reproduces the same seed.").tone(Styles.WARNING);
-
-		principal.setToolTipText("Who Brightside acts as: you (everyday), or the venue operator — the venue's own "
-			+ "agents, Odin among them, and the venue's Inbox");
+		principal.setToolTipText("Who Brightside acts as");
 		principal.setEnabled(false);
 		principal.addActionListener(e -> {
 			Principal chosen = (Principal) principal.getSelectedItem();
 			if (!refreshing && chosen != null) host.actAs(chosen.operator());
 		});
-		SelectableText switchNote = new SelectableText("As the venue operator you see and talk to the venue's own agents "
-			+ "— Odin, who administers this Brightside — and answer the venue's Inbox. Everything else is as yourself; "
-			+ "Brightside starts as you on every launch.");
 
-		addField("Switch user", principal);
-		addSpan(switchNote, "gapbottom 14");
-		addDescription("Your name is what Brightside and other people call you. Your Covia user DID is the stable "
-			+ "identity peers use; changing your name does not change it. Your home venue controls that identity with "
-			+ "the Ed25519 signing key shown here.");
-		addField("Your name", nameField);
-		addFieldTop("Covia DID", copyableRow(userDidIcon, userDidV, "Covia DID"));
-		addFieldTop("Home venue DID", copyableRow(venueDidIcon, venueDidV, "home venue DID"));
-		addFieldTop("Venue signing key", copyableRow(publicKeyIcon, pubV, "Ed25519 venue signing public key"));
-		addFieldTop("Primary seed (Advanced)", keyRow);
-		addSpan(warn, "gaptop 4");
+		addField("Switch user", SWITCH_HINT, principal);
+		nameLabel = addField("Your name", NAME_HINT, nameField);
+		userDidLabel = addValueRow("Covia DID", USER_DID_HINT, valueRow(userDidIcon, userDidV, copyButton("the Covia DID", userDidV)));
+		addValueRow("Home venue DID", VENUE_DID_HINT, valueRow(venueDidIcon, venueDidV, copyButton("the home venue DID", venueDidV)));
+		addValueRow("Venue signing key", KEY_HINT, valueRow(publicKeyIcon, pubV, copyButton("the venue signing key", pubV)));
+		addValueRow("Primary seed (Advanced)", SEED_HINT, valueRow(seedIcon, seedV, seedActions));
 	}
 
 	/** The principal's own suffix — {@code :u:mike} of {@code did:key:z6Mk…:u:mike} — or the whole DID if it has none. */
@@ -207,20 +199,34 @@ public final class ProfilePanel extends SettingsPage {
 		return (at >= 0) ? did.substring(at) : did;
 	}
 
-	private static JPanel copyableRow(ConvexIdenticon identicon, JTextArea value, String subject) {
-		JButton copy = Buttons.small("Copy");
-		copy.setToolTipText("Copy the " + subject + " to the clipboard");
-		copy.addActionListener(e -> {
-			String text = value.getText();
-			if (text != null && !text.isBlank() && !"—".equals(text)) Clipboard.copy(text);
-		});
-
+	/** An identicon, the value taking the width between, and the row's actions at the end. */
+	private static JPanel valueRow(ConvexIdenticon identicon, ElidedText value, JPanel actions) {
 		JPanel row = new JPanel(new BorderLayout(8, 0));
 		row.setOpaque(false);
 		row.add(identicon, BorderLayout.WEST);
 		row.add(value, BorderLayout.CENTER);
-		row.add(copy, BorderLayout.EAST);
+		row.add(actions, BorderLayout.EAST);
 		return row;
+	}
+
+	private static JPanel valueRow(ConvexIdenticon identicon, ElidedText value, JButton copy) {
+		JPanel actions = Panels.row();
+		actions.add(copy);
+		return valueRow(identicon, value, actions);
+	}
+
+	/** A small copy icon that takes the whole value, unless there is none. */
+	private static JButton copyButton(String subject, ElidedText value) {
+		JButton copy = copyButton(subject);
+		copy.addActionListener(e -> {
+			String text = value.getText();
+			if (text != null && !text.isBlank() && !NONE.equals(text)) Clipboard.copy(text);
+		});
+		return copy;
+	}
+
+	private static JButton copyButton(String subject) {
+		return Buttons.icon(Lucide.icon("copy", COPY, Theme::muted), "Copy " + subject + " to the clipboard");
 	}
 
 	private void updateDirty() {
@@ -264,7 +270,7 @@ public final class ProfilePanel extends SettingsPage {
 					seedHex = get();
 					revealed = true;
 					showEye(true);
-					seedField.setText(seedHex);
+					seedV.setText(seedHex);
 					copySeed.setEnabled(true);
 					setNote("Primary seed revealed for this session only.", false);
 				} catch (Exception e) {
@@ -280,8 +286,7 @@ public final class ProfilePanel extends SettingsPage {
 		seedHex = null;
 		revealed = false;
 		showEye(false);
-		seedField.setText(seedAvailable ? MASK : "unavailable");
-		seedField.setCaretPosition(0);
+		seedV.setText(seedAvailable ? MASK : "unavailable");
 		copySeed.setEnabled(false);
 		repaint();
 	}
@@ -301,9 +306,9 @@ public final class ProfilePanel extends SettingsPage {
 		}
 		seedAvailable = false;
 		hidePrimarySeed();
-		userDidV.setText("—");
-		venueDidV.setText("—");
-		pubV.setText("—");
+		userDidV.setText(NONE);
+		venueDidV.setText(NONE);
+		pubV.setText(NONE);
 		userDidIcon.setPublicKeyHex(null);
 		venueDidIcon.setPublicKeyHex(null);
 		publicKeyIcon.setPublicKeyHex(null);

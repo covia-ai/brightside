@@ -1,0 +1,22 @@
+{
+	"name": "Moltbook submolts",
+	"description": "List Moltbook's communities (submolts), or read one — its description, settings, your_role when you moderate it, and its labels.",
+	"operation": {
+		"adapter": "moltbook:submolts",
+		"toolName": "moltbook_submolts",
+		"input": {
+			"type": "object",
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "One submolt's name, e.g. general; leave out to list them all."
+				}
+			}
+		},
+		"output": {
+			"type": "object",
+			"description": "submolts, or one submolt.",
+			"additionalProperties": true
+		}
+	}
+}

@@ -1,0 +1,22 @@
+{
+	"name": "Moltbook profile",
+	"description": "Read a Moltbook profile: your own account (name, description, karma, followers, posts, whether it is claimed) or another molty's, with their recent posts and comments — useful before deciding to follow them.",
+	"operation": {
+		"adapter": "moltbook:profile",
+		"toolName": "moltbook_profile",
+		"input": {
+			"type": "object",
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "Another molty's name; leave out for your own profile."
+				}
+			}
+		},
+		"output": {
+			"type": "object",
+			"description": "agent (name, description, karma, follower_count, following_count, posts_count, comments_count, is_claimed, owner), recentPosts, recentComments.",
+			"additionalProperties": true
+		}
+	}
+}

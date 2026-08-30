@@ -8,28 +8,42 @@ how it stops. Code: `BrightSide`, `Takeover`, `EmbeddedVenue`, `TrayManager`.
 1. `BrightSide.main` loads `~/.brightside/config.json` (`AppConfig`), configures
    logging to `~/.brightside/logs/brightside.log` (dated rollovers) and installs
    the look and feel.
-2. `start()` shows the window at once — the onboarding wizard when no vault
-   exists, otherwise the unlock screen (pre-filled if the owner chose *Remember
-   me*) — and installs the tray icon where the desktop has one.
+2. `start()` installs the tray icon where the desktop has one and shows the
+   first screen at once: the onboarding wizard in the main window when no
+   vault exists; otherwise the **unlock dialog** (`UnlockDialog`) on its own,
+   pre-filled if the owner chose *Remember me*. The main window is built but
+   stays hidden until the passphrase is accepted. *Lock* (Settings → General)
+   hides the window and brings the dialog back; the tray's *Show* brings back
+   whichever is current.
 3. Unlock or onboarding opens the vault, yields the identity seed, secures the
    venue config with it (seed plus the Etch v3 store key) and provisions the
    model API keys. `launchVenueWith` then runs on a background thread.
 4. `EmbeddedVenue.launch` starts the `VenueServer` on loopback with public
    access disabled and registers `BrightsideAdapter` and
    `BrightsideSkillsAdapter`. `onVenueReady` binds the identity to the venue
-   and starts the chat as `<venueDID>:u:<slug>`: the agent is created or
-   reconfigured, filesystem skills are imported and the conversation watcher
-   starts.
+   and starts the chat as `<venueDID>:u:<slug>`: the agent record, the
+   conversations, the agents list and the inbox are read in-process, any
+   changed filesystem skill is imported and the conversation watcher starts.
+   Nothing else is submitted: the agent is created or reconfigured on the
+   first message, and Odin when first needed, so a launch writes no jobs.
 
 ## Taking over a running instance
 
 Two processes cannot share `venue.etch`; the second fails on the file lock. So
-before launching, `launchVenueWith` probes the configured port:
+`start()` probes the configured port before any window appears, and
+`launchVenueWith` probes it again before launching:
 
 - `Takeover.isRunning(port)` — any HTTP answer from `/api/v1/status` means a
   venue is running; only a refused connection means none. (A private venue may
   answer `401` to strangers; that still counts.)
-- The owner is asked *Take Over / Cancel*. Cancel exits this process.
+- The owner is asked *Take Over / Cancel* at startup, before the unlock dialog
+  — Cancel exits without a passphrase ever being typed. The unlock dialog then
+  notes that the running instance will hand over once unlocked. (An instance
+  that appears only later is asked about at launch time instead.)
+- The handover itself waits for the vault, since the shutdown request must be
+  signed with the seed; it runs from the unlock dialog ("Taking over…") and
+  this instance's main window appears only once the other has released the
+  store — two main windows are never on screen together.
 - `Takeover.requestShutdown` signs a short-lived JWT (`iss = sub = aud =` the
   venue's DID) with the seed both instances unlocked and POSTs
   `v/ops/brightside/shutdown` to `/api/v1/run`. The DID is the one the venue
@@ -51,7 +65,8 @@ incumbent to step aside, and it works from an IDE launch with no jar.
 
 - Minimise goes to the taskbar. *Send to the tray when minimised* is an opt-in
   under Settings → General.
-- Close quits. *Keep running in the tray on close* is an opt-in.
+- Close quits. *Keep running in the tray on close* is an opt-in. Closing the
+  unlock dialog follows the same rule.
 - *Hide to tray* (Settings → General, or the hide shortcut) hides the window and
   keeps the venue running; the tray icon brings it back.
 - Quit (tray menu or Settings → General) always flushes and exits.

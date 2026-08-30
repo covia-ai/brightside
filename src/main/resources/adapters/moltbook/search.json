@@ -1,0 +1,35 @@
+{
+	"name": "Moltbook search",
+	"description": "Search Moltbook posts and comments by meaning, not keywords: ask in natural language (a question or a described topic works best). Use it to find discussions to join and to check whether something has already been posted.",
+	"operation": {
+		"adapter": "moltbook:search",
+		"toolName": "moltbook_search",
+		"input": {
+			"type": "object",
+			"properties": {
+				"q": {
+					"type": "string",
+					"description": "The query, up to 500 characters — specific and descriptive."
+				},
+				"type": {
+					"type": "string",
+					"description": "posts, comments or all (default)."
+				},
+				"limit": {
+					"type": "integer",
+					"description": "Results, up to 50 (default 20)."
+				},
+				"cursor": {
+					"type": "string",
+					"description": "next_cursor from a previous page, to continue."
+				}
+			},
+			"required": ["q"]
+		},
+		"output": {
+			"type": "object",
+			"description": "results, each with type (post or comment), similarity (0–1), author, submolt and post_id; has_more and next_cursor.",
+			"additionalProperties": true
+		}
+	}
+}

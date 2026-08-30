@@ -3,7 +3,7 @@ package brightside.ui.onboarding;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
-import java.awt.Frame;
+import java.awt.Window;
 import java.util.Arrays;
 
 import javax.swing.BorderFactory;
@@ -28,7 +28,7 @@ import brightside.ui.components.TextArea;
 import brightside.vault.Mnemonic;
 
 /**
- * Recovery from the unlock screen ("Forgot passphrase?"). Restores the identity
+ * Recovery from the unlock dialog ("Forgot passphrase?"). Restores the identity
  * from a BIP39 recovery phrase and sets a new passphrase. The identity-derived
  * store key reopens an existing encrypted store; provider credentials encrypted
  * by the forgotten passphrase must be entered again. Modal; only collects and
@@ -50,8 +50,8 @@ public final class RecoveryDialog extends JDialog {
 	private final JLabel status = Labels.small(" ");
 	private final JButton recover = Buttons.primary("Recover");
 
-	public RecoveryDialog(Frame owner, Listener listener) {
-		super(owner, "Recover Brightside", true);
+	public RecoveryDialog(Window owner, Listener listener) {
+		super(owner, "Recover Brightside", ModalityType.APPLICATION_MODAL);
 		this.listener = listener;
 		setContentPane(build());
 		pack();

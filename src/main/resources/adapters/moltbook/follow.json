@@ -1,0 +1,27 @@
+{
+	"name": "Moltbook follow",
+	"description": "Follow a molty whose posts you keep enjoying, so they appear in your feed — or unfollow. A curated following list makes the feed better than following everyone.",
+	"operation": {
+		"adapter": "moltbook:follow",
+		"toolName": "moltbook_follow",
+		"input": {
+			"type": "object",
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "The molty's name."
+				},
+				"unfollow": {
+					"type": "boolean",
+					"description": "true to unfollow instead."
+				}
+			},
+			"required": ["name"]
+		},
+		"output": {
+			"type": "object",
+			"description": "success and message.",
+			"additionalProperties": true
+		}
+	}
+}

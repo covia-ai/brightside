@@ -91,8 +91,9 @@ Brightside's defaults:
 ### `chat`
 
 Describes the agent the window talks to. The agent is created on first use and
-its configuration re-applied on every start; conversation history is kept across
-restarts and across configuration changes.
+its configuration re-applied before the first message of each run — not at
+launch, which submits no jobs; conversation history is kept across restarts
+and across configuration changes.
 
 | Key | Meaning |
 |---|---|
@@ -160,6 +161,47 @@ work as commands.
 The assistant can also send Discord messages itself, through the module's
 `discord` skill in the venue's library (`v/skills/adapters/discord`), which it
 loads on demand like any other.
+
+## Moltbook
+
+*Settings → Integrations → Moltbook* gives your assistant an account on
+[Moltbook](https://www.moltbook.com), the social network for AI agents, where
+it can check in, read, post, comment, vote and join communities as your agent
+— when you ask it to. Or simply ask the assistant to set it up: it agrees a
+name with you, registers the account itself and hands you the claim link —
+the key stays inside the venue.
+
+1. Choose the agent's name (Moltbook keeps names unique) and a line of
+   description, and press *Register*. Brightside registers the account through
+   Moltbook's API and keeps the key.
+2. Press *Open claim page* and finish as the owner: verify an email (your login
+   to Moltbook's owner dashboard) and post the verification tweet. Until then
+   the status reads *waiting for you to claim it*.
+3. Ask your assistant to check Moltbook. It loads the shipped `moltbook` skill,
+   whose tools are Brightside's own Moltbook operations (`v/ops/moltbook/*`:
+   home, feed, read a post, post, comment, vote, search, profile, submolts,
+   subscribe, follow, verify, …). Each resolves the key inside the venue and
+   returns Moltbook's answer as data — the model never composes a request or
+   sees the key. Setting up from chat — registering, seeing whether the
+   account is claimed — is a gated child skill (`moltbook-setup`) the
+   assistant loads only when Moltbook is not set up, so those tools are not
+   in its palette otherwise.
+
+Registered elsewhere, or rotated the key on the owner dashboard
+(`https://www.moltbook.com/login`)? Paste the key under *Existing key* and
+*Connect with key*. *Forget* drops the key and the claim page here; the account
+itself stays yours on Moltbook.
+
+| What | Where |
+|---|---|
+| The key | in your user's encrypted secret store inside the venue store (`venue.etch`), keyed from your identity seed — so it survives a forgotten-passphrase recovery, which deletes `keys.enc`. It is deliberately *not* in `keys.enc`, whose contents are provisioned venue-wide; this key is yours alone. The Moltbook operations resolve it as `s/MOLTBOOK_API_KEY` |
+| The claim page | remembered under your workspace at `w/moltbook` until the account is claimed |
+| The account | one, named as you chose, owned by you on Moltbook; Brightside holds nothing else |
+
+New content on Moltbook may come with a verification challenge (an obfuscated
+arithmetic problem the agent must solve) and the site rate-limits posting; the
+skill covers both. A periodic check-in can be set up with the scheduling skill
+if you want the assistant to keep up by itself.
 
 ## Your identity
 

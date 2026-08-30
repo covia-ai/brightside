@@ -9,6 +9,7 @@ import javax.swing.JPanel;
 
 import brightside.ui.components.Borders;
 import brightside.ui.components.Buttons;
+import brightside.ui.components.HintLabel;
 import brightside.ui.components.Labels;
 import brightside.ui.components.Scrolls;
 import brightside.ui.components.SelectableText;
@@ -46,6 +47,22 @@ abstract class SettingsPage extends JPanel {
 	protected final void addField(String label, JComponent field) {
 		form.add(Labels.muted(label));
 		form.add(field, "growx, wmax 400");
+	}
+
+	/** A label with a ⓘ hint + field on one row; the label is returned so its text or hint can follow the app's state. */
+	protected final HintLabel addField(String label, String hint, JComponent field) {
+		HintLabel l = new HintLabel(label, hint);
+		form.add(l);
+		form.add(field, "growx, wmax 400");
+		return l;
+	}
+
+	/** A label with a ⓘ hint + a value row that takes whatever width it is given (an identity, a key). */
+	protected final HintLabel addValueRow(String label, String hint, JComponent value) {
+		HintLabel l = new HintLabel(label, hint);
+		form.add(l);
+		form.add(value, "growx, wmin 0");
+		return l;
 	}
 
 	/** A label (top-aligned) + a taller/multi-line value on one row. */

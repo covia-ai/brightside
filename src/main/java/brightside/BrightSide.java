@@ -24,6 +24,7 @@ import convex.core.data.Maps;
 import convex.core.data.Strings;
 import covia.grid.Job;
 import covia.grid.Venue;
+import covia.venue.RequestContext;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +36,8 @@ import brightside.ui.LAF;
 import brightside.ui.MainWindow;
 import brightside.ui.TrayManager;
 import brightside.ui.onboarding.OnboardingWizard;
+import brightside.ui.onboarding.UnlockDialog;
+import brightside.ui.onboarding.UnlockPanel;
 import brightside.vault.Vault;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.joran.JoranConfigurator;
@@ -85,9 +88,12 @@ public final class BrightSide {
 	private volatile String viewedSessionId; // the conversation currently on screen
 	private volatile List<SessionHistory.Session> sessions = List.of(); // switcher list, newest first
 	private MainWindow window; // event thread only
+	private UnlockDialog unlockDialog; // event thread only; non-null exactly while locked
 	private TrayManager tray; // event thread only
 	private final AtomicBoolean exiting = new AtomicBoolean();
 	private final AtomicBoolean chatStarted = new AtomicBoolean();
+	/** The owner already agreed, at startup, to take over the instance found running. */
+	private volatile boolean takeoverApproved;
 	private volatile Vault vault; // set once onboarded/unlocked
 	private volatile String venueSeedHex; // the venue's Ed25519 seed hex (authorises operator takeover)
 	private volatile String llmOverride; // chosen model op for the first onboarding launch
@@ -142,23 +148,39 @@ public final class BrightSide {
 	}
 
 	/**
-	 * Shows the window — the welcome screen for a new person, or the chat
-	 * (starting up) for a returning one — then brings the venue up in the
-	 * background. The person can be typing their name while it starts.
+	 * Shows the first screen — the onboarding wizard in the main window for a
+	 * new person, or the unlock dialog on its own for a returning one, with the
+	 * main window built but hidden until the passphrase is accepted — then
+	 * brings the venue up in the background once the vault is open.
 	 */
 	void start() {
 		Identity saved = Identity.load(config.home());
 		identity = saved;
 		Mode mode = decideMode();
+
+		// Another instance already running? Ask now, before any window — so a
+		// Cancel needs no passphrase first. The handover itself waits for the
+		// vault: the shutdown request must be signed with the venue seed.
+		if (Takeover.isRunning(config.port())) {
+			if (!confirmTakeover()) {
+				log.info("Another Brightside instance is running and takeover was declined; exiting");
+				System.exit(0);
+				return;
+			}
+			takeoverApproved = true;
+		}
+
 		try {
 			SwingUtilities.invokeAndWait(() -> {
 				tray = TrayManager.install(this);
 				window = new MainWindow(this);
 				switch (mode) {
-					case ONBOARD -> window.showOnboarding();
-					case UNLOCK -> window.showUnlock(RememberedPassphrase.load(config.home()));
+					case ONBOARD -> {
+						window.showOnboarding();
+						window.setVisible(true);
+					}
+					case UNLOCK -> showUnlockDialog(RememberedPassphrase.load(config.home()));
 				}
-				window.setVisible(true);
 			});
 		} catch (Exception e) {
 			throw new IllegalStateException("Could not create the main window", e);
@@ -173,7 +195,64 @@ public final class BrightSide {
 		return Vault.exists(config.home()) ? Mode.UNLOCK : Mode.ONBOARD;
 	}
 
-	private void launchVenueWith(AMap<AString, ACell> venueConfig) {
+	/** The lock screen as its own small window, the main window hidden behind it. Event thread. */
+	private void showUnlockDialog(char[] prefill) {
+		if (unlockDialog == null) {
+			unlockDialog = new UnlockDialog(new UnlockPanel.Listener() {
+				@Override
+				public void onUnlock(char[] passphrase, boolean remember) {
+					BrightSide.this.onUnlock(passphrase, remember);
+				}
+
+				@Override
+				public void onForgot() {
+					openRecovery();
+				}
+			}, this::onUnlockClosing);
+		}
+		unlockDialog.showUnlock(prefill);
+		if (takeoverApproved) unlockDialog.showNote("Another Brightside is running; it will hand over once you unlock.");
+	}
+
+	/** The passphrase was accepted (or the identity recovered): drop the unlock dialog and bring up the window. */
+	private void unlocked() {
+		if (unlockDialog != null) {
+			unlockDialog.dispose();
+			unlockDialog = null;
+		}
+		window.showChatStartup();
+		window.showAndFocus();
+	}
+
+	/** Unlock or recovery failed: back to the dialog with the reason. Event thread. */
+	private void unlockFailed(String message) {
+		if (unlockDialog != null) unlockDialog.showError(message);
+		else window.showSystemMessage(message);
+	}
+
+	/**
+	 * The unlock dialog's close button: the same policy as the window's — stay
+	 * in the tray if the owner opted in, otherwise quit.
+	 */
+	public void onUnlockClosing() {
+		if (keepInTray() && tray != null) {
+			SwingUtilities.invokeLater(() -> {
+				if (unlockDialog != null) unlockDialog.setVisible(false);
+				tray.notifyHidden();
+			});
+		} else {
+			exit();
+		}
+	}
+
+	/**
+	 * Brings the venue up. If another instance already holds the store, the
+	 * owner is first asked whether to take over — and only once that is settled
+	 * and the other instance has stepped aside does {@code clearToShow} run (on
+	 * the event thread): the moment the main window may appear, so two of them
+	 * are never on screen together.
+	 */
+	private void launchVenueWith(AMap<AString, ACell> venueConfig, Runnable clearToShow) {
 		try {
 			// Another instance already holds the venue store? Offer to take over
 			// (ask it to shut down cleanly) rather than fail on the store lock.
@@ -186,9 +265,8 @@ public final class BrightSide {
 					// The running instance refused or didn't stop — typically a
 					// different identity (its key isn't ours), so we can't ask it.
 					log.warn("Could not take over the running instance on port {}: {}", port, e.toString());
-					SwingUtilities.invokeLater(() -> window.startupFailed(
-						"Brightside is already running on this computer and couldn't be taken over"
-						+ " — please quit it (tray icon ▸ Quit) and try again."));
+					startupFailed("Brightside is already running on this computer and couldn't be taken over"
+						+ " — please quit it (tray icon ▸ Quit) and try again.");
 					return;
 				}
 				if (!proceed) {
@@ -197,6 +275,7 @@ public final class BrightSide {
 					return;
 				}
 			}
+			if (clearToShow != null) SwingUtilities.invokeLater(clearToShow);
 			EmbeddedVenue v = EmbeddedVenue.launch(venueConfig, this::exit);
 			venue = v;
 			log.info("Venue '{}' ready at {} as {}", v.name(), v.url(), v.did());
@@ -205,8 +284,23 @@ public final class BrightSide {
 			log.error("Venue failed to start", t);
 			closeVenue();
 			venue = null;
-			SwingUtilities.invokeLater(() -> window.startupFailed(t));
+			startupFailed(t);
 		}
+	}
+
+	/** Startup failed: say so where the owner is looking — the unlock dialog while locked, else the window. */
+	private void startupFailed(String message) {
+		SwingUtilities.invokeLater(() -> {
+			if (unlockDialog != null) unlockDialog.showError(message);
+			else window.startupFailed(message);
+		});
+	}
+
+	private void startupFailed(Throwable t) {
+		SwingUtilities.invokeLater(() -> {
+			if (unlockDialog != null) unlockDialog.showError("Sorry — Brightside couldn't start up. See the logs.");
+			else window.startupFailed(t);
+		});
 	}
 
 	/**
@@ -239,10 +333,11 @@ public final class BrightSide {
 					: Providers.modelOp(setup.providerId(), setup.modelId());
 				config.persistModel(llmOverride);
 
-				launchVenueWith(venueConfig);
+				// The wizard is already on screen in the main window; nothing to reveal.
+				launchVenueWith(venueConfig, null);
 			} catch (Exception e) {
 				log.error("Onboarding failed", e);
-				SwingUtilities.invokeLater(() -> window.startupFailed(e));
+				startupFailed(e);
 			} finally {
 				java.util.Arrays.fill(passphrase, '\0');
 			}
@@ -282,18 +377,18 @@ public final class BrightSide {
 					if (saved == null) throw new IOException("The saved user identity is missing");
 					saved = bindIdentityToVenue(saved, running);
 					chatStarted.set(true);
-					SwingUtilities.invokeLater(window::showChatStartup);
+					SwingUtilities.invokeLater(this::unlocked);
 					startChat(running, saved, effectiveChat(), Bind.FIRST);
 					return;
 				}
 				AMap<AString, ACell> venueConfig = provisionKeys(v.secure(config.venueConfig(), seedHex), v);
-				SwingUtilities.invokeLater(window::showChatStartup);
-				launchVenueWith(venueConfig);
+				// The window appears only once any takeover is settled.
+				launchVenueWith(venueConfig, this::unlocked);
 			} catch (IOException e) {
-				SwingUtilities.invokeLater(() -> window.unlockError("That passphrase didn't work."));
+				SwingUtilities.invokeLater(() -> unlockFailed("That passphrase didn't work."));
 			} catch (Exception e) {
 				log.error("Unlock failed", e);
-				SwingUtilities.invokeLater(() -> window.unlockError("Couldn't unlock — see the logs."));
+				SwingUtilities.invokeLater(() -> unlockFailed("Couldn't unlock — see the logs."));
 			} finally {
 				java.util.Arrays.fill(passphrase, '\0');
 			}
@@ -363,13 +458,16 @@ public final class BrightSide {
 			if (oldWatcher != null) oldWatcher.stop();
 			if (oldInbox != null) oldInbox.stop();
 			window.userLoggedOut();
-			window.showUnlock(null);
+			window.setVisible(false);
+			showUnlockDialog(null);
 		});
 	}
 
-	/** Opens recovery (Forgot passphrase?): restore identity from the recovery phrase. */
+	/** Opens recovery (Forgot passphrase?) over the unlock dialog: restore identity from the recovery phrase. */
 	public void openRecovery() {
-		SwingUtilities.invokeLater(() -> window.openRecoveryDialog(this::recover));
+		SwingUtilities.invokeLater(() -> {
+			if (unlockDialog != null) unlockDialog.openRecovery(this::recover);
+		});
 	}
 
 	/**
@@ -405,16 +503,15 @@ public final class BrightSide {
 					if (saved == null) throw new IOException("The saved user identity is missing");
 					saved = bindIdentityToVenue(saved, running);
 					chatStarted.set(true);
-					SwingUtilities.invokeLater(window::showChatStartup);
+					SwingUtilities.invokeLater(this::unlocked);
 					startChat(running, saved, effectiveChat(), Bind.FIRST);
 					return;
 				}
 				AMap<AString, ACell> venueConfig = provisionKeys(v.secure(config.venueConfig(), seedHex), v);
-				SwingUtilities.invokeLater(window::showChatStartup);
-				launchVenueWith(venueConfig);
+				launchVenueWith(venueConfig, this::unlocked);
 			} catch (Exception e) {
 				log.error("Recovery failed", e);
-				SwingUtilities.invokeLater(() -> window.unlockError("Recovery failed — see the logs."));
+				SwingUtilities.invokeLater(() -> unlockFailed("Recovery failed — see the logs."));
 			} finally {
 				java.util.Arrays.fill(passphrase, '\0');
 			}
@@ -581,6 +678,136 @@ public final class BrightSide {
 		SwingUtilities.invokeLater(() -> window.showDiscordStatus(shown, shownNote));
 	}
 
+	// ------------------------------------------------------------------
+	// Moltbook (Settings → Integrations → Moltbook)
+	//
+	// The key has one home: the owner's encrypted secret store inside the
+	// venue store, which is keyed from the identity seed and so outlives a
+	// forgotten-passphrase recovery (that deletes keys.enc). It deliberately
+	// does not go in the vault — provisionKeys publishes every vault key as a
+	// venue-wide secret, and this one is the owner's alone. Both this page and
+	// the assistant's own registration (MoltbookAdapter) write the same store.
+	// ------------------------------------------------------------------
+
+	/** Reads the owner's Moltbook account off the event thread and shows it in Settings → Integrations. */
+	public void refreshMoltbookStatus() {
+		EmbeddedVenue v = venue;
+		Identity id = identity;
+		if (v == null || id == null) {
+			SwingUtilities.invokeLater(() -> window.showMoltbookStatus(null, null));
+			return;
+		}
+		Thread t = new Thread(() -> reportMoltbook(v, id, null), "brightside-moltbook-status");
+		t.setDaemon(true);
+		t.start();
+	}
+
+	/**
+	 * Registers the assistant on Moltbook as {@code name}, keeps the key in the
+	 * owner's venue secret store and remembers the claim page the owner must
+	 * visit to activate the account.
+	 */
+	public void registerMoltbook(String name, String description) {
+		EmbeddedVenue v = venue;
+		Identity id = identity;
+		if (v == null || id == null) return;
+		Thread t = new Thread(() -> {
+			String note;
+			try {
+				Moltbook.Registration r = Moltbook.register(name, description);
+				keepMoltbookKey(v, id, r.apiKey(), name, r.claimUrl(), r.verificationCode());
+				note = "Registered. Open the claim page and finish as the owner — an email, then a tweet.";
+			} catch (Exception e) {
+				log.warn("Could not register on Moltbook", e);
+				note = "Couldn't register: " + rootMessage(e);
+			}
+			reportMoltbook(v, id, note);
+		}, "brightside-moltbook-register");
+		t.setDaemon(true);
+		t.start();
+	}
+
+	/** Connects an account that already exists, from its API key (the owner dashboard can rotate one). */
+	public void connectMoltbook(String apiKey) {
+		EmbeddedVenue v = venue;
+		Identity id = identity;
+		if (v == null || id == null || apiKey == null || apiKey.isBlank()) return;
+		Thread t = new Thread(() -> {
+			String note;
+			try {
+				Moltbook.Account account = Moltbook.lookup(apiKey, null);
+				keepMoltbookKey(v, id, apiKey, account.name(), null, null);
+				note = "Connected as " + account.name() + ".";
+			} catch (Exception e) {
+				log.warn("Could not connect the Moltbook account", e);
+				note = "Couldn't connect: " + rootMessage(e);
+			}
+			reportMoltbook(v, id, note);
+		}, "brightside-moltbook-connect");
+		t.setDaemon(true);
+		t.start();
+	}
+
+	/** Forgets the key and the record here; the account itself stays on Moltbook for the owner. */
+	public void forgetMoltbook() {
+		EmbeddedVenue v = venue;
+		Identity id = identity;
+		Vault vlt = vault;
+		if (v == null || id == null) return;
+		Thread t = new Thread(() -> {
+			String note;
+			try {
+				// A copy an earlier build kept in the vault would be provisioned
+				// venue-wide at the next launch; make sure none is left behind.
+				if (vlt != null) vlt.removeApiKey(Moltbook.KEY_SECRET);
+				Venue user = ownerClient(v, id);
+				Moltbook.forgetKey(user);
+				Moltbook.clearRecord(user);
+				note = "Forgotten here. The account is still yours on Moltbook; connect it again with its key any time.";
+			} catch (Exception e) {
+				log.warn("Could not forget the Moltbook account", e);
+				note = "Couldn't forget it: " + rootMessage(e);
+			}
+			reportMoltbook(v, id, note);
+		}, "brightside-moltbook-forget");
+		t.setDaemon(true);
+		t.start();
+	}
+
+	private void keepMoltbookKey(EmbeddedVenue v, Identity id, String apiKey, String name,
+			String claimUrl, String verificationCode) throws Exception {
+		Venue user = ownerClient(v, id);
+		Moltbook.storeKey(user, apiKey.trim());
+		Moltbook.saveRecord(user, name, claimUrl, verificationCode);
+	}
+
+	/**
+	 * Reads the account (Moltbook's view, with the record's claim page while
+	 * pending) and hands it to the window. The key comes from the owner's
+	 * secret store in the venue, which the assistant's own registration writes
+	 * too — the same resolution the Moltbook operations use.
+	 */
+	private void reportMoltbook(EmbeddedVenue v, Identity id, String note) {
+		Moltbook.Account account = null;
+		try {
+			String did = id.userDID(v.did());
+			String key = v.engine().resolveSecret(MoltbookAdapter.SECRET_REF, RequestContext.of(Strings.create(did)));
+			if (key != null && !key.isBlank()) {
+				ACell record = v.resolve(did, Moltbook.RECORD_PATH);
+				try {
+					account = Moltbook.lookup(key, record);
+				} catch (Exception e) {
+					log.warn("Could not read the Moltbook account: {}", e.toString());
+					account = Moltbook.fromRecord(record, rootMessage(e));
+				}
+			}
+		} catch (Exception e) {
+			log.warn("Could not read the Moltbook key: {}", e.toString());
+		}
+		Moltbook.Account shown = account;
+		SwingUtilities.invokeLater(() -> window.showMoltbookStatus(shown, note));
+	}
+
 	/**
 	 * Mints a venue-signed access-token JWT authenticating the bearer as the
 	 * current named user, valid for {@code expiresInSeconds}. The home venue is
@@ -646,8 +873,13 @@ public final class BrightSide {
 	 * proceed with launch, false to cancel this instance.
 	 */
 	private boolean takeOver(int port) throws Exception {
-		if (!confirmTakeover()) return false;
+		// Already agreed at startup; otherwise the instance appeared since, so ask now.
+		if (!takeoverApproved && !confirmTakeover()) return false;
+		takeoverApproved = false;
 		log.info("Taking over from a running Brightside instance on port {}", port);
+		SwingUtilities.invokeLater(() -> {
+			if (unlockDialog != null) unlockDialog.showProgress("Taking over from the running Brightside…");
+		});
 		Takeover.requestShutdown(port, Takeover.venueDID(port), venueSeedHex);
 		if (!Takeover.waitUntilDown(port, 20_000)) {
 			throw new IllegalStateException("the previous instance did not shut down in time");
@@ -655,12 +887,19 @@ public final class BrightSide {
 		return true;
 	}
 
+	/**
+	 * Asks Take Over / Cancel over whatever is on screen — the unlock dialog
+	 * while locked, the window once shown, or nothing at all at startup. Never
+	 * on the event thread.
+	 */
 	private boolean confirmTakeover() {
 		boolean[] takeOver = { false };
 		try {
 			SwingUtilities.invokeAndWait(() -> {
 				Object[] options = { "Take Over", "Cancel" };
-				int choice = JOptionPane.showOptionDialog(window,
+				java.awt.Component parent = (unlockDialog != null && unlockDialog.isShowing()) ? unlockDialog
+					: (window != null && window.isShowing()) ? window : null;
+				int choice = JOptionPane.showOptionDialog(parent,
 					"Brightside is already running on this computer.\n\nTake over from it?",
 					APP_NAME, JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE,
 					null, options, options[0]);
@@ -679,8 +918,9 @@ public final class BrightSide {
 	 * wait for {@link #submitName}.
 	 */
 	private void onVenueReady() {
-		// Default skills are installed by BrightsideAdapter at venue launch.
-		ensureOdin(venue);
+		// Default skills are installed by BrightsideAdapter at venue launch. Odin
+		// is not touched here: he is created or reconfigured when first needed
+		// (acting as the operator, or a model change), so a launch submits no jobs.
 		Identity id = identity;
 		if (id != null) startChatOnce(venue, bindIdentityToVenue(id, venue));
 	}
@@ -854,15 +1094,17 @@ public final class BrightSide {
 		ChatSession session = new ChatSession(userClient, chatConfig, id.name(), configureExisting);
 		chat = session;
 
-		// Create/refresh the agent (agent:create if it's a brand-new one). This does
-		// not create an agent session: Home leaves ChatSession.sessionId null until
-		// the user actually sends their first message. Odin is configured by his
-		// own ensure, so the session must find him already there.
-		try {
-			if (actingAsOperator && Odin.AGENT_ID.equals(chatConfig.agentId())) Odin.ensure(v, chatConfig.llmOperation());
-			session.ensureAgent();
-		} catch (Exception e) {
-			log.warn("Chat agent not ready", e);
+		// The agent is not created or reconfigured here: ChatSession.ensureAgent
+		// runs on the first send, so binding the chat submits no jobs — and Home
+		// leaves ChatSession.sessionId null until the user actually sends their
+		// first message. Odin is the exception when the operator turns to him:
+		// he is configured by his own ensure, so the session must find him there.
+		if (actingAsOperator && Odin.AGENT_ID.equals(chatConfig.agentId())) {
+			try {
+				Odin.ensure(v, chatConfig.llmOperation());
+			} catch (Exception e) {
+				log.warn("{} not ready", Odin.AGENT_ID, e);
+			}
 		}
 		// Import any skills the user has dropped into ~/.brightside/skills/
 		// (agentskills.io SKILL.md folders) on the first bind. Check the stored
@@ -892,7 +1134,7 @@ public final class BrightSide {
 		viewedSessionId = (history != null) ? history.sessionId() : null;
 		List<SessionHistory.Session> sessionList = (record != null) ? SessionHistory.sessionsOf(record) : List.of();
 		sessions = sessionList;
-		List<brightside.model.AgentRef> agentRefs = listAgents(aid);
+		List<brightside.model.AgentRef> agentRefs = listAgents(v, did, aid);
 		// The inbox is per user, not per agent: (re)bind it with the user. It
 		// shows the venue's own requests too — the app is the operator.
 		convex.core.data.ACell inboxValue = (bind == Bind.AGENT_SWITCH) ? null : inboxes(v, did);
@@ -1011,7 +1253,7 @@ public final class BrightSide {
 				startChat(v, id, chatConfigFor(def), Bind.AGENT_SWITCH);
 			} else {
 				String current = this.agentId;
-				List<AgentRef> refs = listAgents(current);
+				List<AgentRef> refs = listAgents(v, userDID, current);
 				SwingUtilities.invokeLater(() -> window.setAgents(refs, current, def));
 			}
 			SwingUtilities.invokeLater(() -> window.showSystemMessage("Deleted " + name + "."));
@@ -1151,28 +1393,27 @@ public final class BrightSide {
 		return chatConfigFor((agentId != null) ? agentId : defaultAgentId());
 	}
 
-	/** Lists the acting principal's agents (via agent:list), always including the default and current. */
-	private List<AgentRef> listAgents(String currentAid) {
+	/**
+	 * Lists the acting principal's agents — the {@code g/} namespace, read
+	 * straight from the in-process lattice rather than through an agent:list
+	 * job — always including the default and current.
+	 */
+	private List<AgentRef> listAgents(EmbeddedVenue v, String did, String currentAid) {
 		java.util.LinkedHashMap<String, AgentRef> map = new java.util.LinkedHashMap<>();
 		String def = defaultAgentId();
 		map.put(def, new AgentRef(def, displayNameFor(def)));
 		if (currentAid != null) {
 			map.putIfAbsent(currentAid, new AgentRef(currentAid, displayNameFor(currentAid)));
 		}
-		try {
-			convex.core.data.ACell res = invokeOpResult(client, "v/ops/agent/list", Maps.empty());
-			convex.core.data.ACell agents = convex.core.lang.RT.getIn(res, "agents");
-			if (agents instanceof convex.core.data.AVector<?> vec) {
-				for (long i = 0; i < vec.count(); i++) {
-					AString aidS = convex.core.lang.RT.ensureString(convex.core.lang.RT.getIn(vec.get(i), "agentId"));
-					if (aidS != null) {
-						String aid = aidS.toString();
-						map.putIfAbsent(aid, new AgentRef(aid, displayNameFor(aid)));
-					}
+		ACell agents = v.resolve(did, "g");
+		if (agents instanceof AMap<?, ?> records) {
+			for (long i = 0; i < records.count(); i++) {
+				ACell key = records.entryAt(i).getKey();
+				if (key != null) {
+					String aid = key.toString();
+					map.putIfAbsent(aid, new AgentRef(aid, displayNameFor(aid)));
 				}
 			}
-		} catch (Exception e) {
-			log.warn("Could not list agents: {}", e.getMessage());
 		}
 		return stableAgentOrder(new ArrayList<>(map.values()), def);
 	}
@@ -1203,12 +1444,6 @@ public final class BrightSide {
 	private static String slug(String name) {
 		if (name == null) return "";
 		return name.trim().replaceAll("[^A-Za-z0-9._-]+", "-").replaceAll("(^-|-$)", "");
-	}
-
-	private static convex.core.data.ACell invokeOpResult(Venue client, String operation, AMap<AString, ACell> input)
-			throws Exception {
-		Job job = client.invoke(operation, input).get(30, TimeUnit.SECONDS);
-		return job.future().get(30, TimeUnit.SECONDS);
 	}
 
 	/**
@@ -1440,8 +1675,12 @@ public final class BrightSide {
 		return tray != null;
 	}
 
+	/** Bring the app back: the unlock dialog while locked, otherwise the window. */
 	public void showWindow() {
-		SwingUtilities.invokeLater(() -> window.showAndFocus());
+		SwingUtilities.invokeLater(() -> {
+			if (unlockDialog != null) unlockDialog.showAndFocus();
+			else window.showAndFocus();
+		});
 	}
 
 	public void hideToTray() {
@@ -1669,6 +1908,7 @@ public final class BrightSide {
 			ConversationWatcher i = inboxWatcher;
 			if (i != null) i.stop();
 			if (window != null) window.setVisible(false);
+			if (unlockDialog != null) unlockDialog.dispose();
 			if (tray != null) tray.remove();
 		});
 		Thread t = new Thread(() -> {

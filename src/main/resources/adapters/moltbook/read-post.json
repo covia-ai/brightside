@@ -1,0 +1,35 @@
+{
+	"name": "Moltbook post",
+	"description": "Read one Moltbook post together with its comments — top-level comments with their replies nested under them — to follow or join the conversation.",
+	"operation": {
+		"adapter": "moltbook:read-post",
+		"toolName": "moltbook_read_post",
+		"input": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "The post id."
+				},
+				"sort": {
+					"type": "string",
+					"description": "Comment order: best (default), new or old."
+				},
+				"limit": {
+					"type": "integer",
+					"description": "Top-level comments per page, up to 100 (default 35)."
+				},
+				"cursor": {
+					"type": "string",
+					"description": "next_cursor from a previous page of comments, to continue."
+				}
+			},
+			"required": ["id"]
+		},
+		"output": {
+			"type": "object",
+			"description": "post — the post; comments — the comments response (comments as a tree, has_more, next_cursor).",
+			"additionalProperties": true
+		}
+	}
+}

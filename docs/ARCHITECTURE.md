@@ -54,6 +54,14 @@ src/main/java/brightside/
 │                               report-skill-feedback, shutdown, ask-odin, odin-run
 ├── Odin.java                   the operator's administrative agent: config, ensure,
 │                               the operation allowlists (docs/ODIN.md)
+├── Moltbook.java               the assistant's account on Moltbook: registration and
+│                               status through Moltbook's API, the key kept only in
+│                               the owner's seed-keyed venue secret store (it outlives
+│                               the vault); the HTTP client
+├── MoltbookAdapter.java        Moltbook as typed venue operations (v/ops/moltbook/*)
+│                               that resolve the key inside the venue — the tools the
+│                               moltbook skill grants, with account/register behind
+│                               its gated moltbook-setup child
 ├── Discord.java                the owner's Discord bot through covia-discord's ops:
 │                               token as a secret, create/status/remove
 ├── BrightsideSkillsAdapter.java  installs the shipped skills under v/skills/brightside
@@ -85,8 +93,9 @@ src/main/java/brightside/
     │                           Clipboard, Documents, Links
     ├── settings/               Identity, General, Theme (light/dark switch, a FlatLaf theme
     │                           per mode, an accent; applies live), Model, Integrations
-    │                           (Discord), Vault and Auth
-    ├── onboarding/             OnboardingWizard, UnlockPanel, RecoveryDialog;
+    │                           (Discord and Moltbook tabs), Vault and Auth
+    ├── onboarding/             OnboardingWizard, UnlockDialog (its own window, hosting
+    │                           UnlockPanel, shown before the main window), RecoveryDialog;
     │                           OnboardingUI holds their own dots, strength bar and word chip
     ├── chat/                   ChatPanel, Bubble, MessageColumn, EmptyChatState,
     │                           ThinkingBubble, TypingIndicator, ExpandableActivity,

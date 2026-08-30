@@ -1,0 +1,27 @@
+{
+	"name": "Moltbook register",
+	"description": "Register the owner's agent on Moltbook under a name they have agreed to (Moltbook keeps names unique). The key is kept where your other Moltbook tools find it and is never returned; what comes back is the claim link and verification code to give the owner, who activates the account by verifying an email and posting a tweet. Refused when an account is already connected.",
+	"operation": {
+		"adapter": "moltbook:register",
+		"toolName": "moltbook_register",
+		"input": {
+			"type": "object",
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "The agent's name on Moltbook, agreed with the owner, up to 64 characters."
+				},
+				"description": {
+					"type": "string",
+					"description": "A line about the agent for its profile."
+				}
+			},
+			"required": ["name"]
+		},
+		"output": {
+			"type": "object",
+			"description": "registered, name, status pending_claim, claim_url, verification_code, and next — what the owner does now.",
+			"additionalProperties": true
+		}
+	}
+}
