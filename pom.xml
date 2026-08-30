@@ -43,7 +43,7 @@
 		<!-- Covia venue runtime. Releases resolve from Maven Central; a SNAPSHOT
 		     (the current develop line) needs ../convex then ../covia installed
 		     locally with mvn install. -->
-		<covia.version>0.9.7-SNAPSHOT</covia.version>
+		<covia.version>0.9.7</covia.version>
 		<flatlaf.version>3.7.2</flatlaf.version>
 		<bouncycastle.version>1.85</bouncycastle.version>
 		<junit.version>6.1.3</junit.version>

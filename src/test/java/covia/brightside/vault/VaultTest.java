@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 
@@ -92,7 +93,21 @@ class VaultTest {
 	}
 
 	@Test
-	void storeKeyIsDerivedFromTheSeedSoRecoveryCanReopenIt(@TempDir Path home) throws Exception {
+	void storeKeyIsDerivedFromTheSeedSoRecoveryCanReopenIt() throws Exception {
+		// Not a JUnit @TempDir: this is the one test that keeps a real venue.etch,
+		// and Etch maps it into memory. On Java 21 a mapping is released only by
+		// GC, so Windows can refuse the deletion JUnit insists on at the end of
+		// the class ("Failed to close extension context"). A directory under
+		// target/ is deleted here on a best-effort basis and by the next clean.
+		Path home = Files.createTempDirectory(Files.createDirectories(Path.of("target", "vault-test")), "home-");
+		try {
+			storeKeyRoundTrip(home);
+		} finally {
+			deleteQuietly(home);
+		}
+	}
+
+	private static void storeKeyRoundTrip(Path home) throws Exception {
 		int port;
 		try (ServerSocket s = new ServerSocket(0)) {
 			port = s.getLocalPort();
@@ -132,6 +147,21 @@ class VaultTest {
 		AMap<AString, ACell> wrong = Vault.open(home, "passphrase-A".toCharArray()).secure(base, otherSeed);
 		assertThrows(Exception.class, () -> EmbeddedVenue.launch(wrong).close(),
 			"a different seed cannot open the encrypted store");
+	}
+
+	/** Deletes a tree if the platform lets it; a store still mapped on Windows is left for the next clean. */
+	private static void deleteQuietly(Path root) {
+		try (var paths = Files.walk(root)) {
+			paths.sorted(java.util.Comparator.reverseOrder()).forEach(p -> {
+				try {
+					Files.deleteIfExists(p);
+				} catch (IOException ignored) {
+					// still mapped: target/ is cleared by mvn clean
+				}
+			});
+		} catch (IOException ignored) {
+			// nothing to delete
+		}
 	}
 
 	private static void write(Venue client, String path, String value) throws Exception {
