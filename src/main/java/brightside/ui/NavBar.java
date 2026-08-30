@@ -9,7 +9,6 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
-import java.awt.RenderingHints;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
@@ -21,7 +20,15 @@ import javax.swing.BoxLayout;
 import javax.swing.Icon;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
-import javax.swing.UIManager;
+
+import com.formdev.flatlaf.ui.FlatUIUtils;
+import com.formdev.flatlaf.util.UIScale;
+
+import brightside.ui.components.Borders;
+import brightside.ui.components.Lucide;
+import brightside.ui.components.PressButton;
+import brightside.ui.components.Styles;
+import brightside.ui.components.Theme;
 
 /**
  * A centred bottom navigation bar: one {@link PressButton} per screen (Home,
@@ -52,7 +59,7 @@ public final class NavBar extends JPanel {
 	public NavBar(Listener listener) {
 		super(new GridBagLayout()); // centres the row of items
 		this.listener = listener;
-		setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, sep()));
+		setBorder(Borders.hairlineTop());
 
 		JPanel row = new JPanel();
 		row.setOpaque(false);
@@ -89,21 +96,6 @@ public final class NavBar extends JPanel {
 		return badges.getOrDefault(tab, 0);
 	}
 
-	private static Color muted() {
-		Color c = UIManager.getColor("Label.disabledForeground");
-		return (c != null) ? c : Color.GRAY;
-	}
-
-	private static Color foreground() {
-		Color c = UIManager.getColor("Label.foreground");
-		return (c != null) ? c : Color.LIGHT_GRAY;
-	}
-
-	private static Color sep() {
-		Color c = UIManager.getColor("Separator.foreground");
-		return (c != null) ? c : Color.GRAY;
-	}
-
 	/**
 	 * One tab: a {@link PressButton} whose icon paints the tab's glyph and badge
 	 * and whose text is the label beneath; the active tab is selected (tinted)
@@ -120,7 +112,6 @@ public final class NavBar extends JPanel {
 			setVerticalTextPosition(SwingConstants.BOTTOM);
 			setIconTextGap(3);
 			setMargin(new Insets(6, 10, 5, 10));
-			setFont(getFont().deriveFont(11f));
 			setPreferredSize(new Dimension(84, 58));
 			setMaximumSize(new Dimension(84, 58));
 			setToolTipText(switch (tab) {
@@ -136,8 +127,8 @@ public final class NavBar extends JPanel {
 		void refreshLook() {
 			boolean on = tab == active;
 			setSelected(on);
-			setForeground(on ? LAF.ACCENT : muted());
-			setFont(getFont().deriveFont(on ? Font.BOLD : Font.PLAIN));
+			Styles.classes(this, on ? Styles.ACCENT : Styles.MUTED);
+			Styles.style(this, on ? "font: bold -3" : "font: -3");
 			repaint();
 		}
 
@@ -149,9 +140,9 @@ public final class NavBar extends JPanel {
 		 * so reporting anything else would shift the two apart on a scaled display.
 		 */
 		private final class TabIcon implements Icon {
-			private final Icon accent = Lucide.icon(glyph(tab), ICON, LAF.ACCENT);
-			private final Icon bright = Lucide.icon(glyph(tab), ICON, foreground());
-			private final Icon quiet = Lucide.icon(glyph(tab), ICON, muted());
+			private final Icon accent = Lucide.icon(glyph(tab), ICON, Theme.accent());
+			private final Icon bright = Lucide.icon(glyph(tab), ICON, Theme.foreground());
+			private final Icon quiet = Lucide.icon(glyph(tab), ICON, Theme.muted());
 
 			@Override
 			public int getIconWidth() {
@@ -170,9 +161,13 @@ public final class NavBar extends JPanel {
 				int count = badge(tab);
 				if (count > 0) {
 					Graphics2D g2 = (Graphics2D) g.create();
-					g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-					drawBadge(g2, count > 99 ? "99+" : Integer.toString(count), x + getIconWidth() - 4, y - 1);
-					g2.dispose();
+					try {
+						FlatUIUtils.setRenderingHints(g2);
+						drawBadge(g2, count > 99 ? "99+" : Integer.toString(count),
+							x + getIconWidth() - UIScale.scale(4), y - UIScale.scale(1));
+					} finally {
+						g2.dispose();
+					}
 				}
 			}
 		}
@@ -190,13 +185,14 @@ public final class NavBar extends JPanel {
 
 	/** A small filled disc with the count, top-right of the icon. */
 	private static void drawBadge(Graphics2D g2, String text, int cx, int cy) {
-		g2.setFont(g2.getFont().deriveFont(Font.BOLD, 9f));
+		g2.setFont(g2.getFont().deriveFont(Font.BOLD, UIScale.scale(9f)));
 		FontMetrics fm = g2.getFontMetrics();
-		int w = Math.max(14, fm.stringWidth(text) + 6);
-		g2.setColor(LAF.ACCENT);
-		g2.fillRoundRect(cx - w / 2, cy, w, 14, 14, 14);
+		int h = UIScale.scale(14);
+		int w = Math.max(h, fm.stringWidth(text) + UIScale.scale(6));
+		g2.setColor(Theme.accent());
+		g2.fillRoundRect(cx - w / 2, cy, w, h, h, h);
 		g2.setColor(Color.WHITE);
-		g2.drawString(text, cx - fm.stringWidth(text) / 2f, cy + 10.5f);
+		g2.drawString(text, cx - fm.stringWidth(text) / 2f, cy + (h + fm.getAscent() - fm.getDescent()) / 2f);
 	}
 
 }

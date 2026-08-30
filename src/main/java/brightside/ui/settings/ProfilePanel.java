@@ -1,29 +1,26 @@
 package brightside.ui.settings;
 
 import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Cursor;
 import java.awt.Dimension;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
-import java.awt.Toolkit;
-import java.awt.datatransfer.StringSelection;
 
 import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingWorker;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
+
+import brightside.ui.components.Buttons;
+import brightside.ui.components.Clipboard;
+import brightside.ui.components.Dialogs;
+import brightside.ui.components.Documents;
+import brightside.ui.components.Lucide;
+import brightside.ui.components.Panels;
+import brightside.ui.components.SelectableText;
+import brightside.ui.components.Styles;
+import brightside.ui.components.Theme;
 
 /**
  * The <b>Identity</b> settings page: first, the user switcher — which principal
@@ -58,20 +55,20 @@ public final class ProfilePanel extends SettingsPage {
 	}
 
 	private static final String MASK = "•".repeat(64);
+	private static final int EYE = 18;
 
 	private final Host host;
 	private final JTextField nameField = new JTextField(18);
-	private final JTextArea userDidV = SettingsUI.technicalValue("—");
-	private final JTextArea venueDidV = SettingsUI.technicalValue("—");
-	private final JTextArea pubV = SettingsUI.technicalValue("—");
+	private final SelectableText userDidV = SelectableText.technical("—");
+	private final SelectableText venueDidV = SelectableText.technical("—");
+	private final SelectableText pubV = SelectableText.technical("—");
 	private final JTextArea seedField = new JTextArea(1, 40);
 	private final ConvexIdenticon userDidIcon = new ConvexIdenticon();
 	private final ConvexIdenticon venueDidIcon = new ConvexIdenticon();
 	private final ConvexIdenticon publicKeyIcon = new ConvexIdenticon();
 	private final ConvexIdenticon seedIcon = new ConvexIdenticon();
-	private final JButton reveal = new JButton();
-	private final JButton copySeed = new JButton("Copy");
-	private final EyeIcon eye = new EyeIcon();
+	private final JButton reveal = Buttons.icon(eye(false), "Show / hide the primary Ed25519 seed");
+	private final JButton copySeed = Buttons.small("Copy");
 	/** Switch user: the named user (everyday) or the venue operator (advanced). */
 	private final JComboBox<Principal> principal = new JComboBox<>();
 	/** True while {@link #refresh} sets the selection, so the host is only told about a person's choice. */
@@ -133,7 +130,7 @@ public final class ProfilePanel extends SettingsPage {
 		this.seedAvailable = seedAvailable;
 		this.seedHex = null;
 		revealed = false;
-		eye.open = false;
+		showEye(false);
 		seedField.setText(seedAvailable ? MASK : "unavailable");
 		seedField.setCaretPosition(0);
 		reveal.setEnabled(seedAvailable);
@@ -144,7 +141,7 @@ public final class ProfilePanel extends SettingsPage {
 	}
 
 	private void build() {
-		nameField.getDocument().addDocumentListener((SimpleDoc) e -> updateDirty());
+		Documents.onChange(nameField, this::updateDirty);
 		primary.setEnabled(false);
 		primary.setToolTipText("Save your name");
 		onPrimary(() -> {
@@ -156,30 +153,16 @@ public final class ProfilePanel extends SettingsPage {
 		seedField.setLineWrap(true);
 		seedField.setOpaque(false);
 		seedField.setBorder(null);
-		seedField.setFont(SettingsUI.technicalFont(seedField.getFont()));
+		Styles.classes(seedField, Styles.MONOSPACED);
 		seedField.setText(MASK);
 
-		reveal.setIcon(eye);
-		reveal.setToolTipText("Show / hide the primary Ed25519 seed");
-		reveal.setContentAreaFilled(false);
-		reveal.setBorderPainted(false);
-		reveal.setFocusPainted(false);
-		reveal.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		reveal.addActionListener(e -> toggle());
 
-		copySeed.putClientProperty("FlatLaf.styleClass", "small");
 		copySeed.setEnabled(false);
 		copySeed.setToolTipText("Copy the primary seed to the clipboard");
-		copySeed.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		copySeed.addActionListener(e -> {
-			if (seedHex != null) {
-				Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(seedHex), null);
-			}
-		});
+		copySeed.addActionListener(e -> Clipboard.copy(seedHex));
 
-		JPanel keyRow = new JPanel();
-		keyRow.setOpaque(false);
-		keyRow.setLayout(new BoxLayout(keyRow, BoxLayout.X_AXIS));
+		JPanel keyRow = Panels.row();
 		seedField.setMaximumSize(new Dimension(360, 60));
 		keyRow.add(seedIcon);
 		keyRow.add(Box.createHorizontalStrut(8));
@@ -190,10 +173,9 @@ public final class ProfilePanel extends SettingsPage {
 		keyRow.add(copySeed);
 		keyRow.add(Box.createHorizontalGlue());
 
-		JTextArea warn = SettingsUI.selectable("The primary seed is the master secret for your venue identity — anyone who has "
+		SelectableText warn = new SelectableText("The primary seed is the master secret for your venue identity — anyone who has "
 			+ "it can act as you and decrypt a copied vault. Reveal it only for recovery or advanced tools, and never share it. "
-			+ "Your recovery phrase reproduces the same seed.");
-		warn.setForeground(new Color(0xE5, 0x8A, 0x3A));
+			+ "Your recovery phrase reproduces the same seed.").tone(Styles.WARNING);
 
 		principal.setToolTipText("Who Brightside acts as: you (everyday), or the venue operator — the venue's own "
 			+ "agents, Odin among them, and the venue's Inbox");
@@ -202,7 +184,7 @@ public final class ProfilePanel extends SettingsPage {
 			Principal chosen = (Principal) principal.getSelectedItem();
 			if (!refreshing && chosen != null) host.actAs(chosen.operator());
 		});
-		JTextArea switchNote = SettingsUI.selectable("As the venue operator you see and talk to the venue's own agents "
+		SelectableText switchNote = new SelectableText("As the venue operator you see and talk to the venue's own agents "
 			+ "— Odin, who administers this Brightside — and answer the venue's Inbox. Everything else is as yourself; "
 			+ "Brightside starts as you on every launch.");
 
@@ -226,15 +208,11 @@ public final class ProfilePanel extends SettingsPage {
 	}
 
 	private static JPanel copyableRow(ConvexIdenticon identicon, JTextArea value, String subject) {
-		JButton copy = new JButton("Copy");
-		copy.putClientProperty("FlatLaf.styleClass", "small");
+		JButton copy = Buttons.small("Copy");
 		copy.setToolTipText("Copy the " + subject + " to the clipboard");
-		copy.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		copy.addActionListener(e -> {
 			String text = value.getText();
-			if (text != null && !text.isBlank() && !"—".equals(text)) {
-				Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(text), null);
-			}
+			if (text != null && !text.isBlank() && !"—".equals(text)) Clipboard.copy(text);
 		});
 
 		JPanel row = new JPanel(new BorderLayout(8, 0));
@@ -258,10 +236,7 @@ public final class ProfilePanel extends SettingsPage {
 		if (!seedAvailable) return;
 
 		JPasswordField passphrase = new JPasswordField(24);
-		int choice = JOptionPane.showConfirmDialog(this, passphrase,
-			"Enter your Brightside passphrase to reveal the primary seed",
-			JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
-		if (choice != JOptionPane.OK_OPTION) return;
+		if (!Dialogs.confirmDanger(this, "Enter your Brightside passphrase to reveal the primary seed", passphrase)) return;
 		char[] entered = passphrase.getPassword();
 		passphrase.setText("");
 		if (entered.length == 0) return;
@@ -288,7 +263,7 @@ public final class ProfilePanel extends SettingsPage {
 				try {
 					seedHex = get();
 					revealed = true;
-					eye.open = true;
+					showEye(true);
 					seedField.setText(seedHex);
 					copySeed.setEnabled(true);
 					setNote("Primary seed revealed for this session only.", false);
@@ -304,7 +279,7 @@ public final class ProfilePanel extends SettingsPage {
 	private void hidePrimarySeed() {
 		seedHex = null;
 		revealed = false;
-		eye.open = false;
+		showEye(false);
 		seedField.setText(seedAvailable ? MASK : "unavailable");
 		seedField.setCaretPosition(0);
 		copySeed.setEnabled(false);
@@ -337,55 +312,12 @@ public final class ProfilePanel extends SettingsPage {
 		updateDirty();
 	}
 
-	/** A small painted eye — open when revealed, struck-through when hidden. */
-	private static final class EyeIcon implements Icon {
-		private boolean open;
-
-		@Override
-		public int getIconWidth() {
-			return 22;
-		}
-
-		@Override
-		public int getIconHeight() {
-			return 16;
-		}
-
-		@Override
-		public void paintIcon(Component c, Graphics g, int x, int y) {
-			Graphics2D g2 = (Graphics2D) g.create();
-			g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-			g2.setColor(SettingsUI.muted());
-			int w = 22, h = 16, cx = x + w / 2, cy = y + h / 2;
-			g2.drawArc(x + 1, cy - 6, w - 2, 12, 0, 180);
-			g2.drawArc(x + 1, cy - 6, w - 2, 12, 180, 180);
-			g2.fillOval(cx - 3, cy - 3, 6, 6);
-			if (!open) {
-				g2.setColor(new Color(0xE5, 0x53, 0x53));
-				g2.drawLine(x + 2, y + h - 2, x + w - 2, y + 2);
-			}
-			g2.dispose();
-		}
+	/** The eye is open while the seed is revealed and struck through while it is hidden. */
+	private void showEye(boolean open) {
+		reveal.setIcon(eye(open));
 	}
 
-	/** A DocumentListener whose three methods collapse to one callback. */
-	@FunctionalInterface
-	private interface SimpleDoc extends DocumentListener {
-		void update(DocumentEvent e);
-
-		@Override
-		default void insertUpdate(DocumentEvent e) {
-			update(e);
-		}
-
-		@Override
-		default void removeUpdate(DocumentEvent e) {
-			update(e);
-		}
-
-		@Override
-		default void changedUpdate(DocumentEvent e) {
-			update(e);
-		}
+	private static javax.swing.Icon eye(boolean open) {
+		return Lucide.icon(open ? "eye" : "eye-off", EYE, Theme.muted());
 	}
 }

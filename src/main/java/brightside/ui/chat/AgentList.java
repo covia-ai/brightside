@@ -1,29 +1,29 @@
 package brightside.ui.chat;
 
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.Component;
-import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Insets;
 import java.util.List;
 
 import javax.swing.BorderFactory;
-import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JMenuItem;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
-import javax.swing.JScrollPane;
-import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingConstants;
-import javax.swing.UIManager;
 
 import brightside.model.AgentRef;
-import brightside.ui.Lucide;
-import brightside.ui.PressButton;
+import brightside.ui.components.Borders;
+import brightside.ui.components.Buttons;
+import brightside.ui.components.Dialogs;
+import brightside.ui.components.Labels;
+import brightside.ui.components.Lucide;
+import brightside.ui.components.Panels;
+import brightside.ui.components.PressButton;
+import brightside.ui.components.Scrolls;
+import brightside.ui.components.Theme;
 
 /**
  * The agents pane (left of the sessions list on the Sessions screen): one row per
@@ -54,7 +54,7 @@ public final class AgentList extends JPanel {
 	private static final int WIDTH = 158;
 
 	private final Listener listener;
-	private final JPanel rows = new JPanel();
+	private final JPanel rows = Panels.column();
 	private String selectedId;
 	private String defaultId;
 
@@ -64,15 +64,10 @@ public final class AgentList extends JPanel {
 		setOpaque(false);
 		setPreferredSize(new Dimension(WIDTH, 0));
 		setMinimumSize(new Dimension(0, 0));
-		setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, uiColor("Separator.foreground", Color.GRAY)));
+		setBorder(Borders.hairlineRight());
 
-		JLabel header = new JLabel("Agents");
-		header.putClientProperty("FlatLaf.styleClass", "small");
-		header.setForeground(muted());
-		JButton add = new JButton("New agent", Lucide.icon("plus", 16, uiColor("Button.foreground", Color.WHITE)));
-		add.putClientProperty("JButton.buttonType", "roundRect");
-		add.setFocusPainted(false);
-		add.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		JLabel header = Labels.small("Agents");
+		JButton add = Buttons.plain("New agent", Lucide.icon("plus", 16, Theme.foreground()));
 		add.setToolTipText("Create a new agent");
 		add.addActionListener(e -> listener.onNewAgent());
 
@@ -81,19 +76,8 @@ public final class AgentList extends JPanel {
 		top.setBorder(BorderFactory.createEmptyBorder(10, 12, 8, 10));
 		top.add(header, BorderLayout.WEST);
 
-		rows.setOpaque(false);
-		rows.setLayout(new BoxLayout(rows, BoxLayout.Y_AXIS));
-		JPanel rowsHolder = new JPanel(new BorderLayout());
-		rowsHolder.setOpaque(false);
-		rowsHolder.add(rows, BorderLayout.NORTH);
-		JScrollPane scroll = new JScrollPane(rowsHolder,
-			ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-		scroll.setBorder(null);
-		scroll.setOpaque(false);
-		scroll.getViewport().setOpaque(false);
-
 		add(top, BorderLayout.NORTH);
-		add(scroll, BorderLayout.CENTER);
+		add(Scrolls.vertical(Scrolls.hugTop(rows)), BorderLayout.CENTER);
 		JPanel bottom = new JPanel(new BorderLayout());
 		bottom.setOpaque(false);
 		bottom.setBorder(BorderFactory.createEmptyBorder(8, 10, 10, 10));
@@ -143,22 +127,13 @@ public final class AgentList extends JPanel {
 		JMenuItem delete = new JMenuItem("Delete…");
 		delete.setEnabled(!aid.equals(defaultId));
 		delete.addActionListener(e -> {
-			int choice = JOptionPane.showConfirmDialog(this,
-				"Delete " + agent.name() + "? Its conversations and memory will be removed. This can't be undone.",
-				"Delete agent", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
-			if (choice == JOptionPane.OK_OPTION) listener.onDeleteAgent(aid);
+			if (Dialogs.confirmDanger(this, "Delete agent",
+				"Delete " + agent.name() + "? Its conversations and memory will be removed. This can't be undone.")) {
+				listener.onDeleteAgent(aid);
+			}
 		});
 		menu.add(delete);
 
 		return menu;
-	}
-
-	private static Color muted() {
-		return uiColor("Label.disabledForeground", Color.GRAY);
-	}
-
-	private static Color uiColor(String key, Color fallback) {
-		Color c = UIManager.getColor(key);
-		return (c != null) ? c : fallback;
 	}
 }

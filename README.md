@@ -22,7 +22,7 @@ agent's memory and every skill it learns live in a folder on your disk that you
 can read, back up or delete.
 
 It is not a wrapper around a chat box. Brightside runs a full
-[Covia](https://covia.ai) venue — engine, tools, lattice-backed state, an agent
+[Covia](https://covia.ai) agentic vault — engine, tools, lattice-backed state, an agent
 framework and an MCP/A2A/HTTP surface — *inside its own process*, and puts a
 quiet desktop app in front of it. That is what lets a personal agent do the
 things personal agents are supposed to do: remember you, reach for real tools,

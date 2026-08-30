@@ -1,13 +1,18 @@
 package brightside.ui.settings;
 
 import java.awt.BorderLayout;
-import java.awt.Color;
 
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
+import brightside.ui.components.Borders;
+import brightside.ui.components.Buttons;
+import brightside.ui.components.Labels;
+import brightside.ui.components.Scrolls;
+import brightside.ui.components.SelectableText;
+import brightside.ui.components.Styles;
 import net.miginfocom.swing.MigLayout;
 
 /**
@@ -20,34 +25,32 @@ import net.miginfocom.swing.MigLayout;
 @SuppressWarnings("serial")
 abstract class SettingsPage extends JPanel {
 
-	protected static final Color ERROR = new Color(0xE5, 0x53, 0x53);
-
 	private final JPanel form = new JPanel(
 		new MigLayout("insets 24 28 14 28, fillx, wrap 2", "[]16[grow,fill]", ""));
-	protected final JLabel note = SettingsUI.note();
+	protected final JLabel note = Labels.small(" ");
 	protected final JButton primary;
 
 	protected SettingsPage(String primaryLabel) {
 		super(new BorderLayout());
-		primary = SettingsUI.primary(primaryLabel);
-		add(SettingsUI.formScroll(form), BorderLayout.CENTER);
-		add(SettingsUI.actionBar(note, primary), BorderLayout.SOUTH);
+		primary = Buttons.primary(primaryLabel);
+		add(Scrolls.vertical(form), BorderLayout.CENTER);
+		add(actionBar(note, primary), BorderLayout.SOUTH);
 	}
 
 	/** A full-width, wrapping description at the top of the page. */
 	protected final void addDescription(String text) {
-		form.add(SettingsUI.description(text), "span 2, growx, wmin 0, gapbottom 14");
+		form.add(SelectableText.description(text), "span 2, growx, wmin 0, gapbottom 14");
 	}
 
 	/** A label + field on one row (field grows, capped so it doesn't sprawl). */
 	protected final void addField(String label, JComponent field) {
-		form.add(SettingsUI.label(label));
+		form.add(Labels.muted(label));
 		form.add(field, "growx, wmax 400");
 	}
 
 	/** A label (top-aligned) + a taller/multi-line value on one row. */
 	protected final void addFieldTop(String label, JComponent value) {
-		form.add(SettingsUI.label(label), "aligny top, gaptop 3");
+		form.add(Labels.muted(label), "aligny top, gaptop 3");
 		form.add(value, "growx, wmin 0");
 	}
 
@@ -71,11 +74,24 @@ abstract class SettingsPage extends JPanel {
 	}
 
 	protected final void setNote(String text, boolean error) {
-		note.setForeground(error ? ERROR : SettingsUI.muted());
+		Styles.classes(note, Styles.SMALL, error ? Styles.ERROR : Styles.MUTED);
 		note.setText(text);
 	}
 
 	protected final void clearNote() {
 		setNote(" ", false);
+	}
+
+	/**
+	 * The fixed action bar for the bottom of a settings screen (excluded from the
+	 * scroll): the status note on the left, one primary action on the right, with
+	 * a hairline above.
+	 */
+	private static JComponent actionBar(JComponent note, JButton primary) {
+		JPanel bar = new JPanel(new MigLayout("insets 10 28 12 28, fillx", "[grow]12[]", ""));
+		bar.setBorder(Borders.hairlineTop());
+		bar.add(note, "growx");
+		bar.add(primary, "");
+		return bar;
 	}
 }

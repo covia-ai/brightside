@@ -7,7 +7,6 @@ import java.awt.Dimension;
 import java.awt.GraphicsEnvironment;
 import java.awt.Insets;
 import java.awt.Toolkit;
-import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionEvent;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
@@ -40,10 +39,15 @@ import javax.swing.text.DefaultEditorKit;
 
 import brightside.SessionHistory;
 import brightside.chat.ChatSession;
-import brightside.ui.LAF;
-
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
+import brightside.ui.components.Buttons;
+import brightside.ui.components.Clipboard;
+import brightside.ui.components.Documents;
+import brightside.ui.components.Labels;
+import brightside.ui.components.Scrolls;
+import brightside.ui.components.SelectableText;
+import brightside.ui.components.Styles;
+import brightside.ui.components.TextArea;
+import brightside.ui.components.Theme;
 
 /**
  * The chat: a scrolling {@link MessageColumn} of message components above a
@@ -64,9 +68,9 @@ public final class ChatPanel extends JPanel {
 	private final MessageColumn column = new MessageColumn();
 	private final EmptyChatState emptyState = new EmptyChatState();
 	private final JScrollPane scroll;
-	private final JTextArea input = new JTextArea(1, 20);
+	private final TextArea input = new TextArea(1, 20).placeholder("Message Brightside…");
 	private final JScrollPane inputScroll;
-	private final JButton send = new JButton("Send");
+	private final JButton send = Buttons.primary("Send");
 
 	private final List<SessionHistory.Item> displayed = new ArrayList<>();
 	private JTextArea lastSelectedBubble; // the bubble holding the current selection, if any
@@ -84,11 +88,7 @@ public final class ChatPanel extends JPanel {
 		super(new BorderLayout());
 		setBorder(BorderFactory.createEmptyBorder(6, 10, 10, 10));
 
-		scroll = new JScrollPane(column);
-		scroll.setBorder(BorderFactory.createEmptyBorder());
-		scroll.setOpaque(false);
-		scroll.getViewport().setOpaque(false);
-		scroll.getVerticalScrollBar().setUnitIncrement(24);
+		scroll = Scrolls.vertical(column);
 		scroll.getViewport().addComponentListener(new ComponentAdapter() {
 			@Override
 			public void componentResized(ComponentEvent e) {
@@ -98,9 +98,8 @@ public final class ChatPanel extends JPanel {
 
 		input.setLineWrap(true);
 		input.setWrapStyleWord(true);
-		input.setFont(input.getFont().deriveFont(input.getFont().getSize2D() + 1f));
+		Styles.style(input, "font: +1");
 		input.setBorder(BorderFactory.createEmptyBorder(9, 12, 9, 12));
-		input.putClientProperty("JTextArea.placeholderText", "Message Brightside…");
 		input.getInputMap(JComponent.WHEN_FOCUSED)
 			.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "send");
 		input.getInputMap(JComponent.WHEN_FOCUSED)
@@ -125,7 +124,7 @@ public final class ChatPanel extends JPanel {
 				if (hasSelection(input)) {
 					input.copy();
 				} else if (hasSelection(lastSelectedBubble)) {
-					toClipboard(lastSelectedBubble.getSelectedText());
+					Clipboard.copy(lastSelectedBubble.getSelectedText());
 				}
 			}
 		});
@@ -134,22 +133,7 @@ public final class ChatPanel extends JPanel {
 			JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
 		inputScroll.putClientProperty("FlatLaf.style", "arc: 16");
 		inputScroll.setMaximumSize(new Dimension(Integer.MAX_VALUE, 120));
-		input.getDocument().addDocumentListener(new DocumentListener() {
-			@Override
-			public void insertUpdate(DocumentEvent e) {
-				scheduleInputResize();
-			}
-
-			@Override
-			public void removeUpdate(DocumentEvent e) {
-				scheduleInputResize();
-			}
-
-			@Override
-			public void changedUpdate(DocumentEvent e) {
-				scheduleInputResize();
-			}
-		});
+		Documents.onChange(input, this::scheduleInputResize);
 		input.addComponentListener(new ComponentAdapter() {
 			@Override
 			public void componentResized(ComponentEvent e) {
@@ -157,9 +141,6 @@ public final class ChatPanel extends JPanel {
 			}
 		});
 
-		send.putClientProperty("JButton.buttonType", "roundRect");
-		send.setForeground(Color.WHITE);
-		send.setBackground(LAF.ACCENT);
 		send.setToolTipText("Send message (Enter)");
 		send.addActionListener(e -> send());
 		Dimension sendSize = send.getPreferredSize();
@@ -467,14 +448,14 @@ public final class ChatPanel extends JPanel {
 	/** A note from Brightside itself (status, hints) — centred and muted. */
 	public void appendSystem(String text) {
 		hideEmptyState();
-		column.add(noticeRow(text, ChatStyle.muted(), false, false));
+		column.add(noticeRow(text, Theme.muted(), false, false));
 		column.revalidate();
 		scrollToBottom();
 	}
 
 	public void appendError(String text) {
 		hideEmptyState();
-		column.add(noticeRow(text, ChatStyle.ERROR, true, true));
+		column.add(noticeRow(text, Theme.error(), true, true));
 		column.revalidate();
 		scrollToBottom();
 	}
@@ -502,10 +483,6 @@ public final class ChatPanel extends JPanel {
 		return sb.toString().stripTrailing();
 	}
 
-	private static void toClipboard(String text) {
-		Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(text), null);
-	}
-
 	private static boolean hasSelection(JTextArea ta) {
 		return ta != null && ta.getSelectionStart() != ta.getSelectionEnd();
 	}
@@ -516,10 +493,10 @@ public final class ChatPanel extends JPanel {
 		JMenuItem copy = new JMenuItem("Copy message");
 		copy.addActionListener(e -> {
 			String sel = ta.getSelectedText();
-			toClipboard((sel != null && !sel.isEmpty()) ? sel : messageText);
+			Clipboard.copy((sel != null && !sel.isEmpty()) ? sel : messageText);
 		});
 		JMenuItem copyAll = new JMenuItem("Copy conversation");
-		copyAll.addActionListener(e -> toClipboard(conversationText()));
+		copyAll.addActionListener(e -> Clipboard.copy(conversationText()));
 		menu.add(copy);
 		menu.add(copyAll);
 		menu.show(invoker, x, y);
@@ -530,9 +507,8 @@ public final class ChatPanel extends JPanel {
 	// ------------------------------------------------------------------
 
 	private Component bubbleRow(String text, boolean user) {
-		Color bg = user ? LAF.ACCENT : ChatStyle.assistantBg();
-		Color fg = user ? Color.WHITE : ChatStyle.foreground();
-		Bubble bubble = new Bubble(text, bg, fg);
+		// The user's side is the accent; the assistant's is the theme's surface.
+		Bubble bubble = new Bubble(text, user ? Theme.accent() : null, user ? Color.WHITE : Theme.foreground());
 		bubble.setAvailableWidth(scroll.getViewport().getWidth());
 
 		// The bubble is a dumb display component; the panel owns copy behaviour.
@@ -564,27 +540,19 @@ public final class ChatPanel extends JPanel {
 	private Component noticeRow(String text, Color fg, boolean bold, boolean selectable) {
 		Component content;
 		if (selectable) {
-			// A selectable, wrapping text area — an error can be read AND copied
+			// A selectable, wrapping run — an error can be read AND copied
 			// (Ctrl/Cmd+C). Transparent and borderless so it reads as a notice, not
 			// an input.
-			JTextArea ta = new JTextArea(text);
-			ta.setEditable(false);
-			ta.setLineWrap(true);
-			ta.setWrapStyleWord(true);
-			ta.setOpaque(false);
-			ta.setForeground(fg);
-			ta.setBorder(null);
-			ta.putClientProperty("FlatLaf.styleClass", "small");
-			if (bold) ta.setFont(ta.getFont().deriveFont(java.awt.Font.BOLD));
+			SelectableText ta = new SelectableText(text).colour(fg).small();
+			if (bold) ta.bold();
 			content = ta;
 		} else {
 			// Short status line: a centred, wrapping label. Newlines become <br>.
 			String body = escapeHtml(text).replace("\n", "<br>");
-			JLabel label = new JLabel(
-				"<html><div style='width:520px; text-align:center'>" + body + "</div></html>", SwingConstants.CENTER);
+			JLabel label = Labels.html(body, 520, SwingConstants.CENTER);
 			label.setForeground(fg);
-			label.putClientProperty("FlatLaf.styleClass", "small");
-			if (bold) label.setFont(label.getFont().deriveFont(label.getFont().getStyle() | java.awt.Font.BOLD));
+			Styles.classes(label, Styles.SMALL);
+			if (bold) Styles.style(label, "font: bold -2");
 			content = label;
 		}
 		JPanel row = new JPanel(new BorderLayout());

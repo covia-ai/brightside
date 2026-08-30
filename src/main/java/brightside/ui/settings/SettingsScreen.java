@@ -2,7 +2,6 @@ package brightside.ui.settings;
 
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
-import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Insets;
 import java.util.EnumMap;
@@ -10,13 +9,14 @@ import java.util.Map;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
-import javax.swing.BoxLayout;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
-import javax.swing.UIManager;
 
-import brightside.ui.LAF;
-import brightside.ui.PressButton;
+import brightside.ui.components.Borders;
+import brightside.ui.components.Panels;
+import brightside.ui.components.PressButton;
+import brightside.ui.components.Scrolls;
+import brightside.ui.components.Styles;
 
 /**
  * The <b>Settings</b> screen: a vertical section nav on the left (Identity,
@@ -73,15 +73,13 @@ public final class SettingsScreen extends JPanel {
 		// The section nav: one PressButton per section, the same control as the
 		// bottom tabs — hover, pressed and selected looks from the theme, acting
 		// on the press.
-		JPanel column = new JPanel();
-		column.setOpaque(false);
-		column.setLayout(new BoxLayout(column, BoxLayout.Y_AXIS));
+		JPanel column = Panels.column();
 		column.setBorder(BorderFactory.createEmptyBorder(8, 6, 8, 6));
 		for (Tab t : Tab.values()) {
 			PressButton b = new PressButton(t.label);
 			b.setHorizontalAlignment(SwingConstants.LEFT);
 			b.setMargin(new Insets(8, 12, 8, 12));
-			b.setFont(b.getFont().deriveFont(b.getFont().getSize2D() + 1f));
+			Styles.style(b, "font: +1");
 			b.setAlignmentX(LEFT_ALIGNMENT);
 			b.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
 			b.setPreferredSize(new Dimension(138, 38));
@@ -90,11 +88,9 @@ public final class SettingsScreen extends JPanel {
 			column.add(b);
 			column.add(Box.createVerticalStrut(2));
 		}
-		JPanel navHolder = new JPanel(new BorderLayout());
-		navHolder.setOpaque(false);
-		navHolder.add(column, BorderLayout.NORTH);
+		JPanel navHolder = Scrolls.hugTop(column);
 		navHolder.setPreferredSize(new Dimension(150, 0));
-		navHolder.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, sep()));
+		navHolder.setBorder(Borders.hairlineRight());
 
 		add(navHolder, BorderLayout.WEST);
 		add(content, BorderLayout.CENTER);
@@ -106,7 +102,8 @@ public final class SettingsScreen extends JPanel {
 		for (Map.Entry<Tab, PressButton> e : nav.entrySet()) {
 			boolean on = e.getKey() == t;
 			e.getValue().setSelected(on);
-			e.getValue().setForeground(on ? LAF.ACCENT : UIManager.getColor("Button.foreground"));
+			if (on) Styles.classes(e.getValue(), Styles.ACCENT);
+			else Styles.classes(e.getValue());
 		}
 		cards.show(content, t.name());
 	}
@@ -133,10 +130,5 @@ public final class SettingsScreen extends JPanel {
 
 	public AuthPanel auth() {
 		return auth;
-	}
-
-	private static Color sep() {
-		Color c = UIManager.getColor("Separator.foreground");
-		return (c != null) ? c : Color.GRAY;
 	}
 }

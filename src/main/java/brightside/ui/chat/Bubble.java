@@ -4,27 +4,26 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FontMetrics;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
 
 import javax.swing.BorderFactory;
-import javax.swing.JPanel;
 import javax.swing.JTextArea;
-import javax.swing.text.DefaultCaret;
+
+import brightside.ui.components.Card;
+import brightside.ui.components.SelectableText;
 
 /**
- * A rounded message bubble wrapping a wrapping, selectable text area. The text
- * is read-only: the bubble never takes keyboard focus (so the chat input keeps
- * it) and shows no insert caret, but stays mouse-selectable with the selection
- * painted even without focus. Its width reflows to a share of the viewport.
+ * A rounded message bubble — a {@link Card} — wrapping a run of
+ * {@link SelectableText}. The text is read-only: the bubble never takes
+ * keyboard focus (so the chat input keeps it) and shows no insert caret, but
+ * stays mouse-selectable with the selection painted even without focus. Its
+ * width reflows to a share of the viewport.
  *
  * <p>The bubble is deliberately dumb — selection tracking and the context menu
  * are wired by {@link ChatPanel} onto {@link #textArea()}, so a bubble can be
  * reused wherever a rounded, selectable run of text is wanted.
  */
 @SuppressWarnings("serial")
-final class Bubble extends JPanel {
+final class Bubble extends Card {
 	private static final int ARC = 20;
 	private static final int PAD_H = 14;
 	private static final int PAD_V = 10;
@@ -32,40 +31,16 @@ final class Bubble extends JPanel {
 	// the last word at its own natural width — leaving a too-thin, extra-line bubble.
 	private static final int WRAP_SLACK = 6;
 
-	private final JTextArea ta;
-	private final Color bg;
+	private final SelectableText ta;
 	private int maxWidth = 460;
 
+	/** {@code bg} null paints the theme's surface (the assistant's side). */
 	Bubble(String text, Color bg, Color fg) {
-		super(new BorderLayout());
-		this.bg = bg;
-		setOpaque(false);
-		ta = new JTextArea(text);
-		ta.setEditable(false);
-		ta.setLineWrap(true);
-		ta.setWrapStyleWord(true);
-		ta.setOpaque(false);
-		ta.setForeground(fg);
-		// A read-only bubble never takes keyboard focus (so the input keeps it)
-		// and shows no insert caret — but stays mouse-selectable, with the
-		// selection painted even without focus.
-		ta.setFocusable(false);
-		DefaultCaret caret = new DefaultCaret() {
-			@Override
-			public void setVisible(boolean visible) {
-				super.setVisible(false);
-			}
-
-			@Override
-			public void setSelectionVisible(boolean visible) {
-				super.setSelectionVisible(true);
-			}
-		};
-		caret.setBlinkRate(0);
-		ta.setCaret(caret);
-		caret.setSelectionVisible(true);
+		super(ARC);
+		setLayout(new BorderLayout());
+		fill(bg);
+		ta = new SelectableText(text).unfocusable().colour(fg).size(1f);
 		ta.setBorder(BorderFactory.createEmptyBorder(PAD_V, PAD_H, PAD_V, PAD_H));
-		ta.setFont(ta.getFont().deriveFont(ta.getFont().getSize2D() + 1f));
 		add(ta, BorderLayout.CENTER);
 	}
 
@@ -100,15 +75,5 @@ final class Bubble extends JPanel {
 	@Override
 	public Dimension getMaximumSize() {
 		return getPreferredSize();
-	}
-
-	@Override
-	protected void paintComponent(Graphics g) {
-		Graphics2D g2 = (Graphics2D) g.create();
-		g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-		g2.setColor(bg);
-		g2.fillRoundRect(0, 0, getWidth(), getHeight(), ARC, ARC);
-		g2.dispose();
-		super.paintComponent(g);
 	}
 }

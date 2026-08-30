@@ -1,86 +1,58 @@
 package brightside.ui.inbox;
 
-import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
 import java.awt.Insets;
-import java.awt.RenderingHints;
 
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.UIManager;
 
 import brightside.Inbox;
-import brightside.ui.LAF;
-import brightside.ui.Lucide;
-import brightside.ui.PressButton;
+import brightside.ui.components.Card;
+import brightside.ui.components.Disclosure;
+import brightside.ui.components.Labels;
+import brightside.ui.components.Panels;
+import brightside.ui.components.Styles;
+import brightside.ui.components.Theme;
 
 /**
- * One request as a card in the Inbox column: a rounded, tinted panel — open
- * requests carry the accent tint, resolved ones sit quietly — whose header
- * (chevron, title, who and when, a status chip) collapses or expands the body,
- * the {@link RequestForm}. Cards are what keep long requests readable and
- * separate: each is its own bordered block, and only the ones you are dealing
- * with need to be open.
+ * One request as a card in the Inbox column: a rounded, tinted {@link Card} —
+ * open requests carry the accent tint, resolved ones sit quietly — holding a
+ * {@link Disclosure} whose header (chevron, title, who and when, a status chip)
+ * collapses or expands the body, the {@link RequestForm}. Cards are what keep
+ * long requests readable and separate: each is its own bordered block, and
+ * only the ones you are dealing with need to be open.
  */
 @SuppressWarnings("serial")
-final class RequestCard extends JPanel {
-
-	private static final int ARC = 14;
+final class RequestCard extends Card {
 
 	private final Inbox.Request request;
 	private final RequestForm form;
-	private final PressButton header;
-	private final JLabel chevron = new JLabel();
-	private boolean expanded;
+	private final Disclosure disclosure;
 
 	RequestCard(Inbox.Request request, RequestForm.Listener listener, boolean expanded) {
+		super(Card.ARC);
 		this.request = request;
-		this.expanded = expanded;
 		setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-		setOpaque(false);
 		setAlignmentX(LEFT_ALIGNMENT);
 		setBorder(BorderFactory.createEmptyBorder(1, 1, 1, 1));
 
-		header = new PressButton("");
-		header.setLayout(new BorderLayout(10, 0));
-		header.setMargin(new Insets(10, 12, 10, 12));
-		header.setAlignmentX(LEFT_ALIGNMENT);
-		header.setHorizontalAlignment(PressButton.LEFT);
-		header.setToolTipText(request.open() ? "Show or hide this request" : "Show or hide the resolved request");
-
-		JLabel title = new JLabel(request.title());
-		title.putClientProperty("html.disable", Boolean.TRUE);
-		title.setFont(title.getFont().deriveFont(request.open() ? Font.BOLD : Font.PLAIN, 14f));
-		JLabel meta = new JLabel(RequestForm.meta(request));
-		meta.putClientProperty("html.disable", Boolean.TRUE);
-		meta.putClientProperty("FlatLaf.styleClass", "small");
-		meta.setForeground(muted());
-		JPanel text = new JPanel();
-		text.setOpaque(false);
-		text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
-		title.setAlignmentX(LEFT_ALIGNMENT);
-		meta.setAlignmentX(LEFT_ALIGNMENT);
+		JLabel title = Labels.text(request.title());
+		Styles.style(title, request.open() ? "font: bold -1" : "font: -1");
+		JPanel text = Panels.column();
 		text.add(title);
-		text.add(meta);
-
-		header.add(chevron, BorderLayout.WEST);
-		header.add(text, BorderLayout.CENTER);
-		header.add(chip(request), BorderLayout.EAST);
-		header.onPress(this::toggle);
+		text.add(Labels.small(RequestForm.meta(request)));
 
 		form = new RequestForm(request, listener);
-		form.setAlignmentX(LEFT_ALIGNMENT);
 		form.setBorder(BorderFactory.createEmptyBorder(0, 18, 14, 18));
 
-		add(header);
-		add(form);
-		apply();
+		disclosure = new Disclosure(text, form).trailing(chip(request));
+		disclosure.header().setMargin(new Insets(10, 12, 10, 12));
+		disclosure.header().setToolTipText(request.open() ? "Show or hide this request" : "Show or hide the resolved request");
+		disclosure.setExpanded(expanded);
+		add(disclosure);
 	}
 
 	Inbox.Request request() {
@@ -92,31 +64,16 @@ final class RequestCard extends JPanel {
 	}
 
 	boolean expanded() {
-		return expanded;
+		return disclosure.isExpanded();
 	}
 
 	void setExpanded(boolean expanded) {
-		if (this.expanded == expanded) return;
-		this.expanded = expanded;
-		apply();
-	}
-
-	private void toggle() {
-		setExpanded(!expanded);
-	}
-
-	private void apply() {
-		form.setVisible(expanded);
-		chevron.setIcon(Lucide.icon(expanded ? "chevron-down" : "chevron-right", 16, muted()));
-		revalidate();
-		repaint();
+		disclosure.setExpanded(expanded);
 	}
 
 	/** "Waiting for you" in the accent while open; otherwise the outcome, quietly. */
 	private static JLabel chip(Inbox.Request r) {
-		JLabel chip = new JLabel(r.open() ? "Waiting for you" : outcome(r));
-		chip.putClientProperty("FlatLaf.styleClass", "small");
-		chip.setForeground(r.open() ? LAF.ACCENT : muted());
+		JLabel chip = Labels.small(r.open() ? "Waiting for you" : outcome(r), r.open() ? Styles.ACCENT : Styles.MUTED);
 		chip.setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 0));
 		return chip;
 	}
@@ -136,45 +93,16 @@ final class RequestCard extends JPanel {
 		return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
 	}
 
-	/** A rounded card: an accent tint while the request is open, a faint one once resolved, and a hairline edge. */
+	/** An accent tint while the request is open, a faint one once resolved. */
 	@Override
-	protected void paintComponent(Graphics g) {
-		Graphics2D g2 = (Graphics2D) g.create();
-		g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-		Color base = panel();
-		Color fill = request.open() ? mix(base, LAF.ACCENT, 0.10f) : mix(base, foreground(), 0.03f);
-		g2.setColor(fill);
-		g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, ARC, ARC);
-		g2.setColor(request.open() ? mix(base, LAF.ACCENT, 0.45f) : line());
-		g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, ARC, ARC);
-		g2.dispose();
-		super.paintComponent(g);
+	protected Color fill() {
+		Color base = Theme.panel();
+		return request.open() ? Theme.blend(base, Theme.accent(), 0.10f) : Theme.blend(base, Theme.foreground(), 0.03f);
 	}
 
-	private static Color mix(Color a, Color b, float t) {
-		return new Color(
-			Math.round(a.getRed() + (b.getRed() - a.getRed()) * t),
-			Math.round(a.getGreen() + (b.getGreen() - a.getGreen()) * t),
-			Math.round(a.getBlue() + (b.getBlue() - a.getBlue()) * t));
-	}
-
-	private static Color panel() {
-		Color c = UIManager.getColor("Panel.background");
-		return (c != null) ? c : Color.DARK_GRAY;
-	}
-
-	private static Color foreground() {
-		Color c = UIManager.getColor("Label.foreground");
-		return (c != null) ? c : Color.LIGHT_GRAY;
-	}
-
-	private static Color muted() {
-		Color c = UIManager.getColor("Label.disabledForeground");
-		return (c != null) ? c : Color.GRAY;
-	}
-
-	private static Color line() {
-		Color c = UIManager.getColor("Separator.foreground");
-		return (c != null) ? c : Color.GRAY;
+	/** A hairline edge: accent-tinted while open, the theme's line once resolved. */
+	@Override
+	protected Color outline() {
+		return request.open() ? Theme.blend(Theme.panel(), Theme.accent(), 0.45f) : Theme.line();
 	}
 }

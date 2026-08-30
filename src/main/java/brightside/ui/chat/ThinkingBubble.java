@@ -1,14 +1,15 @@
 package brightside.ui.chat;
 
 import java.awt.BorderLayout;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
 
 import javax.swing.BorderFactory;
 import javax.swing.JLabel;
-import javax.swing.JPanel;
 import javax.swing.Timer;
+
+import brightside.ui.components.Card;
+import brightside.ui.components.Labels;
+import brightside.ui.components.Styles;
+import brightside.ui.components.Theme;
 
 /**
  * Compact assistant-side progress bubble for an in-flight turn.
@@ -18,27 +19,22 @@ import javax.swing.Timer;
  * tap, safe narration and tool-name events can update this same component.
  */
 @SuppressWarnings("serial")
-final class ThinkingBubble extends JPanel {
+final class ThinkingBubble extends Card {
 
 	private static final long SHOW_ELAPSED_AFTER_MS = 8_000;
 
-	private final TypingIndicator indicator = new TypingIndicator(ChatStyle.muted());
-	private final JLabel summary = new JLabel();
-	private final JLabel elapsed = new JLabel();
+	private final TypingIndicator indicator = new TypingIndicator(Theme.muted());
+	private final JLabel summary = Styles.classes(Labels.text(""), Styles.SMALL);
+	private final JLabel elapsed = Labels.small("");
 	private final Timer clock;
 	private long startedAt;
 
 	ThinkingBubble(String initialSummary) {
-		super(new BorderLayout(10, 0));
-		setOpaque(false);
+		super(20);
+		setLayout(new BorderLayout(10, 0));
 		setBorder(BorderFactory.createEmptyBorder(10, 14, 10, 14));
 
-		summary.setForeground(ChatStyle.foreground());
-		summary.putClientProperty("FlatLaf.styleClass", "small");
 		setSummary(initialSummary);
-
-		elapsed.setForeground(ChatStyle.muted());
-		elapsed.putClientProperty("FlatLaf.styleClass", "small");
 		elapsed.setVisible(false);
 
 		add(indicator, BorderLayout.WEST);
@@ -78,15 +74,5 @@ final class ThinkingBubble extends JPanel {
 			elapsed.setVisible(true);
 			revalidate();
 		}
-	}
-
-	@Override
-	protected void paintComponent(Graphics g) {
-		Graphics2D g2 = (Graphics2D) g.create();
-		g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-		g2.setColor(ChatStyle.assistantBg());
-		g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
-		g2.dispose();
-		super.paintComponent(g);
 	}
 }

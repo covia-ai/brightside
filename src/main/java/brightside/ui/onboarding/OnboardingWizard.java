@@ -2,18 +2,15 @@ package brightside.ui.onboarding;
 
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
-import java.awt.Color;
 import java.awt.Component;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
-import java.awt.Toolkit;
-import java.awt.datatransfer.StringSelection;
 import java.util.Random;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
-import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
@@ -22,17 +19,25 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JRadioButton;
-import javax.swing.JTextArea;
+import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
+
+import com.formdev.flatlaf.FlatClientProperties;
 
 import brightside.Identity;
 import brightside.model.Providers;
 import brightside.ui.Icons;
-import brightside.ui.LAF;
-import brightside.ui.ModelSelector;
+import brightside.ui.components.Buttons;
+import brightside.ui.components.Clipboard;
+import brightside.ui.components.Documents;
+import brightside.ui.components.Labels;
+import brightside.ui.components.Links;
+import brightside.ui.components.ModelSelector;
+import brightside.ui.components.Panels;
+import brightside.ui.components.PressButton;
+import brightside.ui.components.Styles;
+import brightside.ui.components.TextArea;
 import brightside.vault.Mnemonic;
 
 /**
@@ -59,14 +64,17 @@ public final class OnboardingWizard extends JPanel {
 		WELCOME, PASSPHRASE, IDENTITY, RECOVERY, CONFIRM, IMPORT, NAME, PROVIDER
 	}
 
+	/** The width the app's own copy wraps at on these screens. */
+	private static final int COPY_WIDTH = 440;
+
 	private final Listener listener;
 
-	private final JLabel titleLabel = OnboardingUI.title("");
-	private final JLabel subtitleLabel = OnboardingUI.subtitle("");
+	private final JLabel titleLabel = Labels.title("");
+	private final JLabel subtitleLabel = Styles.classes(Labels.html("", COPY_WIDTH, SwingConstants.CENTER), Styles.MUTED);
 	private final JPanel cards = new JPanel(new CardLayout());
-	private final JButton back = OnboardingUI.secondary("Back");
-	private final JButton next = OnboardingUI.primary("Continue");
-	private final JLabel error = OnboardingUI.caption(" ");
+	private final JButton back = Buttons.secondary("Back");
+	private final JButton next = Buttons.primary("Continue");
+	private final JLabel error = Labels.small(" ");
 	private final OnboardingUI.Dots dots = new OnboardingUI.Dots();
 
 	// State captured across steps.
@@ -78,12 +86,12 @@ public final class OnboardingWizard extends JPanel {
 	private int confirmA, confirmB;
 	private final JTextField confirmFieldA = new JTextField(14);
 	private final JTextField confirmFieldB = new JTextField(14);
-	private final JTextArea importArea = new JTextArea(3, 30);
-	private final JLabel importStatus = OnboardingUI.caption(" ");
+	private final TextArea importArea = new TextArea(3, 30).placeholder("your twelve or twenty-four words…");
+	private final JLabel importStatus = Labels.small(" ");
 	private final JTextField nameField = new JTextField(16);
 	private final ModelSelector modelSelector = new ModelSelector();
 	private final JPasswordField keyField = new JPasswordField(30);
-	private final JLabel keyLink = OnboardingUI.link("Get an API key →", Providers.defaultProvider().consoleUrl());
+	private final PressButton keyLink = Buttons.link("Get an API key →", Providers.defaultProvider().consoleUrl());
 	private final JRadioButton useKey = new JRadioButton("Use my own model provider", true);
 	private final JRadioButton useOffline = new JRadioButton("Skip for now — use the offline echo bot");
 
@@ -117,15 +125,11 @@ public final class OnboardingWizard extends JPanel {
 	// ------------------------------------------------------------------
 
 	private Component header() {
-		JPanel p = new JPanel();
-		p.setOpaque(false);
-		p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
+		JPanel p = column();
 		p.setBorder(BorderFactory.createEmptyBorder(28, 0, 4, 0));
-		JLabel mark = new JLabel(new ImageIcon(Icons.icon(56)));
+		JLabel mark = Labels.icon(new ImageIcon(Icons.icon(56)));
 		mark.setAlignmentX(CENTER_ALIGNMENT);
-		JLabel word = new JLabel("Brightside");
-		word.setForeground(OnboardingUI.muted());
-		word.putClientProperty("FlatLaf.styleClass", "small");
+		JLabel word = Labels.small("Brightside");
 		word.setAlignmentX(CENTER_ALIGNMENT);
 		p.add(mark);
 		p.add(Box.createVerticalStrut(6));
@@ -136,9 +140,7 @@ public final class OnboardingWizard extends JPanel {
 	private Component centre() {
 		JPanel wrap = new JPanel(new GridBagLayout());
 		wrap.setOpaque(false);
-		JPanel col = new JPanel();
-		col.setOpaque(false);
-		col.setLayout(new BoxLayout(col, BoxLayout.Y_AXIS));
+		JPanel col = column();
 		col.setBorder(BorderFactory.createEmptyBorder(8, 32, 8, 32));
 		titleLabel.setAlignmentX(CENTER_ALIGNMENT);
 		subtitleLabel.setAlignmentX(CENTER_ALIGNMENT);
@@ -153,16 +155,12 @@ public final class OnboardingWizard extends JPanel {
 	}
 
 	private Component footer() {
-		JPanel p = new JPanel();
-		p.setOpaque(false);
-		p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
+		JPanel p = column();
 		p.setBorder(BorderFactory.createEmptyBorder(0, 0, 22, 0));
 		error.setAlignmentX(CENTER_ALIGNMENT);
 		error.setHorizontalAlignment(SwingConstants.CENTER);
 		dots.setAlignmentX(CENTER_ALIGNMENT);
-		JPanel buttons = new JPanel();
-		buttons.setOpaque(false);
-		buttons.setLayout(new BoxLayout(buttons, BoxLayout.X_AXIS));
+		JPanel buttons = Panels.row();
 		buttons.setAlignmentX(CENTER_ALIGNMENT);
 		buttons.add(back);
 		buttons.add(Box.createHorizontalStrut(10));
@@ -181,29 +179,28 @@ public final class OnboardingWizard extends JPanel {
 
 	private JComponent welcomeCard() {
 		JPanel c = column();
-		c.add(OnboardingUI.html("Your own agent, on your own machine, under your own identity. "
+		c.add(copy("Your own agent, on your own machine, under your own identity. "
 			+ "Nothing leaves this computer except the model calls you ask for.<br><br>"
-			+ "This takes about a minute.", 440, SwingConstants.CENTER));
+			+ "This takes about a minute."));
 		return c;
 	}
 
 	private JComponent passphraseCard() {
 		JPanel c = column();
-		pass1.putClientProperty("JTextField.placeholderText", "Passphrase");
-		pass2.putClientProperty("JTextField.placeholderText", "Confirm passphrase");
+		pass1.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Passphrase");
+		pass2.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Confirm passphrase");
 		big(pass1);
 		big(pass2);
-		pass1.getDocument().addDocumentListener((Simple) e -> strength.set(OnboardingUI.scorePassphrase(pass1.getPassword())));
+		Documents.onChange(pass1, () -> strength.set(OnboardingUI.scorePassphrase(pass1.getPassword())));
 		c.add(pass1);
 		c.add(Box.createVerticalStrut(10));
 		c.add(pass2);
 		c.add(Box.createVerticalStrut(16));
 		c.add(strength);
 		c.add(Box.createVerticalStrut(16));
-		JLabel warn = OnboardingUI.html("⚠  Keep your recovery phrase safe. It can reset a forgotten passphrase "
-			+ "and reopen retained Brightside data; provider API keys must be entered again.", 420, SwingConstants.CENTER);
-		warn.setForeground(OnboardingUI.muted());
-		warn.putClientProperty("FlatLaf.styleClass", "small");
+		JLabel warn = copy("⚠  Keep your recovery phrase safe. It can reset a forgotten passphrase "
+			+ "and reopen retained Brightside data; provider API keys must be entered again.");
+		Styles.classes(warn, Styles.SMALL, Styles.MUTED);
 		c.add(warn);
 		return c;
 	}
@@ -215,7 +212,7 @@ public final class OnboardingWizard extends JPanel {
 		for (JRadioButton r : new JRadioButton[] { create, importer }) {
 			r.setOpaque(false);
 			r.setAlignmentX(CENTER_ALIGNMENT);
-			r.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+			r.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		}
 		ButtonGroup g = new ButtonGroup();
 		g.add(create);
@@ -234,10 +231,10 @@ public final class OnboardingWizard extends JPanel {
 		JPanel c = column();
 		recoveryGrid.setOpaque(false);
 		recoveryGrid.setMaximumSize(new Dimension(460, 240));
-		JButton copy = OnboardingUI.secondary("Copy");
+		JButton copy = Buttons.secondary("Copy");
 		copy.addActionListener(e -> {
 			if (mnemonic != null) {
-				Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(mnemonic), null);
+				Clipboard.copy(mnemonic);
 				setError("Copied to the clipboard.", false);
 			}
 		});
@@ -252,8 +249,8 @@ public final class OnboardingWizard extends JPanel {
 		JPanel c = column();
 		big(confirmFieldA);
 		big(confirmFieldB);
-		JLabel la = OnboardingUI.caption("");
-		JLabel lb = OnboardingUI.caption("");
+		JLabel la = Labels.small("");
+		JLabel lb = Labels.small("");
 		la.putClientProperty("confirm", "a");
 		lb.putClientProperty("confirm", "b");
 		JPanel rowA = labelled(la, confirmFieldA);
@@ -272,13 +269,12 @@ public final class OnboardingWizard extends JPanel {
 		JPanel c = column();
 		importArea.setLineWrap(true);
 		importArea.setWrapStyleWord(true);
-		importArea.putClientProperty("JTextArea.placeholderText", "your twelve or twenty-four words…");
-		importArea.setFont(importArea.getFont().deriveFont(importArea.getFont().getSize2D() + 2f));
-		javax.swing.JScrollPane sp = new javax.swing.JScrollPane(importArea);
+		Styles.style(importArea, "font: +2");
+		JScrollPane sp = new JScrollPane(importArea);
 		sp.setPreferredSize(new Dimension(440, 90));
 		sp.setMaximumSize(new Dimension(440, 90));
 		sp.setAlignmentX(CENTER_ALIGNMENT);
-		importArea.getDocument().addDocumentListener((Simple) e -> validateImport());
+		Documents.onChange(importArea, this::validateImport);
 		c.add(sp);
 		c.add(Box.createVerticalStrut(10));
 		c.add(importStatus);
@@ -288,10 +284,10 @@ public final class OnboardingWizard extends JPanel {
 	private JComponent nameCard() {
 		JPanel c = column();
 		nameField.setHorizontalAlignment(JTextField.CENTER);
-		nameField.setFont(nameField.getFont().deriveFont(nameField.getFont().getSize2D() + 6f));
+		Styles.style(nameField, "font: +6");
 		nameField.setMaximumSize(new Dimension(320, nameField.getPreferredSize().height + 12));
 		nameField.setAlignmentX(CENTER_ALIGNMENT);
-		nameField.putClientProperty("JTextField.placeholderText", "Your name");
+		nameField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Your name");
 		c.add(nameField);
 		return c;
 	}
@@ -309,18 +305,16 @@ public final class OnboardingWizard extends JPanel {
 		modelSelector.addSelectionListener(this::onProviderChanged);
 		onProviderChanged();
 		big(keyField);
-		keyField.setFont(LAF.monospaced(keyField.getFont()));
-		keyField.putClientProperty("JTextField.placeholderText", "Paste your API key");
+		Styles.style(keyField, "font: +3 $monospaced.font");
+		keyField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Paste your API key");
 
 		modelSelector.setAlignmentX(CENTER_ALIGNMENT);
 		modelSelector.setMaximumSize(new Dimension(420, modelSelector.getPreferredSize().height));
 
-		JPanel keyBox = new JPanel();
-		keyBox.setOpaque(false);
-		keyBox.setLayout(new BoxLayout(keyBox, BoxLayout.Y_AXIS));
-		keyBox.setAlignmentX(CENTER_ALIGNMENT);
+		JPanel keyBox = column();
 		keyBox.add(keyField);
 		keyBox.add(Box.createVerticalStrut(6));
+		keyLink.setAlignmentX(CENTER_ALIGNMENT);
 		keyBox.add(keyLink);
 
 		useKey.addActionListener(e -> setKeyEnabled(true));
@@ -503,20 +497,14 @@ public final class OnboardingWizard extends JPanel {
 		}
 		boolean ok = Mnemonic.isValid(text);
 		importStatus.setText(ok ? "✓ valid phrase" : "not a valid phrase yet…");
-		importStatus.setForeground(ok ? new Color(0x3F, 0xB9, 0x50) : OnboardingUI.muted());
+		Styles.classes(importStatus, Styles.SMALL, ok ? Styles.SUCCESS : Styles.MUTED);
 	}
 
 	private void onProviderChanged() {
 		Providers.Provider p = modelSelector.selectedProvider();
 		if (p == null) return;
-		keyLink.setText("<html><a href=''>Get a " + p.label() + " key →</a></html>");
-		for (var l : keyLink.getMouseListeners()) keyLink.removeMouseListener(l);
-		keyLink.addMouseListener(new java.awt.event.MouseAdapter() {
-			@Override
-			public void mousePressed(java.awt.event.MouseEvent e) {
-				if (javax.swing.SwingUtilities.isLeftMouseButton(e)) OnboardingUI.open(p.consoleUrl());
-			}
-		});
+		keyLink.setText("Get a " + p.label() + " key →");
+		keyLink.onPress(() -> Links.open(p.consoleUrl()));
 		boolean needsKey = p.needsApiKey();
 		if (useKey.isSelected()) setKeyEnabled(true);
 		keyField.setVisible(needsKey);
@@ -543,60 +531,41 @@ public final class OnboardingWizard extends JPanel {
 
 	private void set(String title, String subtitleHtml, String nextText, boolean showNext) {
 		titleLabel.setText(title);
-		subtitleLabel.setText("<html><div style='text-align:center; width:440px;'>" + subtitleHtml + "</div></html>");
+		subtitleLabel.setText(Labels.wrap(subtitleHtml, COPY_WIDTH, SwingConstants.CENTER));
 		next.setText(nextText);
 		next.setVisible(showNext);
 	}
 
 	private void setError(String message, boolean isError) {
 		error.setText(message);
-		error.setForeground(isError ? new Color(0xE5, 0x53, 0x53) : OnboardingUI.muted());
+		Styles.classes(error, Styles.SMALL, isError ? Styles.ERROR : Styles.MUTED);
+	}
+
+	/** The app's own copy for a step, centred and wrapped. */
+	private static JLabel copy(String html) {
+		JLabel l = Labels.html(html, COPY_WIDTH, SwingConstants.CENTER);
+		l.setAlignmentX(CENTER_ALIGNMENT);
+		return l;
 	}
 
 	private static JPanel column() {
-		JPanel c = new JPanel();
-		c.setOpaque(false);
-		c.setLayout(new BoxLayout(c, BoxLayout.Y_AXIS));
+		JPanel c = Panels.column();
 		c.setAlignmentX(CENTER_ALIGNMENT);
 		return c;
 	}
 
 	private static void big(JComponent field) {
-		field.setFont(field.getFont().deriveFont(field.getFont().getSize2D() + 3f));
+		Styles.style(field, "font: +3");
 		field.setMaximumSize(new Dimension(360, field.getPreferredSize().height + 10));
 		field.setAlignmentX(CENTER_ALIGNMENT);
 	}
 
 	private static JPanel labelled(JLabel label, JComponent field) {
-		JPanel row = new JPanel();
-		row.setOpaque(false);
-		row.setLayout(new BoxLayout(row, BoxLayout.Y_AXIS));
-		row.setAlignmentX(CENTER_ALIGNMENT);
+		JPanel row = column();
 		label.setAlignmentX(CENTER_ALIGNMENT);
 		row.add(label);
 		row.add(Box.createVerticalStrut(4));
 		row.add(field);
 		return row;
-	}
-
-	/** A DocumentListener whose three methods collapse to one callback. */
-	@FunctionalInterface
-	private interface Simple extends DocumentListener {
-		void update(DocumentEvent e);
-
-		@Override
-		default void insertUpdate(DocumentEvent e) {
-			update(e);
-		}
-
-		@Override
-		default void removeUpdate(DocumentEvent e) {
-			update(e);
-		}
-
-		@Override
-		default void changedUpdate(DocumentEvent e) {
-			update(e);
-		}
 	}
 }

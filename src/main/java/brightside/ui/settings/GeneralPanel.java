@@ -1,17 +1,18 @@
 package brightside.ui.settings;
 
 import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Cursor;
-import java.awt.Font;
 
-import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JTextArea;
 
+import brightside.ui.components.Borders;
+import brightside.ui.components.Buttons;
+import brightside.ui.components.Labels;
+import brightside.ui.components.Scrolls;
+import brightside.ui.components.SelectableText;
+import brightside.ui.components.Styles;
 import net.miginfocom.swing.MigLayout;
 
 /** The everyday application actions, account controls and desktop preferences. */
@@ -52,7 +53,7 @@ public final class GeneralPanel extends JPanel {
 	private final JButton logout;
 	private final JCheckBox keepInTray = new JCheckBox("Keep running in the tray when I close the window");
 	private final JCheckBox minimiseToTray = new JCheckBox("Send Brightside to the tray when minimised");
-	private final JLabel trayNote = SettingsUI.note();
+	private final JLabel trayNote = Labels.small(" ");
 	private final JButton hideToTray;
 	private final JButton dashboard;
 	private boolean syncing;
@@ -63,7 +64,7 @@ public final class GeneralPanel extends JPanel {
 		JPanel form = new JPanel(new MigLayout(
 			"insets 24 28 20 28, fillx, wrap 2", "[grow,fill]16[]", ""));
 
-		form.add(SettingsUI.description("Everyday application controls, desktop behaviour and advanced local tools."),
+		form.add(SelectableText.description("Everyday application controls, desktop behaviour and advanced local tools."),
 			"span 2, growx, wmin 0, gapbottom 14");
 
 		addSection(form, "Chat", false);
@@ -106,9 +107,9 @@ public final class GeneralPanel extends JPanel {
 		addSection(form, "Application", true);
 		JButton quit = addAction(form, "Quit Brightside", "Flush local state and stop Brightside completely.",
 			"Quit", host::quit);
-		quit.setForeground(new Color(0xE5, 0x53, 0x53));
+		Styles.classes(quit, Styles.ERROR);
 
-		add(SettingsUI.formScroll(form), BorderLayout.CENTER);
+		add(Scrolls.vertical(form), BorderLayout.CENTER);
 	}
 
 	/** Refreshes enablement and preferences whenever Settings becomes visible. */
@@ -131,25 +132,18 @@ public final class GeneralPanel extends JPanel {
 	}
 
 	private static void addSection(JPanel form, String text, boolean separated) {
-		JLabel heading = new JLabel(text);
-		heading.setFont(heading.getFont().deriveFont(Font.BOLD, heading.getFont().getSize2D() + 2f));
-		if (separated) heading.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, SettingsUI.separator()));
+		JLabel heading = Labels.section(text);
+		if (separated) heading.setBorder(Borders.hairlineTop());
 		form.add(heading, "span 2, growx, gaptop " + (separated ? 14 : 0) + ", gapbottom 6");
 	}
 
 	private static JButton addAction(JPanel form, String title, String detail, String buttonText, Runnable action) {
 		JPanel copy = new JPanel(new MigLayout("insets 0, fillx, wrap 1", "[grow,fill]", ""));
 		copy.setOpaque(false);
-		JLabel titleLabel = new JLabel(title);
-		titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD));
-		JTextArea detailLabel = SettingsUI.description(detail);
-		detailLabel.putClientProperty("FlatLaf.styleClass", "small");
-		copy.add(titleLabel, "growx");
-		copy.add(detailLabel, "growx");
+		copy.add(Labels.heading(title), "growx");
+		copy.add(SelectableText.description(detail).small(), "growx");
 
-		JButton button = new JButton(buttonText);
-		button.putClientProperty("JButton.buttonType", "roundRect");
-		button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		JButton button = Buttons.plain(buttonText);
 		button.addActionListener(e -> action.run());
 		form.add(copy, "growx, wmin 0, gaptop 3, gapbottom 5");
 		form.add(button, "aligny center, wmin 120, gapbottom 5");

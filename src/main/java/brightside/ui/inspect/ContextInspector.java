@@ -2,13 +2,9 @@ package brightside.ui.inspect;
 
 import static brightside.ui.inspect.Blocks.body;
 import static brightside.ui.inspect.Blocks.column;
-import static brightside.ui.inspect.Blocks.divider;
-import static brightside.ui.inspect.Blocks.errorColor;
 import static brightside.ui.inspect.Blocks.heading;
 import static brightside.ui.inspect.Blocks.kv;
 import static brightside.ui.inspect.Blocks.raw;
-import static brightside.ui.inspect.Blocks.scroll;
-import static brightside.ui.inspect.Blocks.small;
 
 import java.awt.BorderLayout;
 import java.util.List;
@@ -21,6 +17,10 @@ import javax.swing.JTabbedPane;
 
 import brightside.AgentContext;
 import brightside.SessionHistory;
+import brightside.ui.components.Labels;
+import brightside.ui.components.Panels;
+import brightside.ui.components.Scrolls;
+import brightside.ui.components.Styles;
 
 /**
  * A comprehensive, read-only view of the exact context an agent sends its model
@@ -40,10 +40,10 @@ public final class ContextInspector extends JPanel {
 		super(new BorderLayout());
 		JTabbedPane tabs = new JTabbedPane();
 		tabs.addTab("Overview", overview(report));
-		tabs.addTab("Context (" + report.messages().size() + ")", scroll(messages(report)));
-		tabs.addTab("Cycle detail (" + turns.size() + ")", scroll(cycle(turns)));
-		tabs.addTab("Tools (" + report.tools().size() + ")", scroll(tools(report)));
-		tabs.addTab("Skills (" + report.loads().size() + ")", scroll(loads(report)));
+		tabs.addTab("Context (" + report.messages().size() + ")", Scrolls.vertical(messages(report)));
+		tabs.addTab("Cycle detail (" + turns.size() + ")", Scrolls.vertical(cycle(turns)));
+		tabs.addTab("Tools (" + report.tools().size() + ")", Scrolls.vertical(tools(report)));
+		tabs.addTab("Skills (" + report.loads().size() + ")", Scrolls.vertical(loads(report)));
 		tabs.addTab("Raw", raw(report.rawJson()));
 		add(tabs, BorderLayout.CENTER);
 	}
@@ -63,7 +63,7 @@ public final class ContextInspector extends JPanel {
 		p.add(kv("Tools offered", r.tools().size() + (r.unavailable().isEmpty()
 			? "" : "  (" + r.unavailable().size() + " unavailable)")));
 		p.add(kv("Loaded entries", Integer.toString(r.loads().size())));
-		JLabel note = small("This is exactly what the assistant's model receives for this conversation — "
+		JLabel note = Labels.small("This is exactly what the assistant's model receives for this conversation — "
 			+ "assembled the same way as a live reply, but without sending it.");
 		note.setBorder(BorderFactory.createEmptyBorder(14, 0, 0, 0));
 		p.add(note);
@@ -81,48 +81,51 @@ public final class ContextInspector extends JPanel {
 		for (AgentContext.Message m : r.messages()) {
 			String head = m.role();
 			if (m.name() != null) head += "   ·  " + m.name() + (m.id() != null ? "  (" + shortId(m.id()) + ")" : "");
-			JLabel h = heading(head);
-			if (m.error()) h.setForeground(errorColor());
-			p.add(h);
+			p.add(roleHeading(head, m.error()));
 			if (!m.text().isBlank()) p.add(body(m.text(), false));
 			for (AgentContext.Call c : m.calls()) {
-				p.add(small("→ " + c.name() + (c.id() != null ? "  (" + shortId(c.id()) + ")" : "")));
+				p.add(Labels.small("→ " + c.name() + (c.id() != null ? "  (" + shortId(c.id()) + ")" : "")));
 				if (c.args() != null && !c.args().isBlank()) p.add(body(c.args(), true));
 			}
 			if (m.result() != null) {
-				p.add(small(m.error() ? "error result" : "result"));
+				p.add(Labels.small(m.error() ? "error result" : "result"));
 				p.add(body(m.result(), true));
 			}
-			p.add(divider());
+			p.add(Panels.rule());
 		}
-		if (r.messages().isEmpty()) p.add(small("No messages."));
+		if (r.messages().isEmpty()) p.add(Labels.small("No messages."));
 		return p;
 	}
 
 	private static JComponent cycle(List<SessionHistory.RawTurn> turns) {
 		JPanel p = column();
 		if (turns.isEmpty()) {
-			p.add(small("No turns recorded for this conversation."));
+			p.add(Labels.small("No turns recorded for this conversation."));
 			return p;
 		}
 		for (SessionHistory.RawTurn t : turns) {
 			String head = t.role();
 			if (t.meta() != null && !t.meta().isBlank()) head += "   ·  " + t.meta();
-			JLabel h = heading(head);
-			if (t.error()) h.setForeground(errorColor());
-			p.add(h);
+			p.add(roleHeading(head, t.error()));
 			if (t.content() != null && !t.content().isBlank()) p.add(body(t.content(), false));
 			for (SessionHistory.RawCall c : t.calls()) {
-				p.add(small("→ " + c.name() + (c.id() != null ? "  (" + shortId(c.id()) + ")" : "")));
+				p.add(Labels.small("→ " + c.name() + (c.id() != null ? "  (" + shortId(c.id()) + ")" : "")));
 				if (c.args() != null && !c.args().isBlank()) p.add(body(c.args(), true));
 			}
 			if (t.toolResult() != null && !t.toolResult().isBlank()) {
-				p.add(small(t.error() ? "error result" : "result"));
+				p.add(Labels.small(t.error() ? "error result" : "result"));
 				p.add(body(t.toolResult(), true));
 			}
-			p.add(divider());
+			p.add(Panels.rule());
 		}
 		return p;
+	}
+
+	/** A heading, in the error tone when the message or turn failed. */
+	private static JLabel roleHeading(String text, boolean error) {
+		JLabel h = heading(text);
+		if (error) Styles.classes(h, Styles.STRONG, Styles.ERROR);
+		return h;
 	}
 
 	private static String shortId(String id) {
@@ -136,13 +139,13 @@ public final class ContextInspector extends JPanel {
 			if (t.source() != null) title += "   · " + t.source();
 			p.add(heading(title));
 			if (t.description() != null && !t.description().isBlank()) p.add(body(t.description(), false));
-			p.add(divider());
+			p.add(Panels.rule());
 		}
 		if (!r.unavailable().isEmpty()) {
 			p.add(heading("Unavailable"));
 			p.add(body(String.join("\n", r.unavailable()), false));
 		}
-		if (r.tools().isEmpty() && r.unavailable().isEmpty()) p.add(small("No tools offered."));
+		if (r.tools().isEmpty() && r.unavailable().isEmpty()) p.add(Labels.small("No tools offered."));
 		return p;
 	}
 
@@ -156,10 +159,10 @@ public final class ContextInspector extends JPanel {
 			meta.append(meta.length() > 0 ? "  ·  " : "").append(String.format("%,d / %,d bytes", l.bytes(), l.budget()));
 			if (l.truncated()) meta.append("  ·  truncated");
 			if (l.deduplicated()) meta.append("  ·  deduplicated");
-			p.add(small(meta.toString()));
-			p.add(divider());
+			p.add(Labels.small(meta.toString()));
+			p.add(Panels.rule());
 		}
-		if (r.loads().isEmpty()) p.add(small("Nothing loaded."));
+		if (r.loads().isEmpty()) p.add(Labels.small("Nothing loaded."));
 		return p;
 	}
 

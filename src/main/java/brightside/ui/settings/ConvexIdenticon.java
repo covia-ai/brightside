@@ -8,6 +8,10 @@ import java.awt.RenderingHints;
 
 import javax.swing.JLabel;
 
+import com.formdev.flatlaf.ui.FlatUIUtils;
+import com.formdev.flatlaf.util.UIScale;
+
+import brightside.ui.components.Theme;
 import convex.core.crypto.IdenticonBuilder;
 import convex.core.data.AccountKey;
 
@@ -27,7 +31,7 @@ final class ConvexIdenticon extends JLabel {
 	private int[] pixels;
 
 	ConvexIdenticon() {
-		Dimension size = new Dimension(DISPLAY_SIZE, DISPLAY_SIZE);
+		Dimension size = new Dimension(UIScale.scale(DISPLAY_SIZE), UIScale.scale(DISPLAY_SIZE));
 		setPreferredSize(size);
 		setMinimumSize(size);
 		setMaximumSize(size);
@@ -60,16 +64,23 @@ final class ConvexIdenticon extends JLabel {
 		super.paintComponent(g);
 		if (pixels == null) return;
 		Graphics2D g2 = (Graphics2D) g.create();
-		g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-		g2.setColor(SettingsUI.separator());
-		g2.drawRoundRect(0, 0, DISPLAY_SIZE - 1, DISPLAY_SIZE - 1, 6, 6);
-		g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
-		for (int y = 0; y < GRID_SIZE; y++) {
-			for (int x = 0; x < GRID_SIZE; x++) {
-				g2.setColor(new Color(pixels[x + y * GRID_SIZE], true));
-				g2.fillRect(INSET + x * CELL_SIZE, INSET + y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+		try {
+			int size = UIScale.scale(DISPLAY_SIZE);
+			int cell = UIScale.scale(CELL_SIZE);
+			int inset = UIScale.scale(INSET);
+			FlatUIUtils.setRenderingHints(g2);
+			g2.setColor(Theme.line());
+			g2.drawRoundRect(0, 0, size - 1, size - 1, UIScale.scale(6), UIScale.scale(6));
+			// The cells stay crisp: no antialiasing between them.
+			g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
+			for (int y = 0; y < GRID_SIZE; y++) {
+				for (int x = 0; x < GRID_SIZE; x++) {
+					g2.setColor(new Color(pixels[x + y * GRID_SIZE], true));
+					g2.fillRect(inset + x * cell, inset + y * cell, cell, cell);
+				}
 			}
+		} finally {
+			g2.dispose();
 		}
-		g2.dispose();
 	}
 }

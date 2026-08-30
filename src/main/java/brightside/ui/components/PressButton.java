@@ -1,4 +1,4 @@
-package brightside.ui;
+package brightside.ui.components;
 
 import java.awt.Cursor;
 import java.awt.event.MouseAdapter;
@@ -9,6 +9,8 @@ import javax.swing.ButtonModel;
 import javax.swing.DefaultButtonModel;
 import javax.swing.JPopupMenu;
 import javax.swing.JToggleButton;
+
+import com.formdev.flatlaf.FlatClientProperties;
 
 /**
  * The app's one button-like control for navigation and item lists: the bottom
@@ -41,7 +43,7 @@ public class PressButton extends JToggleButton {
 	public PressButton(String text) {
 		super(text);
 		setModel(new DefaultButtonModel());
-		putClientProperty("JButton.buttonType", "toolBarButton");
+		putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_TOOLBAR_BUTTON);
 		setFocusable(false);
 		setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		getModel().addChangeListener(e -> {

@@ -3,6 +3,8 @@ package brightside.ui.settings;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 
+import brightside.ui.components.Labels;
+
 /**
  * The <b>Vault</b> settings page: how Brightside is secured at rest. Shows the
  * encryption summary and whether a passphrase is remembered on this computer;
@@ -19,7 +21,7 @@ public final class VaultPanel extends SettingsPage {
 
 	private final Host host;
 	private final JCheckBox remember = new JCheckBox("Store my passphrase in plaintext on this computer");
-	private final JLabel hint = SettingsUI.note();
+	private final JLabel hint = Labels.small(" ");
 	private boolean baseline;
 
 	public VaultPanel(Host host) {

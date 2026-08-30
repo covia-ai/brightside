@@ -3,11 +3,13 @@ package brightside.ui.settings;
 import java.util.Objects;
 
 import javax.swing.JPasswordField;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
+
+import com.formdev.flatlaf.FlatClientProperties;
 
 import brightside.model.Providers;
-import brightside.ui.ModelSelector;
+import brightside.ui.components.Documents;
+import brightside.ui.components.ModelSelector;
+import brightside.ui.components.Styles;
 
 /**
  * The <b>Model</b> settings page: pick the provider and model, and replace the API
@@ -41,10 +43,10 @@ public final class ModelPanel extends SettingsPage {
 
 	private void build() {
 		keyField.setToolTipText("The provider's API key — stored encrypted; a new key applies at the next start");
-		keyField.setFont(SettingsUI.technicalFont(keyField.getFont()));
+		Styles.classes(keyField, Styles.MONOSPACED);
 		modelSelector.addSelectionListener(this::onModelSelection);
-		keyField.putClientProperty("JTextField.placeholderText", "Paste a new key to replace it (leave blank to keep)");
-		keyField.getDocument().addDocumentListener((SimpleDoc) e -> updateDirty());
+		keyField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Paste a new key to replace it (leave blank to keep)");
+		Documents.onChange(keyField, this::updateDirty);
 
 		primary.setEnabled(false);
 		primary.setToolTipText("Apply the selected model and store any new key");
@@ -61,7 +63,7 @@ public final class ModelPanel extends SettingsPage {
 		if (p == null) return;
 		boolean needsKey = p.secretName() != null;
 		keyField.setEnabled(needsKey);
-		keyField.putClientProperty("JTextField.placeholderText",
+		keyField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT,
 			needsKey ? "Paste a new key to replace it (leave blank to keep)" : "No key needed for this provider");
 		updateDirty();
 	}
@@ -114,26 +116,5 @@ public final class ModelPanel extends SettingsPage {
 		setNote(!keyOk ? "Couldn't store the key."
 			: keyStored ? "Saved. The new key applies after a restart." : "Saved.", !keyOk);
 		updateDirty();
-	}
-
-	/** A DocumentListener whose three methods collapse to one callback. */
-	@FunctionalInterface
-	private interface SimpleDoc extends DocumentListener {
-		void update(DocumentEvent e);
-
-		@Override
-		default void insertUpdate(DocumentEvent e) {
-			update(e);
-		}
-
-		@Override
-		default void removeUpdate(DocumentEvent e) {
-			update(e);
-		}
-
-		@Override
-		default void changedUpdate(DocumentEvent e) {
-			update(e);
-		}
 	}
 }

@@ -1,7 +1,6 @@
 package brightside.ui.onboarding;
 
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Frame;
@@ -9,7 +8,6 @@ import java.util.Arrays;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
-import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
@@ -17,11 +15,16 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
-import javax.swing.SwingConstants;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
 
+import com.formdev.flatlaf.FlatClientProperties;
+
+import brightside.ui.components.Buttons;
+import brightside.ui.components.Documents;
+import brightside.ui.components.Labels;
+import brightside.ui.components.Panels;
+import brightside.ui.components.SelectableText;
+import brightside.ui.components.Styles;
+import brightside.ui.components.TextArea;
 import brightside.vault.Mnemonic;
 
 /**
@@ -39,13 +42,13 @@ public final class RecoveryDialog extends JDialog {
 	}
 
 	private final Listener listener;
-	private final JTextArea phrase = new JTextArea(3, 30);
-	private final JLabel phraseStatus = OnboardingUI.caption(" ");
+	private final TextArea phrase = new TextArea(3, 30).placeholder("your twelve or twenty-four words…");
+	private final JLabel phraseStatus = Labels.small(" ");
 	private final JPasswordField pass1 = new JPasswordField(22);
 	private final JPasswordField pass2 = new JPasswordField(22);
 	private final OnboardingUI.Strength strength = new OnboardingUI.Strength();
-	private final JLabel status = OnboardingUI.caption(" ");
-	private final JButton recover = OnboardingUI.primary("Recover");
+	private final JLabel status = Labels.small(" ");
+	private final JButton recover = Buttons.primary("Recover");
 
 	public RecoveryDialog(Frame owner, Listener listener) {
 		super(owner, "Recover Brightside", true);
@@ -60,46 +63,40 @@ public final class RecoveryDialog extends JDialog {
 		JPanel root = new JPanel(new BorderLayout());
 		root.setBorder(BorderFactory.createEmptyBorder(22, 26, 18, 26));
 
-		JTextArea title = OnboardingUI.selectable("Recover Brightside");
-		title.setFont(title.getFont().deriveFont(java.awt.Font.BOLD, title.getFont().getSize2D() + 8f));
-		JTextArea sub = OnboardingUI.selectable("Restore access with your recovery phrase and set a new passphrase.");
-		sub.setForeground(OnboardingUI.muted());
-		JTextArea warn = OnboardingUI.selectable("Your conversations and memory are encrypted to your identity, "
+		JLabel title = Labels.title("Recover Brightside");
+		SelectableText sub = SelectableText.description("Restore access with your recovery phrase and set a new passphrase.");
+		SelectableText warn = SelectableText.description("Your conversations and memory are encrypted to your identity, "
 			+ "not your passphrase — so your 12- or 24-word recovery phrase reopens the existing vault. You'll set a "
 			+ "new passphrase now; you may need to re-enter provider API keys afterwards.");
-		warn.setForeground(OnboardingUI.muted());
 		warn.setMaximumSize(new Dimension(500, Integer.MAX_VALUE));
 
 		phrase.setLineWrap(true);
 		phrase.setWrapStyleWord(true);
-		phrase.putClientProperty("JTextArea.placeholderText", "your twelve or twenty-four words…");
-		phrase.getDocument().addDocumentListener((Simple) e -> validatePhrase());
+		Documents.onChange(phrase, this::validatePhrase);
 		JScrollPane sp = new JScrollPane(phrase);
 		sp.setPreferredSize(new Dimension(480, 76));
 		sp.setMaximumSize(new Dimension(Integer.MAX_VALUE, 76));
 
-		pass1.putClientProperty("JTextField.placeholderText", "New passphrase");
-		pass2.putClientProperty("JTextField.placeholderText", "Confirm new passphrase");
+		pass1.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "New passphrase");
+		pass2.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Confirm new passphrase");
 		for (JPasswordField p : new JPasswordField[] { pass1, pass2 }) {
-			p.setFont(p.getFont().deriveFont(p.getFont().getSize2D() + 2f));
+			Styles.style(p, "font: +2");
 			p.setMaximumSize(new Dimension(340, p.getPreferredSize().height + 8));
 		}
-		pass1.getDocument().addDocumentListener((Simple) e -> strength.set(OnboardingUI.scorePassphrase(pass1.getPassword())));
+		Documents.onChange(pass1, () -> strength.set(OnboardingUI.scorePassphrase(pass1.getPassword())));
 
-		JButton cancel = OnboardingUI.secondary("Cancel");
+		JButton cancel = Buttons.secondary("Cancel");
 		cancel.addActionListener(e -> dispose());
 		recover.addActionListener(e -> onRecover());
 
-		JPanel buttons = new JPanel();
-		buttons.setLayout(new BoxLayout(buttons, BoxLayout.X_AXIS));
+		JPanel buttons = Panels.row();
 		buttons.add(status);
 		buttons.add(Box.createHorizontalGlue());
 		buttons.add(cancel);
 		buttons.add(Box.createHorizontalStrut(10));
 		buttons.add(recover);
 
-		JPanel centre = new JPanel();
-		centre.setLayout(new BoxLayout(centre, BoxLayout.Y_AXIS));
+		JPanel centre = Panels.column();
 		for (JComponent c : new JComponent[] { title, sub, warn, sp, phraseStatus, pass1, pass2, strength }) {
 			c.setAlignmentX(Component.LEFT_ALIGNMENT);
 		}
@@ -131,7 +128,7 @@ public final class RecoveryDialog extends JDialog {
 			return;
 		}
 		boolean ok = Mnemonic.isValid(t);
-		phraseStatus.setForeground(ok ? new Color(0x3F, 0xB9, 0x50) : OnboardingUI.muted());
+		Styles.classes(phraseStatus, Styles.SMALL, ok ? Styles.SUCCESS : Styles.MUTED);
 		phraseStatus.setText(ok ? "Valid recovery phrase." : "Not a valid phrase yet…");
 	}
 
@@ -164,28 +161,7 @@ public final class RecoveryDialog extends JDialog {
 	}
 
 	private void fail(String message) {
-		status.setForeground(new Color(0xE5, 0x53, 0x53));
+		Styles.classes(status, Styles.SMALL, Styles.ERROR);
 		status.setText(message);
-	}
-
-	/** A DocumentListener whose three methods collapse to one callback. */
-	@FunctionalInterface
-	private interface Simple extends DocumentListener {
-		void update(DocumentEvent e);
-
-		@Override
-		default void insertUpdate(DocumentEvent e) {
-			update(e);
-		}
-
-		@Override
-		default void removeUpdate(DocumentEvent e) {
-			update(e);
-		}
-
-		@Override
-		default void changedUpdate(DocumentEvent e) {
-			update(e);
-		}
 	}
 }

@@ -1,25 +1,15 @@
 package brightside.ui.onboarding;
 
-import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.FontMetrics;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
 import java.awt.GridBagLayout;
-import java.awt.RenderingHints;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -30,8 +20,16 @@ import javax.swing.JPasswordField;
 import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
 
+import com.formdev.flatlaf.FlatClientProperties;
+
 import brightside.ui.Icons;
-import brightside.ui.LAF;
+import brightside.ui.components.Buttons;
+import brightside.ui.components.Labels;
+import brightside.ui.components.Lucide;
+import brightside.ui.components.Panels;
+import brightside.ui.components.PressButton;
+import brightside.ui.components.Styles;
+import brightside.ui.components.Theme;
 
 /**
  * The returning-user screen: enter the vault passphrase to unlock Brightside.
@@ -54,37 +52,36 @@ public final class UnlockPanel extends JPanel {
 	private final Listener listener;
 	private final JPasswordField field = new JPasswordField(22);
 	private final JCheckBox remember = new JCheckBox("Store passphrase in plaintext on this computer");
-	private final JButton unlock = OnboardingUI.primary("Unlock");
-	private final JLabel status = OnboardingUI.caption(" ");
+	private final JButton unlock = Buttons.primary("Unlock");
+	private final JLabel status = Labels.small(" ");
 
 	public UnlockPanel(Listener listener) {
 		super(new GridBagLayout());
 		this.listener = listener;
 
-		JPanel col = new JPanel();
-		col.setOpaque(false);
-		col.setLayout(new BoxLayout(col, BoxLayout.Y_AXIS));
+		JPanel col = Panels.column();
 		col.setBorder(BorderFactory.createEmptyBorder(24, 32, 24, 32));
 
-		JLabel mark = new JLabel(new ImageIcon(Icons.icon(64)));
+		JLabel mark = Labels.icon(new ImageIcon(Icons.icon(64)));
 		mark.setAlignmentX(CENTER_ALIGNMENT);
-		JLabel title = OnboardingUI.title("Welcome back");
+		JLabel title = Labels.title("Welcome back");
 		title.setAlignmentX(CENTER_ALIGNMENT);
-		JLabel sub = OnboardingUI.subtitle("Enter your passphrase to unlock Brightside.");
+		JLabel sub = Styles.classes(Labels.html("Enter your passphrase to unlock Brightside.", 420, SwingConstants.CENTER), Styles.MUTED);
+		sub.setAlignmentX(CENTER_ALIGNMENT);
 
-		field.putClientProperty("JTextField.placeholderText", "Passphrase");
-		field.setFont(field.getFont().deriveFont(field.getFont().getSize2D() + 3f));
+		field.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Passphrase");
+		Styles.style(field, "font: +3");
 		field.setMaximumSize(new Dimension(320, field.getPreferredSize().height + 12));
 		field.setAlignmentX(CENTER_ALIGNMENT);
 
 		// Remember-me, with an explicit plaintext warning and fuller detail on hover.
 		remember.setOpaque(false);
 		remember.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		JLabel info = infoIcon("Anyone who can read files as your OS account can unlock Brightside. "
+		JLabel info = Labels.icon(Lucide.icon("info", 16, Theme.muted()));
+		info.setToolTipText("Anyone who can read files as your OS account can unlock Brightside. "
 			+ "Only enable this on a computer and account you trust; untick it to delete the file.");
-		JPanel rememberRow = new JPanel();
-		rememberRow.setOpaque(false);
-		rememberRow.setLayout(new BoxLayout(rememberRow, BoxLayout.X_AXIS));
+		info.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		JPanel rememberRow = Panels.row();
 		rememberRow.setAlignmentX(CENTER_ALIGNMENT);
 		rememberRow.add(remember);
 		rememberRow.add(Box.createHorizontalStrut(6));
@@ -95,16 +92,8 @@ public final class UnlockPanel extends JPanel {
 		status.setAlignmentX(CENTER_ALIGNMENT);
 		status.setHorizontalAlignment(SwingConstants.CENTER);
 
-		JLabel forgot = OnboardingUI.caption("Forgot passphrase?");
+		PressButton forgot = Buttons.link("Forgot passphrase?", listener::onForgot);
 		forgot.setAlignmentX(CENTER_ALIGNMENT);
-		forgot.setForeground(LAF.ACCENT);
-		forgot.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		forgot.addMouseListener(new MouseAdapter() {
-			@Override
-			public void mousePressed(MouseEvent e) {
-				if (javax.swing.SwingUtilities.isLeftMouseButton(e)) listener.onForgot();
-			}
-		});
 
 		col.add(mark);
 		col.add(Box.createVerticalStrut(16));
@@ -146,7 +135,7 @@ public final class UnlockPanel extends JPanel {
 		field.setText("");
 		field.setEnabled(true);
 		unlock.setEnabled(true);
-		status.setForeground(OnboardingUI.muted());
+		Styles.classes(status, Styles.SMALL, Styles.MUTED);
 		status.setText(" ");
 	}
 
@@ -161,7 +150,7 @@ public final class UnlockPanel extends JPanel {
 	private void setBusy() {
 		field.setEnabled(false);
 		unlock.setEnabled(false);
-		status.setForeground(OnboardingUI.muted());
+		Styles.classes(status, Styles.SMALL, Styles.MUTED);
 		status.setText("Unlocking…");
 	}
 
@@ -169,7 +158,7 @@ public final class UnlockPanel extends JPanel {
 	public void showError(String message) {
 		field.setEnabled(true);
 		unlock.setEnabled(true);
-		status.setForeground(new Color(0xE5, 0x53, 0x53));
+		Styles.classes(status, Styles.SMALL, Styles.ERROR);
 		status.setText(message);
 		field.selectAll();
 		field.requestFocusInWindow();
@@ -181,37 +170,5 @@ public final class UnlockPanel extends JPanel {
 
 	public Component initialFocus() {
 		return field;
-	}
-
-	/** A small circled-i info glyph, painted (no font dependency), carrying a tooltip. */
-	private static JLabel infoIcon(String tooltip) {
-		Icon icon = new Icon() {
-			@Override
-			public int getIconWidth() {
-				return 16;
-			}
-
-			@Override
-			public int getIconHeight() {
-				return 16;
-			}
-
-			@Override
-			public void paintIcon(Component c, Graphics g, int x, int y) {
-				Graphics2D g2 = (Graphics2D) g.create();
-				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-				g2.setColor(OnboardingUI.muted());
-				g2.drawOval(x + 1, y + 1, 13, 13);
-				g2.setFont(g2.getFont().deriveFont(Font.BOLD, 10f));
-				FontMetrics fm = g2.getFontMetrics();
-				String s = "i";
-				g2.drawString(s, x + 8 - fm.stringWidth(s) / 2f, y + 8 + (fm.getAscent() - fm.getDescent()) / 2f);
-				g2.dispose();
-			}
-		};
-		JLabel l = new JLabel(icon);
-		l.setToolTipText(tooltip);
-		l.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		return l;
 	}
 }

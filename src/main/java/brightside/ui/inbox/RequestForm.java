@@ -1,16 +1,10 @@
 package brightside.ui.inbox;
 
 import static brightside.ui.inspect.Blocks.body;
-import static brightside.ui.inspect.Blocks.divider;
-import static brightside.ui.inspect.Blocks.errorColor;
 import static brightside.ui.inspect.Blocks.heading;
-import static brightside.ui.inspect.Blocks.muted;
-import static brightside.ui.inspect.Blocks.small;
 
-import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
-import java.awt.Font;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -26,15 +20,21 @@ import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
-import javax.swing.UIManager;
+
+import com.formdev.flatlaf.FlatClientProperties;
 
 import brightside.Inbox;
-import brightside.ui.LAF;
+import brightside.ui.components.Buttons;
+import brightside.ui.components.Dialogs;
+import brightside.ui.components.Labels;
+import brightside.ui.components.Panels;
+import brightside.ui.components.SelectableText;
+import brightside.ui.components.Styles;
+import brightside.ui.components.Theme;
 
 /**
  * The body of one request: the description, every ask with the control to
@@ -61,10 +61,10 @@ public final class RequestForm extends JPanel {
 	private final Inbox.Request request;
 	private final Listener listener;
 	private final LinkedHashMap<String, AskInput> inputs = new LinkedHashMap<>();
-	private final JLabel status = small(" ");
+	private final JLabel status = Labels.small(" ");
 	final JTextArea comment = textArea(2);
-	final JButton answerButton = new JButton("Answer");
-	final JButton rejectButton = new JButton("Reject…");
+	final JButton answerButton = Buttons.primary("Answer");
+	final JButton rejectButton = Buttons.plain("Reject…");
 
 	public RequestForm(Inbox.Request request, Listener listener) {
 		this.request = request;
@@ -78,7 +78,7 @@ public final class RequestForm extends JPanel {
 		if (request.description() != null && !request.description().isBlank()) {
 			add(body(request.description(), false));
 			add(gap(6));
-			add(divider());
+			add(Panels.rule());
 		}
 
 		for (Inbox.Ask ask : request.asks()) {
@@ -95,14 +95,12 @@ public final class RequestForm extends JPanel {
 		}
 
 		add(gap(10));
-		add(divider());
+		add(Panels.rule());
 		if (request.open()) {
 			add(gap(6));
-			add(small("Comment (optional)"));
+			add(Labels.small("Comment (optional)"));
 			add(comment);
 			add(gap(8));
-			answerButton.setBackground(LAF.ACCENT);
-			answerButton.setForeground(Color.WHITE);
 			answerButton.addActionListener(e -> {
 				Inbox.Answer answer = collect();
 				if (answer == null) return;
@@ -110,16 +108,12 @@ public final class RequestForm extends JPanel {
 				listener.onAnswer(request.id(), answer);
 			});
 			rejectButton.addActionListener(e -> {
-				Object reason = JOptionPane.showInputDialog(this, "Reason (optional):", "Reject request",
-					JOptionPane.PLAIN_MESSAGE, null, null, "");
+				String reason = Dialogs.prompt(this, "Reject request", "Reason (optional):", "");
 				if (reason == null) return;
 				setBusy(true);
-				listener.onReject(request.id(), reason.toString().trim());
+				listener.onReject(request.id(), reason.trim());
 			});
-			JPanel buttons = new JPanel();
-			buttons.setLayout(new BoxLayout(buttons, BoxLayout.X_AXIS));
-			buttons.setOpaque(false);
-			buttons.setAlignmentX(LEFT_ALIGNMENT);
+			JPanel buttons = Panels.row();
 			buttons.add(answerButton);
 			buttons.add(Box.createHorizontalStrut(8));
 			buttons.add(rejectButton);
@@ -143,7 +137,7 @@ public final class RequestForm extends JPanel {
 	void setBusy(boolean busy) {
 		answerButton.setEnabled(!busy);
 		rejectButton.setEnabled(!busy);
-		status.setForeground(busy ? muted() : errorColor());
+		Styles.classes(status, Styles.SMALL, busy ? Styles.MUTED : Styles.ERROR);
 		if (busy) status.setText("Sending…");
 	}
 
@@ -177,7 +171,7 @@ public final class RequestForm extends JPanel {
 	}
 
 	private void fail(String message) {
-		status.setForeground(errorColor());
+		Styles.classes(status, Styles.SMALL, Styles.ERROR);
 		status.setText(message);
 	}
 
@@ -186,10 +180,7 @@ public final class RequestForm extends JPanel {
 	}
 
 	private static JPanel response(Inbox.Request r) {
-		JPanel p = new JPanel();
-		p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
-		p.setOpaque(false);
-		p.setAlignmentX(LEFT_ALIGNMENT);
+		JPanel p = Panels.column();
 		p.add(heading(outcomeLabel(r)));
 		Inbox.Response resp = r.response();
 		if (resp != null) {
@@ -249,15 +240,10 @@ public final class RequestForm extends JPanel {
 		ta.setLineWrap(true);
 		ta.setWrapStyleWord(true);
 		ta.setBorder(BorderFactory.createCompoundBorder(
-			BorderFactory.createLineBorder(line()), BorderFactory.createEmptyBorder(4, 6, 4, 6)));
+			BorderFactory.createLineBorder(Theme.line()), BorderFactory.createEmptyBorder(4, 6, 4, 6)));
 		ta.setAlignmentX(LEFT_ALIGNMENT);
 		ta.setMaximumSize(new Dimension(Integer.MAX_VALUE, ta.getPreferredSize().height + 8));
 		return ta;
-	}
-
-	private static Color line() {
-		Color c = UIManager.getColor("Separator.foreground");
-		return (c != null) ? c : Color.GRAY;
 	}
 
 	// ------------------------------------------------------------------
@@ -279,9 +265,7 @@ public final class RequestForm extends JPanel {
 			setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 			setOpaque(false);
 			setAlignmentX(LEFT_ALIGNMENT);
-			JTextArea prompt = body(ask.prompt() + (ask.required() ? "  *" : ""), false);
-			prompt.setFont(prompt.getFont().deriveFont(Font.BOLD));
-			add(prompt);
+			add(new SelectableText(ask.prompt() + (ask.required() ? "  *" : "")).bold());
 			comment = ask.allowComment() ? new JTextField(30) : null;
 		}
 
@@ -289,7 +273,7 @@ public final class RequestForm extends JPanel {
 		void finish() {
 			for (GrantBox g : grantBoxes) add(g.box());
 			if (comment != null) {
-				comment.putClientProperty("JTextField.placeholderText", "Comment (optional)");
+				comment.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Comment (optional)");
 				comment.setAlignmentX(LEFT_ALIGNMENT);
 				comment.setMaximumSize(new Dimension(420, comment.getPreferredSize().height));
 				add(Box.createVerticalStrut(4));
@@ -433,9 +417,7 @@ public final class RequestForm extends JPanel {
 		TokenInput(Inbox.Ask ask) {
 			super(ask);
 			for (Inbox.Grant cap : ask.tokenCaps()) add(body("Wants " + grantLabel(cap), false));
-			JLabel note = small("Needs a token signed with your own key; Brightside can't sign one yet.");
-			note.setForeground(errorColor());
-			add(note);
+			add(Labels.small("Needs a token signed with your own key; Brightside can't sign one yet.", Styles.ERROR));
 			finish();
 		}
 

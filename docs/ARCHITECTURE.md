@@ -69,33 +69,40 @@ src/main/java/brightside/
 ├── vault/Vault.java            passphrase key + seed-derived Etch v3 key
 ├── vault/Mnemonic.java         BIP39 recovery phrase ↔ Ed25519 seed
 └── ui/
-    ├── LAF.java                FlatLaf themes, purple accent, bundled Lato
-    ├── Lucide.java             the icon set: FlatSVGIcon over icons/lucide, tinted
-    ├── PressButton.java        the one nav/list control: acts on press, host-owned
-    │                           selection, theme hover — tabs, sections, rows
+    ├── LAF.java                installs FlatLaf light/dark plus Brightside's UI
+    │                           defaults, in the bundled Lato
     ├── MainWindow.java         navigation, shortcuts and application cards
+    ├── NavBar.java             the bottom tabs
     ├── WelcomePanel.java       "What should I call you?" (rename)
-    ├── ModelSelector.java      shared provider/model picker
-    ├── settings/               Identity, General, Model, Integrations (Discord),
-    │                           Vault and Auth pages
     ├── TrayManager.java        best-effort system tray
-    ├── Icons.java
-    ├── onboarding/             OnboardingWizard, UnlockPanel, OnboardingUI
+    ├── Icons.java              the Brightside mark, painted at any size
+    ├── components/             the UI kit every screen is built from — see
+    │                           "One UI kit" below: Theme, Styles, Labels, Buttons,
+    │                           SelectableText, Card, Disclosure, PressButton, Lucide,
+    │                           ModelSelector, Scrolls, Panels, Borders, Dialogs,
+    │                           Clipboard, Documents, Links
+    ├── settings/               Identity, General, Model, Integrations (Discord),
+    │                           Vault and Auth pages on a shared SettingsPage
+    ├── onboarding/             OnboardingWizard, UnlockPanel, RecoveryDialog;
+    │                           OnboardingUI holds their own dots, strength bar and word chip
     ├── chat/                   ChatPanel, Bubble, MessageColumn, EmptyChatState,
-    │                           ThinkingBubble, TypingIndicator, ExpandableActivity, ConversationList,
-    │                           SelectableText, ChatIcons, ChatStyle
-    ├── inspect/                ContextInspector — the exact model input; AgentInspector — the agent info screen
+    │                           ThinkingBubble, TypingIndicator, ExpandableActivity,
+    │                           ConversationList, AgentList, NewAgentPanel
+    ├── inspect/                ContextInspector — the exact model input; AgentInspector —
+    │                           the agent info screen; Blocks — their shared compositions
     └── inbox/                  InboxScreen — a column of collapsible RequestCards, each
                                 wrapping a RequestForm — requests waiting for the owner
 
 src/main/resources/
 ├── brightside/skills/*.json    on-demand conversation, work and
 │                               self-authoring skills
+├── brightside/ui/*.properties  Brightside's FlatLaf UI defaults: the accent, geometry,
+│                               semantic colours and the style classes the components wear
 ├── adapters/brightside/        context, info, skill deletion/feedback, shutdown
 │                               and the two Odin bridge ops
 ├── fonts/lato/                 bundled OFL faces, registered at startup
 ├── icons/lucide/               the Lucide SVG icons the UI uses (ISC; LICENSE
-│                               alongside), rendered and tinted by ui/Lucide
+│                               alongside), rendered and tinted by ui/components/Lucide
 ├── icons/brightside/           the Brightside mark for use elsewhere: brightside.svg
 │                               (the geometry ui/Icons paints) and PNGs at 16–1024 px
 └── brightside/logback.xml      logging (configured programmatically)
@@ -104,6 +111,16 @@ src/test/java/…                 unit tests; boot temporary venue engines, head
 ```
 
 ## Key decisions
+
+**One UI kit.** Every screen is composed from `ui/components`, and the look of
+those components is FlatLaf's to paint: colours, geometry and the named style
+classes (`muted`, `accent`, `error`, `small`, `Button.primary`, …) are declared
+once in `src/main/resources/brightside/ui/FlatLaf.properties` and worn by name
+(`Styles.classes(label, Styles.SMALL, Styles.MUTED)`), so a theme change carries
+through and no screen hard-codes a colour or a font. `Theme` reads the same
+defaults back for custom painting; `Card` and `Disclosure` paint with
+`FlatUIUtils` and `UIScale` like FlatLaf's own components. A new screen
+should reach for the kit first and add to it, not beside it.
 
 **Threading.** Swing on the event thread only. Venue launch and close, agent
 calls and desktop integration run on background threads; `ChatPanel` uses a

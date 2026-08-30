@@ -1,13 +1,14 @@
 package brightside.ui.settings;
 
-import java.awt.Toolkit;
-import java.awt.datatransfer.StringSelection;
-
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
+
+import brightside.ui.components.Buttons;
+import brightside.ui.components.Clipboard;
+import brightside.ui.components.Styles;
+import brightside.ui.components.TextArea;
 
 /**
  * The <b>Auth</b> settings page: mint a venue-signed access-token JWT that
@@ -41,8 +42,8 @@ public final class AuthPanel extends SettingsPage {
 	private final Minter minter;
 	private final JComboBox<Subject> subject = new JComboBox<>();
 	private final JComboBox<Exp> expiry = new JComboBox<>();
-	private final JTextArea token = new JTextArea(4, 34);
-	private final JButton copy = new JButton("Copy");
+	private final TextArea token = new TextArea(4, 34).placeholder("Generated token appears here");
+	private final JButton copy = Buttons.small("Copy");
 
 	public AuthPanel(Minter minter) {
 		super("Generate");
@@ -69,12 +70,10 @@ public final class AuthPanel extends SettingsPage {
 
 		token.setEditable(false);
 		token.setLineWrap(true);
-		token.setFont(SettingsUI.technicalFont(token.getFont()));
-		token.putClientProperty("JTextArea.placeholderText", "Generated token appears here");
+		Styles.classes(token, Styles.MONOSPACED);
 		token.setToolTipText("The bearer token — select and copy it");
 		JScrollPane tokenScroll = new JScrollPane(token);
 
-		copy.putClientProperty("FlatLaf.styleClass", "small");
 		copy.setEnabled(false);
 		copy.setToolTipText("Copy the token to the clipboard");
 		copy.addActionListener(e -> onCopy());
@@ -113,7 +112,7 @@ public final class AuthPanel extends SettingsPage {
 	private void onCopy() {
 		String t = token.getText();
 		if (t == null || t.isEmpty()) return;
-		Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(t), null);
+		Clipboard.copy(t);
 		setNote("Copied to the clipboard.", false);
 	}
 

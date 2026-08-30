@@ -1,18 +1,20 @@
 package brightside.ui.settings;
 
-import java.awt.Cursor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 import javax.swing.JButton;
 import javax.swing.JPasswordField;
-import javax.swing.JTextArea;
 import javax.swing.JTextField;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
+
+import com.formdev.flatlaf.FlatClientProperties;
 
 import brightside.Discord;
+import brightside.ui.components.Buttons;
+import brightside.ui.components.Documents;
+import brightside.ui.components.SelectableText;
+import brightside.ui.components.Styles;
 
 /**
  * The <b>Integrations</b> settings page — for now, Discord: the assistant as a
@@ -31,10 +33,10 @@ public final class IntegrationsPanel extends SettingsPage {
 	}
 
 	private final Host host;
-	private final JTextArea status = SettingsUI.selectable("—");
+	private final SelectableText status = new SelectableText("—");
 	private final JPasswordField tokenField = new JPasswordField(24);
 	private final JTextField allowField = new JTextField(24);
-	private final JButton remove = new JButton("Remove bot");
+	private final JButton remove = Buttons.small("Remove bot");
 	private List<String> baselineAllow = List.of();
 	private boolean hasBot;
 	private boolean busy;
@@ -46,17 +48,15 @@ public final class IntegrationsPanel extends SettingsPage {
 	}
 
 	private void build() {
-		tokenField.setFont(SettingsUI.technicalFont(tokenField.getFont()));
-		tokenField.putClientProperty("JTextField.placeholderText", "Paste the bot token (leave blank to keep the stored one)");
+		Styles.classes(tokenField, Styles.MONOSPACED);
+		tokenField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Paste the bot token (leave blank to keep the stored one)");
 		tokenField.setToolTipText("From the Discord Developer Portal → your application → Bot → Reset Token. Stored encrypted.");
-		tokenField.getDocument().addDocumentListener((SimpleDoc) e -> updateDirty());
+		Documents.onChange(tokenField, this::updateDirty);
 
-		allowField.putClientProperty("JTextField.placeholderText", "Discord user ids or usernames, comma-separated");
+		allowField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Discord user ids or usernames, comma-separated");
 		allowField.setToolTipText("Only these Discord users may talk to your assistant. DM the bot and it tells you your id.");
-		allowField.getDocument().addDocumentListener((SimpleDoc) e -> updateDirty());
+		Documents.onChange(allowField, this::updateDirty);
 
-		remove.putClientProperty("FlatLaf.styleClass", "small");
-		remove.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		remove.setToolTipText("Disconnect and delete the bot and its Discord conversations");
 		remove.setEnabled(false);
 		remove.addActionListener(e -> {
@@ -69,7 +69,7 @@ public final class IntegrationsPanel extends SettingsPage {
 		primary.setToolTipText("Store the token and connect the bot");
 		onPrimary(this::onSave);
 
-		JTextArea steps = SettingsUI.description(
+		SelectableText steps = SelectableText.description(
 			"1. In the Discord Developer Portal, create an application and add a Bot to it.\n"
 			+ "2. Under Bot, enable the Message Content Intent, then Reset Token and copy it.\n"
 			+ "3. Under OAuth2 → URL Generator, tick the bot scope with View Channels, Read Message History and "
@@ -94,7 +94,7 @@ public final class IntegrationsPanel extends SettingsPage {
 		allowField.setText(String.join(", ", baselineAllow));
 		tokenField.setText("");
 		status.setText(describe(bot));
-		status.setForeground(bot != null && bot.error() != null ? SettingsPage.ERROR : SettingsUI.muted());
+		Styles.classes(status, bot != null && bot.error() != null ? Styles.ERROR : Styles.MUTED);
 		remove.setEnabled(hasBot);
 		if (note != null) setNote(note, note.startsWith("Couldn't") || note.startsWith("Sorry"));
 		else clearNote();
@@ -151,26 +151,5 @@ public final class IntegrationsPanel extends SettingsPage {
 		busy = b;
 		primary.setEnabled(false);
 		remove.setEnabled(!b && hasBot);
-	}
-
-	/** A DocumentListener whose three methods collapse to one callback. */
-	@FunctionalInterface
-	private interface SimpleDoc extends DocumentListener {
-		void update(DocumentEvent e);
-
-		@Override
-		default void insertUpdate(DocumentEvent e) {
-			update(e);
-		}
-
-		@Override
-		default void removeUpdate(DocumentEvent e) {
-			update(e);
-		}
-
-		@Override
-		default void changedUpdate(DocumentEvent e) {
-			update(e);
-		}
 	}
 }

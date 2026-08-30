@@ -1,20 +1,20 @@
 package brightside.ui.chat;
 
-import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 
 import javax.swing.JComboBox;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
-import javax.swing.UIManager;
+
+import com.formdev.flatlaf.FlatClientProperties;
 
 import brightside.model.AgentTemplate;
-import brightside.ui.ModelSelector;
+import brightside.ui.components.Dialogs;
+import brightside.ui.components.Labels;
+import brightside.ui.components.ModelSelector;
+import brightside.ui.components.SelectableText;
 import net.miginfocom.swing.MigLayout;
 
 /** Name, starting template and model choices for a new agent. */
@@ -30,25 +30,25 @@ public final class NewAgentPanel extends JPanel {
 
 	private final JTextField name = new JTextField(24);
 	private final JComboBox<AgentTemplate> template = new JComboBox<>(AgentTemplate.values());
-	private final JTextArea templateDescription = descriptionArea();
+	private final SelectableText templateDescription = descriptionArea();
 	private final ModelSelector model = new ModelSelector();
 
 	public NewAgentPanel(String currentModelOp) {
 		super(new MigLayout("insets 8, fillx, wrap 2", "[]14[grow,fill]", ""));
 		setOpaque(false);
-		name.putClientProperty("JTextField.placeholderText", "e.g. Research partner");
+		name.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "e.g. Research partner");
 		name.setToolTipText("The name shown in the agent list");
 		template.setToolTipText("A starting role and working style; the agent can grow from here");
 		template.addActionListener(e -> updateTemplateDescription());
 		model.selectModelOp(currentModelOp);
 
-		add(new JLabel("Name"));
+		add(Labels.text("Name"));
 		add(name, "growx");
-		add(new JLabel("Starting point"));
+		add(Labels.text("Starting point"));
 		add(template, "growx");
 		add(templateDescription, "skip, growx, wmin 0, gapbottom 8");
 		add(model, "span 2, growx, wmin 0");
-		JTextArea note = descriptionArea();
+		SelectableText note = descriptionArea();
 		note.setText("The model uses API credentials already stored in Settings. The template is only a starting point.");
 		add(note, "span 2, growx, wmin 0, gaptop 8");
 		updateTemplateDescription();
@@ -60,12 +60,10 @@ public final class NewAgentPanel extends JPanel {
 		NewAgentPanel panel = new NewAgentPanel(currentModelOp);
 		while (true) {
 			SwingUtilities.invokeLater(panel.name::requestFocusInWindow);
-			int choice = JOptionPane.showConfirmDialog(parent, panel, "New agent",
-				JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-			if (choice != JOptionPane.OK_OPTION) return null;
+			if (!Dialogs.form(parent, "New agent", panel)) return null;
 			Options options = panel.options();
 			if (options != null) return options;
-			JOptionPane.showMessageDialog(parent, "Give the agent a name.", "New agent", JOptionPane.WARNING_MESSAGE);
+			Dialogs.warn(parent, "New agent", "Give the agent a name.");
 		}
 	}
 
@@ -90,16 +88,11 @@ public final class NewAgentPanel extends JPanel {
 		templateDescription.setText((selected != null) ? selected.description() : " ");
 	}
 
-	private static JTextArea descriptionArea() {
-		JTextArea area = new JTextArea(2, 20);
-		area.setEditable(false);
-		area.setFocusable(false);
-		area.setOpaque(false);
-		area.setLineWrap(true);
-		area.setWrapStyleWord(true);
-		Color muted = UIManager.getColor("Label.disabledForeground");
-		if (muted != null) area.setForeground(muted);
-		area.putClientProperty("FlatLaf.styleClass", "small");
+	/** Two lines of small, muted explanation that never takes focus from the fields. */
+	private static SelectableText descriptionArea() {
+		SelectableText area = SelectableText.description(" ").small().unfocusable();
+		area.setRows(2);
+		area.setColumns(20);
 		return area;
 	}
 }

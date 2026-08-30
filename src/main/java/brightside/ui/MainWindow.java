@@ -16,11 +16,8 @@ import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JSplitPane;
-import javax.swing.JTextArea;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.KeyStroke;
-import javax.swing.UIManager;
 import javax.swing.WindowConstants;
 
 import brightside.BrightSide;
@@ -31,6 +28,8 @@ import brightside.chat.ChatSession;
 import brightside.ui.chat.ChatPanel;
 import brightside.ui.chat.ConversationList;
 import brightside.ui.chat.NewAgentPanel;
+import brightside.ui.components.Dialogs;
+import brightside.ui.components.SelectableText;
 import brightside.ui.settings.AuthPanel;
 import brightside.ui.settings.GeneralPanel;
 import brightside.ui.settings.IntegrationsPanel;
@@ -673,13 +672,7 @@ public final class MainWindow extends JFrame {
 			if (venue.did() != null) sb.append("\nIdentity: ").append(identity != null
 				? identity.userDID(venue.did()) : venue.did());
 		}
-		JTextArea area = new JTextArea(sb.toString());
-		area.setEditable(false);
-		area.setOpaque(false);
-		area.setBorder(null);
-		area.setFont(UIManager.getFont("Label.font"));
-		JOptionPane.showMessageDialog(this, area,
-			"About " + BrightSide.APP_NAME, JOptionPane.INFORMATION_MESSAGE, new ImageIcon(Icons.icon(64)));
+		Dialogs.info(this, "About " + BrightSide.APP_NAME, new SelectableText(sb.toString()), new ImageIcon(Icons.icon(64)));
 	}
 
 }

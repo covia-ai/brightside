@@ -3,7 +3,6 @@ package brightside.ui.chat;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
-import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Insets;
 import java.text.SimpleDateFormat;
@@ -12,19 +11,21 @@ import java.util.List;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
-import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JMenuItem;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
-import javax.swing.JScrollPane;
 
 import brightside.SessionHistory;
-import brightside.ui.LAF;
-import brightside.ui.Lucide;
-import brightside.ui.PressButton;
+import brightside.ui.components.Borders;
+import brightside.ui.components.Buttons;
+import brightside.ui.components.Dialogs;
+import brightside.ui.components.Labels;
+import brightside.ui.components.Lucide;
+import brightside.ui.components.Panels;
+import brightside.ui.components.PressButton;
+import brightside.ui.components.Scrolls;
 
 /**
  * The conversation switcher: a "New conversation" button above a scrolling list
@@ -58,7 +59,7 @@ public final class ConversationList extends JPanel {
 	private static final int WIDTH = 240;
 
 	private final Listener listener;
-	private final JPanel rows = new JPanel();
+	private final JPanel rows = Panels.column();
 	private String selectedId;
 
 	public ConversationList(Listener listener) {
@@ -69,34 +70,20 @@ public final class ConversationList extends JPanel {
 		// divider can narrow or fully collapse it.
 		setPreferredSize(new Dimension(WIDTH, 0));
 		setMinimumSize(new Dimension(0, 0));
-		Color line = uiColor("Separator.foreground", Color.GRAY);
 		setBorder(BorderFactory.createCompoundBorder(
-			BorderFactory.createMatteBorder(0, 0, 0, 1, line),
-			BorderFactory.createEmptyBorder(10, 10, 10, 10)));
+			Borders.hairlineRight(), BorderFactory.createEmptyBorder(10, 10, 10, 10)));
 
-		JButton newChat = new JButton("New conversation", Lucide.icon("plus", 16, Color.WHITE));
-		newChat.putClientProperty("JButton.buttonType", "roundRect");
-		newChat.setForeground(Color.WHITE);
-		newChat.setBackground(LAF.ACCENT);
+		JButton newChat = Buttons.primary("New conversation");
+		newChat.setIcon(Lucide.icon("plus", 16, Color.WHITE));
 		newChat.setFocusable(false);
-		newChat.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		newChat.addActionListener(e -> listener.onNewConversation());
 		JPanel top = new JPanel(new BorderLayout());
 		top.setOpaque(false);
 		top.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
 		top.add(newChat, BorderLayout.CENTER);
 
-		rows.setLayout(new BoxLayout(rows, BoxLayout.Y_AXIS));
-		rows.setOpaque(false);
-		JScrollPane scroll = new JScrollPane(rows,
-			JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-		scroll.setBorder(BorderFactory.createEmptyBorder());
-		scroll.setOpaque(false);
-		scroll.getViewport().setOpaque(false);
-		scroll.getVerticalScrollBar().setUnitIncrement(24);
-
 		add(top, BorderLayout.NORTH);
-		add(scroll, BorderLayout.CENTER);
+		add(Scrolls.vertical(rows), BorderLayout.CENTER);
 	}
 
 	/** Replaces the list and highlights {@code selectedId} (null for none/new chat). */
@@ -104,9 +91,7 @@ public final class ConversationList extends JPanel {
 		this.selectedId = selectedId;
 		rows.removeAll();
 		if (sessions.isEmpty()) {
-			JLabel empty = new JLabel("No past conversations yet");
-			empty.putClientProperty("FlatLaf.styleClass", "small");
-			empty.setForeground(ChatStyle.muted());
+			JLabel empty = Labels.small("No past conversations yet");
 			empty.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6));
 			empty.setAlignmentX(LEFT_ALIGNMENT);
 			rows.add(empty);
@@ -141,9 +126,8 @@ public final class ConversationList extends JPanel {
 
 		JMenuItem rename = new JMenuItem("Rename…");
 		rename.addActionListener(e -> {
-			Object input = JOptionPane.showInputDialog(this, "Rename this conversation:",
-				"Rename conversation", JOptionPane.PLAIN_MESSAGE, null, null, s.title());
-			if (input != null) listener.onRenameSession(sid, input.toString().trim());
+			String input = Dialogs.prompt(this, "Rename conversation", "Rename this conversation:", s.title());
+			if (input != null) listener.onRenameSession(sid, input.trim());
 		});
 		menu.add(rename);
 
@@ -159,10 +143,9 @@ public final class ConversationList extends JPanel {
 
 		JMenuItem delete = new JMenuItem("Delete");
 		delete.addActionListener(e -> {
-			int choice = JOptionPane.showConfirmDialog(this,
-				"Delete this conversation? This can't be undone.",
-				"Delete conversation", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
-			if (choice == JOptionPane.OK_OPTION) listener.onDeleteSession(sid);
+			if (Dialogs.confirmDanger(this, "Delete conversation", "Delete this conversation? This can't be undone.")) {
+				listener.onDeleteSession(sid);
+			}
 		});
 		menu.add(delete);
 
@@ -186,11 +169,6 @@ public final class ConversationList extends JPanel {
 		return n + " " + unit + (n == 1 ? "" : "s") + " ago";
 	}
 
-	private static Color uiColor(String key, Color fallback) {
-		Color c = javax.swing.UIManager.getColor(key);
-		return (c != null) ? c : fallback;
-	}
-
 	/**
 	 * One conversation row: a {@link PressButton} laid out with its own labels —
 	 * the title over a muted relative time — so the theme paints its hover and
@@ -205,23 +183,8 @@ public final class ConversationList extends JPanel {
 			setLayout(new BorderLayout(0, 1));
 			setMargin(new Insets(7, 9, 7, 9));
 			setAlignmentX(LEFT_ALIGNMENT);
-
-			JLabel title = new JLabel(s.title());
-			title.putClientProperty("html.disable", Boolean.TRUE);
-			JLabel when = new JLabel(relativeTime(s.lastTs()));
-			when.putClientProperty("FlatLaf.styleClass", "small");
-			when.setForeground(ChatStyle.muted());
-
-			add(title, BorderLayout.CENTER);
-			add(when, BorderLayout.SOUTH);
-		}
-
-		/** Sized by the labels, not by the (empty) button text. */
-		@Override
-		public Dimension getPreferredSize() {
-			Dimension inner = getLayout().preferredLayoutSize(this);
-			Insets in = getInsets();
-			return new Dimension(inner.width + in.left + in.right, inner.height + in.top + in.bottom);
+			add(Labels.text(s.title()), BorderLayout.CENTER);
+			add(Labels.small(relativeTime(s.lastTs())), BorderLayout.SOUTH);
 		}
 
 		@Override

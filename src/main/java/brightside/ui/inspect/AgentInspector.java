@@ -2,13 +2,9 @@ package brightside.ui.inspect;
 
 import static brightside.ui.inspect.Blocks.body;
 import static brightside.ui.inspect.Blocks.column;
-import static brightside.ui.inspect.Blocks.divider;
-import static brightside.ui.inspect.Blocks.errorColor;
 import static brightside.ui.inspect.Blocks.heading;
 import static brightside.ui.inspect.Blocks.kv;
 import static brightside.ui.inspect.Blocks.raw;
-import static brightside.ui.inspect.Blocks.scroll;
-import static brightside.ui.inspect.Blocks.small;
 
 import java.awt.BorderLayout;
 import java.text.SimpleDateFormat;
@@ -22,6 +18,10 @@ import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
 
 import brightside.AgentInfo;
+import brightside.ui.components.Labels;
+import brightside.ui.components.Panels;
+import brightside.ui.components.Scrolls;
+import brightside.ui.components.Styles;
 
 /**
  * A read-only view of one agent (from {@link AgentInfo}). Tabs: <em>Overview</em>
@@ -36,9 +36,9 @@ public final class AgentInspector extends JPanel {
 	public AgentInspector(AgentInfo.Summary a) {
 		super(new BorderLayout());
 		JTabbedPane tabs = new JTabbedPane();
-		tabs.addTab("Overview", scroll(overview(a)));
-		tabs.addTab("Instructions", scroll(instructions(a)));
-		tabs.addTab("Capabilities", scroll(capabilities(a)));
+		tabs.addTab("Overview", Scrolls.vertical(overview(a)));
+		tabs.addTab("Instructions", Scrolls.vertical(instructions(a)));
+		tabs.addTab("Capabilities", Scrolls.vertical(capabilities(a)));
 		tabs.addTab("Raw", raw(a.rawJson()));
 		add(tabs, BorderLayout.CENTER);
 	}
@@ -56,7 +56,7 @@ public final class AgentInspector extends JPanel {
 		p.add(kv("Conversations", activity(a)));
 		p.add(kv("Tasks", Long.toString(a.tasks())));
 		p.add(kv("Timeline", a.timelineLength() + " event" + (a.timelineLength() == 1 ? "" : "s")));
-		JLabel note = small(a.standard()
+		JLabel note = Labels.small(a.standard()
 			? "Brightside's standard agent: its model and instructions follow Settings and config.json."
 			: "Created from the agents pane; it keeps the model and instructions it was given.");
 		note.setBorder(BorderFactory.createEmptyBorder(14, 0, 0, 0));
@@ -68,11 +68,11 @@ public final class AgentInspector extends JPanel {
 		JPanel p = column();
 		p.add(heading("System prompt"));
 		p.add(body(orDash(a.systemPrompt()), false));
-		p.add(divider());
+		p.add(Panels.rule());
 		p.add(heading("In every turn"));
 		for (String c : a.context()) p.add(body(c, false));
 		for (AgentInfo.Pin pin : a.pins()) p.add(body(pinLine(pin), false));
-		if (a.context().isEmpty() && a.pins().isEmpty()) p.add(small("Nothing pinned."));
+		if (a.context().isEmpty() && a.pins().isEmpty()) p.add(Labels.small("Nothing pinned."));
 		return p;
 	}
 
@@ -81,29 +81,27 @@ public final class AgentInspector extends JPanel {
 		p.add(heading("Always-on tools"));
 		if (a.defaultTools()) p.add(body("Read-only workspace access (covia read/list)", false));
 		for (String t : a.tools()) p.add(body(t, false));
-		if (!a.defaultTools() && a.tools().isEmpty()) p.add(small("None."));
-		p.add(divider());
+		if (!a.defaultTools() && a.tools().isEmpty()) p.add(Labels.small("None."));
+		p.add(Panels.rule());
 		p.add(heading("Skill libraries"));
 		list(p, a.skillsets(), "None — the agent cannot discover skills.");
-		p.add(divider());
+		p.add(Panels.rule());
 		p.add(heading("Pinned loads"));
-		if (a.pins().isEmpty()) p.add(small("None."));
+		if (a.pins().isEmpty()) p.add(Labels.small("None."));
 		for (AgentInfo.Pin pin : a.pins()) p.add(body(pinLine(pin), false));
 		if (!a.unavailable().isEmpty()) {
-			p.add(divider());
-			JLabel h = heading("Unavailable");
-			h.setForeground(errorColor());
-			p.add(h);
+			p.add(Panels.rule());
+			p.add(Styles.classes(heading("Unavailable"), Styles.STRONG, Styles.ERROR));
 			list(p, a.unavailable(), "");
 		}
-		JLabel note = small("Everything else arrives by loading a skill that grants it.");
+		JLabel note = Labels.small("Everything else arrives by loading a skill that grants it.");
 		note.setBorder(BorderFactory.createEmptyBorder(14, 0, 0, 0));
 		p.add(note);
 		return p;
 	}
 
 	private static void list(JPanel p, List<String> items, String whenEmpty) {
-		if (items.isEmpty() && !whenEmpty.isEmpty()) p.add(small(whenEmpty));
+		if (items.isEmpty() && !whenEmpty.isEmpty()) p.add(Labels.small(whenEmpty));
 		for (String s : items) p.add(body(s, false));
 	}
 

@@ -1,7 +1,6 @@
 package brightside.ui.inbox;
 
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.Component;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -9,13 +8,13 @@ import java.util.Map;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
-import javax.swing.BoxLayout;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.UIManager;
 
 import brightside.Inbox;
+import brightside.ui.components.Labels;
+import brightside.ui.components.Panels;
+import brightside.ui.components.Scrolls;
 
 /**
  * The <b>Inbox</b>: every request waiting for the owner's decision, and the
@@ -32,9 +31,9 @@ import brightside.Inbox;
 public final class InboxScreen extends JPanel {
 
 	private final RequestForm.Listener listener;
-	private final JPanel column = new JPanel();
-	private final JLabel notice = new JLabel(" ");
-	private final JLabel empty = new JLabel("Nothing is waiting for you.");
+	private final JPanel column = Panels.column();
+	private final JLabel notice = Labels.small(" ");
+	private final JLabel empty = Labels.muted("Nothing is waiting for you.");
 	/** Cards by request id, in display order. */
 	private final Map<String, RequestCard> cards = new LinkedHashMap<>();
 
@@ -42,35 +41,17 @@ public final class InboxScreen extends JPanel {
 		super(new BorderLayout());
 		this.listener = listener;
 
-		JLabel header = new JLabel("Inbox");
-		header.putClientProperty("FlatLaf.styleClass", "small");
-		header.setForeground(muted());
+		JLabel header = Labels.small("Inbox");
 		header.setBorder(BorderFactory.createEmptyBorder(10, 18, 4, 18));
 
-		column.setOpaque(false);
-		column.setLayout(new BoxLayout(column, BoxLayout.Y_AXIS));
 		column.setBorder(BorderFactory.createEmptyBorder(6, 18, 12, 18));
-		empty.setForeground(muted());
 		empty.setBorder(BorderFactory.createEmptyBorder(18, 0, 18, 0));
 		empty.setAlignmentX(LEFT_ALIGNMENT);
 
-		JPanel holder = new JPanel(new BorderLayout());
-		holder.setOpaque(false);
-		holder.add(column, BorderLayout.NORTH);
-		JScrollPane scroll = new JScrollPane(holder,
-			JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-		scroll.setBorder(BorderFactory.createEmptyBorder());
-		scroll.setOpaque(false);
-		scroll.getViewport().setOpaque(false);
-		scroll.getVerticalScrollBar().setUnitIncrement(24);
-
-		notice.putClientProperty("FlatLaf.styleClass", "small");
-		notice.putClientProperty("html.disable", Boolean.TRUE);
-		notice.setForeground(muted());
 		notice.setBorder(BorderFactory.createEmptyBorder(6, 18, 8, 18));
 
 		add(header, BorderLayout.NORTH);
-		add(scroll, BorderLayout.CENTER);
+		add(Scrolls.vertical(Scrolls.hugTop(column)), BorderLayout.CENTER);
 		add(notice, BorderLayout.SOUTH);
 		setRequests(List.of());
 	}
@@ -120,10 +101,5 @@ public final class InboxScreen extends JPanel {
 	/** The card for a request id, or null. Package-visible for the app's own checks. */
 	Component card(String id) {
 		return cards.get(id);
-	}
-
-	private static Color muted() {
-		Color c = UIManager.getColor("Label.disabledForeground");
-		return (c != null) ? c : Color.GRAY;
 	}
 }

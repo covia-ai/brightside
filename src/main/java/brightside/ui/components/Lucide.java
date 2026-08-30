@@ -1,4 +1,4 @@
-package brightside.ui;
+package brightside.ui.components;
 
 import java.awt.Color;
 

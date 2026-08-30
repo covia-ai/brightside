@@ -1,4 +1,4 @@
-package brightside.ui;
+package brightside.ui.components;
 
 import java.util.ArrayList;
 import java.util.List;
