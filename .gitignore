@@ -15,6 +15,7 @@
 # design — personal Codex state lives in ~/.codex — so it is not ignored.
 CLAUDE.local.md
 /.claude/*
+!/.claude/README.md
 !/.claude/settings.json
 
 # Local scratch: personal configs, stores, keys, logs
