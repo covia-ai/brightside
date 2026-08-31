@@ -249,7 +249,9 @@ public final class ChatPanel extends JPanel {
 	}
 
 	private Component rowFor(SessionHistory.Item it) {
-		if (it instanceof SessionHistory.Message m) return bubbleRow(m.text(), "user".equals(m.role()));
+		if (it instanceof SessionHistory.Message m) {
+			return bubbleRow(m.text(), "user".equals(m.role()), m.origin());
+		}
 		if (it instanceof SessionHistory.Activity a) return activityRow(a);
 		return new JPanel();
 	}
@@ -521,6 +523,11 @@ public final class ChatPanel extends JPanel {
 	// ------------------------------------------------------------------
 
 	private Component bubbleRow(String text, boolean user) {
+		return bubbleRow(text, user, null);
+	}
+
+	/** A message row; {@code origin} adds a small caption naming where an inbound message came from. */
+	private Component bubbleRow(String text, boolean user, String origin) {
 		Bubble bubble = new Bubble(text, user);
 		bubble.setAvailableWidth(scroll.getViewport().getWidth());
 
@@ -542,10 +549,24 @@ public final class ChatPanel extends JPanel {
 		};
 		ta.addMouseListener(popup);
 
+		Component content = bubble;
+		if (origin != null) {
+			JPanel stack = new JPanel();
+			stack.setLayout(new javax.swing.BoxLayout(stack, javax.swing.BoxLayout.Y_AXIS));
+			stack.setOpaque(false);
+			JLabel caption = Labels.small("via " + origin, Styles.MUTED);
+			float edge = user ? Component.RIGHT_ALIGNMENT : Component.LEFT_ALIGNMENT;
+			caption.setAlignmentX(edge);
+			bubble.setAlignmentX(edge);
+			stack.add(caption);
+			stack.add(bubble);
+			content = stack;
+		}
+
 		JPanel row = new JPanel(new BorderLayout());
 		row.setOpaque(false);
 		row.setBorder(BorderFactory.createEmptyBorder(4, 2, 4, 2));
-		row.add(bubble, user ? BorderLayout.EAST : BorderLayout.WEST);
+		row.add(content, user ? BorderLayout.EAST : BorderLayout.WEST);
 		row.setAlignmentX(Component.LEFT_ALIGNMENT);
 		return row;
 	}

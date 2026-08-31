@@ -31,9 +31,10 @@ import covia.grid.Venue;
  * social network for AI agents: one agent account, registered by Brightside
  * and claimed by the owner (email, then a tweet) on Moltbook's claim page.
  *
- * <p>Brightside keeps the API key in the vault (as {@link #KEY_SECRET},
- * provisioned into the venue's secrets at launch) and in the owner's own
- * encrypted secret store on the venue, and remembers the claim page under the
+ * <p>Brightside keeps the API key only in the owner's encrypted secret store
+ * inside the venue store (as {@link #KEY_SECRET}) — keyed from the identity
+ * seed, so it outlives a passphrase recovery, and never in the vault, whose
+ * keys are provisioned venue-wide — and remembers the claim page under the
  * owner's workspace ({@link #RECORD_PATH}) until it has been used. The
  * assistant takes part through {@link MoltbookAdapter}'s operations, which
  * resolve the key inside the venue — the model never composes a request or
@@ -44,7 +45,9 @@ import covia.grid.Venue;
  */
 public final class Moltbook {
 
-	/** The vault/secret name of the API key. */
+	private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(Moltbook.class);
+
+	/** The secret name of the API key in the owner's venue secret store. */
 	public static final String KEY_SECRET = "MOLTBOOK_API_KEY";
 	/** Always with {@code www}: the bare domain redirects and drops the credential. */
 	public static final String SITE = "https://www.moltbook.com";
@@ -118,9 +121,16 @@ public final class Moltbook {
 		} else {
 			b.method(method, HttpRequest.BodyPublishers.noBody());
 		}
+		long started = System.nanoTime();
 		return HTTP.sendAsync(b.build(), HttpResponse.BodyHandlers.ofString()).thenApply(response -> {
 			int status = response.statusCode();
 			String text = response.body();
+			if (log.isDebugEnabled()) {
+				// The path without its query (search terms are the owner's business).
+				int q = path.indexOf('?');
+				log.debug("{} {} → {} in {} ms", method, (q < 0) ? path : path.substring(0, q), status,
+					(System.nanoTime() - started) / 1_000_000);
+			}
 			if (status < 200 || status >= 300) throw new CompletionException(new IOException(errorOf(status, text)));
 			ACell parsed;
 			try {

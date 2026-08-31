@@ -24,6 +24,8 @@ import covia.venue.Engine.UserPathTarget;
 import covia.venue.RequestContext;
 import covia.venue.SecretStore;
 import covia.venue.User;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Moltbook as operations on the venue — {@code v/ops/moltbook/<op>} — so the
@@ -45,6 +47,8 @@ public class MoltbookAdapter extends AAdapter {
 	/** The failure an operation reports until the owner has connected an account. */
 	public static final String NOT_SET_UP = "Moltbook is not set up: register an account for the owner with the "
 		+ "moltbook-setup skill, or the owner connects one in Settings → Integrations → Moltbook";
+
+	private static final Logger log = LoggerFactory.getLogger(MoltbookAdapter.class);
 
 	/** Every operation, as installed under {@code v/ops/moltbook/}. */
 	public static final List<String> OPS = List.of(
@@ -115,6 +119,23 @@ public class MoltbookAdapter extends AAdapter {
 	@Override
 	public CompletableFuture<ACell> invokeFuture(RequestContext ctx, AMap<AString, ACell> meta, ACell input) {
 		String op = getSubOperation(meta);
+		long started = System.nanoTime();
+		CompletableFuture<ACell> result;
+		try {
+			result = dispatch(ctx, op, input);
+		} catch (Exception e) {
+			result = CompletableFuture.failedFuture(e);
+		}
+		// Outcome and timing only — never the input or what Moltbook said. This
+		// is what makes an agent's Moltbook turn readable in the Brightside log.
+		return result.whenComplete((value, failure) -> {
+			long ms = (System.nanoTime() - started) / 1_000_000;
+			if (failure == null) log.info("moltbook:{} ok in {} ms", op, ms);
+			else log.info("moltbook:{} failed in {} ms: {}", op, ms, rootMessage(failure));
+		});
+	}
+
+	private CompletableFuture<ACell> dispatch(RequestContext ctx, String op, ACell input) {
 		try {
 			// The two that make sense before there is an account.
 			if ("account".equals(op)) return account(ctx);
@@ -147,6 +168,17 @@ public class MoltbookAdapter extends AAdapter {
 		} catch (Exception e) {
 			return CompletableFuture.failedFuture(e);
 		}
+	}
+
+	/** The innermost message of a failure, unwrapping the async wrappers. */
+	private static String rootMessage(Throwable failure) {
+		Throwable t = failure;
+		while ((t instanceof CompletionException || t instanceof java.util.concurrent.ExecutionException)
+				&& t.getCause() != null && t.getCause() != t) {
+			t = t.getCause();
+		}
+		String m = t.getMessage();
+		return (m == null || m.isBlank()) ? t.getClass().getSimpleName() : m;
 	}
 
 	/** The caller's key, from their own secret store (or the venue's launch-provisioned secrets). */

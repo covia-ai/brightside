@@ -58,8 +58,15 @@ public final class SessionHistory {
 	public sealed interface Item permits Message, Activity {
 	}
 
-	/** A chat message. {@code role} is {@code "user"} or {@code "assistant"}. */
-	public record Message(String role, String text) implements Item {
+	/**
+	 * A chat message. {@code role} is {@code "user"} or {@code "assistant"};
+	 * {@code origin} names where an inbound message arrived from when it was not
+	 * this app (e.g. {@code "Discord · #general · quark"}), else null.
+	 */
+	public record Message(String role, String text, String origin) implements Item {
+		public Message(String role, String text) {
+			this(role, text, null);
+		}
 	}
 
 	/** The tool-use steps of one turn, shown collapsed and expandable. */
@@ -189,7 +196,11 @@ public final class SessionHistory {
 			}
 			String toolResult = ROLE_TOOL.equals(role) ? toolResult(turn) : null;
 			boolean error = CVMBool.TRUE.equals(RT.getIn(turn, "isError"));
-			out.add(new RawTurn(role, str(RT.getIn(turn, "content")), calls, toolResult, error, turnMeta(turn)));
+			// The inspector is the raw view: structured content (a channel-delivered
+			// message with its via metadata) renders as JSON rather than vanishing.
+			ACell rawContent = RT.getIn(turn, "content");
+			String content = (rawContent == null) ? null : renderContent(rawContent);
+			out.add(new RawTurn(role, content, calls, toolResult, error, turnMeta(turn)));
 		}
 		return out;
 	}
@@ -303,7 +314,8 @@ public final class SessionHistory {
 		StringBuilder sb = new StringBuilder();
 		for (Item it : items) {
 			if (it instanceof Message m) {
-				String who = ROLE_USER.equals(m.role()) ? "You" : "Brightside";
+				String who = ROLE_USER.equals(m.role())
+					? (m.origin() != null ? m.origin() : "You") : "Brightside";
 				sb.append(who).append(": ").append(m.text()).append("\n\n");
 			}
 		}
@@ -315,10 +327,43 @@ public final class SessionHistory {
 		for (long i = 0; i < conversation.count(); i++) {
 			ACell turn = conversation.get(i);
 			if (!ROLE_USER.equals(str(RT.getIn(turn, "role")))) continue;
-			String content = str(RT.getIn(turn, "content"));
+			String content = contentText(RT.getIn(turn, "content"));
 			if (notBlank(content)) return firstLine(content);
 		}
 		return "New conversation";
+	}
+
+	/**
+	 * The displayable text of a turn's content: a string as it is; a structured
+	 * inbound message's {@code text}; null for anything else.
+	 */
+	private static String contentText(ACell content) {
+		if (content instanceof AString s) return s.toString();
+		return str(RT.getIn(content, "text"));
+	}
+
+	/**
+	 * Where a structured inbound message came from, from its {@code via}
+	 * metadata: the delivery channel, the chat, and the sender — e.g.
+	 * {@code "Discord · #general · quark"}. Null when the message has none
+	 * (it was typed here).
+	 */
+	private static String originOf(ACell content) {
+		ACell via = RT.getIn(content, "via");
+		if (via == null) return null;
+		List<String> bits = new ArrayList<>();
+		String channel = str(RT.getIn(via, "channel"));
+		if (notBlank(channel)) {
+			bits.add(Character.toUpperCase(channel.charAt(0)) + channel.substring(1));
+		}
+		String chatName = str(RT.getIn(via, "chat", "name"));
+		String chatType = str(RT.getIn(via, "chat", "type"));
+		if (chatName != null) bits.add("#" + chatName);
+		else if (chatType != null) bits.add(chatType.toLowerCase());
+		String from = str(RT.getIn(via, "from", "global_name"));
+		if (from == null) from = str(RT.getIn(via, "from", "username"));
+		if (from != null) bits.add(from);
+		return bits.isEmpty() ? null : String.join(" · ", bits);
 	}
 
 	private static String firstLine(String s) {
@@ -374,7 +419,12 @@ public final class SessionHistory {
 			switch (role) {
 				case ROLE_USER -> {
 					flush(items, pending);
-					if (notBlank(content)) items.add(new Message(ROLE_USER, content));
+					// A channel-delivered message (Discord, Telegram …) is stored as a
+					// structured {text, via} map, not a string: show its text and say
+					// where it came from.
+					ACell raw = RT.getIn(turn, "content");
+					String text = contentText(raw);
+					if (notBlank(text)) items.add(new Message(ROLE_USER, text, originOf(raw)));
 				}
 				case ROLE_ASSISTANT -> {
 					if (hasToolCalls(turn)) {

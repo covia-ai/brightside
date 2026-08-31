@@ -195,6 +195,49 @@ class SessionHistoryTest {
 			"the raw turns include the user message verbatim");
 	}
 
+	@Test
+	void channelDeliveredMessagesShowTheirTextAndOrigin() throws Exception {
+		String userDID = Identity.of("channelled").userDID(venue.did());
+		Venue client = venue.clientAs(userDID);
+		AppConfig.Chat chat = new AppConfig.Chat("channel-agent",
+			AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo the user.", 30);
+		new ChatSession(client, chat, "Channelled").ensureAgent();
+
+		// A message delivered by a channel adapter (Discord, Telegram …) is a
+		// structured {text, via} map, exactly as covia-discord's BotRunner sends it.
+		invoke(client, "v/ops/agent/chat", Maps.of(
+			"agentId", "channel-agent",
+			"message", Maps.of(
+				"text", "hello from a discord channel",
+				"via", Maps.of(
+					"channel", "discord",
+					"from", Maps.of("id", "123", "username", "quark"),
+					"chat", Maps.of("id", "456", "type", "TEXT", "name", "general")))));
+
+		SessionHistory.Snapshot conv = SessionHistory.loadLatest(client, "channel-agent");
+		assertNotNull(conv);
+		SessionHistory.Message inbound = conv.items().stream()
+			.filter(it -> it instanceof SessionHistory.Message m && "user".equals(m.role()))
+			.map(it -> (SessionHistory.Message) it)
+			.findFirst().orElse(null);
+		assertNotNull(inbound, "the channel-delivered user message is shown, not dropped");
+		assertEquals("hello from a discord channel", inbound.text());
+		assertEquals("Discord · #general · quark", inbound.origin());
+
+		// The switcher titles the conversation by the message's text, not JSON.
+		List<SessionHistory.Session> list = SessionHistory.listSessions(client, "channel-agent");
+		assertTrue(list.get(0).title().contains("hello from a discord"),
+			"the title is the message text: " + list.get(0).title());
+
+		// A message typed in the app has no origin.
+		ChatSession s = new ChatSession(client, chat, "Channelled");
+		s.send("typed right here");
+		SessionHistory.Snapshot after = SessionHistory.loadLatest(client, "channel-agent");
+		assertTrue(after.items().stream().anyMatch(it -> it instanceof SessionHistory.Message m
+			&& "user".equals(m.role()) && "typed right here".equals(m.text()) && m.origin() == null),
+			"an app-typed message carries no origin caption");
+	}
+
 	private static String titleOf(Venue client, String agentId, String sessionId) {
 		return SessionHistory.listSessions(client, agentId).stream()
 			.filter(x -> x.sessionId().equals(sessionId))
