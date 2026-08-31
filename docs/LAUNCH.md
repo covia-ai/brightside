@@ -17,7 +17,10 @@ how it stops. Code: `BrightSide`, `Takeover`, `EmbeddedVenue`, `TrayManager`.
    whichever is current.
 3. Unlock or onboarding opens the vault, yields the identity seed, secures the
    venue config with it (seed plus the Etch v3 store key) and provisions the
-   model API keys. `launchVenueWith` then runs on a background thread.
+   model API keys. `launchVenueWith` then runs on a background thread while the
+   unlock dialog stays up showing progress ("Starting the venue…"); the main
+   window appears only once the venue is actually ready, so it never shows
+   without live data behind it.
 4. `EmbeddedVenue.launch` starts the `VenueServer` on loopback with public
    access disabled and registers `BrightsideAdapter` and
    `BrightsideSkillsAdapter`. `onVenueReady` binds the identity to the venue

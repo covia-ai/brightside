@@ -181,13 +181,13 @@ newest-first. When a background update lands, the controller re-renders the
 session on screen, not always the latest — a change elsewhere never yanks you
 off the conversation you opened.
 
-**Home is an uncommitted new chat.** Startup and entering Home reset the
-`ChatSession` to a null session id and show an empty transcript. Existing
-sessions are still listed under Sessions, but none is resumed implicitly. The
-agent framework mints the new session only when the user sends the first message.
-The completed send returns that id to the controller, which immediately re-reads
-the exact session and updates the switcher; session adoption does not depend on
-the polling watcher's timing.
+**Home keeps the conversation.** Entering Home shows the conversation in
+progress, and startup restores the most recent one; only the explicit new-chat
+control resets the `ChatSession` to a null session id and an empty transcript.
+The agent framework mints a new session only when the user sends the first
+message of that fresh chat. The completed send returns that id to the
+controller, which immediately re-reads the exact session and updates the
+switcher; session adoption does not depend on the polling watcher's timing.
 
 ## Skills, tools and memory
 

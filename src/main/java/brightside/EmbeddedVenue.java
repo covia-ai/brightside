@@ -76,6 +76,21 @@ public final class EmbeddedVenue implements AutoCloseable {
 		return resolve(userDID, "g/" + agentId);
 	}
 
+	/**
+	 * The user's agents ({@code g/}): agent id → record, straight from the
+	 * in-process venue state — the same enumeration {@code agent:list} uses
+	 * (the whole {@code g} node is not a resolvable lattice path, only
+	 * {@code g/<id>} is). Null before the user exists.
+	 */
+	public AMap<AString, ACell> agents(String userDID) {
+		try {
+			User user = engine().getVenueState().users().get(Strings.create(userDID));
+			return (user == null) ? null : user.getAgents();
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
 	/** The user's HITL inbox ({@code h/}): request id → record, straight from the in-process lattice. Null before the user exists. */
 	public AMap<AString, ACell> inbox(String userDID) {
 		try {

@@ -247,10 +247,12 @@ public final class BrightSide {
 
 	/**
 	 * Brings the venue up. If another instance already holds the store, the
-	 * owner is first asked whether to take over — and only once that is settled
-	 * and the other instance has stepped aside does {@code clearToShow} run (on
-	 * the event thread): the moment the main window may appear, so two of them
-	 * are never on screen together.
+	 * owner is first asked whether to take over — and only once that is settled,
+	 * the other instance has stepped aside <em>and the venue is actually up</em>
+	 * does {@code clearToShow} run (on the event thread): the moment the main
+	 * window may appear. Two windows are never on screen together, and the
+	 * window never shows without live data behind it — while the venue boots,
+	 * the unlock dialog stays up showing progress.
 	 */
 	private void launchVenueWith(AMap<AString, ACell> venueConfig, Runnable clearToShow) {
 		try {
@@ -275,10 +277,17 @@ public final class BrightSide {
 					return;
 				}
 			}
-			if (clearToShow != null) SwingUtilities.invokeLater(clearToShow);
+			// The slow part: opening the encrypted store, adapters, provisioning.
+			SwingUtilities.invokeLater(() -> {
+				if (unlockDialog != null) unlockDialog.showProgress("Starting the venue…");
+			});
 			EmbeddedVenue v = EmbeddedVenue.launch(venueConfig, this::exit);
 			venue = v;
 			log.info("Venue '{}' ready at {} as {}", v.name(), v.url(), v.did());
+			// Reveal only now that the venue is up: the dialog drops and the window
+			// comes up in its startup state; the chat bind's own event-thread
+			// update is queued after it and fills in the conversation.
+			if (clearToShow != null) SwingUtilities.invokeLater(clearToShow);
 			onVenueReady();
 		} catch (Throwable t) {
 			log.error("Venue failed to start", t);
@@ -1125,10 +1134,9 @@ public final class BrightSide {
 		// The venue is in-process: read the agent record straight from the lattice
 		// (no job) and project it, rather than submitting a covia:read.
 		convex.core.data.ACell record = v.agentRecord(did, aid);
-		// Home is deliberately a clean new chat. Other rebinds (agent switch/name
-		// change) retain their existing latest-session behaviour.
-		SessionHistory.Snapshot history = (bind == Bind.FIRST)
-			? null : SessionHistory.snapshotOf(record, null);
+		// Home keeps the conversation you were in — at startup, the most recent
+		// one — until a new conversation is explicitly created.
+		SessionHistory.Snapshot history = SessionHistory.snapshotOf(record, null);
 		if (history != null) session.resume(history.sessionId());
 		List<SessionHistory.Item> turns = (history != null) ? history.items() : List.of();
 		viewedSessionId = (history != null) ? history.sessionId() : null;
@@ -1394,9 +1402,10 @@ public final class BrightSide {
 	}
 
 	/**
-	 * Lists the acting principal's agents — the {@code g/} namespace, read
-	 * straight from the in-process lattice rather than through an agent:list
-	 * job — always including the default and current.
+	 * Lists the acting principal's agents, read straight from the in-process
+	 * venue state — the same enumeration {@code agent:list} uses ({@code g} as
+	 * a whole is not a resolvable path, only {@code g/<id>} is) — always
+	 * including the default and current, and hiding terminated agents.
 	 */
 	private List<AgentRef> listAgents(EmbeddedVenue v, String did, String currentAid) {
 		java.util.LinkedHashMap<String, AgentRef> map = new java.util.LinkedHashMap<>();
@@ -1405,14 +1414,17 @@ public final class BrightSide {
 		if (currentAid != null) {
 			map.putIfAbsent(currentAid, new AgentRef(currentAid, displayNameFor(currentAid)));
 		}
-		ACell agents = v.resolve(did, "g");
-		if (agents instanceof AMap<?, ?> records) {
+		AMap<AString, ACell> records = v.agents(did);
+		if (records != null) {
 			for (long i = 0; i < records.count(); i++) {
-				ACell key = records.entryAt(i).getKey();
-				if (key != null) {
-					String aid = key.toString();
-					map.putIfAbsent(aid, new AgentRef(aid, displayNameFor(aid)));
-				}
+				var entry = records.entryAt(i);
+				ACell key = entry.getKey();
+				if (key == null) continue;
+				AString status = convex.core.lang.RT.ensureString(
+					convex.core.lang.RT.getIn(entry.getValue(), "status"));
+				if (status != null && "TERMINATED".contentEquals(status.toString())) continue;
+				String aid = key.toString();
+				map.putIfAbsent(aid, new AgentRef(aid, displayNameFor(aid)));
 			}
 		}
 		return stableAgentOrder(new ArrayList<>(map.values()), def);
@@ -1453,11 +1465,15 @@ public final class BrightSide {
 	 * the event thread; the cell projection runs off it.
 	 */
 	private void onAgentChanged(convex.core.data.ACell record) {
+		EmbeddedVenue v = venue;
+		String did = userDID;
+		String aid = agentId;
 		new SwingWorker<Void, Void>() {
 			private List<SessionHistory.Session> list;
 			private SessionHistory.Snapshot snap;
 			private String vsid;
 			private boolean sessionActive;
+			private List<AgentRef> agents;
 
 			@Override
 			protected Void doInBackground() {
@@ -1468,6 +1484,9 @@ public final class BrightSide {
 					: (chat != null ? chat.sessionId() : null);
 				snap = (vsid != null) ? SessionHistory.snapshotOf(record, vsid) : null;
 				sessionActive = SessionHistory.isSessionActive(record, vsid);
+				// A turn can create, rename or delete agents (the assistant's agent
+				// tools): rebuild the pane's list from g/ while off the event thread.
+				agents = (v != null && did != null) ? listAgents(v, did, aid) : null;
 				return null;
 			}
 
@@ -1479,8 +1498,31 @@ public final class BrightSide {
 					if (snap != null) window.refreshConversation(snap.items(), sessionActive);
 				}
 				window.setConversations(list, viewedSessionId);
+				if (agents != null && java.util.Objects.equals(agentId, aid)) {
+					window.setAgents(agents, aid, defaultAgentId());
+				}
 			}
 		}.execute();
+	}
+
+	/**
+	 * Re-reads the agents pane from {@code g/}. Agents can appear out of band —
+	 * created by the assistant in a turn, by Odin, or by a background task — so
+	 * the sessions screen refreshes on entry rather than trusting the last bind.
+	 */
+	public void refreshAgents() {
+		EmbeddedVenue v = venue;
+		String did = userDID;
+		String aid = agentId;
+		if (v == null || did == null) return;
+		Thread t = new Thread(() -> {
+			List<AgentRef> refs = listAgents(v, did, aid);
+			SwingUtilities.invokeLater(() -> {
+				if (java.util.Objects.equals(agentId, aid)) window.setAgents(refs, aid, defaultAgentId());
+			});
+		}, "brightside-agents-refresh");
+		t.setDaemon(true);
+		t.start();
 	}
 
 	/**

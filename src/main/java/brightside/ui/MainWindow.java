@@ -411,8 +411,8 @@ public final class MainWindow extends JFrame {
 	}
 
 	private void showNewChat() {
-		if (activeTab == NavBar.Tab.HOME) app.newConversation();
-		else selectTab(NavBar.Tab.HOME); // entering Home resets exactly once
+		selectTab(NavBar.Tab.HOME);
+		app.newConversation();
 	}
 
 	// ------------------------------------------------------------------
@@ -494,9 +494,9 @@ public final class MainWindow extends JFrame {
 
 	/** Switch the bottom-nav content between the chat screens and settings. */
 	private void selectTab(NavBar.Tab tab) {
-		boolean enteringHome = tab == NavBar.Tab.HOME && activeTab != NavBar.Tab.HOME;
+		// Entering Home keeps the conversation in progress; only the explicit
+		// new-chat control starts a fresh one.
 		activeTab = tab;
-		if (enteringHome) app.newConversation();
 		switch (tab) {
 			case HOME -> {
 				mainCards.show(mainDeck, MAIN_CHAT);
@@ -505,6 +505,9 @@ public final class MainWindow extends JFrame {
 			case SESSIONS -> {
 				mainCards.show(mainDeck, MAIN_CHAT);
 				setSidebar(true);
+				// Agents and conversations can change out of band (assistant-created
+				// agents, another client): re-read on entry.
+				app.refreshAgents();
 			}
 			case INBOX -> mainCards.show(mainDeck, MAIN_INBOX);
 			case SETTINGS -> {
