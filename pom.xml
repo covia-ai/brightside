@@ -42,8 +42,12 @@
 
 		<!-- Covia venue runtime. Releases resolve from Maven Central; a SNAPSHOT
 		     (the current develop line) needs ../convex then ../covia installed
-		     locally with mvn install. -->
-		<covia.version>0.9.7</covia.version>
+		     locally with mvn install.
+		     0.9.8 is the first release carrying the connection skills
+		     (v/skills/connections/*) and the {s/NAME} URL-secret http feature
+		     that the connections skill depends on — covia PRs #396/#456/#458.
+		     Adjust to the actual release that ships them if the number differs. -->
+		<covia.version>0.9.8</covia.version>
 		<flatlaf.version>3.7.2</flatlaf.version>
 		<!-- The JDA version covia-discord ${covia.version} was built against. -->
 		<jda.version>6.5.0</jda.version>
