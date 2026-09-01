@@ -46,6 +46,18 @@ public class SelectableText extends JTextArea {
 		setAlignmentX(Component.LEFT_ALIGNMENT);
 		built = true;
 		applyFont();
+		quietCaret();
+	}
+
+	/**
+	 * Read-only text never follows an edit: setting text leaves the caret where
+	 * it is, so nothing asks the enclosing scroll pane to scroll to it. (A
+	 * default caret jumps to the end of set text and, a moment later, scrolls
+	 * to itself — the last text area shown wins, and a column of them opens at
+	 * its bottom.)
+	 */
+	private void quietCaret() {
+		if (getCaret() instanceof DefaultCaret caret) caret.setUpdatePolicy(DefaultCaret.NEVER_UPDATE);
 	}
 
 	/** A muted, wrapping explanation. */
@@ -126,6 +138,7 @@ public class SelectableText extends JTextArea {
 			}
 		};
 		caret.setBlinkRate(0);
+		caret.setUpdatePolicy(DefaultCaret.NEVER_UPDATE);
 		setCaret(caret);
 		caret.setSelectionVisible(true);
 		return this;
@@ -159,7 +172,10 @@ public class SelectableText extends JTextArea {
 	@Override
 	public void updateUI() {
 		super.updateUI();
-		if (built) applyFont();
+		if (built) {
+			applyFont();
+			quietCaret(); // a theme change installs a fresh caret
+		}
 	}
 
 	/** The face from the theme's own font keys, so it tracks the default font and its scaling. */

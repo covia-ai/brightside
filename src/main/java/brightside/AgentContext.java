@@ -153,9 +153,11 @@ public final class AgentContext {
 				ACell t = (ACell) ts.get(i);
 				String name = str(RT.getIn(t, "name"));
 				ACell entry = provenance.get(name);
-				tools.add(new Tool(name, str(RT.getIn(t, "description")), str(RT.getIn(entry, "source")),
-					str(RT.getIn(entry, "operation")), str(RT.getIn(entry, "skill")),
-					bool(RT.getIn(t, "requiresSkill"))));
+				String source = str(RT.getIn(entry, "source"));
+				// A skill-declared tool's palette entry refers to the skill that declares it.
+				String skill = "skill".equals(source) ? str(RT.getIn(entry, "ref")) : null;
+				tools.add(new Tool(name, str(RT.getIn(t, "description")), source,
+					str(RT.getIn(entry, "operation")), skill, bool(RT.getIn(t, "requiresSkill"))));
 			}
 		}
 

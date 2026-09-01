@@ -85,6 +85,8 @@ class AgentContextTest {
 			"the dynamic Brightside context load is represented");
 		assertTrue(report.tools().stream().anyMatch(t -> t.name() != null && t.name().contains("memory")),
 			"the memory tool is offered: " + report.tools());
+		// The palette sidecar does not (yet) cover skill-declared tools, so the
+		// declaring skill may be unknown; the gate flag on the definition is what counts.
 		assertTrue(report.tools().stream().anyMatch(AgentContext.Tool::requiresSkill),
 			"tools a skill declares are flagged as gates: " + report.tools());
 		assertTrue(report.tools().stream().anyMatch(t -> !t.requiresSkill()), "and the usable ones are not");

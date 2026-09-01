@@ -5,6 +5,7 @@ import static brightside.ui.inspect.Blocks.kv;
 import static brightside.ui.inspect.Blocks.raw;
 
 import java.awt.BorderLayout;
+import java.awt.Point;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -12,7 +13,9 @@ import javax.swing.BorderFactory;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
+import javax.swing.SwingUtilities;
 
 import brightside.AgentContext;
 import brightside.SessionHistory;
@@ -29,9 +32,10 @@ import brightside.ui.components.Styles;
  * {@link AgentContext}). Tabs: <em>Overview</em> (model, budget, counts),
  * <em>Context</em> (every assembled message, by band — head, live surface,
  * conversation, tool loop, tail), <em>Cycle detail</em> (the stored turns),
- * <em>Tools</em> (the definitions the model receives, usable now or declared
- * by a skill as a gate), <em>Loaded</em> (the context entries and their
- * accounting) and <em>Raw</em> (the untouched report).
+ * <em>Tools</em> (the definitions the model can call now, by source),
+ * <em>Skill tools</em> (the definitions skills declare as gates, by skill),
+ * <em>Loaded</em> (the context entries and their accounting) and <em>Raw</em>
+ * (the untouched report).
  *
  * <p>Each list is an {@link EntryList} — a summary beside its content — with
  * long content clamped in an {@link Excerpt}. Everything shown is selectable
@@ -42,14 +46,31 @@ public final class ContextInspector extends JPanel {
 
 	public ContextInspector(AgentContext.Report report, List<SessionHistory.RawTurn> turns) {
 		super(new BorderLayout());
+		List<AgentContext.Tool> usable = report.tools().stream().filter(t -> !t.requiresSkill()).toList();
+		List<AgentContext.Tool> gated = report.tools().stream().filter(AgentContext.Tool::requiresSkill).toList();
+
+		List<JScrollPane> panes = new ArrayList<>();
 		JTabbedPane tabs = new JTabbedPane();
 		tabs.addTab("Overview", overview(report));
-		tabs.addTab("Context (" + report.messages().size() + ")", Scrolls.vertical(messages(report)));
-		tabs.addTab("Cycle detail (" + turns.size() + ")", Scrolls.vertical(cycle(turns)));
-		tabs.addTab("Tools (" + report.tools().size() + ")", Scrolls.vertical(tools(report)));
-		tabs.addTab("Loaded (" + report.loads().size() + ")", Scrolls.vertical(loads(report)));
+		tabs.addTab("Context (" + report.messages().size() + ")", scrolling(messages(report), panes));
+		tabs.addTab("Cycle detail (" + turns.size() + ")", scrolling(cycle(turns), panes));
+		tabs.addTab("Tools (" + usable.size() + ")", scrolling(tools(usable, report.unavailable()), panes));
+		tabs.addTab("Skill tools (" + gated.size() + ")", scrolling(skillTools(gated), panes));
+		tabs.addTab("Loaded (" + report.loads().size() + ")", scrolling(loads(report), panes));
 		tabs.addTab("Raw", raw(report.rawJson()));
 		add(tabs, BorderLayout.CENTER);
+
+		// Every list opens at its top, whatever asked to be scrolled into view
+		// while the window was appearing.
+		SwingUtilities.invokeLater(() -> {
+			for (JScrollPane pane : panes) pane.getViewport().setViewPosition(new Point(0, 0));
+		});
+	}
+
+	private static JScrollPane scrolling(JComponent content, List<JScrollPane> panes) {
+		JScrollPane pane = Scrolls.vertical(content);
+		panes.add(pane);
+		return pane;
 	}
 
 	// ------------------------------------------------------------------
@@ -194,37 +215,71 @@ public final class ContextInspector extends JPanel {
 	// Tools: usable now, and declared by skills as gates
 	// ------------------------------------------------------------------
 
-	private static JComponent tools(AgentContext.Report r) {
+	/** The tools the model can call now, grouped by where they come from, and any that did not resolve. */
+	private static JComponent tools(List<AgentContext.Tool> usable, List<String> unavailable) {
 		EntryList list = entries();
-		List<AgentContext.Tool> usable = r.tools().stream().filter(t -> !t.requiresSkill()).toList();
-		List<AgentContext.Tool> gated = r.tools().stream().filter(AgentContext.Tool::requiresSkill).toList();
-
-		if (!usable.isEmpty()) {
-			list.section("Usable now  ·  " + usable.size());
-			for (AgentContext.Tool t : usable) list.entry(toolSummary(t), toolDescription(t.description(), null, list));
-		}
-		if (!gated.isEmpty()) {
-			list.section("Declared by skills — load the skill to use  ·  " + gated.size());
-			String preamble = sharedPreamble(gated);
-			if (preamble != null) {
-				list.note("Every description below begins “" + preamble + "” — shown once here; "
-					+ "the model receives it on each of them.");
+		String source = null;
+		for (AgentContext.Tool t : usable) {
+			String s = (t.source() != null) ? t.source() : "other";
+			if (!s.equals(source)) {
+				source = s;
+				list.section(sourceTitle(s) + "  ·  " + usable.stream().filter(u -> s.equals(u.source() != null ? u.source() : "other")).count());
 			}
-			for (AgentContext.Tool t : gated) list.entry(toolSummary(t), toolDescription(t.description(), preamble, list));
+			list.entry(toolSummary(t), toolDescription(t.description(), null, list));
 		}
-		if (!r.unavailable().isEmpty()) {
-			list.section("Unavailable  ·  " + r.unavailable().size());
-			for (String u : r.unavailable()) list.note(u);
+		if (!unavailable.isEmpty()) {
+			list.section("Unavailable  ·  " + unavailable.size());
+			for (String u : unavailable) list.note(u);
 		}
-		if (r.tools().isEmpty() && r.unavailable().isEmpty()) list.note("No tools offered.");
+		if (usable.isEmpty() && unavailable.isEmpty()) list.note("No tools offered.");
+		return list;
+	}
+
+	private static String sourceTitle(String source) {
+		return switch (source) {
+			case "harness" -> "Harness";
+			case "default" -> "Default";
+			case "config" -> "Configured";
+			case "skill" -> "From loaded skills";
+			default -> source;
+		};
+	}
+
+	/**
+	 * Tools a skill declares as gates: the model sees their definitions so it
+	 * can find them, and must load the skill before it can call them.
+	 */
+	private static JComponent skillTools(List<AgentContext.Tool> gated) {
+		EntryList list = entries();
+		if (gated.isEmpty()) {
+			list.note("No skill declares tools for this agent.");
+			return list;
+		}
+		boolean named = gated.stream().anyMatch(t -> t.skill() != null);
+		list.note("Declared by skills in the agent's discovery surface, so the model can see what loading each "
+			+ "would bring; a call before the skill is loaded fails." + (named ? " Grouped by skill." : ""));
+		String preamble = sharedPreamble(gated);
+		if (preamble != null) {
+			list.note("Every description begins “" + preamble + "” — shown once here; "
+				+ "the model receives it on each of them (covia#470).");
+		}
+		String skill = null;
+		for (AgentContext.Tool t : gated) {
+			// The palette names the declaring skill when it can; without it, one flat list.
+			String s = (t.skill() != null) ? t.skill() : "";
+			if (named && !s.equals(skill)) {
+				skill = s;
+				list.section((s.isEmpty() ? "Skill not named" : s) + "  ·  "
+					+ gated.stream().filter(g -> s.equals(g.skill() != null ? g.skill() : "")).count());
+			}
+			list.entry(toolSummary(t), toolDescription(t.description(), preamble, list));
+		}
 		return list;
 	}
 
 	private static JComponent toolSummary(AgentContext.Tool t) {
 		List<String> meta = new ArrayList<>();
-		// A skill-declared tool names its skill; the bare source would say the same thing twice.
-		if (t.skill() != null) meta.add("skill  " + t.skill());
-		else if (t.source() != null) meta.add(t.source());
+		// The section already names the source or skill; the operation is what's new here.
 		if (t.operation() != null) meta.add(t.operation());
 		return EntryList.summary((t.name() != null) ? t.name() : "(tool)", null, meta.toArray(String[]::new));
 	}

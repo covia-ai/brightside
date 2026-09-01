@@ -80,6 +80,7 @@ public class Excerpt extends JPanel {
 
 	private void apply() {
 		text.setText((expanded || clamped == null) ? full : clamped + " …");
+		text.setCaretPosition(0);
 		if (toggle != null) {
 			int lines = full.split("\n", -1).length;
 			toggle.setText(expanded ? "Show less"
