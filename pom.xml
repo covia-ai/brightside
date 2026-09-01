@@ -45,6 +45,7 @@
 		     locally with mvn install. -->
 		<covia.version>0.9.8-SNAPSHOT</covia.version>
 		<flatlaf.version>3.7.2</flatlaf.version>
+		<commonmark.version>0.30.0</commonmark.version>
 		<!-- The JDA version covia-discord ${covia.version} was built against. -->
 		<jda.version>6.5.0</jda.version>
 		<bouncycastle.version>1.85</bouncycastle.version>
@@ -101,6 +102,25 @@
 			<groupId>com.miglayout</groupId>
 			<artifactId>miglayout-swing</artifactId>
 			<version>11.4.2</version>
+		</dependency>
+
+		<!-- commonmark-java: the Markdown parser behind brightside.markdown, which
+		     turns its AST into a StyledDocument for the chat and any other
+		     rendered text. GitHub tables and strikethrough as extensions. -->
+		<dependency>
+			<groupId>org.commonmark</groupId>
+			<artifactId>commonmark</artifactId>
+			<version>${commonmark.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.commonmark</groupId>
+			<artifactId>commonmark-ext-gfm-tables</artifactId>
+			<version>${commonmark.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.commonmark</groupId>
+			<artifactId>commonmark-ext-gfm-strikethrough</artifactId>
+			<version>${commonmark.version}</version>
 		</dependency>
 
 		<!-- Argon2id passphrase hardening for the encrypted vault. (Also a Covia

@@ -31,12 +31,12 @@ import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
 import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.text.DefaultEditorKit;
+import javax.swing.text.JTextComponent;
 
 import brightside.SessionHistory;
 import brightside.chat.ChatSession;
@@ -76,7 +76,7 @@ public final class ChatPanel extends JPanel {
 	private final JButton send = Buttons.primary("Send");
 
 	private final List<SessionHistory.Item> displayed = new ArrayList<>();
-	private JTextArea lastSelectedBubble; // the bubble holding the current selection, if any
+	private JTextComponent lastSelectedBubble; // the bubble or step holding the current selection, if any
 	private Component thinkingRow; // assistant progress row while a reply is pending
 	private ThinkingBubble thinkingBubble;
 	private Consumer<String> conversationCommitted = ignored -> {
@@ -584,12 +584,12 @@ public final class ChatPanel extends JPanel {
 		return sb.toString().stripTrailing();
 	}
 
-	private static boolean hasSelection(JTextArea ta) {
+	private static boolean hasSelection(JTextComponent ta) {
 		return ta != null && ta.getSelectionStart() != ta.getSelectionEnd();
 	}
 
 	/** Right-click menu on a bubble: copy its selection/message, or the whole conversation. */
-	private void showBubbleMenu(JTextArea ta, String messageText, Component invoker, int x, int y) {
+	private void showBubbleMenu(JTextComponent ta, String messageText, Component invoker, int x, int y) {
 		JPopupMenu menu = new JPopupMenu();
 		JMenuItem copy = new JMenuItem("Copy message");
 		copy.addActionListener(e -> {
@@ -613,11 +613,13 @@ public final class ChatPanel extends JPanel {
 
 	/** A message row; {@code origin} adds a small caption naming where an inbound message came from. */
 	private Component bubbleRow(String text, boolean user, String origin) {
-		Bubble bubble = new Bubble(text, user);
+		// The assistant writes Markdown; the user's own words are shown as typed.
+		Bubble bubble = user ? Bubble.plain(text, true) : Bubble.markdown(text);
 		bubble.setAvailableWidth(scroll.getViewport().getWidth());
 
 		// The bubble is a dumb display component; the panel owns copy behaviour.
-		JTextArea ta = bubble.textArea();
+		// "Copy message" copies the source, so Markdown stays Markdown.
+		JTextComponent ta = bubble.textComponent();
 		ta.addCaretListener(e -> {
 			if (e.getDot() != e.getMark()) lastSelectedBubble = ta;
 		});

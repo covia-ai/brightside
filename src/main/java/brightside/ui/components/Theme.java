@@ -50,6 +50,11 @@ public final class Theme {
 		return FlatUIUtils.getUIColor("Brightside.surface", 0x2B2B2B);
 	}
 
+	/** Behind code in rendered Markdown: a further step off the surface it sits on. */
+	public static Color codeBackground() {
+		return FlatUIUtils.getUIColor("Brightside.code.background", 0x3A3A3A);
+	}
+
 	public static Color error() {
 		return FlatUIUtils.getUIColor("Brightside.error", 0xE55353);
 	}

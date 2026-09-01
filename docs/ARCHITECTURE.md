@@ -76,6 +76,9 @@ src/main/java/brightside/
 ├── skills/FilesystemSkills.java  imports agentskills.io SKILL.md folders into w/skills
 ├── vault/Vault.java            passphrase key + seed-derived Etch v3 key
 ├── vault/Mnemonic.java         BIP39 recovery phrase ↔ Ed25519 seed
+├── markdown/                   Markdown → StyledDocument (commonmark-java) and the
+│                               MarkdownPane that shows it; depends on nothing else
+│                               here, by design, so it can be lifted out
 └── ui/
     ├── LAF.java                the theme catalogue (FlatLaf's core themes, the IntelliJ
     │                           pack, the owner's .theme.json files) and its installation
@@ -90,7 +93,7 @@ src/main/java/brightside/
     │                           "One UI kit" below: Theme, Styles, Labels, Buttons,
     │                           SelectableText, Card, Disclosure, PressButton, Lucide,
     │                           ModelSelector, Scrolls, Panels, Borders, Dialogs,
-    │                           Clipboard, Documents, Links
+    │                           Clipboard, Documents, Links, MarkdownStyles
     ├── settings/               Identity, General, Theme (light/dark switch, a FlatLaf theme
     │                           per mode, an accent; applies live), Model, Integrations
     │                           (Discord and Moltbook tabs), Vault and Auth
@@ -165,6 +168,19 @@ tool calls of a turn). `ChatPanel` renders a `Message` as a `Bubble` and an
 opens into per-tool rows with input and result. New message kinds are added as
 new item types and their own row components; the bubbles are separate components
 on purpose.
+
+**The assistant writes Markdown.** An assistant `Bubble` renders its text
+through `brightside.markdown`: commonmark-java's AST (CommonMark plus GitHub
+tables and strikethrough) transformed into a `StyledDocument` and shown in a
+`MarkdownPane`, with the look supplied by `ui.components.MarkdownStyles` from
+the current theme and rendered again on a theme change. Structure is expressed
+only in what a styled document carries — paragraph attributes for indent,
+spacing and hanging list markers, character attributes for inline style, a
+link's destination as an attribute on its text — so there are no custom views.
+The user's own words stay as typed, and "Copy message" copies the source. The
+package depends on commonmark and the JDK only, so it can be lifted out as a
+library; anything else that shows Markdown — a skill body, a document — uses
+the same pane.
 
 **In-flight activity.** `ThinkingBubble` presents only lifecycle facts
 Brightside currently receives (preparing, accepted/running and elapsed time).
