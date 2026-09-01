@@ -19,7 +19,6 @@ import convex.core.data.prim.CVMBool;
 import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
 import convex.core.util.JSON;
-import covia.grid.Job;
 import covia.grid.Venue;
 
 /**
@@ -82,8 +81,8 @@ public final class AgentContext {
 		try {
 			AMap<AString, ACell> input = Maps.of("agentId", agentId);
 			if (sessionId != null) input = input.assoc(Strings.create("sessionId"), Strings.create(sessionId));
-			Job job = client.invoke("v/ops/agent/context", input).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
-			ACell report = job.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+			// A read: the op is declared readOnly, so no job record is left behind.
+			ACell report = client.run("v/ops/agent/context", input).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 			return (report instanceof AMap) ? parse(report) : null;
 		} catch (Exception e) {
 			log.warn("Could not assemble agent context for {}: {}", agentId, e.toString());

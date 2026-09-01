@@ -69,8 +69,10 @@ class SessionHistoryTest {
 		assertNotNull(sid);
 
 		// A fresh reader (as on restart) sees the same session and its turns.
+		long jobsBefore = RecordedJobs.of(venue, userDID);
 		SessionHistory.Snapshot conv = SessionHistory.loadLatest(client, "hist-agent");
 		assertNotNull(conv, "live conversation is readable");
+		assertEquals(jobsBefore, RecordedJobs.of(venue, userDID), "reading the record leaves no job record");
 		assertNotNull(conv.agentValue(), "carries the agent value for change comparison");
 		assertEquals(sid, conv.sessionId(), "reopens the same session");
 		assertTrue(conv.items().stream()

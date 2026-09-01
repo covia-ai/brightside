@@ -716,7 +716,7 @@ public final class BrightSide {
 		String n = note;
 		try {
 			String did = id.userDID(v.did());
-			bot = Discord.status(v, did, v.resolve(v.did(), Discord.recordPath(did)));
+			bot = Discord.status(v.clientAs(did), v.resolve(v.did(), Discord.recordPath(did)));
 		} catch (Exception e) {
 			log.warn("Could not read the Discord bot: {}", e.toString());
 			if (n == null) n = "Couldn't read the bot: " + rootMessage(e);

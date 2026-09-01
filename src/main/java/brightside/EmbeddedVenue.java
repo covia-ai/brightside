@@ -140,24 +140,6 @@ public final class EmbeddedVenue implements AutoCloseable {
 	}
 
 	/**
-	 * Invokes an adapter operation directly in-process — no Job is written or
-	 * persisted. For UI reads of live adapter state (e.g. Discord bot status),
-	 * where a durable job per screen visit would be noise; anything that
-	 * changes state should go through a real job instead.
-	 */
-	public ACell invokeAdapterDirect(String adapterOp, String userDID, ACell input, long timeoutSeconds)
-			throws Exception {
-		int colon = adapterOp.indexOf(':');
-		if (colon <= 0) throw new IllegalArgumentException("Expected adapter:operation, got " + adapterOp);
-		covia.adapter.AAdapter adapter = engine().getAdapter(adapterOp.substring(0, colon));
-		if (adapter == null) throw new IllegalStateException("No adapter for " + adapterOp);
-		AMap<AString, ACell> meta = convex.core.data.Maps.of(covia.api.Fields.OPERATION,
-			convex.core.data.Maps.of(Strings.intern("adapter"), Strings.create(adapterOp)));
-		RequestContext ctx = RequestContext.of(Strings.create(userDID));
-		return adapter.invokeFuture(ctx, meta, input).get(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS);
-	}
-
-	/**
 	 * Resolves any lattice {@code path} as {@code userDID} straight from the
 	 * in-process engine — no job. Null if absent or on any resolution error.
 	 */

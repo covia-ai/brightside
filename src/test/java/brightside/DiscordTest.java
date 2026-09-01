@@ -77,7 +77,7 @@ class DiscordTest {
 
 	@Test
 	void theOwnersBotIsCreatedListedAndRemovedAsTheUser() throws Exception {
-		assertNull(Discord.status(venue, userDID, null), "nothing before setup");
+		assertNull(Discord.status(user, null), "nothing before setup");
 
 		Discord.configure(user, "Brightside", "not-a-real-token", List.of("123456789012345678", " @mike "));
 
@@ -87,23 +87,25 @@ class DiscordTest {
 			"the record holds a secret reference, never the token");
 		assertEquals(Strings.create("Brightside"), RT.getIn(record, "agent"));
 
-		Discord.Bot bot = Discord.status(venue, userDID, record);
+		long jobsBefore = RecordedJobs.of(venue, userDID);
+		Discord.Bot bot = Discord.status(user, record);
 		assertNotNull(bot, "listed for its owner");
+		assertEquals(jobsBefore, RecordedJobs.of(venue, userDID), "status is a read: visiting Settings leaves no job record");
 		assertNotNull(bot.state());
 		assertEquals(List.of("123456789012345678", "@mike"), bot.allows(), "the allow-list, trimmed");
 
 		// A second configure replaces the bot rather than duplicating it.
 		Discord.configure(user, "Brightside", null, List.of("@mike"));
 		assertEquals(List.of("@mike"),
-			Discord.status(venue, userDID, venue.resolve(venue.did(), Discord.recordPath(userDID))).allows());
+			Discord.status(user, venue.resolve(venue.did(), Discord.recordPath(userDID))).allows());
 
 		// Another user sees no bot of theirs and cannot remove the owner's.
 		String otherDID = Identity.of("someone-else").userDID(venue.did());
 		Venue other = venue.clientAs(otherDID);
-		assertNull(Discord.status(venue, otherDID, null));
+		assertNull(Discord.status(other, null));
 		assertThrows(Exception.class, () -> Discord.remove(other));
 
 		Discord.remove(user);
-		assertNull(Discord.status(venue, userDID, null), "gone");
+		assertNull(Discord.status(user, null), "gone");
 	}
 }

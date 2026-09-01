@@ -87,9 +87,11 @@ class AgentInfoTest {
 				Maps.of("skill", true, "budget", 8000L, "label", "Skills")));
 		run("v/ops/agent/create", Maps.of(Fields.AGENT_ID, agentId, Fields.CONFIG, config));
 
+		long jobsBefore = RecordedJobs.of(venue, userDID);
 		AgentInfo.Summary info = AgentInfo.load(client, venue.agentRecord(userDID, agentId),
 			agentId, userDID, "Info Test", false);
 		assertNotNull(info);
+		assertEquals(jobsBefore, RecordedJobs.of(venue, userDID), "showing an agent is a read: no job record");
 		assertEquals(agentId, info.id());
 		assertEquals(agentId, info.name(), "no config.name: the id is the name");
 		assertEquals(userDID + ":g:" + agentId, info.did());

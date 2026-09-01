@@ -21,7 +21,6 @@ import convex.core.data.prim.CVMBool;
 import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
 import convex.core.util.JSON;
-import covia.grid.Job;
 import covia.grid.Venue;
 
 /**
@@ -150,9 +149,9 @@ public final class SessionHistory {
 	 */
 	public static ACell readAgentValue(Venue client, String agentId) {
 		try {
-			Job job = client.invoke("v/ops/covia/read", Maps.of("path", "g/" + agentId))
+			// A read: covia:read is declared readOnly, so no job record is left behind.
+			ACell result = client.run("v/ops/covia/read", Maps.of("path", "g/" + agentId))
 				.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
-			ACell result = job.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 			ACell record = RT.getIn(result, "value");
 			return (record instanceof AMap) ? record : null;
 		} catch (Exception e) {

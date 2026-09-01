@@ -96,13 +96,13 @@ public final class Discord {
 	}
 
 	/**
-	 * The owner's bot as the adapter sees it, or null when there is none.
-	 * Read directly in-process — visiting Settings must not write jobs.
-	 * {@code record} is the persisted bot record (for the allow-list), read
-	 * in-process by the operator from the adapter's workspace, or null.
+	 * The owner's bot as the adapter sees it, or null when there is none. A
+	 * read — the op is declared readOnly, so visiting Settings leaves no job
+	 * record. {@code record} is the persisted bot record (for the allow-list),
+	 * read in-process by the operator from the adapter's workspace, or null.
 	 */
-	public static Bot status(EmbeddedVenue venue, String userDID, ACell record) throws Exception {
-		ACell out = venue.invokeAdapterDirect("discord:bots", userDID, Maps.empty(), TIMEOUT_SECONDS);
+	public static Bot status(Venue user, ACell record) throws Exception {
+		ACell out = read(user, OP_BOTS, Maps.empty());
 		if (!(RT.getIn(out, "bots") instanceof AVector<?> bots)) return null;
 		for (long i = 0; i < bots.count(); i++) {
 			ACell b = (ACell) bots.get(i);
@@ -126,9 +126,15 @@ public final class Discord {
 		return List.copyOf(out);
 	}
 
+	/** An action: a durable job, with its record. */
 	private static ACell run(Venue client, String op, AMap<AString, ACell> input) throws Exception {
 		Job job = client.invoke(op, input).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 		return job.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+	}
+
+	/** A read-only operation: its result, with no job record left behind. */
+	private static ACell read(Venue client, String op, AMap<AString, ACell> input) throws Exception {
+		return client.run(op, input).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 	}
 
 	private static String str(ACell cell) {

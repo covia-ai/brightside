@@ -69,8 +69,10 @@ class AgentContextTest {
 		String sid = session.send("what do you see?").sessionId();
 		assertNotNull(sid);
 
+		long jobsBefore = RecordedJobs.of(venue, userDID);
 		AgentContext.Report report = AgentContext.load(client, "ctx-agent", sid);
 		assertNotNull(report, "owner-callable");
+		assertEquals(jobsBefore, RecordedJobs.of(venue, userDID), "an inspection is a read: no job record");
 		assertNotNull(report.model());
 		assertFalse(report.messages().isEmpty(), "the assembled messages");
 		assertTrue(report.messages().stream().anyMatch(message -> "system".equals(message.role())),

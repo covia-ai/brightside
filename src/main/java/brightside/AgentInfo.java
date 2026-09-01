@@ -19,7 +19,6 @@ import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
 import convex.core.util.JSON;
 import covia.api.Fields;
-import covia.grid.Job;
 import covia.grid.Principals;
 import covia.grid.Venue;
 
@@ -59,8 +58,8 @@ public final class AgentInfo {
 			boolean standard) {
 		ACell info;
 		try {
-			Job job = client.invoke("v/ops/agent/info", Maps.of("agentId", agentId)).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
-			info = job.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+			// A read: the op is declared readOnly, so no job record is left behind.
+			info = client.run("v/ops/agent/info", Maps.of("agentId", agentId)).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 		} catch (Exception e) {
 			log.warn("Could not read agent info for {}: {}", agentId, e.toString());
 			return null;

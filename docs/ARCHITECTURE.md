@@ -28,15 +28,31 @@ principal and drives the agent through the ordinary agent operations
 (`v/ops/agent/create|update|info|chat`). What the window shows is what any other
 client of the venue would see. There is no private LLM path.
 
-**Reads are free; operations are not.** Because the venue is in-process, reading
-the agent record goes straight to the lattice with no job:
-`EmbeddedVenue.agentRecord(userDID, agentId)` resolves the path exactly as
-`v/ops/covia/read` would, minus the job machinery. Lattice values are immutable
-and content-addressed, so change detection is an `.equals` comparison of the
-last value shown against the current one — a hash compare, not a submitted job.
-That is why `ConversationWatcher` can poll every couple of seconds silently and
-near-free. Actual *operations* — chat, rename, delete, context assembly — still
-go through the op/job path.
+**Reads are free; actions are not.** Three tiers, and the rule for choosing:
+
+- *State reads* — a lattice path, as the user: straight from the in-process
+  engine, no job. `EmbeddedVenue.agentRecord(userDID, agentId)` resolves the
+  path exactly as `v/ops/covia/read` would, minus the job machinery. Lattice
+  values are immutable and content-addressed, so change detection is an
+  `.equals` comparison of the last value shown against the current one — a
+  hash compare, not a submitted job. That is why `ConversationWatcher` can poll
+  every couple of seconds silently and near-free.
+- *Computed reads* — adapter logic over state with no side effects: what an
+  agent is (`agent/info`), what its model would see (`agent/context`), a bot's
+  status (`discord/bots`), the record through `covia/read`: `Venue.run` on an
+  op declared `readOnly`. That is a *transient* job — the op contract,
+  authority and admission still apply; nothing is persisted — so opening a
+  screen leaves no record behind. It keeps the input and output a remote
+  client would see, and keeps Brightside off Covia's internals.
+- *Actions* — chat, create, update, rename, delete, respond, write:
+  `Venue.invoke`, a durable job with a receipt, cancellation and history.
+
+Reaching further into the embedded engine's Java API than `resolvePath` is
+deliberately not done, even though the venue is right here: it would bypass
+the point-of-action capability checks that make the UI a client rather than an
+insider, and couple Brightside to the assembler and adapter code, which is
+rewritten far more often than the op contracts are. An op that is a read but
+is not declared `readOnly` is fixed upstream, not worked around.
 
 ## Project layout
 
