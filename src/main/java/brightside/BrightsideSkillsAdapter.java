@@ -147,6 +147,9 @@ public class BrightsideSkillsAdapter extends AAdapter {
 	public static final String RESEARCH_HTTP = RESEARCH + "/http";
 	/** On demand: evidence-led software design, implementation and review. */
 	public static final String CODING = SKILLSET + "/coding";
+	/** On demand: connect a third-party service (token in the vault) and route to
+	 *  the venue's connection skills that grant its HTTP tools. */
+	public static final String CONNECTIONS = SKILLSET + "/connections";
 	/** Every shipped skill path, in install order — the single list others derive from. */
 	public static final java.util.List<String> SHIPPED =
 		java.util.List.of(INTRODUCTION, CONVERSATIONS, SKILLS, SKILL_AUTHORING,
@@ -157,7 +160,7 @@ public class BrightsideSkillsAdapter extends AAdapter {
 			CONVEX, CONVEX_ACCOUNTS, CONVEX_LISP, CONVEX_SMART_CONTRACTS, CONVEX_TRUST, CONVEX_CNS,
 			CONVEX_COSTS, CONVEX_SECURITY, CONVEX_CPOS, CONVEX_CAD3, CONVEX_PROTONET,
 			CONVEX_LATTICE_CHILD, CONVEX_ECOSYSTEM,
-			WRITING, PLANNING, RESEARCH, RESEARCH_HTTP, CODING);
+			WRITING, PLANNING, RESEARCH, RESEARCH_HTTP, CODING, CONNECTIONS);
 
 	@Override
 	public String getName() {
