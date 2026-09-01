@@ -109,7 +109,8 @@ src/main/java/brightside/
     │                           "One UI kit" below: Theme, Styles, Labels, Buttons,
     │                           SelectableText, Card, Disclosure, PressButton, Lucide,
     │                           ModelSelector, Scrolls, Panels, Borders, Dialogs,
-    │                           Clipboard, Documents, Links, MarkdownStyles
+    │                           Clipboard, Documents, Links, MarkdownStyles,
+    │                           EntryList (summary | content rows), Excerpt (clamped text)
     ├── settings/               Identity, General, Theme (light/dark switch, a FlatLaf theme
     │                           per mode, an accent; applies live), Model, Integrations
     │                           (Discord and Moltbook tabs), Vault and Auth
@@ -119,7 +120,7 @@ src/main/java/brightside/
     ├── chat/                   ChatPanel, Bubble, MessageColumn, EmptyChatState,
     │                           ThinkingBubble, TypingIndicator, ExpandableActivity,
     │                           ConversationList, AgentList, NewAgentPanel
-    ├── inspect/                ContextInspector — the exact model input; AgentInspector —
+    ├── inspect/                ContextInspector — the exact model input, by band; AgentInspector —
     │                           the agent info screen; Blocks — their shared compositions
     └── inbox/                  InboxScreen — a column of collapsible RequestCards, each
                                 wrapping a RequestForm — requests waiting for the owner

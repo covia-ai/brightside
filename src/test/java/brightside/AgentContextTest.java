@@ -25,6 +25,7 @@ import brightside.chat.ChatSession;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
+import convex.core.data.Maps;
 import convex.core.data.Strings;
 import convex.core.data.prim.CVMLong;
 import covia.api.Fields;
@@ -84,7 +85,19 @@ class AgentContextTest {
 			"the dynamic Brightside context load is represented");
 		assertTrue(report.tools().stream().anyMatch(t -> t.name() != null && t.name().contains("memory")),
 			"the memory tool is offered: " + report.tools());
+		assertTrue(report.tools().stream().anyMatch(AgentContext.Tool::requiresSkill),
+			"tools a skill declares are flagged as gates: " + report.tools());
+		assertTrue(report.tools().stream().anyMatch(t -> !t.requiresSkill()), "and the usable ones are not");
 		assertNotNull(report.rawJson());
+
+		// The marks divide the messages into contiguous bands covering all of them.
+		List<AgentContext.Band> bands = report.bands();
+		assertFalse(bands.isEmpty());
+		assertEquals(0, bands.get(0).from());
+		assertEquals(report.messages().size(), bands.get(bands.size() - 1).to());
+		for (int i = 1; i < bands.size(); i++) {
+			assertEquals(bands.get(i - 1).to(), bands.get(i).from(), "bands are contiguous: " + bands);
+		}
 
 		// The raw turns for the same session line up with what the chat elides.
 		List<SessionHistory.RawTurn> turns = SessionHistory.rawTurnsOf(
@@ -131,6 +144,23 @@ class AgentContextTest {
 			venue.agentRecord(userDID, "tool-agent"), sid);
 		assertTrue(turns.stream().anyMatch(t -> "tool".equals(t.role())
 			&& t.toolResult() != null && !t.toolResult().isBlank()), "the stored tool result: " + turns);
+	}
+
+	@Test
+	void bandsFollowTheMarksAndDropEmptyOnes() {
+		List<AgentContext.Band> bands = AgentContext.bands(
+			Maps.of("head", 1L, "live", 2L, "conversation", 11L, "toolLoop", 11L), 13);
+		assertEquals(List.of(
+			new AgentContext.Band("Head", 0, 1),
+			new AgentContext.Band("Live", 1, 2),
+			new AgentContext.Band("Conversation", 2, 11),
+			new AgentContext.Band("Tail", 11, 13)), bands, "an empty tool loop is dropped");
+		assertEquals(List.of(new AgentContext.Band("Messages", 0, 4)), AgentContext.bands(null, 4),
+			"without marks, one band holds everything");
+		assertTrue(AgentContext.bands(null, 0).isEmpty());
+		// A mark past the end, or out of order, is clamped rather than trusted.
+		assertEquals(List.of(new AgentContext.Band("Head", 0, 3)),
+			AgentContext.bands(Maps.of("head", 9L, "live", 1L), 3));
 	}
 
 	@Test

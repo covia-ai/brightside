@@ -55,8 +55,27 @@ public final class AgentContext {
 			String result, boolean error) {
 	}
 
-	/** One offered tool: its name, description, and where it came from (harness/config/a loaded skill). */
-	public record Tool(String name, String description, String source) {
+	/**
+	 * One tool definition the model receives: its {@code name} and
+	 * {@code description} exactly as sent, and its provenance — {@code source}
+	 * (harness / default / config / skill), the venue {@code operation} behind
+	 * it and the {@code skill} that declares it, where the palette says. A
+	 * {@code requiresSkill} tool is a gate: it is declared so the model can see
+	 * it, but calling it before loading a skill that provides it fails.
+	 */
+	public record Tool(String name, String description, String source, String operation, String skill,
+			boolean requiresSkill) {
+	}
+
+	/**
+	 * A band of the assembled messages, {@code [from, to)}: the head (identity,
+	 * the skills index, pinned context), the live surface, the conversation,
+	 * the tool loop, the inference tail. From the report's {@code marks}.
+	 */
+	public record Band(String name, int from, int to) {
+		public int size() {
+			return to - from;
+		}
 	}
 
 	/** One loaded context entry (a skill body, pinned context, …) and its accounting. */
@@ -64,10 +83,21 @@ public final class AgentContext {
 			boolean truncated, boolean deduplicated) {
 	}
 
-	/** The full assembled-context report. {@code rawJson} is the untouched report for the Raw view. */
+	/**
+	 * The full assembled-context report. {@code budgetBytes} is the model's
+	 * declared context size — a guide the assembler warns against, not a cap,
+	 * so {@code budgetUsed} may exceed it. {@code cacheMarks} are the message
+	 * indexes at which a cached prefix ends. {@code rawJson} is the untouched
+	 * report for the Raw view.
+	 */
 	public record Report(String model, long budgetBytes, long budgetUsed, long budgetRemaining,
-			String sessionTokens, List<Message> messages, List<Tool> tools,
-			List<String> unavailable, List<Load> loads, String rawJson) {
+			String sessionTokens, List<Message> messages, List<Band> bands, List<Long> cacheMarks,
+			List<Tool> tools, List<String> unavailable, List<Load> loads, String rawJson) {
+
+		/** Budget used as a percentage of the declared size; may exceed 100. */
+		public int budgetPercent() {
+			return (budgetBytes > 0) ? (int) Math.round(100.0 * budgetUsed / budgetBytes) : 0;
+		}
 	}
 
 	private AgentContext() {
@@ -102,15 +132,15 @@ public final class AgentContext {
 			for (long i = 0; i < ms.count(); i++) messages.add(message((ACell) ms.get(i)));
 		}
 
-		// Provenance for each tool (harness / config / a loaded skill).
-		Map<String, String> source = new HashMap<>();
+		// Provenance for each tool (harness / default / config / skill), from the palette sidecar.
+		Map<String, ACell> provenance = new HashMap<>();
 		List<String> unavailable = new ArrayList<>();
 		ACell palette = RT.getIn(report, "palette");
 		if (RT.getIn(palette, "tools") instanceof AVector<?> pts) {
 			for (long i = 0; i < pts.count(); i++) {
 				ACell t = (ACell) pts.get(i);
 				String name = str(RT.getIn(t, "name"));
-				if (name != null) source.put(name, str(RT.getIn(t, "source")));
+				if (name != null) provenance.put(name, t);
 			}
 		}
 		if (RT.getIn(palette, "unavailable") instanceof AVector<?> un) {
@@ -122,8 +152,16 @@ public final class AgentContext {
 			for (long i = 0; i < ts.count(); i++) {
 				ACell t = (ACell) ts.get(i);
 				String name = str(RT.getIn(t, "name"));
-				tools.add(new Tool(name, str(RT.getIn(t, "description")), source.get(name)));
+				ACell entry = provenance.get(name);
+				tools.add(new Tool(name, str(RT.getIn(t, "description")), str(RT.getIn(entry, "source")),
+					str(RT.getIn(entry, "operation")), str(RT.getIn(entry, "skill")),
+					bool(RT.getIn(t, "requiresSkill"))));
 			}
+		}
+
+		List<Long> cacheMarks = new ArrayList<>();
+		if (RT.getIn(report, "cacheMarks") instanceof AVector<?> cms) {
+			for (long i = 0; i < cms.count(); i++) cacheMarks.add(lng((ACell) cms.get(i)));
 		}
 
 		List<Load> loads = new ArrayList<>();
@@ -137,7 +175,38 @@ public final class AgentContext {
 		}
 
 		return new Report(render(RT.getIn(report, "model")), bytes, used, remaining, sessionTokens,
-			messages, tools, unavailable, loads, JSON.toStringPretty(report));
+			messages, bands(RT.getIn(report, "marks"), messages.size()), List.copyOf(cacheMarks),
+			tools, unavailable, loads, JSON.toStringPretty(report));
+	}
+
+	/**
+	 * The bands the report's {@code marks} divide {@code count} messages into —
+	 * each mark is where its band ends — dropping any that are empty. Without
+	 * marks, one band holds everything.
+	 */
+	static List<Band> bands(ACell marks, int count) {
+		if (!(marks instanceof AMap)) {
+			return (count > 0) ? List.of(new Band("Messages", 0, count)) : List.of();
+		}
+		int head = mark(marks, "head", 0, count);
+		int live = mark(marks, "live", head, count);
+		int conversation = mark(marks, "conversation", live, count);
+		int toolLoop = mark(marks, "toolLoop", conversation, count);
+		List<Band> out = new ArrayList<>();
+		band(out, "Head", 0, head);
+		band(out, "Live", head, live);
+		band(out, "Conversation", live, conversation);
+		band(out, "Tool loop", conversation, toolLoop);
+		band(out, "Tail", toolLoop, count);
+		return List.copyOf(out);
+	}
+
+	private static int mark(ACell marks, String key, int atLeast, int atMost) {
+		return (int) Math.max(atLeast, Math.min(atMost, lng(RT.getIn(marks, key))));
+	}
+
+	private static void band(List<Band> out, String name, int from, int to) {
+		if (to > from) out.add(new Band(name, from, to));
 	}
 
 	/**

@@ -135,7 +135,7 @@ public final class ConversationList extends JPanel {
 		copy.addActionListener(e -> listener.onCopyTranscript(sid));
 		menu.add(copy);
 
-		JMenuItem info = new JMenuItem("What the assistant sees…");
+		JMenuItem info = new JMenuItem("Context…");
 		info.addActionListener(e -> listener.onInspectSession(sid));
 		menu.add(info);
 

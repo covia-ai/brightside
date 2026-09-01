@@ -133,9 +133,15 @@ public class SelectableText extends JTextArea {
 
 	/** Wraps at a fixed width and reports the resulting height, so a vertical stack gives it exactly the room it needs. */
 	public SelectableText wrapAt(int width) {
+		if (width == wrapWidth) return this;
 		wrapWidth = width;
 		revalidate();
 		return this;
+	}
+
+	/** The fixed wrap width from {@link #wrapAt}, or 0 when the text wraps at whatever width it is given. */
+	public int wrapWidth() {
+		return wrapWidth;
 	}
 
 	@Override

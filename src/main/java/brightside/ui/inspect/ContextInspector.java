@@ -1,12 +1,11 @@
 package brightside.ui.inspect;
 
-import static brightside.ui.inspect.Blocks.body;
 import static brightside.ui.inspect.Blocks.column;
-import static brightside.ui.inspect.Blocks.heading;
 import static brightside.ui.inspect.Blocks.kv;
 import static brightside.ui.inspect.Blocks.raw;
 
 import java.awt.BorderLayout;
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.BorderFactory;
@@ -17,21 +16,26 @@ import javax.swing.JTabbedPane;
 
 import brightside.AgentContext;
 import brightside.SessionHistory;
+import brightside.ui.components.EntryList;
+import brightside.ui.components.Excerpt;
 import brightside.ui.components.Labels;
 import brightside.ui.components.Panels;
 import brightside.ui.components.Scrolls;
+import brightside.ui.components.SelectableText;
 import brightside.ui.components.Styles;
 
 /**
- * A comprehensive, read-only view of the exact context an agent sends its model
- * (from {@link AgentContext}). Tabs: <em>Overview</em> (model, budget, counts),
- * <em>Context</em> (every assembled message — identity, the skills index, pinned
- * memory, loaded skill bodies, the conversation), <em>Tools</em> (the offered
- * palette with provenance), <em>Skills</em> (the loaded entries and their
- * accounting), and <em>Raw</em> (the untouched report).
+ * A read-only view of the exact context an agent sends its model (from
+ * {@link AgentContext}). Tabs: <em>Overview</em> (model, budget, counts),
+ * <em>Context</em> (every assembled message, by band — head, live surface,
+ * conversation, tool loop, tail), <em>Cycle detail</em> (the stored turns),
+ * <em>Tools</em> (the definitions the model receives, usable now or declared
+ * by a skill as a gate), <em>Loaded</em> (the context entries and their
+ * accounting) and <em>Raw</em> (the untouched report).
  *
- * <p>Its own package so it can grow into a fuller inspector without crowding the
- * chat components. Everything shown is selectable and copyable.
+ * <p>Each list is an {@link EntryList} — a summary beside its content — with
+ * long content clamped in an {@link Excerpt}. Everything shown is selectable
+ * and copyable.
  */
 @SuppressWarnings("serial")
 public final class ContextInspector extends JPanel {
@@ -43,127 +47,259 @@ public final class ContextInspector extends JPanel {
 		tabs.addTab("Context (" + report.messages().size() + ")", Scrolls.vertical(messages(report)));
 		tabs.addTab("Cycle detail (" + turns.size() + ")", Scrolls.vertical(cycle(turns)));
 		tabs.addTab("Tools (" + report.tools().size() + ")", Scrolls.vertical(tools(report)));
-		tabs.addTab("Skills (" + report.loads().size() + ")", Scrolls.vertical(loads(report)));
+		tabs.addTab("Loaded (" + report.loads().size() + ")", Scrolls.vertical(loads(report)));
 		tabs.addTab("Raw", raw(report.rawJson()));
 		add(tabs, BorderLayout.CENTER);
 	}
 
 	// ------------------------------------------------------------------
-	// Tabs
+	// Overview
 	// ------------------------------------------------------------------
 
 	private static JComponent overview(AgentContext.Report r) {
 		JPanel p = column();
 		p.setBorder(BorderFactory.createEmptyBorder(16, 18, 16, 18));
 		p.add(kv("Model", r.model().isBlank() ? "—" : r.model()));
-		p.add(kv("Budget", String.format("%,d of %,d bytes used  ·  %,d free",
-			r.budgetUsed(), r.budgetBytes(), r.budgetRemaining())));
+
+		int pct = r.budgetPercent();
+		SelectableText budget = new SelectableText(String.format("%,d of %,d bytes  ·  %d%%",
+			r.budgetUsed(), r.budgetBytes(), pct));
+		if (pct >= 100) budget.tone(Styles.WARNING);
+		p.add(Panels.keyValue("Context budget", budget));
+
 		p.add(kv("Session tokens", (r.sessionTokens() != null) ? r.sessionTokens() : "—"));
-		p.add(kv("Messages", Integer.toString(r.messages().size())));
-		p.add(kv("Tools offered", r.tools().size() + (r.unavailable().isEmpty()
-			? "" : "  (" + r.unavailable().size() + " unavailable)")));
+		p.add(kv("Messages", messagesSummary(r)));
+		p.add(kv("Tools", toolsSummary(r)));
 		p.add(kv("Loaded entries", Integer.toString(r.loads().size())));
-		JLabel note = Labels.small("This is exactly what the assistant's model receives for this conversation — "
-			+ "assembled the same way as a live reply, but without sending it.");
+
+		SelectableText note = SelectableText.description("Exactly what the assistant's model receives for this "
+			+ "conversation, assembled as for a live reply but not sent. The budget is the model's declared "
+			+ "context size — a guide the assembler warns against, not a cap.").small();
 		note.setBorder(BorderFactory.createEmptyBorder(14, 0, 0, 0));
 		p.add(note);
 		return p;
 	}
 
-	/**
-	 * Every message as the model sees it. A tool exchange is an assistant
-	 * message whose only content is its calls, then a tool message whose result
-	 * is structured — both rendered, so loaded context, job results and tool
-	 * results are visible rather than two blank headings.
-	 */
-	private static JComponent messages(AgentContext.Report r) {
-		JPanel p = column();
-		for (AgentContext.Message m : r.messages()) {
-			String head = m.role();
-			if (m.name() != null) head += "   ·  " + m.name() + (m.id() != null ? "  (" + shortId(m.id()) + ")" : "");
-			p.add(roleHeading(head, m.error()));
-			if (!m.text().isBlank()) p.add(body(m.text(), false));
-			for (AgentContext.Call c : m.calls()) {
-				p.add(Labels.small("→ " + c.name() + (c.id() != null ? "  (" + shortId(c.id()) + ")" : "")));
-				if (c.args() != null && !c.args().isBlank()) p.add(body(c.args(), true));
+	private static String messagesSummary(AgentContext.Report r) {
+		StringBuilder sb = new StringBuilder(Integer.toString(r.messages().size()));
+		if (r.bands().size() > 1) {
+			sb.append("  (");
+			for (int i = 0; i < r.bands().size(); i++) {
+				AgentContext.Band b = r.bands().get(i);
+				if (i > 0) sb.append("  ·  ");
+				sb.append(b.name().toLowerCase()).append(' ').append(b.size());
 			}
-			if (m.result() != null) {
-				p.add(Labels.small(m.error() ? "error result" : "result"));
-				p.add(body(m.result(), true));
-			}
-			p.add(Panels.rule());
+			sb.append(')');
 		}
-		if (r.messages().isEmpty()) p.add(Labels.small("No messages."));
-		return p;
+		return sb.toString();
 	}
+
+	private static String toolsSummary(AgentContext.Report r) {
+		long gated = r.tools().stream().filter(AgentContext.Tool::requiresSkill).count();
+		StringBuilder sb = new StringBuilder(Integer.toString(r.tools().size()));
+		if (gated > 0) {
+			sb.append("  (").append(r.tools().size() - gated).append(" usable now  ·  ")
+				.append(gated).append(" declared by skills)");
+		}
+		if (!r.unavailable().isEmpty()) sb.append("  ·  ").append(r.unavailable().size()).append(" unavailable");
+		return sb.toString();
+	}
+
+	// ------------------------------------------------------------------
+	// Context: every message the model sees, by band
+	// ------------------------------------------------------------------
+
+	private static JComponent messages(AgentContext.Report r) {
+		EntryList list = entries();
+		if (r.messages().isEmpty()) {
+			list.note("No messages.");
+			return list;
+		}
+		for (AgentContext.Band band : r.bands()) {
+			list.section(band.name() + "  ·  " + span(band));
+			for (int i = band.from(); i < band.to(); i++) {
+				AgentContext.Message m = r.messages().get(i);
+				List<String> meta = new ArrayList<>();
+				if (m.name() != null) meta.add(m.name() + (m.id() != null ? "  (" + shortId(m.id()) + ")" : ""));
+				for (AgentContext.Call c : m.calls()) meta.add("→ " + c.name() + (c.id() != null ? "  (" + shortId(c.id()) + ")" : ""));
+				meta.add("#" + i);
+				JComponent summary = EntryList.summary(m.role(), m.error() ? Styles.ERROR : null,
+					meta.toArray(String[]::new));
+
+				JPanel content = Panels.column();
+				if (!m.text().isBlank()) content.add(excerpt(m.text(), false, list));
+				for (AgentContext.Call c : m.calls()) {
+					if (c.args() != null && !c.args().isBlank()) {
+						content.add(caption("arguments  ·  " + c.name()));
+						content.add(excerpt(c.args(), true, list));
+					}
+				}
+				if (m.result() != null) {
+					content.add(caption(m.error() ? "error result" : "result"));
+					content.add(excerpt(m.result(), true, list));
+				}
+				if (content.getComponentCount() == 0) content.add(Labels.small("(empty)"));
+				list.entry(summary, content);
+			}
+			if (r.cacheMarks().contains((long) band.to())) {
+				list.note("A cached prefix ends here: the messages above are stable across inferences.");
+			}
+		}
+		return list;
+	}
+
+	private static String span(AgentContext.Band b) {
+		return (b.size() == 1) ? "message " + b.from()
+			: "messages " + b.from() + "–" + (b.to() - 1);
+	}
+
+	// ------------------------------------------------------------------
+	// Cycle detail: the stored turns
+	// ------------------------------------------------------------------
 
 	private static JComponent cycle(List<SessionHistory.RawTurn> turns) {
-		JPanel p = column();
+		EntryList list = entries();
 		if (turns.isEmpty()) {
-			p.add(Labels.small("No turns recorded for this conversation."));
-			return p;
+			list.note("No turns recorded for this conversation.");
+			return list;
 		}
+		int i = 0;
 		for (SessionHistory.RawTurn t : turns) {
-			String head = t.role();
-			if (t.meta() != null && !t.meta().isBlank()) head += "   ·  " + t.meta();
-			p.add(roleHeading(head, t.error()));
-			if (t.content() != null && !t.content().isBlank()) p.add(body(t.content(), false));
+			List<String> meta = new ArrayList<>();
+			if (t.meta() != null && !t.meta().isBlank()) meta.add(t.meta());
+			for (SessionHistory.RawCall c : t.calls()) meta.add("→ " + c.name() + (c.id() != null ? "  (" + shortId(c.id()) + ")" : ""));
+			meta.add("#" + i++);
+			JComponent summary = EntryList.summary(t.role(), t.error() ? Styles.ERROR : null,
+				meta.toArray(String[]::new));
+
+			JPanel content = Panels.column();
+			if (t.content() != null && !t.content().isBlank()) content.add(excerpt(t.content(), false, list));
 			for (SessionHistory.RawCall c : t.calls()) {
-				p.add(Labels.small("→ " + c.name() + (c.id() != null ? "  (" + shortId(c.id()) + ")" : "")));
-				if (c.args() != null && !c.args().isBlank()) p.add(body(c.args(), true));
+				if (c.args() != null && !c.args().isBlank()) {
+					content.add(caption("arguments  ·  " + c.name()));
+					content.add(excerpt(c.args(), true, list));
+				}
 			}
 			if (t.toolResult() != null && !t.toolResult().isBlank()) {
-				p.add(Labels.small(t.error() ? "error result" : "result"));
-				p.add(body(t.toolResult(), true));
+				content.add(caption(t.error() ? "error result" : "result"));
+				content.add(excerpt(t.toolResult(), true, list));
 			}
-			p.add(Panels.rule());
+			if (content.getComponentCount() == 0) content.add(Labels.small("(empty)"));
+			list.entry(summary, content);
 		}
-		return p;
+		return list;
 	}
 
-	/** A heading, in the error tone when the message or turn failed. */
-	private static JLabel roleHeading(String text, boolean error) {
-		JLabel h = heading(text);
-		if (error) Styles.classes(h, Styles.STRONG, Styles.ERROR);
-		return h;
+	// ------------------------------------------------------------------
+	// Tools: usable now, and declared by skills as gates
+	// ------------------------------------------------------------------
+
+	private static JComponent tools(AgentContext.Report r) {
+		EntryList list = entries();
+		List<AgentContext.Tool> usable = r.tools().stream().filter(t -> !t.requiresSkill()).toList();
+		List<AgentContext.Tool> gated = r.tools().stream().filter(AgentContext.Tool::requiresSkill).toList();
+
+		if (!usable.isEmpty()) {
+			list.section("Usable now  ·  " + usable.size());
+			for (AgentContext.Tool t : usable) list.entry(toolSummary(t), toolDescription(t.description(), null, list));
+		}
+		if (!gated.isEmpty()) {
+			list.section("Declared by skills — load the skill to use  ·  " + gated.size());
+			String preamble = sharedPreamble(gated);
+			if (preamble != null) {
+				list.note("Every description below begins “" + preamble + "” — shown once here; "
+					+ "the model receives it on each of them.");
+			}
+			for (AgentContext.Tool t : gated) list.entry(toolSummary(t), toolDescription(t.description(), preamble, list));
+		}
+		if (!r.unavailable().isEmpty()) {
+			list.section("Unavailable  ·  " + r.unavailable().size());
+			for (String u : r.unavailable()) list.note(u);
+		}
+		if (r.tools().isEmpty() && r.unavailable().isEmpty()) list.note("No tools offered.");
+		return list;
+	}
+
+	private static JComponent toolSummary(AgentContext.Tool t) {
+		List<String> meta = new ArrayList<>();
+		// A skill-declared tool names its skill; the bare source would say the same thing twice.
+		if (t.skill() != null) meta.add("skill  " + t.skill());
+		else if (t.source() != null) meta.add(t.source());
+		if (t.operation() != null) meta.add(t.operation());
+		return EntryList.summary((t.name() != null) ? t.name() : "(tool)", null, meta.toArray(String[]::new));
+	}
+
+	private static JComponent toolDescription(String description, String preamble, EntryList list) {
+		String text = (description != null) ? description : "";
+		if (preamble != null && text.startsWith(preamble)) text = text.substring(preamble.length()).stripLeading();
+		return text.isBlank() ? Labels.small("(no description)") : excerpt(text, false, list);
+	}
+
+	/**
+	 * The first paragraph every one of {@code tools}' descriptions opens with,
+	 * or null when they do not share one. What the model is told about a gate
+	 * is worth reading once, not once per tool.
+	 */
+	static String sharedPreamble(List<AgentContext.Tool> tools) {
+		if (tools.size() < 2) return null;
+		String first = tools.get(0).description();
+		if (first == null) return null;
+		int end = first.indexOf("\n\n");
+		if (end <= 0) return null;
+		String preamble = first.substring(0, end);
+		for (AgentContext.Tool t : tools) {
+			if (t.description() == null || !t.description().startsWith(preamble)) return null;
+		}
+		return preamble;
+	}
+
+	// ------------------------------------------------------------------
+	// Loaded entries
+	// ------------------------------------------------------------------
+
+	private static JComponent loads(AgentContext.Report r) {
+		EntryList list = entries();
+		if (r.loads().isEmpty()) {
+			list.note("Nothing loaded.");
+			return list;
+		}
+		for (AgentContext.Load l : r.loads()) {
+			List<String> meta = new ArrayList<>();
+			if (l.kind() != null) meta.add(l.kind());
+			if (l.status() != null) meta.add(l.status());
+			JComponent summary = EntryList.summary((l.ref() != null) ? l.ref() : "(entry)", null,
+				meta.toArray(String[]::new));
+			StringBuilder accounting = new StringBuilder(String.format("%,d bytes", l.bytes()));
+			if (l.budget() > 0) accounting.append(String.format("  of a %,d-byte budget", l.budget()));
+			if (l.truncated()) accounting.append("  ·  truncated");
+			if (l.deduplicated()) accounting.append("  ·  deduplicated");
+			list.entry(summary, new SelectableText(accounting.toString()));
+		}
+		return list;
+	}
+
+	// ------------------------------------------------------------------
+	// Pieces
+	// ------------------------------------------------------------------
+
+	private static EntryList entries() {
+		EntryList list = new EntryList();
+		list.setBorder(BorderFactory.createEmptyBorder(6, 14, 16, 14));
+		return list;
+	}
+
+	/** Content clamped to a few lines; showing all of it re-lays the list out. */
+	private static Excerpt excerpt(String text, boolean mono, EntryList list) {
+		return new Excerpt(text, mono).onToggle(list::revalidate);
+	}
+
+	private static JLabel caption(String text) {
+		JLabel l = Labels.caption(text);
+		l.setBorder(BorderFactory.createEmptyBorder(6, 0, 1, 0));
+		return l;
 	}
 
 	private static String shortId(String id) {
 		return (id.length() > 12) ? id.substring(0, 12) + "…" : id;
 	}
-
-	private static JComponent tools(AgentContext.Report r) {
-		JPanel p = column();
-		for (AgentContext.Tool t : r.tools()) {
-			String title = (t.name() != null) ? t.name() : "(tool)";
-			if (t.source() != null) title += "   · " + t.source();
-			p.add(heading(title));
-			if (t.description() != null && !t.description().isBlank()) p.add(body(t.description(), false));
-			p.add(Panels.rule());
-		}
-		if (!r.unavailable().isEmpty()) {
-			p.add(heading("Unavailable"));
-			p.add(body(String.join("\n", r.unavailable()), false));
-		}
-		if (r.tools().isEmpty() && r.unavailable().isEmpty()) p.add(Labels.small("No tools offered."));
-		return p;
-	}
-
-	private static JComponent loads(AgentContext.Report r) {
-		JPanel p = column();
-		for (AgentContext.Load l : r.loads()) {
-			p.add(heading((l.ref() != null) ? l.ref() : "(entry)"));
-			StringBuilder meta = new StringBuilder();
-			if (l.kind() != null) meta.append(l.kind());
-			if (l.status() != null) meta.append(meta.length() > 0 ? "  ·  " : "").append(l.status());
-			meta.append(meta.length() > 0 ? "  ·  " : "").append(String.format("%,d / %,d bytes", l.bytes(), l.budget()));
-			if (l.truncated()) meta.append("  ·  truncated");
-			if (l.deduplicated()) meta.append("  ·  deduplicated");
-			p.add(Labels.small(meta.toString()));
-			p.add(Panels.rule());
-		}
-		if (r.loads().isEmpty()) p.add(Labels.small("Nothing loaded."));
-		return p;
-	}
-
 }
