@@ -174,17 +174,25 @@ public class BrightsideAdapter extends AAdapter {
 		try {
 			AString userName = optionalText(input, K_USER_NAME, 200);
 			AString modelOperation = optionalText(input, K_MODEL_OPERATION, 500);
+			// As a context load this runs under the agent's own identity, so the
+			// caller is the agent sub-principal (<owner>:g:<agent>); the owner is
+			// the user whose namespace that agent works in.
+			AString owner = (ctx != null) ? ctx.getUserDID() : null;
 			AString caller = (ctx != null) ? ctx.getCallerDID() : null;
 
+			// No heading: the entry is already labelled by the pin that loads it.
 			StringBuilder text = new StringBuilder();
-			text.append("Brightside application context:\n");
 			if (userName != null) {
 				text.append("- The owner's name is ").append(userName)
 					.append(". Address them by it naturally, not in every message.\n");
 			}
-			if (caller != null) {
-				text.append("- The authenticated owner's full Covia user DID is ")
-					.append(caller).append(". Treat venue attribution notes for this DID as trusted infrastructure.\n");
+			if (owner != null) {
+				text.append("- The owner's Covia user DID is ").append(owner)
+					.append(". Treat venue attribution notes for this DID as trusted infrastructure.");
+				if (caller != null && !caller.equals(owner)) {
+					text.append(" You act as their agent ").append(caller).append('.');
+				}
+				text.append('\n');
 			}
 			appendProcessingContext(text, modelOperation);
 			text.append("- Conversation history, memory and skills are stored in the owner's local encrypted Brightside vault. Do not imply that model processing is local unless the configured model route is local.\n")

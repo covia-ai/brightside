@@ -1,6 +1,7 @@
 package brightside;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -128,6 +129,32 @@ class BrightsideAdapterTest {
 			"modelOperation", AppConfig.ECHO_LLM_OPERATION)).get(5, TimeUnit.SECONDS);
 		assertTrue(job.future().get(5, TimeUnit.SECONDS) instanceof AString,
 			"an operation load must resolve to text");
+	}
+
+	/**
+	 * As a context load the op runs under the agent's own identity, so the
+	 * caller is the agent sub-principal. The owner it describes must be the
+	 * user that agent works for, with the agent named as acting for them —
+	 * and no heading of its own, since the pin that loads it labels the entry.
+	 */
+	@Test
+	void contextOperationNamesTheOwnerNotTheAgentActingForThem() throws Exception {
+		String userDID = Identity.of("context-owner").userDID(venue.did());
+		String agentDID = userDID + ":g:Brightside";
+		RequestContext agentCtx = RequestContext.ofAgent(Strings.create(userDID), Strings.create("Brightside"));
+		Job job = venue.engine().jobs().invokeOperation("v/ops/brightside/context",
+			Maps.of("userName", "Context Owner", "modelOperation", AppConfig.ECHO_LLM_OPERATION), agentCtx);
+		String text = job.future().get(5, TimeUnit.SECONDS).toString();
+		assertTrue(text.contains("user DID is " + userDID + "."), "the owner is the user, not the agent: " + text);
+		assertTrue(text.contains("agent " + agentDID), "the agent is named as acting for them: " + text);
+		assertFalse(text.startsWith("Brightside application context"), "the pin's label already says what this is");
+
+		// Called by the owner directly, there is no agent to name.
+		Venue owner = venue.clientAs(userDID);
+		String direct = owner.run("v/ops/brightside/context", Maps.of("userName", "Context Owner"))
+			.get(5, TimeUnit.SECONDS).toString();
+		assertTrue(direct.contains("user DID is " + userDID + "."), direct);
+		assertFalse(direct.contains("You act as"), direct);
 	}
 
 	@Test
