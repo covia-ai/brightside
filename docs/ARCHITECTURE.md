@@ -115,7 +115,8 @@ src/main/resources/
 │                               semantic colours and the style classes the components wear
 ├── adapters/brightside/        context, info, skill deletion/feedback, shutdown
 │                               and the two Odin bridge ops
-├── fonts/lato/                 bundled OFL faces, registered at startup
+├── fonts/lato/                 bundled OFL faces, registered at startup: Lato for the
+├── fonts/inconsolata/          UI, Inconsolata for code (monospaced.font)
 ├── icons/lucide/               the Lucide SVG icons the UI uses (ISC; LICENSE
 │                               alongside), rendered and tinted by ui/components/Lucide
 ├── icons/brightside/           the Brightside mark for use elsewhere: brightside.svg

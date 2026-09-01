@@ -86,10 +86,17 @@ public final class LAF {
 
 	/** The UI font: Lato, bundled so it's identical on every platform. */
 	private static final String FONT_FAMILY = "Lato";
+	/**
+	 * The bundled faces: Lato for the UI, and Inconsolata for code — named
+	 * first in {@code monospaced.font} in the UI defaults, with the platform's
+	 * own monospaced faces behind it should the resource ever fail to register.
+	 */
 	private static final String[] FONT_RESOURCES = {
 		"/fonts/lato/Lato-Regular.ttf",
 		"/fonts/lato/Lato-Bold.ttf",
 		"/fonts/lato/Lato-Light.ttf",
+		"/fonts/inconsolata/Inconsolata-Regular.ttf",
+		"/fonts/inconsolata/Inconsolata-Bold.ttf",
 	};
 
 	private static boolean registered;
@@ -285,7 +292,7 @@ public final class LAF {
 		}
 	}
 
-	/** Registers the bundled Lato faces with the AWT graphics environment. */
+	/** Registers the bundled faces with the AWT graphics environment. */
 	private static void registerFonts() {
 		GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
 		for (String resource : FONT_RESOURCES) {
