@@ -618,9 +618,9 @@ public final class MainWindow extends JFrame {
 
 	/** Open a (non-modal) inspector showing exactly what the model receives for a conversation. */
 	public void showContextInfo(brightside.AgentContext.Report report,
-			List<SessionHistory.RawTurn> turns, String title) {
+			List<SessionHistory.RawTurn> turns, List<brightside.SkillIndex.Skill> skills, String title) {
 		JDialog dialog = new JDialog(this, "Context — " + title, false);
-		dialog.setContentPane(new brightside.ui.inspect.ContextInspector(report, turns));
+		dialog.setContentPane(new brightside.ui.inspect.ContextInspector(report, turns, skills));
 		dialog.setSize(940, 720);
 		dialog.setMinimumSize(new Dimension(640, 460));
 		dialog.setLocationRelativeTo(this);

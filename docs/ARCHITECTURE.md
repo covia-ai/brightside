@@ -84,6 +84,7 @@ src/main/java/brightside/
 ├── SessionHistory.java         projects the live venue session into transcript items
 ├── ConversationWatcher.java    in-process value compare; refresh on change
 ├── AgentContext.java           "what the assistant sees" — v/ops/agent/context
+├── SkillIndex.java             the skills an agent can discover: its skillsets, read in-process
 ├── AgentInfo.java              what an agent is — v/ops/agent/info joined with its record
 ├── Inbox.java                  the owner's HITL inbox (h/, read in-process) merged with
 │                               the venue's own, and hitl:respond

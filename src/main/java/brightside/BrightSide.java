@@ -1825,12 +1825,14 @@ public final class BrightSide {
 		String title = titleOf(sessionId);
 		Thread t = new Thread(() -> {
 			// The assembled context is a computation (agent:context op); the raw
-			// turns are just a lattice read, done in-process.
+			// turns and the discoverable skills are lattice reads, done in-process.
 			AgentContext.Report report = AgentContext.load(c, aid, sessionId);
-			List<SessionHistory.RawTurn> turns = SessionHistory.rawTurnsOf(v.agentRecord(did, aid), sessionId);
+			ACell record = v.agentRecord(did, aid);
+			List<SessionHistory.RawTurn> turns = SessionHistory.rawTurnsOf(record, sessionId);
+			List<SkillIndex.Skill> skills = SkillIndex.of(v, did, record);
 			SwingUtilities.invokeLater(() -> {
 				if (report == null) window.showSystemMessage("Sorry — I couldn't read the context for that conversation.");
-				else window.showContextInfo(report, turns, title);
+				else window.showContextInfo(report, turns, skills, title);
 			});
 		}, "brightside-session-info");
 		t.setDaemon(true);

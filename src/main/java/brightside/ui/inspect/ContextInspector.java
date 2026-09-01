@@ -7,7 +7,9 @@ import static brightside.ui.inspect.Blocks.raw;
 import java.awt.BorderLayout;
 import java.awt.Point;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.swing.BorderFactory;
 import javax.swing.JComponent;
@@ -19,6 +21,7 @@ import javax.swing.SwingUtilities;
 
 import brightside.AgentContext;
 import brightside.SessionHistory;
+import brightside.SkillIndex;
 import brightside.ui.components.EntryList;
 import brightside.ui.components.Excerpt;
 import brightside.ui.components.Labels;
@@ -32,8 +35,9 @@ import brightside.ui.components.Styles;
  * {@link AgentContext}). Tabs: <em>Overview</em> (model, budget, counts),
  * <em>Context</em> (every assembled message, by band — head, live surface,
  * conversation, tool loop, tail), <em>Cycle detail</em> (the stored turns),
- * <em>Tools</em> (the definitions the model can call now, by source),
- * <em>Skill tools</em> (the definitions skills declare as gates, by skill),
+ * <em>Tools</em> (every definition the model receives: callable now by
+ * source, then the gates skills declare), <em>Skills</em> (every skill the
+ * agent can discover, by skillset — the surface behind the model's index),
  * <em>Loaded</em> (the context entries and their accounting) and <em>Raw</em>
  * (the untouched report).
  *
@@ -44,18 +48,22 @@ import brightside.ui.components.Styles;
 @SuppressWarnings("serial")
 public final class ContextInspector extends JPanel {
 
-	public ContextInspector(AgentContext.Report report, List<SessionHistory.RawTurn> turns) {
+	/**
+	 * @param skills the skills the agent can discover ({@link SkillIndex}) — the
+	 *               surface behind the index the model sees; may be empty
+	 */
+	public ContextInspector(AgentContext.Report report, List<SessionHistory.RawTurn> turns,
+			List<SkillIndex.Skill> skills) {
 		super(new BorderLayout());
-		List<AgentContext.Tool> usable = report.tools().stream().filter(t -> !t.requiresSkill()).toList();
-		List<AgentContext.Tool> gated = report.tools().stream().filter(AgentContext.Tool::requiresSkill).toList();
+		long shown = skills.stream().filter(s -> !s.shadowed()).count();
 
 		List<JScrollPane> panes = new ArrayList<>();
 		JTabbedPane tabs = new JTabbedPane();
 		tabs.addTab("Overview", overview(report));
 		tabs.addTab("Context (" + report.messages().size() + ")", scrolling(messages(report), panes));
 		tabs.addTab("Cycle detail (" + turns.size() + ")", scrolling(cycle(turns), panes));
-		tabs.addTab("Tools (" + usable.size() + ")", scrolling(tools(usable, report.unavailable()), panes));
-		tabs.addTab("Skill tools (" + gated.size() + ")", scrolling(skillTools(gated), panes));
+		tabs.addTab("Tools (" + report.tools().size() + ")", scrolling(tools(report), panes));
+		tabs.addTab("Skills (" + shown + ")", scrolling(skills(skills, report), panes));
 		tabs.addTab("Loaded (" + report.loads().size() + ")", scrolling(loads(report), panes));
 		tabs.addTab("Raw", raw(report.rawJson()));
 		add(tabs, BorderLayout.CENTER);
@@ -215,9 +223,15 @@ public final class ContextInspector extends JPanel {
 	// Tools: usable now, and declared by skills as gates
 	// ------------------------------------------------------------------
 
-	/** The tools the model can call now, grouped by where they come from, and any that did not resolve. */
-	private static JComponent tools(List<AgentContext.Tool> usable, List<String> unavailable) {
+	/**
+	 * Every tool definition the model receives: the ones it can call now,
+	 * grouped by where they come from; then the ones skills declare as gates;
+	 * then any configured tool that did not resolve.
+	 */
+	private static JComponent tools(AgentContext.Report r) {
 		EntryList list = entries();
+		List<AgentContext.Tool> usable = r.tools().stream().filter(t -> !t.requiresSkill()).toList();
+		List<AgentContext.Tool> gated = r.tools().stream().filter(AgentContext.Tool::requiresSkill).toList();
 		String source = null;
 		for (AgentContext.Tool t : usable) {
 			String s = (t.source() != null) ? t.source() : "other";
@@ -227,11 +241,12 @@ public final class ContextInspector extends JPanel {
 			}
 			list.entry(toolSummary(t), toolDescription(t.description(), null, list));
 		}
-		if (!unavailable.isEmpty()) {
-			list.section("Unavailable  ·  " + unavailable.size());
-			for (String u : unavailable) list.note(u);
+		gatedSections(list, gated);
+		if (!r.unavailable().isEmpty()) {
+			list.section("Unavailable  ·  " + r.unavailable().size());
+			for (String u : r.unavailable()) list.note(u);
 		}
-		if (usable.isEmpty() && unavailable.isEmpty()) list.note("No tools offered.");
+		if (r.tools().isEmpty() && r.unavailable().isEmpty()) list.note("No tools offered.");
 		return list;
 	}
 
@@ -249,13 +264,10 @@ public final class ContextInspector extends JPanel {
 	 * Tools a skill declares as gates: the model sees their definitions so it
 	 * can find them, and must load the skill before it can call them.
 	 */
-	private static JComponent skillTools(List<AgentContext.Tool> gated) {
-		EntryList list = entries();
-		if (gated.isEmpty()) {
-			list.note("No skill declares tools for this agent.");
-			return list;
-		}
+	private static void gatedSections(EntryList list, List<AgentContext.Tool> gated) {
+		if (gated.isEmpty()) return;
 		boolean named = gated.stream().anyMatch(t -> t.skill() != null);
+		list.section("Declared by skills — load the skill to use  ·  " + gated.size());
 		list.note("Declared by skills in the agent's discovery surface, so the model can see what loading each "
 			+ "would bring; a call before the skill is loaded fails." + (named ? " Grouped by skill." : ""));
 		String preamble = sharedPreamble(gated);
@@ -273,6 +285,53 @@ public final class ContextInspector extends JPanel {
 					+ gated.stream().filter(g -> s.equals(g.skill() != null ? g.skill() : "")).count());
 			}
 			list.entry(toolSummary(t), toolDescription(t.description(), preamble, list));
+		}
+	}
+
+	// ------------------------------------------------------------------
+	// Skills: the discovery surface behind the model's [Skills] index
+	// ------------------------------------------------------------------
+
+	private static JComponent skills(List<SkillIndex.Skill> skills, AgentContext.Report r) {
+		EntryList list = entries();
+		if (skills.isEmpty()) {
+			list.note("The agent names no skillsets, so there is nothing for it to discover.");
+			return list;
+		}
+		Map<String, AgentContext.Load> loaded = new HashMap<>();
+		for (AgentContext.Load l : r.loads()) {
+			if (l.ref() != null) loaded.put(l.ref(), l);
+		}
+		list.note("Every skill in the agent's skillsets, in the order they are searched: the names and "
+			+ "descriptions the model's [Skills] index carries. A loaded skill's instructions are in the "
+			+ "context and its tools in the palette; the rest load on demand.");
+		String skillset = null;
+		for (SkillIndex.Skill s : skills) {
+			if (!s.skillset().equals(skillset)) {
+				skillset = s.skillset();
+				String set = skillset;
+				list.section(set + "  ·  " + skills.stream().filter(k -> set.equals(k.skillset())).count());
+			}
+			List<String> meta = new ArrayList<>();
+			AgentContext.Load l = loaded.get(s.path());
+			if (l != null) meta.add("loaded" + (l.status() != null ? "  ·  " + l.status() : ""));
+			if (s.shadowed()) meta.add("shadowed — an earlier skillset has this name");
+			if (!s.tools().isEmpty()) meta.add(s.tools().size() + (s.tools().size() == 1 ? " tool" : " tools"));
+			if (!s.children().isEmpty()) meta.add("reveals " + s.children().size() + " more");
+			meta.add(s.path());
+
+			JPanel content = Panels.column();
+			content.add(excerpt((s.description() != null) ? s.description() : "(no description)", false, list));
+			if (!s.tools().isEmpty()) {
+				content.add(caption("tools it grants"));
+				content.add(excerpt(String.join("\n", s.tools()), true, list));
+			}
+			if (!s.children().isEmpty()) {
+				content.add(caption("skillsets it reveals"));
+				content.add(excerpt(String.join("\n", s.children()), true, list));
+			}
+			list.entry(EntryList.summary(s.name(), s.shadowed() ? Styles.MUTED : null, meta.toArray(String[]::new)),
+				content);
 		}
 		return list;
 	}
