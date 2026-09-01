@@ -50,6 +50,8 @@ public final class Odin {
 	public static final String OP_RUN = "v/ops/brightside/odin-run";
 
 	private static final String MEMORY_OP = "v/ops/memory";
+	/** The read-only render a context entry may run; {@link #MEMORY_OP} is the tool that edits. */
+	static final String MEMORY_RECALL_OP = "v/ops/memory-recall";
 	private static final String MEMORY_PATH = "n/memory";
 	private static final long ADMIN_TIMEOUT_SECONDS = 30;
 	private static final String STATUS_SUSPENDED = "SUSPENDED";
@@ -172,10 +174,11 @@ public final class Odin {
 			// Read-only venue-namespace reads (covia read/list) on top of the tools.
 			"defaultTools", true,
 			"tools", Vectors.of(tools.stream().map(Strings::create).toArray(ACell[]::new)),
-			// Durable decisions live in his memory, pinned into every turn.
+			// Durable decisions live in his memory, pinned into every turn through
+			// the read-only recall op (a context entry may run nothing else).
 			"context", Vectors.of(Maps.of(
-				"op", MEMORY_OP,
-				"input", Maps.of("command", "recall", "path", MEMORY_PATH),
+				"op", MEMORY_RECALL_OP,
+				"input", Maps.of("path", MEMORY_PATH),
 				"label", "Your memory of the owner's decisions — edit with path " + MEMORY_PATH)),
 			// The venue's own library: venue, auth, adapters, agents.
 			"skillsets", Vectors.of(Strings.create("v/skills/root")),

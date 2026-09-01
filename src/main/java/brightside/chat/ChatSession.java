@@ -72,6 +72,13 @@ public final class ChatSession {
 	 */
 	public static final String VENUE_SKILLSET = "v/skills/root";
 	private static final String MEMORY_OP = "v/ops/memory";
+	/**
+	 * Read-only render of a memory collection. A context entry runs before every
+	 * inference, and Covia only admits an op declared {@code readOnly} there
+	 * (covia#465 asks for a warning instead); {@link #MEMORY_OP} is the
+	 * read/write tool and cannot be.
+	 */
+	static final String MEMORY_RECALL_OP = "v/ops/memory-recall";
 	private static final String SKILL_FEEDBACK_OP = "v/ops/brightside/report-skill-feedback";
 	private static final String LEGACY_IDENTITY_SKILL = BrightsideSkillsAdapter.SKILLSET + "/identity";
 	/** Read-only dynamic product context; deliberately a non-skill load. */
@@ -208,10 +215,11 @@ public final class ChatSession {
 			// arrive by discovering and loading the skills that grant them — see
 			// skillsets below — so authority stays deliberate rather than always-on.
 			"tools", Vectors.of(Strings.create(MEMORY_OP), Strings.create(SKILL_FEEDBACK_OP)),
-			// Pin the assistant's memory (n/memory) into every turn's context.
+			// Pin the assistant's memory (n/memory) into every turn's context,
+			// through the read-only recall op; the memory tool above is for edits.
 			"context", Vectors.of(Maps.of(
-				"op", MEMORY_OP,
-				"input", Maps.of("command", "recall", "path", MEMORY_PATH),
+				"op", MEMORY_RECALL_OP,
+				"input", Maps.of("path", MEMORY_PATH),
 				"label", "Your private memory of the user — edit with path " + MEMORY_PATH)),
 			// No Brightside skill is pinned by default. The one app-owned load is a
 			// read-only context operation; owner pins are preserved and shipped skills

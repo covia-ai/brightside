@@ -32,9 +32,11 @@ import convex.core.data.AVector;
 import convex.core.data.Blob;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
+import convex.core.data.prim.CVMBool;
 import convex.core.lang.RT;
 import covia.adapter.TestAdapter;
 import covia.api.Fields;
+import covia.grid.Asset;
 import covia.venue.Config;
 import covia.venue.Engine;
 import covia.venue.LocalVenue;
@@ -99,6 +101,30 @@ class ChatSessionTest {
 		assertEquals(Strings.create(AppConfig.ECHO_LLM_OPERATION),
 			RT.getIn(appContext, "input", "modelOperation"));
 		assertTrue(RT.getIn(appContext, "input", "userName") instanceof convex.core.data.AString);
+	}
+
+	@Test
+	void memoryIsPinnedThroughAReadOnlyOperation() throws Exception {
+		String agentId = "bs-memory-pin";
+		new ChatSession(venue, echoChat(agentId)).ensureAgent();
+
+		ACell context = RT.getIn(agentInfo(agentId), Fields.CONFIG, "context");
+		assertTrue(context instanceof AVector<?> v && v.count() == 1, String.valueOf(context));
+		ACell pin = ((AVector<?>) context).get(0);
+		assertEquals(Strings.create(ChatSession.MEMORY_RECALL_OP), RT.getIn(pin, "op"));
+		assertEquals(Strings.create(ChatSession.MEMORY_PATH), RT.getIn(pin, "input", "path"));
+
+		// A context entry runs before every inference, and the venue admits only
+		// an op declared readOnly there (covia#465): the read/write memory tool
+		// is refused, so it must not be what the pin names.
+		assertTrue(declaresReadOnly(ChatSession.MEMORY_RECALL_OP), "the pinned op is declared readOnly");
+		assertFalse(declaresReadOnly("v/ops/memory"), "the memory tool is not");
+	}
+
+	private static boolean declaresReadOnly(String op) {
+		Asset asset = engine.resolveAsset(Strings.create(op), engine.venueContext());
+		assertNotNull(asset, "resolves on the venue: " + op);
+		return CVMBool.TRUE.equals(RT.getIn(asset.meta(), Fields.OPERATION, Fields.READ_ONLY));
 	}
 
 	@Test

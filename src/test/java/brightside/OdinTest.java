@@ -26,12 +26,14 @@ import brightside.Odin;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
+import convex.core.data.AVector;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
 import convex.core.data.prim.CVMBool;
 import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
 import covia.api.Fields;
+import covia.grid.Asset;
 import covia.grid.Job;
 import covia.grid.Venue;
 import covia.grid.hitl.Hitl;
@@ -89,6 +91,23 @@ class OdinTest {
 		assertTrue(String.valueOf(RT.getIn(record, Fields.CONFIG, "tools")).contains(Odin.OP_RUN),
 			"his bridge is among his tools: " + RT.getIn(record, Fields.CONFIG, "tools"));
 		assertEquals(Strings.create(TASK_LLM), RT.getIn(record, Fields.CONFIG, "llmOperation"));
+	}
+
+	@Test
+	void hisMemoryIsPinnedThroughAReadOnlyOperation() {
+		ACell record = venue.agentRecord(venue.did(), Odin.AGENT_ID);
+		ACell context = RT.getIn(record, Fields.CONFIG, "context");
+		assertTrue(context instanceof AVector<?> v && v.count() == 1, String.valueOf(context));
+		ACell pin = ((AVector<?>) context).get(0);
+		assertEquals(Strings.create(Odin.MEMORY_RECALL_OP), RT.getIn(pin, "op"));
+		assertEquals(Strings.create("n/memory"), RT.getIn(pin, "input", "path"));
+
+		// A context entry runs before every inference, and the venue admits only
+		// an op declared readOnly there (covia#465).
+		Asset asset = venue.engine().resolveAsset(
+			Strings.create(Odin.MEMORY_RECALL_OP), venue.engine().venueContext());
+		assertNotNull(asset, "the recall op resolves on the venue");
+		assertEquals(CVMBool.TRUE, RT.getIn(asset.meta(), Fields.OPERATION, Fields.READ_ONLY));
 	}
 
 	@Test
