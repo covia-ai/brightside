@@ -211,6 +211,48 @@ public final class ChatPanel extends JPanel {
 		input.placeholder(starting ? "Just a moment while everything starts up…" : COMPOSER_HINT);
 	}
 
+	/** Each activity label stays readable for at least this long; faster steps are coalesced. */
+	private static final int ACTIVITY_HOLD_MS = 800;
+	private long activityShownAt;
+	private String pendingActivity;
+	private javax.swing.Timer activityTimer;
+
+	/**
+	 * A live step from the venue's agent event tap while a reply is pending;
+	 * ignored when idle. Fast tool calls would flash by unreadably, so each
+	 * label holds for {@link #ACTIVITY_HOLD_MS} and a burst shows only its
+	 * latest label once the hold elapses.
+	 */
+	public void showActivity(String label) {
+		if (thinkingBubble == null) return;
+		long now = System.currentTimeMillis();
+		long elapsed = now - activityShownAt;
+		if (elapsed >= ACTIVITY_HOLD_MS) {
+			thinkingBubble.setSummary(label);
+			activityShownAt = now;
+			pendingActivity = null;
+			if (activityTimer != null) {
+				activityTimer.stop();
+				activityTimer = null;
+			}
+			return;
+		}
+		pendingActivity = label;
+		if (activityTimer == null) {
+			activityTimer = new javax.swing.Timer((int) (ACTIVITY_HOLD_MS - elapsed), e -> {
+				activityTimer = null;
+				String next = pendingActivity;
+				pendingActivity = null;
+				if (next != null && thinkingBubble != null) {
+					thinkingBubble.setSummary(next);
+					activityShownAt = System.currentTimeMillis();
+				}
+			});
+			activityTimer.setRepeats(false);
+			activityTimer.start();
+		}
+	}
+
 	/** Called after a successful send has committed and returned its session id. */
 	public void setConversationCommittedListener(Consumer<String> listener) {
 		conversationCommitted = (listener != null) ? listener : ignored -> {
@@ -450,6 +492,13 @@ public final class ChatPanel extends JPanel {
 	}
 
 	private void hideThinking() {
+		// The reply is in: drop any queued activity label with the bubble.
+		if (activityTimer != null) {
+			activityTimer.stop();
+			activityTimer = null;
+		}
+		pendingActivity = null;
+		activityShownAt = 0;
 		if (thinkingRow == null) return;
 		if (thinkingBubble != null) {
 			thinkingBubble.stop();

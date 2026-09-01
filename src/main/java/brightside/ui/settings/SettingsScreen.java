@@ -29,7 +29,7 @@ public final class SettingsScreen extends JPanel {
 
 	public enum Tab {
 		PROFILE("Identity"), GENERAL("General"), THEME("Theme"), MODEL("Model"), INTEGRATIONS("Integrations"),
-		VAULT("Vault"), AUTH("Auth");
+		SECRETS("Secrets"), VAULT("Vault"), AUTH("Auth");
 
 		final String label;
 
@@ -51,17 +51,19 @@ public final class SettingsScreen extends JPanel {
 	private final ModelPanel model;
 	private final ProfilePanel profile;
 	private final IntegrationsPanel integrations;
+	private final SecretsPanel secrets;
 	private final VaultPanel vault;
 	private final AuthPanel auth;
 
 	public SettingsScreen(GeneralPanel general, ThemePanel theme, ModelPanel model, ProfilePanel profile,
-			IntegrationsPanel integrations, VaultPanel vault, AuthPanel auth) {
+			IntegrationsPanel integrations, SecretsPanel secrets, VaultPanel vault, AuthPanel auth) {
 		super(new BorderLayout());
 		this.general = general;
 		this.theme = theme;
 		this.model = model;
 		this.profile = profile;
 		this.integrations = integrations;
+		this.secrets = secrets;
 		this.vault = vault;
 		this.auth = auth;
 
@@ -71,6 +73,7 @@ public final class SettingsScreen extends JPanel {
 		content.add(theme, Tab.THEME.name());
 		content.add(model, Tab.MODEL.name());
 		content.add(integrations, Tab.INTEGRATIONS.name());
+		content.add(secrets, Tab.SECRETS.name());
 		content.add(vault, Tab.VAULT.name());
 		content.add(auth, Tab.AUTH.name());
 
@@ -130,6 +133,10 @@ public final class SettingsScreen extends JPanel {
 
 	public IntegrationsPanel integrations() {
 		return integrations;
+	}
+
+	public SecretsPanel secrets() {
+		return secrets;
 	}
 
 	public VaultPanel vault() {

@@ -77,18 +77,56 @@ public final class EmbeddedVenue implements AutoCloseable {
 	}
 
 	/**
-	 * The user's agents ({@code g/}): agent id → record, straight from the
-	 * in-process venue state — the same enumeration {@code agent:list} uses
-	 * (the whole {@code g} node is not a resolvable lattice path, only
-	 * {@code g/<id>} is). Null before the user exists.
+	 * The user's agent ids, via the agent adapter's public job-free listing
+	 * (#180) — terminated agents excluded upstream, so no venue-state schema
+	 * knowledge lives here. Empty before the user exists.
 	 */
-	public AMap<AString, ACell> agents(String userDID) {
+	public java.util.List<String> agents(String userDID) {
 		try {
-			User user = engine().getVenueState().users().get(Strings.create(userDID));
-			return (user == null) ? null : user.getAgents();
+			covia.adapter.AgentAdapter adapter = (covia.adapter.AgentAdapter) engine().getAdapter("agent");
+			if (adapter == null) return java.util.List.of();
+			ACell out = adapter.listAgents(RequestContext.of(Strings.create(userDID)), false, false);
+			java.util.List<String> ids = new java.util.ArrayList<>();
+			if (convex.core.lang.RT.getIn(out, "agents") instanceof convex.core.data.AVector<?> vec) {
+				for (long i = 0; i < vec.count(); i++) ids.add(String.valueOf(vec.get(i)));
+			}
+			return ids;
+		} catch (Exception e) {
+			return java.util.List.of();
+		}
+	}
+
+	/**
+	 * Subscribes to the venue's live agent event tap (#394) for one agent —
+	 * the same ordered run-loop/cycle/tool events the SSE stream carries,
+	 * delivered in-process. The callback runs on the emitting thread: hand
+	 * off, never block. Close the returned subscription when done.
+	 */
+	public AutoCloseable subscribeAgent(String ownerDID, String agentId,
+			java.util.function.Consumer<covia.venue.AgentEvents.Event> onEvent) {
+		return engine().agentEvents().subscribe(Strings.create(ownerDID), Strings.create(agentId), onEvent::accept);
+	}
+
+	/**
+	 * The user's encrypted secret store ({@code s/}), straight from the
+	 * in-process venue state. With {@code ensure} the user record is created
+	 * first; otherwise null before the user exists. Values decrypt only with
+	 * {@link #secretKey()} — the venue identity's key, exactly as
+	 * {@code secret:set} encrypts them.
+	 */
+	public covia.venue.SecretStore secrets(String userDID, boolean ensure) {
+		try {
+			var users = engine().getVenueState().users();
+			User user = ensure ? users.ensure(Strings.create(userDID)) : users.get(Strings.create(userDID));
+			return (user == null) ? null : user.secrets();
 		} catch (Exception e) {
 			return null;
 		}
+	}
+
+	/** The AES key for {@link #secrets}: derived from the venue key pair, as the secret adapter derives it. */
+	public byte[] secretKey() {
+		return covia.venue.SecretStore.deriveKey(engine().getKeyPair());
 	}
 
 	/** The user's HITL inbox ({@code h/}): request id → record, straight from the in-process lattice. Null before the user exists. */
@@ -99,6 +137,24 @@ public final class EmbeddedVenue implements AutoCloseable {
 		} catch (Exception e) {
 			return null;
 		}
+	}
+
+	/**
+	 * Invokes an adapter operation directly in-process — no Job is written or
+	 * persisted. For UI reads of live adapter state (e.g. Discord bot status),
+	 * where a durable job per screen visit would be noise; anything that
+	 * changes state should go through a real job instead.
+	 */
+	public ACell invokeAdapterDirect(String adapterOp, String userDID, ACell input, long timeoutSeconds)
+			throws Exception {
+		int colon = adapterOp.indexOf(':');
+		if (colon <= 0) throw new IllegalArgumentException("Expected adapter:operation, got " + adapterOp);
+		covia.adapter.AAdapter adapter = engine().getAdapter(adapterOp.substring(0, colon));
+		if (adapter == null) throw new IllegalStateException("No adapter for " + adapterOp);
+		AMap<AString, ACell> meta = convex.core.data.Maps.of(covia.api.Fields.OPERATION,
+			convex.core.data.Maps.of(Strings.intern("adapter"), Strings.create(adapterOp)));
+		RequestContext ctx = RequestContext.of(Strings.create(userDID));
+		return adapter.invokeFuture(ctx, meta, input).get(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS);
 	}
 
 	/**

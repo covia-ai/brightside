@@ -1,6 +1,7 @@
 package brightside;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -61,9 +62,7 @@ class AgentListingTest {
 			"config", Maps.of("name", "Amy"))).get(30, TimeUnit.SECONDS);
 		job.future().get(30, TimeUnit.SECONDS);
 
-		AMap<AString, ACell> agents = venue.agents(did);
-		assertNotNull(agents, "the agents map reads in-process");
-		assertNotNull(agents.get(Strings.create("Amy")),
+		assertTrue(venue.agents(did).contains("Amy"),
 			"the created agent is in the listing the pane reads");
 		assertNotNull(venue.agentRecord(did, "Amy"), "its record reads in-process");
 	}

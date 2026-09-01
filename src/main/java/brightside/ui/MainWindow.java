@@ -37,6 +37,7 @@ import brightside.ui.settings.IntegrationsPanel;
 import brightside.ui.settings.ModelPanel;
 import brightside.ui.settings.MoltbookPanel;
 import brightside.ui.settings.ProfilePanel;
+import brightside.ui.settings.SecretsPanel;
 import brightside.ui.settings.SettingsScreen;
 import brightside.ui.settings.ThemePanel;
 import brightside.ui.settings.VaultPanel;
@@ -319,10 +320,31 @@ public final class MainWindow extends JFrame {
 				app.refreshMoltbookStatus();
 			}
 		});
+		SecretsPanel secretsPanel = new SecretsPanel(new SecretsPanel.Host() {
+			@Override
+			public java.util.List<String> listSecrets() {
+				return app.listSecretNames();
+			}
+
+			@Override
+			public boolean storeSecret(String name, String value) {
+				return app.storeSecret(name, value);
+			}
+
+			@Override
+			public boolean deleteSecret(String name) {
+				return app.deleteSecret(name);
+			}
+
+			@Override
+			public String revealSecret(String name, char[] passphrase) throws Exception {
+				return app.revealSecret(name, passphrase);
+			}
+		});
 		VaultPanel vaultPanel = new VaultPanel(app::forgetRememberedPassphrase);
 		AuthPanel authPanel = new AuthPanel(app::mintAccessToken);
 		settingsScreen = new SettingsScreen(generalPanel, themePanel, modelPanel, profilePanel, integrationsPanel,
-			vaultPanel, authPanel);
+			secretsPanel, vaultPanel, authPanel);
 
 		mainDeck = new JPanel(mainCards);
 		mainDeck.add(split, MAIN_CHAT);
@@ -463,6 +485,7 @@ public final class MainWindow extends JFrame {
 		setInbox(List.of());
 		settingsScreen.profile().clearSensitive();
 		settingsScreen.integrations().clearSensitive();
+		settingsScreen.secrets().clearSensitive();
 		settingsScreen.auth().clearSensitive();
 		settingsScreen.general().refresh(app.hasTray(), app.keepInTray(), app.minimiseToTray(), false, venue != null);
 	}
@@ -490,6 +513,11 @@ public final class MainWindow extends JFrame {
 	/** Show a chosen past conversation's transcript (a definite switch, not a poll). */
 	public void showConversation(List<SessionHistory.Item> turns) {
 		chatPanel.restore(turns);
+	}
+
+	/** Live turn progress ("Thinking…", "Moltbook feed…") for the pending-reply bubble. */
+	public void showActivity(String label) {
+		chatPanel.showActivity(label);
 	}
 
 	/** Switch the bottom-nav content between the chat screens and settings. */
@@ -547,6 +575,7 @@ public final class MainWindow extends JFrame {
 			app.actingAsOperator(), app.operatorName());
 		app.refreshDiscordStatus(); // answers through showDiscordStatus, off the event thread
 		app.refreshMoltbookStatus(); // likewise, through showMoltbookStatus
+		settingsScreen.secrets().refresh(app.listSecretNames());
 		settingsScreen.vault().refresh(app.hasRememberedPassphrase());
 	}
 

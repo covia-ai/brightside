@@ -23,9 +23,9 @@ import covia.grid.Venue;
  * <p>Covia's {@code covia-discord} adapter does the work — the Gateway session,
  * per-channel sessions, replies, the allow-list — and persists the bot it is
  * asked to create, re-arming it at every launch. Brightside adds only what a
- * desktop owner needs: the token lives in the vault (as {@code DISCORD_BOT_TOKEN},
- * provisioned into the venue's secrets at launch and stored in the user's own
- * secret store when saved live), and Settings → Integrations creates, shows and
+ * desktop owner needs: the token lives in the owner's encrypted secret store on
+ * the venue (as {@code DISCORD_BOT_TOKEN}, referenced by the bot record as
+ * {@code s/DISCORD_BOT_TOKEN}), and Settings → Integrations creates, shows and
  * removes the bot through the adapter's own operations. Nothing is written to
  * {@code config.json}.
  *
@@ -97,11 +97,12 @@ public final class Discord {
 
 	/**
 	 * The owner's bot as the adapter sees it, or null when there is none.
+	 * Read directly in-process — visiting Settings must not write jobs.
 	 * {@code record} is the persisted bot record (for the allow-list), read
 	 * in-process by the operator from the adapter's workspace, or null.
 	 */
-	public static Bot status(Venue user, ACell record) throws Exception {
-		ACell out = run(user, OP_BOTS, Maps.empty());
+	public static Bot status(EmbeddedVenue venue, String userDID, ACell record) throws Exception {
+		ACell out = venue.invokeAdapterDirect("discord:bots", userDID, Maps.empty(), TIMEOUT_SECONDS);
 		if (!(RT.getIn(out, "bots") instanceof AVector<?> bots)) return null;
 		for (long i = 0; i < bots.count(); i++) {
 			ACell b = (ACell) bots.get(i);

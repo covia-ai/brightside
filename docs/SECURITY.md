@@ -66,7 +66,7 @@ login passphrase + vault.salt
                   │
                   └─ Argon2id ──► 32-byte passphrase key
                                       ├─ AES-256-GCM ──► identity.enc (primary seed)
-                                      └─ AES-256-GCM ──► keys.enc (provider keys)
+                                      └─ AES-256-GCM ──► keys.enc (onboarding key staging)
 ```
 
 New installations generate 12 words. The import and recovery UI also accepts a
@@ -141,7 +141,7 @@ vault files and rolling logs.
 | `venue.etch` | Etch v3 lattice store. Data records are ChaCha20-encrypted under the seed-derived key; see the integrity boundary above. | **Required to recover conversations, memory, skills, agents and other retained state.** |
 | `identity.enc` | The primary 32-byte seed, AES-256-GCM-wrapped by the passphrase key. | With `vault.salt` and the correct passphrase, recovers the primary seed. Replaceable from the recovery phrase. |
 | `vault.salt` | 16 random bytes used by Argon2id. It is deliberately non-secret and never silently replaced when malformed. | Required for old-passphrase unlock; not required for phrase-based recovery. Back it up anyway. |
-| `keys.enc` | JSON map of model-provider secret names to API keys, AES-256-GCM-wrapped by the passphrase key. | Recoverable only with the old passphrase and salt. Deleted during forgotten-passphrase recovery; plan to re-enter provider keys. |
+| `keys.enc` | Transient staging for an onboarding API key, AES-256-GCM-wrapped by the passphrase key; moved into the venue's encrypted secret stores and deleted at first launch. | Normally absent. Provider keys live in the stores inside `venue.etch` and recover with it. |
 | `unlock.passphrase` | Optional remembered passphrase, stored deliberately as UTF-8 plaintext after explicit user opt-in. | Anyone who obtains it can unlock the vault. Rely on OS-account and filesystem protection, exclude it from ordinary vault backups, and clear it before transferring the data home. Cleared during recovery. |
 | `identity.json` | Plaintext display name, stable user slug and full Covia user DID. The DID selects `<venueDID>:u:<slug>`, where that user's agents and memory live, and is pinned against the running venue identity. | **Back this up.** The seed still opens the store without it, but the recovery phrase alone does not reconstruct the previous user suffix automatically. |
 | `config.json` | Plaintext application and venue configuration, including the store path and security-relevant overrides. No Brightside-managed secret is written here. | Back up when the data home or store path is customised. |
@@ -201,8 +201,9 @@ restores the identity only. A valid but unrelated BIP39 phrase will be rejected
 when a retained store is present because it cannot authenticate the Etch header.
 
 After recovery, verify the venue DID/public key, inspect conversations and
-memory, confirm that the expected `identity.json` slug is in use, and re-enter
-provider API keys. The current rewrite is not transactional: it removes
+memory, and confirm that the expected `identity.json` slug is in use. Provider
+API keys live in the venue's secret stores and reopen with the store — nothing
+to re-enter. The current rewrite is not transactional: it removes
 `keys.enc` before rewriting `identity.enc`, and the encrypted envelope files are
 overwritten in place. This is why an untouched backup should be kept until the
 procedure succeeds. A failed rewrite does not invalidate the recovery phrase or
@@ -213,10 +214,10 @@ the seed-derived Etch key, so recovery can be retried against the retained store
 | Material retained | Identity/signing authority | Lattice data | Provider API keys |
 |---|---|---|---|
 | Complete data home + correct passphrase | Yes | Yes | Yes |
-| `venue.etch` + recovery phrase + `identity.json` | Yes; a new `identity.enc` and salt can be created | Yes | Re-enter after UI recovery |
-| `venue.etch` + raw primary seed | Yes, using Advanced/standard Convex tooling | Yes | Not from `keys.enc` without its old passphrase and salt |
+| `venue.etch` + recovery phrase + `identity.json` | Yes; a new `identity.enc` and salt can be created | Yes | Yes — the secret stores reopen with the store |
+| `venue.etch` + raw primary seed | Yes, using Advanced/standard Convex tooling | Yes | Yes — the secret stores reopen with the store |
 | Recovery phrase only | Yes; same Ed25519 seed and venue identity | No; an empty store can be created | No |
-| `identity.enc` + `vault.salt` + correct passphrase, but no store | Yes | No | Only if `keys.enc` was also retained |
+| `identity.enc` + `vault.salt` + correct passphrase, but no store | Yes | No | No — the stores live in `venue.etch` |
 | `venue.etch` without phrase, raw seed, or unlockable `identity.enc` | No | No | No |
 
 Neither the passphrase nor the mnemonic is an online account-recovery service.

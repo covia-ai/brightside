@@ -13,7 +13,7 @@ working default for anything you omit.
 | `~/.brightside/venue.etch` | The encrypted lattice store: conversations, memory, skills, agent state. |
 | `~/.brightside/vault.salt` | The non-secret salt for passphrase hardening. |
 | `~/.brightside/identity.enc` | The AES-GCM-encrypted Ed25519 identity seed. |
-| `~/.brightside/keys.enc` | Provider API keys — and the Discord bot token — encrypted under the passphrase-derived key. |
+| `~/.brightside/keys.enc` | Transient: stages an onboarding API key until the first launch moves it into the venue's encrypted secret stores; absent afterwards. |
 | `~/.brightside/unlock.passphrase` | Optional remembered passphrase, stored as plaintext after explicit opt-in; exclude it from ordinary vault backups. |
 | `~/.brightside/files/` | Brightside-managed local files; exposed to the assistant as the confined writable `files` root. |
 | `~/.brightside/logs/` | Plaintext rolling logs; exposed to the assistant as the server-enforced read-only `logs` root. |
@@ -110,13 +110,14 @@ The default model operation needs a provider key. Two supported ways to supply i
 1. **Environment** — put `ANTHROPIC_API_KEY` in the environment before
    launching.
 2. **Brightside settings** — enter it during onboarding or under *Settings →
-   Model*. Brightside stores it in encrypted `keys.enc` and provisions the
-   running venue's public secret scope in memory.
+   Model*. It is written to the encrypted secret stores on the venue — yours
+   and the operator's, so your agents and Odin each resolve their own copy —
+   and takes effect immediately. A key entered at onboarding is staged
+   briefly in `keys.enc` and moved into the stores at first launch.
 
-The runtime scope must be public, not venue-only. You chat as `u:<your name>`, a
-local principal that is deliberately *not* the venue principal, and the public
-secret scope is what a local user resolves from. Do not put API keys in
-`config.json`.
+Each user's agents resolve that user's key (`s/ANTHROPIC_API_KEY` from their
+own store), so different users on the venue can use different keys; manage
+yours under *Settings → Secrets*. Do not put API keys in `config.json`.
 
 For an offline smoke test with no key at all, set:
 
@@ -147,7 +148,7 @@ adapter's own operations. Nothing about it goes in `config.json`.
 
 | What | Where |
 |---|---|
-| The token | encrypted in `keys.enc` as `DISCORD_BOT_TOKEN` (provisioned into the venue's secrets at launch) and in your user's encrypted secret store on the venue; the bot record holds only the reference `s/DISCORD_BOT_TOKEN` |
+| The token | in your user's encrypted secret store on the venue as `DISCORD_BOT_TOKEN`; the bot record holds only the reference `s/DISCORD_BOT_TOKEN` |
 | The bot | one, named `brightside`, owned by your user, answering as the configured chat agent; persisted by the adapter under the venue's private `w/adapters/discord/…` workspace and re-armed at boot |
 | Conversations | one per Discord channel or DM, kept by the adapter; `!new` in Discord starts a fresh one |
 
@@ -194,7 +195,7 @@ itself stays yours on Moltbook.
 
 | What | Where |
 |---|---|
-| The key | in your user's encrypted secret store inside the venue store (`venue.etch`), keyed from your identity seed — so it survives a forgotten-passphrase recovery, which deletes `keys.enc`. It is deliberately *not* in `keys.enc`, whose contents are provisioned venue-wide; this key is yours alone. The Moltbook operations resolve it as `s/MOLTBOOK_API_KEY` |
+| The key | in your user's encrypted secret store inside the venue store (`venue.etch`), keyed from your identity seed — it survives a forgotten-passphrase recovery, and it is yours alone. The Moltbook operations resolve it as `s/MOLTBOOK_API_KEY` |
 | The claim page | remembered under your workspace at `w/moltbook` until the account is claimed |
 | The account | one, named as you chose, owned by you on Moltbook; Brightside holds nothing else |
 
@@ -290,6 +291,17 @@ agents, conversations and inbox. A token minted as the venue operator sees the
 venue's own namespace and its administration, but not your private data: even
 the operator needs your user's authority for that. Mint a new token when it
 expires; for a different port, edit the URL.
+
+## Secrets
+
+*Settings → Secrets* lists the acting user's encrypted secret store on the
+venue — the values operations resolve as `s/<name>`: your provider API keys,
+the Moltbook API key and the Discord bot token live here, alongside anything
+stored with `secret:set`.
+Names are listed openly; add or replace a value by name, or forget one. A
+value is only ever shown after re-entering your Brightside passphrase — the
+same gate as the primary seed — and only for that sitting. Acting as the
+venue operator (Identity → switch user) shows the operator's store instead.
 
 ## Environment variables
 

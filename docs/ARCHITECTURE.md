@@ -187,7 +187,8 @@ control resets the `ChatSession` to a null session id and an empty transcript.
 The agent framework mints a new session only when the user sends the first
 message of that fresh chat. The completed send returns that id to the
 controller, which immediately re-reads the exact session and updates the
-switcher; session adoption does not depend on the polling watcher's timing.
+switcher; session adoption does not depend on the watcher's timing (covia's
+live agent events kick refreshes; a slow poll is only the fallback).
 
 ## Skills, tools and memory
 

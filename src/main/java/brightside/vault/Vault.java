@@ -135,6 +135,15 @@ public final class Vault {
 		writeKeys(keys);
 	}
 
+	/**
+	 * Removes the legacy API-key file entirely. Provider keys live in the
+	 * venue's encrypted secret stores; {@code keys.enc} only stages a key
+	 * between onboarding and the first launch, and is deleted once migrated.
+	 */
+	public void clearApiKeys() throws IOException {
+		Files.deleteIfExists(home.resolve(KEYS_FILE));
+	}
+
 	/** Forgets a stored key; nothing happens if there is none of that name. */
 	public void removeApiKey(String name) throws IOException {
 		Map<String, String> keys = apiKeys();

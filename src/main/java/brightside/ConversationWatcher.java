@@ -26,6 +26,8 @@ import convex.core.data.ACell;
 public final class ConversationWatcher {
 
 	private static final int INTERVAL_MS = 2500;
+	/** The slow fallback interval when covia's agent event tap provides the kicks. */
+	public static final int FALLBACK_INTERVAL_MS = 15_000;
 
 	private final Supplier<ACell> readValue;
 	private final BooleanSupplier active;
@@ -46,11 +48,17 @@ public final class ConversationWatcher {
 	 */
 	public ConversationWatcher(Supplier<ACell> readValue, ACell initialValue,
 			BooleanSupplier active, Consumer<ACell> onChanged) {
+		this(readValue, initialValue, active, onChanged, INTERVAL_MS);
+	}
+
+	/** As above with a chosen poll interval — {@link #FALLBACK_INTERVAL_MS} when events do the kicking. */
+	public ConversationWatcher(Supplier<ACell> readValue, ACell initialValue,
+			BooleanSupplier active, Consumer<ACell> onChanged, int intervalMs) {
 		this.readValue = readValue;
 		this.lastValue = initialValue;
 		this.active = active;
 		this.onChanged = onChanged;
-		this.timer = new Timer(INTERVAL_MS, e -> tick());
+		this.timer = new Timer(intervalMs, e -> tick());
 		this.timer.setRepeats(true);
 	}
 

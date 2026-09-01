@@ -78,6 +78,7 @@ public final class BrightSide {
 	private volatile EmbeddedVenue venue;
 	private volatile ChatSession chat;
 	private volatile ConversationWatcher watcher; // event thread
+	private volatile AutoCloseable agentEventsSub; // covia's live agent tap for the bound agent
 	private volatile ConversationWatcher inboxWatcher; // event thread; the owner's h/ inbox
 	private final java.util.Set<String> notifiedRequests = java.util.concurrent.ConcurrentHashMap.newKeySet();
 	private volatile List<Inbox.Request> inboxRequests = List.of(); // the owner's and the venue's, as shown
@@ -97,8 +98,6 @@ public final class BrightSide {
 	private volatile Vault vault; // set once onboarded/unlocked
 	private volatile String venueSeedHex; // the venue's Ed25519 seed hex (authorises operator takeover)
 	private volatile String llmOverride; // chosen model op for the first onboarding launch
-	/** API-key secret names actually provisioned into the running venue at launch. */
-	private final java.util.Set<String> provisionedSecrets = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
 	private enum Mode {
 		ONBOARD, UNLOCK
@@ -330,13 +329,13 @@ public final class BrightSide {
 				identity = Identity.of(setup.name());
 				persistIdentity(identity);
 
-				// Encrypted store + this exact identity, plus the API key provisioned
-				// into the (encrypted) secret store — none of it written in the clear.
+				// The API key is staged encrypted in the vault only until the venue
+				// is up; onVenueReady moves it into the encrypted secret stores.
 				if (setup.apiKey() != null && setup.providerId() != null) {
 					String secretName = Providers.byId(setup.providerId()).secretName();
 					if (secretName != null) v.storeApiKey(secretName, setup.apiKey());
 				}
-				AMap<AString, ACell> venueConfig = provisionKeys(v.secure(config.venueConfig(), setup.seedHex()), v);
+				AMap<AString, ACell> venueConfig = v.secure(config.venueConfig(), setup.seedHex());
 				llmOverride = (setup.providerId() == null)
 					? AppConfig.ECHO_LLM_OPERATION
 					: Providers.modelOp(setup.providerId(), setup.modelId());
@@ -390,7 +389,7 @@ public final class BrightSide {
 					startChat(running, saved, effectiveChat(), Bind.FIRST);
 					return;
 				}
-				AMap<AString, ACell> venueConfig = provisionKeys(v.secure(config.venueConfig(), seedHex), v);
+				AMap<AString, ACell> venueConfig = v.secure(config.venueConfig(), seedHex);
 				// The window appears only once any takeover is settled.
 				launchVenueWith(venueConfig, this::unlocked);
 			} catch (IOException e) {
@@ -465,6 +464,8 @@ public final class BrightSide {
 		chatStarted.set(false);
 		SwingUtilities.invokeLater(() -> {
 			if (oldWatcher != null) oldWatcher.stop();
+			closeQuietly(agentEventsSub);
+			agentEventsSub = null;
 			if (oldInbox != null) oldInbox.stop();
 			window.userLoggedOut();
 			window.setVisible(false);
@@ -516,7 +517,7 @@ public final class BrightSide {
 					startChat(running, saved, effectiveChat(), Bind.FIRST);
 					return;
 				}
-				AMap<AString, ACell> venueConfig = provisionKeys(v.secure(config.venueConfig(), seedHex), v);
+				AMap<AString, ACell> venueConfig = v.secure(config.venueConfig(), seedHex);
 				launchVenueWith(venueConfig, this::unlocked);
 			} catch (Exception e) {
 				log.error("Recovery failed", e);
@@ -529,13 +530,47 @@ public final class BrightSide {
 		t.start();
 	}
 
-	/** Provisions every stored (encrypted) API key into the in-memory venue config's public secrets. */
-	private AMap<AString, ACell> provisionKeys(AMap<AString, ACell> venueConfig, Vault vault) throws IOException {
-		for (Map.Entry<String, String> e : vault.apiKeys().entrySet()) {
-			venueConfig = withPublicSecret(venueConfig, e.getKey(), e.getValue());
-			provisionedSecrets.add(e.getKey());
+	/**
+	 * One-way migration: provider keys still in the vault's {@code keys.enc}
+	 * move into the encrypted secret stores — the acting user's and the
+	 * operator's, so each user's agents resolve their own key and Odin the
+	 * operator's — without overwriting a value already set in a store (a store
+	 * edit wins). {@code keys.enc} is then removed: the stores are the single
+	 * home for API keys, and they survive passphrase recovery where the vault
+	 * copy never did. Package-visible for the migration test.
+	 */
+	static void migrateProviderKeys(EmbeddedVenue v, Vault vlt, String userDID) {
+		try {
+			Map<String, String> keys = vlt.apiKeys();
+			if (!keys.isEmpty()) {
+				for (Map.Entry<String, String> e : keys.entrySet()) {
+					seedIfAbsent(v, userDID, e.getKey(), e.getValue());
+					seedIfAbsent(v, v.did(), e.getKey(), e.getValue());
+				}
+				log.info("Moved {} provider key(s) from the vault into the encrypted secret stores", keys.size());
+			}
+			vlt.clearApiKeys();
+		} catch (Exception e) {
+			log.warn("Could not migrate provider keys into the secret stores: {}", e.toString());
 		}
-		return venueConfig;
+	}
+
+	private static void seedIfAbsent(EmbeddedVenue v, String did, String name, String value) {
+		v.secrets(did, true).storeIfAbsent(Strings.create(name), Strings.create(value), v.secretKey());
+	}
+
+	/** Whether {@code s/<name>} currently resolves for the named user's agents. */
+	private boolean keyResolves(String name) {
+		EmbeddedVenue v = venue;
+		Identity id = identity;
+		if (v == null || id == null || name == null) return false;
+		try {
+			String key = v.engine().resolveSecret("s/" + name,
+				RequestContext.of(Strings.create(id.userDID(v.did()))));
+			return key != null && !key.isBlank();
+		} catch (Exception e) {
+			return false;
+		}
 	}
 
 	// ------------------------------------------------------------------
@@ -553,15 +588,14 @@ public final class BrightSide {
 		llmOverride = op;
 		config.persistModel(op);
 		Providers.Provider p = Providers.byId(providerId);
-		boolean keyLive = p == null || !p.needsApiKey() || provisionedSecrets.contains(p.secretName());
+		boolean keyLive = p == null || !p.needsApiKey() || keyResolves(p.secretName());
 		if (!keyLive) {
-			// Saved, but this provider's API key is only injected into the venue's
-			// secret store at launch — switching the running agent to it now would
-			// fail at the model call with no key. Defer to the next start rather
-			// than leave the agent in a broken state.
+			// Saved, but no key resolves for this provider yet — switching the
+			// running agent to it now would fail at the model call. A key added
+			// in Settings → Model takes effect immediately, so no restart needed.
 			String label = (p != null) ? p.label() : providerId;
 			SwingUtilities.invokeLater(() -> window.showSystemMessage(
-				"Saved. Restart Brightside to switch to " + label + " — its API key is applied at launch."));
+				"Saved. Add the " + label + " API key (Settings → Model) and it takes effect straight away."));
 			return;
 		}
 		ensureOdin(venue);
@@ -587,15 +621,21 @@ public final class BrightSide {
 	}
 
 	/**
-	 * Stores a provider API key (encrypted in the vault). Applied on the next
-	 * launch — the venue provisions secrets at start. Returns false if it couldn't.
+	 * Stores a provider API key in the encrypted secret stores — the named
+	 * user's and the operator's, so the chat agent and Odin both resolve it —
+	 * effective immediately. A different per-user value can be set in
+	 * Settings → Secrets. Returns false if it couldn't.
 	 */
 	public boolean storeApiKey(String providerId, String apiKey) {
-		Vault v = vault;
+		EmbeddedVenue v = venue;
+		Identity id = identity;
 		Providers.Provider p = Providers.byId(providerId);
-		if (v == null || p == null || p.secretName() == null || apiKey == null || apiKey.isBlank()) return false;
+		if (v == null || id == null || p == null || p.secretName() == null
+				|| apiKey == null || apiKey.isBlank()) return false;
 		try {
-			v.storeApiKey(p.secretName(), apiKey);
+			String value = apiKey.trim();
+			v.secrets(id.userDID(v.did()), true).store(p.secretName(), value, v.secretKey());
+			v.secrets(v.did(), true).store(p.secretName(), value, v.secretKey());
 			return true;
 		} catch (Exception e) {
 			log.warn("Could not store the API key", e);
@@ -626,19 +666,18 @@ public final class BrightSide {
 	}
 
 	/**
-	 * Stores the bot token (encrypted, in the vault) and creates or replaces
-	 * the owner's Discord bot live, answering as the configured chat agent for
-	 * the listed Discord users. {@code token} null keeps the stored one.
+	 * Stores the bot token (in the owner's encrypted secret store, via
+	 * {@link Discord#configure}) and creates or replaces the owner's Discord
+	 * bot live, answering as the configured chat agent for the listed Discord
+	 * users. {@code token} null keeps the stored one.
 	 */
 	public void saveDiscord(String token, List<String> allow) {
 		EmbeddedVenue v = venue;
 		Identity id = identity;
-		Vault vlt = vault;
 		if (v == null || id == null) return;
 		Thread t = new Thread(() -> {
 			String note;
 			try {
-				if (token != null && !token.isBlank() && vlt != null) vlt.storeApiKey(Discord.TOKEN_SECRET, token.trim());
 				Discord.configure(ownerClient(v, id), config.chat().agentId(), token, allow);
 				note = "Saved. The bot connects in a moment; message it on Discord to try it.";
 			} catch (Exception e) {
@@ -677,7 +716,7 @@ public final class BrightSide {
 		String n = note;
 		try {
 			String did = id.userDID(v.did());
-			bot = Discord.status(ownerClient(v, id), v.resolve(v.did(), Discord.recordPath(did)));
+			bot = Discord.status(v, did, v.resolve(v.did(), Discord.recordPath(did)));
 		} catch (Exception e) {
 			log.warn("Could not read the Discord bot: {}", e.toString());
 			if (n == null) n = "Couldn't read the bot: " + rootMessage(e);
@@ -761,14 +800,10 @@ public final class BrightSide {
 	public void forgetMoltbook() {
 		EmbeddedVenue v = venue;
 		Identity id = identity;
-		Vault vlt = vault;
 		if (v == null || id == null) return;
 		Thread t = new Thread(() -> {
 			String note;
 			try {
-				// A copy an earlier build kept in the vault would be provisioned
-				// venue-wide at the next launch; make sure none is left behind.
-				if (vlt != null) vlt.removeApiKey(Moltbook.KEY_SECRET);
 				Venue user = ownerClient(v, id);
 				Moltbook.forgetKey(user);
 				Moltbook.clearRecord(user);
@@ -851,23 +886,103 @@ public final class BrightSide {
 			"iat", issuedAt, "exp", issuedAt + expiresInSeconds), keyPair).toString();
 	}
 
-	/** Injects a public secret (an API key) into an in-memory venue config, merged. */
-	private static AMap<AString, ACell> withPublicSecret(AMap<AString, ACell> venueConfig, String name, String value) {
-		AString secretsKey = Strings.create("secrets");
-		AString publicKey = Strings.create("public");
-		AMap<AString, ACell> secrets = asMap(venueConfig.get(secretsKey));
-		AMap<AString, ACell> pub = asMap((secrets != null) ? secrets.get(publicKey) : null);
-		if (pub == null) pub = Maps.empty();
-		pub = pub.assoc(Strings.create(name), Strings.create(value));
-		if (secrets == null) secrets = Maps.empty();
-		secrets = secrets.assoc(publicKey, pub);
-		return venueConfig.assoc(secretsKey, secrets);
+	// ------------------------------------------------------------------
+	// Secrets (Settings → Secrets): the acting user's encrypted store
+	// ------------------------------------------------------------------
+
+	/** A storable secret name: what {@code s/<name>} references can carry. */
+	public static boolean validSecretName(String name) {
+		return name != null && name.matches("[A-Za-z0-9_.-]{1,64}");
 	}
 
-	@SuppressWarnings("unchecked")
-	private static AMap<AString, ACell> asMap(ACell cell) {
-		return (cell instanceof AMap<?, ?> m) ? (AMap<AString, ACell>) m : null;
+	/** The acting principal's DID for the secrets page: the bound chat principal, else the named user. */
+	private String secretsDID(EmbeddedVenue v) {
+		String did = userDID;
+		if (did != null) return did;
+		Identity id = identity;
+		return (id == null) ? null : id.userDID(v.did());
 	}
+
+	/** The names in the acting user's encrypted secret store, sorted; empty when locked or before the venue is up. */
+	public List<String> listSecretNames() {
+		EmbeddedVenue v = venue;
+		if (v == null) return List.of();
+		String did = secretsDID(v);
+		if (did == null) return List.of();
+		try {
+			covia.venue.SecretStore store = v.secrets(did, false);
+			if (store == null) return List.of();
+			List<String> names = new ArrayList<>();
+			var listed = store.list();
+			for (long i = 0; i < listed.count(); i++) names.add(listed.get(i).toString());
+			names.sort(String.CASE_INSENSITIVE_ORDER);
+			return names;
+		} catch (Exception e) {
+			log.warn("Could not list secrets: {}", e.toString());
+			return List.of();
+		}
+	}
+
+	/**
+	 * Stores (or replaces) a secret in the acting user's encrypted store — the
+	 * same store and encryption {@code secret:set} uses, so {@code s/<name>}
+	 * references resolve it immediately.
+	 */
+	public boolean storeSecret(String name, String value) {
+		EmbeddedVenue v = venue;
+		if (v == null || !validSecretName(name) || value == null || value.isBlank()) return false;
+		String did = secretsDID(v);
+		if (did == null) return false;
+		try {
+			v.secrets(did, true).store(name, value.trim(), v.secretKey());
+			return true;
+		} catch (Exception e) {
+			log.warn("Could not store secret {}: {}", name, e.toString());
+			return false;
+		}
+	}
+
+	/** Forgets one secret from the acting user's store; false when there is nothing to do. */
+	public boolean deleteSecret(String name) {
+		EmbeddedVenue v = venue;
+		if (v == null || !validSecretName(name)) return false;
+		String did = secretsDID(v);
+		if (did == null) return false;
+		try {
+			covia.venue.SecretStore store = v.secrets(did, false);
+			if (store == null || !store.exists(name)) return false;
+			store.delete(name);
+			return true;
+		} catch (Exception e) {
+			log.warn("Could not delete secret {}: {}", name, e.toString());
+			return false;
+		}
+	}
+
+	/**
+	 * Re-authenticates with the vault passphrase, then decrypts one secret for
+	 * an explicit view — the same gate as the private seed
+	 * ({@link #revealPrivateSeed}). The passphrase array is wiped either way.
+	 */
+	public String revealSecret(String name, char[] passphrase) throws IOException {
+		try {
+			if (!canRevealPrivateSeed()) throw new IOException("No logged-in identity");
+			String candidate = Vault.open(config.home(), passphrase).seedHex();
+			if (!candidate.equals(venueSeedHex)) {
+				throw new IOException("The passphrase did not unlock the running identity");
+			}
+			EmbeddedVenue v = venue;
+			String did = (v == null) ? null : secretsDID(v);
+			if (did == null) throw new IOException("The user logged out during re-authentication");
+			covia.venue.SecretStore store = v.secrets(did, false);
+			convex.core.data.AString value = (store == null) ? null : store.decrypt(name, v.secretKey());
+			if (value == null) throw new IOException("No secret of that name");
+			return value.toString();
+		} finally {
+			java.util.Arrays.fill(passphrase, '\0');
+		}
+	}
+
 
 	/** The chat config with the chosen model applied (onboarding's, else the saved one). */
 	private AppConfig.Chat effectiveChat() {
@@ -930,7 +1045,12 @@ public final class BrightSide {
 		// Default skills are installed by BrightsideAdapter at venue launch. Odin
 		// is not touched here: he is created or reconfigured when first needed
 		// (acting as the operator, or a model change), so a launch submits no jobs.
+		EmbeddedVenue v = venue;
+		Vault vlt = vault;
 		Identity id = identity;
+		if (v != null && vlt != null && id != null) {
+			migrateProviderKeys(v, vlt, id.userDID(v.did()));
+		}
 		if (id != null) startChatOnce(venue, bindIdentityToVenue(id, venue));
 	}
 
@@ -1169,14 +1289,23 @@ public final class BrightSide {
 			window.setConversations(sessionList, viewedSessionId);
 			if (bind != Bind.AGENT_SWITCH) bindInbox(v, did, inboxValue, inbox);
 			if (tray != null) tray.setTooltip(APP_NAME + " — " + id.name() + (actingAsOperator ? " (" + id.operatorName() + ")" : ""));
-			// Watch this agent's value; on any change, refresh the switcher and
-			// re-render the conversation on screen. An in-process compare — no job.
+			// Watch this agent's value: covia's in-process agent event tap kicks
+			// an immediate check on every run-loop event (the compare absorbs
+			// duplicates), and a slow poll remains as the fallback for
+			// out-of-band changes. In-process reads — no jobs.
 			ConversationWatcher w = watcher;
 			if (w != null) w.stop();
-			watcher = new ConversationWatcher(() -> v.agentRecord(did, aid), record,
+			closeQuietly(agentEventsSub);
+			ConversationWatcher fresh = new ConversationWatcher(() -> v.agentRecord(did, aid), record,
 				() -> window.isChatShowing(),
-				this::onAgentChanged);
-			watcher.start();
+				this::onAgentChanged, ConversationWatcher.FALLBACK_INTERVAL_MS);
+			watcher = fresh;
+			fresh.start();
+			agentEventsSub = v.subscribeAgent(did, aid, event -> {
+				SwingUtilities.invokeLater(fresh::checkNow);
+				String activity = activityLabel(v, did, event);
+				if (activity != null) SwingUtilities.invokeLater(() -> window.showActivity(activity));
+			});
 		});
 	}
 
@@ -1402,10 +1531,9 @@ public final class BrightSide {
 	}
 
 	/**
-	 * Lists the acting principal's agents, read straight from the in-process
-	 * venue state — the same enumeration {@code agent:list} uses ({@code g} as
-	 * a whole is not a resolvable path, only {@code g/<id>} is) — always
-	 * including the default and current, and hiding terminated agents.
+	 * Lists the acting principal's agents through the agent adapter's public
+	 * job-free listing (terminated agents already excluded upstream) — always
+	 * including the default and current.
 	 */
 	private List<AgentRef> listAgents(EmbeddedVenue v, String did, String currentAid) {
 		java.util.LinkedHashMap<String, AgentRef> map = new java.util.LinkedHashMap<>();
@@ -1414,18 +1542,8 @@ public final class BrightSide {
 		if (currentAid != null) {
 			map.putIfAbsent(currentAid, new AgentRef(currentAid, displayNameFor(currentAid)));
 		}
-		AMap<AString, ACell> records = v.agents(did);
-		if (records != null) {
-			for (long i = 0; i < records.count(); i++) {
-				var entry = records.entryAt(i);
-				ACell key = entry.getKey();
-				if (key == null) continue;
-				AString status = convex.core.lang.RT.ensureString(
-					convex.core.lang.RT.getIn(entry.getValue(), "status"));
-				if (status != null && "TERMINATED".contentEquals(status.toString())) continue;
-				String aid = key.toString();
-				map.putIfAbsent(aid, new AgentRef(aid, displayNameFor(aid)));
-			}
+		for (String aid : v.agents(did)) {
+			map.putIfAbsent(aid, new AgentRef(aid, displayNameFor(aid)));
 		}
 		return stableAgentOrder(new ArrayList<>(map.values()), def);
 	}
@@ -1464,6 +1582,69 @@ public final class BrightSide {
 	 * screen — the one the user picked, not necessarily the newest. Called on
 	 * the event thread; the cell projection runs off it.
 	 */
+	/** Humanised tool labels by tool name, resolved once from the op catalogue. */
+	private final Map<String, String> toolLabels = new java.util.concurrent.ConcurrentHashMap<>();
+
+	/**
+	 * A live-progress label for the thinking bubble, from one agent event:
+	 * "Thinking…" when a model call starts, the tool's catalogue name while a
+	 * tool runs, null for everything else. Events for another session (a
+	 * Discord turn on the same agent, say) are ignored. Called on the venue's
+	 * emitting thread — in-process reads only, never blocking.
+	 */
+	private String activityLabel(EmbeddedVenue v, String did, covia.venue.AgentEvents.Event event) {
+		ChatSession c = chat;
+		String sid = (c != null) ? c.sessionId() : null;
+		if (sid != null && !event.concerns(Strings.create(sid))) return null;
+		if (covia.venue.AgentEvents.INFERENCE_START.equals(event.type())) return "Thinking…";
+		if (!covia.venue.AgentEvents.TOOL_START.equals(event.type())) return null;
+		AString name = convex.core.lang.RT.ensureString(
+			convex.core.lang.RT.getIn(event.data(), "name"));
+		return (name == null) ? null : toolLabel(v, did, name.toString()) + "…";
+	}
+
+	/**
+	 * The tool's display name: its op asset's {@code name} when one resolves
+	 * (until covia#463 carries a label on the event itself), else the tool
+	 * name with the underscores spaced. Cached per tool.
+	 */
+	private String toolLabel(EmbeddedVenue v, String did, String toolName) {
+		return toolLabels.computeIfAbsent(toolName, t -> {
+			for (String path : toolPathCandidates(t)) {
+				ACell asset = v.resolve(did, path);
+				AString n = (asset == null) ? null
+					: convex.core.lang.RT.ensureString(convex.core.lang.RT.getIn(asset, "name"));
+				if (n != null && !n.isEmpty()) return n.toString();
+			}
+			return t.replace('_', ' ');
+		});
+	}
+
+	/**
+	 * Where a provider tool name probably lives in the catalogue:
+	 * {@code moltbook_read_post} → {@code v/ops/moltbook/read-post}, then
+	 * {@code v/ops/moltbook/read/post}. Package-visible for the mapping test.
+	 */
+	static List<String> toolPathCandidates(String toolName) {
+		List<String> out = new ArrayList<>();
+		int us = toolName.indexOf('_');
+		if (us > 0) {
+			out.add("v/ops/" + toolName.substring(0, us) + "/" + toolName.substring(us + 1).replace('_', '-'));
+		}
+		out.add("v/ops/" + toolName.replace('_', '/'));
+		return out;
+	}
+
+	private static void closeQuietly(AutoCloseable c) {
+		if (c != null) {
+			try {
+				c.close();
+			} catch (Exception ignored) {
+				// unsubscribing at teardown is best-effort
+			}
+		}
+	}
+
 	private void onAgentChanged(convex.core.data.ACell record) {
 		EmbeddedVenue v = venue;
 		String did = userDID;
@@ -1947,6 +2128,7 @@ public final class BrightSide {
 		SwingUtilities.invokeLater(() -> {
 			ConversationWatcher w = watcher;
 			if (w != null) w.stop();
+			closeQuietly(agentEventsSub);
 			ConversationWatcher i = inboxWatcher;
 			if (i != null) i.stop();
 			if (window != null) window.setVisible(false);

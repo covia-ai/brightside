@@ -30,7 +30,7 @@ Everything is under `~/.brightside/` (the data directory).
 | `venue.etch` | the lattice store — conversations, memory, agents, **secrets** | **Encrypted** (Etch v3, ChaCha20) with the *vault key* |
 | `vault.salt` | 16 random bytes | not secret (Argon2 salt) |
 | `identity.enc` | the 32-byte Ed25519 **seed**, encrypted | **Encrypted** (AES-GCM) with the passphrase key |
-| `keys.enc` | model-provider credentials | **Encrypted** (AES-GCM) with the passphrase key |
+| `keys.enc` | transient staging for an onboarding API key, moved into the venue secret stores at first launch | **Encrypted** (AES-GCM) with the passphrase key |
 | `unlock.passphrase` | optional remembered passphrase | **Plaintext**, after explicit user opt-in; relies on OS-account and filesystem protection |
 | `identity.json` | display name, stable slug and full Covia user DID | plaintext public recovery metadata; back it up |
 | `config.json` | theme, venue name/port, chosen **model** | plaintext, **no secrets** |
@@ -39,9 +39,10 @@ Everything is under `~/.brightside/` (the data directory).
 
 There is **no plaintext identity seed and no plaintext API key on disk.**
 Brightside has no plaintext-vault legacy mode: the seed is encrypted at rest in
-`identity.enc`, and API keys are encrypted in `keys.enc` then provisioned into
-the running venue's public secret scope in memory. If the user explicitly enables
-remembered unlock, `unlock.passphrase` is the documented exception.
+`identity.enc`, and API keys live in the venue's encrypted secret stores (the
+user's and the operator's) inside `venue.etch` — `keys.enc` only stages an
+onboarding key until the first launch moves it there. If the user explicitly
+enables remembered unlock, `unlock.passphrase` is the documented exception.
 
 ### The key hierarchy
 
@@ -296,10 +297,11 @@ Reachable from the persistent **Settings** tab, then **Model**. Same widget as
 - **Model** choice persists to `config.json → chat.llmOperation`
   (`v/models/<provider>/<id>`), applied to the agent on the next message
   (`ChatSession.ensureAgent` re-applies config).
-- **API key** is encrypted into `keys.enc` under the provider's secret name
-  (`ANTHROPIC_API_KEY`, …), then provisioned into the running venue's public
-  secret scope in memory — never to `config.json`. "(set)" shows a key is stored
-  without revealing it.
+- **API key** is written to the encrypted secret stores on the venue — the
+  user's and the operator's — under the provider's secret name
+  (`ANTHROPIC_API_KEY`, …), effective immediately and never in `config.json`.
+  "(set)" shows a key is stored without revealing it; values are viewable,
+  passphrase-gated, under *Settings → Secrets*.
 - Also here (Advanced): **Change passphrase**, **View recovery phrase**
   (passphrase-gated), **Change model default**.
 
@@ -359,14 +361,16 @@ Static catalog mirroring the venue's `langchain` model catalog:
 The live model list per provider comes from `langchain:models` over `v/models`;
 the static table is the fallback and provides the secret name + console URL.
 
-### API keys (`keys.enc`)
+### API keys
 
-`Vault.storeApiKey` AES-GCM-encrypts the provider-name/value map into `keys.enc`.
-At launch Brightside decrypts that file and supplies the values to the venue's
-public secret scope in its in-memory configuration, so the named `u:<name>`
-caller can resolve them. The model adapter may also use process environment
-variables. Consolidating this with the persistent `SecretStore` is tracked in
-issue #5.
+Provider keys live in the venue's encrypted secret stores — the user's and the
+operator's — and resolve as `s/<name>` per caller, so each user's agents use
+that user's own key (users may differ). An onboarding key is staged in
+`keys.enc` (AES-GCM under the passphrase key) only until the first launch,
+which moves it into the stores — without overwriting a store edit — and
+deletes the file; keys from earlier builds migrate the same way. The model
+adapter may also use process environment variables. (This consolidation with
+the persistent `SecretStore` was issue #5.)
 
 ---
 
