@@ -1,5 +1,6 @@
 package brightside.chat;
 
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -21,6 +22,7 @@ import convex.core.lang.RT;
 import convex.core.util.JSON;
 import covia.api.Fields;
 import covia.grid.Job;
+import covia.grid.Status;
 import covia.grid.Venue;
 
 /**
@@ -35,8 +37,9 @@ import covia.grid.Venue;
  * session id is echoed on later messages so the agent keeps the conversation
  * history; {@link #reset()} starts a new one.
  *
- * <p>Calls block until the agent replies — use from a worker thread, never
- * the Swing event thread.
+ * <p>Calls block until the agent replies, however long its turn takes — use
+ * from a worker thread, never the Swing event thread. {@link #cancel()} from
+ * another thread ends the wait.
  */
 public final class ChatSession {
 
@@ -92,6 +95,8 @@ public final class ChatSession {
 	private volatile long sessionGeneration;
 	private boolean pendingResume;
 	private boolean agentReady;
+	/** The chat job whose reply is being awaited, or null. */
+	private volatile Job inFlight;
 
 	public ChatSession(Venue venue, AppConfig.Chat config) {
 		this(venue, config, null);
@@ -341,6 +346,22 @@ public final class ChatSession {
 		return false;
 	}
 
+	/**
+	 * Stops waiting for the reply in flight by cancelling its chat job on the
+	 * venue: the blocked {@link #send} throws {@link CancellationException} and
+	 * the session is kept. The agent's turn itself is not interrupted — Covia
+	 * only drops the job as a waiter — so whatever it finishes still lands in
+	 * the session, where the live watcher shows it.
+	 *
+	 * @return true if a chat job was in flight and has been cancelled
+	 */
+	public boolean cancel() {
+		Job job = inFlight;
+		if (job == null || job.isFinished()) return false;
+		venue.cancelJob(job.getID());
+		return true;
+	}
+
 	/** Sends one user message and waits for the agent's reply. */
 	public Reply send(String message) throws Exception {
 		return send(message, ignored -> {
@@ -426,6 +447,7 @@ public final class ChatSession {
 		if (sid != null) input = input.assoc(Fields.SESSION_ID, Strings.create(sid));
 
 		Job job = venue.invoke(OP_CHAT, input).get(ADMIN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		inFlight = job;
 		AString acceptedSidCell = RT.ensureString(RT.getIn(job.getData(), Fields.SESSION_ID));
 		if (acceptedSidCell != null) {
 			String acceptedSid = acceptedSidCell.toString();
@@ -433,7 +455,12 @@ public final class ChatSession {
 			if (accepted != null) accepted.accept(acceptedSid);
 		}
 
-		ACell result = await(job, OP_CHAT, config.timeoutSeconds());
+		ACell result;
+		try {
+			result = awaitReply(job);
+		} finally {
+			if (inFlight == job) inFlight = null;
+		}
 		AString newSid = RT.ensureString(RT.getIn(result, Fields.SESSION_ID));
 		String returnedSid = (newSid != null) ? newSid.toString() : sid;
 		// A user may enter Home while this call is in flight. The completed old
@@ -443,9 +470,26 @@ public final class ChatSession {
 	}
 
 	/**
-	 * Invokes an operation and waits for its result. A failed job surfaces as
-	 * its underlying exception; a timeout cancels the job so a chat session's
-	 * in-flight slot is released for the next message.
+	 * Waits for the agent's reply to a chat job. Deliberately no deadline: a
+	 * turn takes as long as its model and tool calls take, each of which the
+	 * venue bounds itself, and cutting it off from here would cancel the job and
+	 * lose the whole turn. The user ends a wait through {@link #cancel()}.
+	 */
+	private static ACell awaitReply(Job job) throws Exception {
+		try {
+			return job.future().get();
+		} catch (ExecutionException e) {
+			// A cancelled job carries no error message, so name what happened.
+			if (Status.CANCELLED.equals(job.getStatus())) {
+				throw new CancellationException("Stopped waiting for this reply");
+			}
+			throw unwrap(e);
+		}
+	}
+
+	/**
+	 * Invokes an agent management operation and waits for its result. A failed
+	 * job surfaces as its underlying exception; a timeout cancels the job.
 	 */
 	private ACell run(String operation, ACell input, long timeoutSeconds) throws Exception {
 		Job job = venue.invoke(operation, input).get(ADMIN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
@@ -456,8 +500,7 @@ public final class ChatSession {
 		try {
 			return job.future().get(timeoutSeconds, TimeUnit.SECONDS);
 		} catch (ExecutionException e) {
-			Throwable cause = (e.getCause() != null) ? e.getCause() : e;
-			throw (cause instanceof Exception ex) ? ex : new RuntimeException(cause);
+			throw unwrap(e);
 		} catch (TimeoutException e) {
 			try {
 				venue.cancelJob(job.getID());
@@ -466,6 +509,11 @@ public final class ChatSession {
 			}
 			throw new TimeoutException("No reply from " + operation + " within " + timeoutSeconds + "s");
 		}
+	}
+
+	private static Exception unwrap(ExecutionException e) {
+		Throwable cause = (e.getCause() != null) ? e.getCause() : e;
+		return (cause instanceof Exception ex) ? ex : new RuntimeException(cause);
 	}
 
 	/** Renders an agent response for display: strings verbatim, anything else as JSON. */

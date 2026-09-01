@@ -16,6 +16,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -41,6 +42,7 @@ import brightside.SessionHistory;
 import brightside.chat.ChatSession;
 import brightside.ui.components.Buttons;
 import brightside.ui.components.Clipboard;
+import brightside.ui.components.Dialogs;
 import brightside.ui.components.Documents;
 import brightside.ui.components.Labels;
 import brightside.ui.components.Scrolls;
@@ -406,6 +408,12 @@ public final class ChatPanel extends JPanel {
 				if (failure == null) {
 					addTurn("assistant", reply.text());
 					conversationCommitted.accept(reply.sessionId());
+				} else if (failure instanceof CancellationException) {
+					// The user stopped waiting. The turn may still finish on the
+					// venue; reconciling by session id lets the watcher show it.
+					appendSystem("Stopped waiting for this reply.");
+					String sid = accepted.isCompletedExceptionally() ? null : accepted.getNow(null);
+					if (sid != null) conversationCommitted.accept(sid);
 				} else {
 					log.warn("Chat send failed", failure);
 					appendError(describe(failure));
@@ -413,6 +421,34 @@ public final class ChatPanel extends JPanel {
 				focusInput();
 			}
 		}.execute();
+	}
+
+	/**
+	 * The thinking bubble's stop control. A reply has no deadline, so this is
+	 * the way out of a turn that is taking too long: confirm, then cancel the
+	 * chat job on the venue. The agent's own work is not interrupted — whatever
+	 * it finishes still reaches the session, and the live watcher shows it.
+	 */
+	private void confirmStop() {
+		ChatSession s = session;
+		long version = bindingVersion;
+		if (s == null || !busy) return;
+		boolean stop = Dialogs.choose(this, "Stop waiting?",
+			"Stop waiting for this reply?\n\n"
+			+ "You can carry on chatting straight away. Anything the assistant is\n"
+			+ "still doing will finish on its own, and if it answers, the reply\n"
+			+ "appears here.",
+			"Stop waiting", "Keep waiting");
+		if (!stop || session != s || bindingVersion != version || !busy) return;
+		Thread t = new Thread(() -> {
+			try {
+				if (!s.cancel()) log.info("Nothing to cancel: the reply had already arrived");
+			} catch (Exception e) {
+				log.warn("Could not cancel the chat in flight", e);
+			}
+		}, "brightside-chat-cancel");
+		t.setDaemon(true);
+		t.start();
 	}
 
 	/** Deliver a follow-up to the venue queue without waiting for the active reply. */
@@ -479,7 +515,7 @@ public final class ChatPanel extends JPanel {
 	private void showThinking() {
 		if (thinkingRow != null) return;
 		hideEmptyState();
-		thinkingBubble = new ThinkingBubble("Preparing…");
+		thinkingBubble = new ThinkingBubble("Preparing…", this::confirmStop);
 		JPanel row = new JPanel(new BorderLayout());
 		row.setOpaque(false);
 		row.setBorder(BorderFactory.createEmptyBorder(4, 2, 4, 2));

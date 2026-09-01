@@ -56,7 +56,7 @@ class EmbeddedVenueTest {
 			// A named local user (u:tester) chats against the live venue...
 			String userDID = Identity.of("tester").userDID(v.did());
 			ChatSession chat = new ChatSession(v.clientAs(userDID), new AppConfig.Chat("bs-venue",
-				AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo.", 30), "Tester");
+				AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo."), "Tester");
 			assertTrue(chat.send("ping").text().contains("ping"));
 
 			// ...and the HTTP surface is listening on loopback.

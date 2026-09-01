@@ -175,6 +175,17 @@ on completion, and is reconciled with the persisted activity when the cycle
 commits. Brightside never derives fake progress from elapsed time or exposes
 hidden model reasoning.
 
+**A reply has no deadline.** `ChatSession.send` waits on the chat job until
+the venue finishes it: a turn takes as long as its model and tool calls take,
+and Covia bounds each of those itself (`llmTimeoutMs`, `toolCallTimeoutMs`,
+`maxToolIterations`). A client-side timer would only cancel the job and throw
+the whole turn away — a ten-tool turn is normal, not stuck. Instead, once a
+turn has run for a while the thinking bubble shows a stop control; confirming
+it cancels the chat job (`ChatSession.cancel`). That releases the composer and
+the `send` ends with a `CancellationException`, but it does not interrupt the
+agent: Covia drops the job as a waiter and the cycle runs on, so whatever it
+finishes still lands in the session and the watcher shows it.
+
 **Every conversation is switchable, and the watcher knows which one you are
 looking at.** The agent record holds many sessions; the switcher enumerates them
 newest-first. When a background update lands, the controller re-renders the

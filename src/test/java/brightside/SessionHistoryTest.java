@@ -62,7 +62,7 @@ class SessionHistoryTest {
 		String userDID = Identity.of("tester").userDID(venue.did());
 		Venue client = venue.clientAs(userDID);
 		AppConfig.Chat chat = new AppConfig.Chat("hist-agent",
-			AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo the user.", 30);
+			AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo the user.");
 
 		ChatSession s = new ChatSession(client, chat, "Tester");
 		String sid = s.send("remember this line").sessionId();
@@ -90,7 +90,7 @@ class SessionHistoryTest {
 		String userDID = Identity.of("switcher").userDID(venue.did());
 		Venue client = venue.clientAs(userDID);
 		AppConfig.Chat chat = new AppConfig.Chat("switch-agent",
-			AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo the user.", 30);
+			AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo the user.");
 		ChatSession s = new ChatSession(client, chat, "Switcher");
 
 		String sid1 = s.send("first conversation topic").sessionId();
@@ -130,7 +130,7 @@ class SessionHistoryTest {
 		String userDID = Identity.of("editor").userDID(venue.did());
 		Venue client = venue.clientAs(userDID);
 		AppConfig.Chat chat = new AppConfig.Chat("edit-agent",
-			AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo the user.", 30);
+			AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo the user.");
 		ChatSession s = new ChatSession(client, chat, "Editor");
 		String keep = s.send("keep this one").sessionId();
 		s.reset();
@@ -159,7 +159,7 @@ class SessionHistoryTest {
 		String userDID = Identity.of("inproc").userDID(venue.did());
 		Venue client = venue.clientAs(userDID);
 		AppConfig.Chat chat = new AppConfig.Chat("inproc-agent",
-			AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo the user.", 30);
+			AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo the user.");
 		ChatSession s = new ChatSession(client, chat, "InProc");
 		s.ensureAgent();
 
@@ -184,7 +184,7 @@ class SessionHistoryTest {
 		String userDID = Identity.of("raw").userDID(venue.did());
 		Venue client = venue.clientAs(userDID);
 		AppConfig.Chat chat = new AppConfig.Chat("raw-agent",
-			AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo the user.", 30);
+			AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo the user.");
 		ChatSession s = new ChatSession(client, chat, "Raw");
 		String sid = s.send("hello raw world").sessionId();
 
@@ -200,7 +200,7 @@ class SessionHistoryTest {
 		String userDID = Identity.of("channelled").userDID(venue.did());
 		Venue client = venue.clientAs(userDID);
 		AppConfig.Chat chat = new AppConfig.Chat("channel-agent",
-			AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo the user.", 30);
+			AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo the user.");
 		new ChatSession(client, chat, "Channelled").ensureAgent();
 
 		// A message delivered by a channel adapter (Discord, Telegram …) is a

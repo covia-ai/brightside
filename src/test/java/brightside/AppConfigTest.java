@@ -30,7 +30,6 @@ class AppConfigTest {
 		assertEquals(AppConfig.DEFAULT_OPERATION, c.chat().operation());
 		assertEquals(AppConfig.DEFAULT_LLM_OPERATION, c.chat().llmOperation());
 		assertEquals(AppConfig.DEFAULT_SYSTEM_PROMPT, c.chat().systemPrompt());
-		assertEquals(AppConfig.DEFAULT_TIMEOUT_SECONDS, c.chat().timeoutSeconds());
 		assertEquals(AppConfig.DEFAULT_VENUE_NAME, c.venueConfig().get(Fields.NAME).toString());
 		assertEquals(home.resolve("venue.etch").toString(), c.venueConfig().get(Config.STORE).toString());
 		assertEquals("127.0.0.1", c.venueConfig().get(Config.BIND_ADDRESS).toString());
@@ -53,7 +52,8 @@ class AppConfigTest {
 		// defaults the user did not touch survive
 		assertEquals("127.0.0.1", c.venueConfig().get(Config.BIND_ADDRESS).toString());
 		assertEquals("v/test/ops/llm", c.chat().llmOperation());
-		assertEquals(5, c.chat().timeoutSeconds());
+		// "timeout" is left over from older configs: a reply has no deadline
+		// now, and the stale key is ignored rather than rejected.
 		assertEquals(AppConfig.DEFAULT_AGENT_ID, c.chat().agentId());
 		assertEquals(AppConfig.DEFAULT_SYSTEM_PROMPT, c.chat().systemPrompt());
 	}

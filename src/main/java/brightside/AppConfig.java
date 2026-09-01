@@ -70,15 +70,12 @@ public final class AppConfig {
 		+ "for that audience, and keep anything meant only for the user out of it (raise it with them "
 		+ "privately instead).";
 	/**
-	 * How long one reply may take. An agentic turn — load a router skill, load
-	 * a family skill, several tool calls — can run for minutes, and on timeout
-	 * the job is cancelled and the whole turn lost, so this errs generous.
+	 * Chat settings: which agent the window talks to and how it is configured.
+	 * A reply has no deadline: a turn takes as long as its model and tool calls
+	 * take, each of which the venue bounds itself, and the user can stop waiting
+	 * from the chat.
 	 */
-	public static final long DEFAULT_TIMEOUT_SECONDS = 300;
-
-	/** Chat settings: which agent the window talks to and how it is configured. */
-	public record Chat(String agentId, String operation, String llmOperation,
-			String systemPrompt, long timeoutSeconds) {
+	public record Chat(String agentId, String operation, String llmOperation, String systemPrompt) {
 	}
 
 	/** Written to a fresh config file so users have a commented starting point. */
@@ -115,13 +112,10 @@ public final class AppConfig {
 				// (onboarding or Settings → Model) is kept in model.txt
 				// beside this file and takes precedence over this key.
 				// Use "v/test/ops/llm" for an offline echo bot.
-				"llmOperation": "v/models/anthropic/claude-sonnet-5",
+				"llmOperation": "v/models/anthropic/claude-sonnet-5"
 				// How the assistant should behave. Leave it out to use Brightside's
-				// default persona (a warm, private personal assistant).
-				// "systemPrompt": "You are Brightside, ...",
-				// Seconds to wait for a reply before giving up. A reply that uses
-				// several tools can take a while; the job is cancelled on timeout.
-				"timeout": 300
+				// default persona (a warm, private personal assistant):
+				// ,"systemPrompt": "You are Brightside, ..."
 			}
 		}
 		""";
@@ -144,8 +138,7 @@ public final class AppConfig {
 			string(c, "agentId", DEFAULT_AGENT_ID),
 			string(c, "operation", DEFAULT_OPERATION),
 			model,
-			string(c, "systemPrompt", DEFAULT_SYSTEM_PROMPT),
-			longValue(c, "timeout", DEFAULT_TIMEOUT_SECONDS));
+			string(c, "systemPrompt", DEFAULT_SYSTEM_PROMPT));
 	}
 
 	/** File holding the chosen model operation, so it survives restarts without a config rewrite. */
@@ -258,12 +251,6 @@ public final class AppConfig {
 		ACell v = m.get(Strings.create(key));
 		if (v == null) return dflt;
 		return (v instanceof AString s) ? s.toString() : v.toString();
-	}
-
-	private static long longValue(AMap<AString, ACell> m, String key, long dflt) {
-		if (m == null) return dflt;
-		ACell v = m.get(Strings.create(key));
-		return (v instanceof CVMLong l) ? l.longValue() : dflt;
 	}
 
 	/** Data directory (the config file's directory). */

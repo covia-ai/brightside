@@ -51,8 +51,7 @@ independent agents side by side.
     "agentId": "Brightside",            // agent at <venue DID>/g/Brightside
     "operation": "v/ops/llmagent/chat", // transition operation
     "llmOperation": "v/models/anthropic/claude-sonnet-5",
-    "systemPrompt": "You are Brightside, ...",
-    "timeout": 120                      // seconds to wait for a reply
+    "systemPrompt": "You are Brightside, ..."
   }
 }
 ```
@@ -101,7 +100,12 @@ and across configuration changes.
 | `operation` | The transition operation driving each turn. Default `v/ops/llmagent/chat`. |
 | `llmOperation` | The model operation. Default `v/models/anthropic/claude-sonnet-5`. |
 | `systemPrompt` | The assistant's identity, role and tone. Dynamic owner/model context comes from Brightside's read-only context operation; task detail belongs in on-demand skills. |
-| `timeout` | Seconds to wait for a reply before giving up. |
+
+A reply has no time limit. A turn takes as long as its model and tool calls
+take — the venue bounds each of those itself — and a turn that runs long shows
+a stop control in the chat. Stopping cancels the chat job, not the agent: you
+can carry on at once, and anything the assistant still finishes appears in the
+conversation. A `timeout` key from an older config is ignored.
 
 ## Model API keys
 

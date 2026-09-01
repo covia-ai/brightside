@@ -988,7 +988,7 @@ public final class BrightSide {
 	private AppConfig.Chat effectiveChat() {
 		AppConfig.Chat c = config.chat();
 		if (llmOverride == null || llmOverride.equals(c.llmOperation())) return c;
-		return new AppConfig.Chat(c.agentId(), c.operation(), llmOverride, c.systemPrompt(), c.timeoutSeconds());
+		return new AppConfig.Chat(c.agentId(), c.operation(), llmOverride, c.systemPrompt());
 	}
 
 	/**
@@ -1338,7 +1338,7 @@ public final class BrightSide {
 		String chosenModel = (modelOp == null || modelOp.isBlank()) ? base.llmOperation() : modelOp;
 		String chosenPrompt = (systemPrompt == null || systemPrompt.isBlank())
 			? brightside.model.AgentTemplate.GENERAL.systemPrompt(displayNameFor(aid)) : systemPrompt;
-		AppConfig.Chat chosen = new AppConfig.Chat(aid, base.operation(), chosenModel, chosenPrompt, base.timeoutSeconds());
+		AppConfig.Chat chosen = new AppConfig.Chat(aid, base.operation(), chosenModel, chosenPrompt);
 		// Applying the supplied configuration is deliberate here. Later switches to
 		// the agent preserve what its record already holds.
 		startChatBackground(v, id, chosen, Bind.AGENT_SWITCH, true);
@@ -1516,14 +1516,14 @@ public final class BrightSide {
 	private AppConfig.Chat chatConfigFor(String aid) {
 		AppConfig.Chat base = effectiveChat();
 		if (actingAsOperator && aid.equals(Odin.AGENT_ID)) {
-			return new AppConfig.Chat(aid, base.operation(), base.llmOperation(), Odin.SYSTEM_PROMPT, base.timeoutSeconds());
+			return new AppConfig.Chat(aid, base.operation(), base.llmOperation(), Odin.SYSTEM_PROMPT);
 		}
 		if (aid.equals(config.chat().agentId())) {
-			return new AppConfig.Chat(aid, base.operation(), base.llmOperation(), base.systemPrompt(), base.timeoutSeconds());
+			return new AppConfig.Chat(aid, base.operation(), base.llmOperation(), base.systemPrompt());
 		}
 		String persona = "You are " + displayNameFor(aid) + ", a private personal AI assistant running on the user's "
 			+ "own computer. Be genuinely helpful, warm, and concise.";
-		return new AppConfig.Chat(aid, base.operation(), base.llmOperation(), persona, base.timeoutSeconds());
+		return new AppConfig.Chat(aid, base.operation(), base.llmOperation(), persona);
 	}
 
 	private AppConfig.Chat currentChatConfig() {

@@ -64,7 +64,7 @@ class AgentContextTest {
 		String userDID = Identity.of("inspector").userDID(venue.did());
 		Venue client = venue.clientAs(userDID);
 		AppConfig.Chat chat = new AppConfig.Chat("ctx-agent", AppConfig.DEFAULT_OPERATION,
-			AppConfig.ECHO_LLM_OPERATION, "You are a test assistant.", 30);
+			AppConfig.ECHO_LLM_OPERATION, "You are a test assistant.");
 		ChatSession session = new ChatSession(client, chat, "Inspector");
 		String sid = session.send("what do you see?").sessionId();
 		assertNotNull(sid);
@@ -103,7 +103,7 @@ class AgentContextTest {
 		String userDID = Identity.of("caller").userDID(venue.did());
 		Venue client = venue.clientAs(userDID);
 		AppConfig.Chat chat = new AppConfig.Chat("tool-agent", AppConfig.DEFAULT_OPERATION,
-			"v/test/ops/toolllm", "You are a test assistant.", 30);
+			"v/test/ops/toolllm", "You are a test assistant.");
 		ChatSession session = new ChatSession(client, chat, "Caller");
 		String sid = session.send("echo this back").sessionId();
 		assertNotNull(sid);

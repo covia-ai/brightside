@@ -8,8 +8,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -60,7 +62,7 @@ class ChatSessionTest {
 	}
 
 	private static AppConfig.Chat echoChat(String agentId) {
-		return new AppConfig.Chat(agentId, AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo the user.", 30);
+		return new AppConfig.Chat(agentId, AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo the user.");
 	}
 
 	@Test
@@ -149,7 +151,7 @@ class ChatSessionTest {
 	void followUpEntersTheVenueQueueWhileAReplyIsInFlight() throws Exception {
 		String agentId = "bs-queued-follow-up";
 		AppConfig.Chat chat = new AppConfig.Chat(agentId, "v/test/ops/taskcomplete",
-			AppConfig.ECHO_LLM_OPERATION, "", 30);
+			AppConfig.ECHO_LLM_OPERATION, "");
 		ChatSession session = new ChatSession(venue, chat);
 		session.ensureAgent();
 
@@ -190,6 +192,66 @@ class ChatSessionTest {
 	}
 
 	@Test
+	void cancelStopsWaitingWithoutInterruptingTheTurn() throws Exception {
+		String agentId = "bs-cancel";
+		AppConfig.Chat chat = new AppConfig.Chat(agentId, "v/test/ops/taskcomplete",
+			AppConfig.ECHO_LLM_OPERATION, "");
+		ChatSession session = new ChatSession(venue, chat);
+		session.ensureAgent();
+		assertFalse(session.cancel(), "nothing in flight yet");
+
+		String gateName = "brightside-cancel";
+		try (TestAdapter.TestGate gate = TestAdapter.createGate(gateName)) {
+			venue.invoke("v/ops/agent/update", Maps.of(
+				Fields.AGENT_ID, agentId,
+				Fields.CONFIG, Maps.of("testGate", gateName)))
+				.get(5, TimeUnit.SECONDS).future().get(5, TimeUnit.SECONDS);
+
+			CountDownLatch accepted = new CountDownLatch(1);
+			CompletableFuture<ChatSession.Reply> first = CompletableFuture.supplyAsync(() -> {
+				try {
+					return session.send("first", sid -> accepted.countDown());
+				} catch (Exception e) {
+					throw new java.util.concurrent.CompletionException(e);
+				}
+			});
+			assertTrue(accepted.await(5, TimeUnit.SECONDS), "the venue accepts the chat");
+			assertTrue(gate.awaitEntered(5, TimeUnit.SECONDS), "the turn is in flight");
+
+			// The wait has no deadline of its own; the user ends it.
+			assertTrue(session.cancel(), "the chat job in flight is cancelled");
+			ExecutionException stopped = assertThrows(ExecutionException.class,
+				() -> first.get(5, TimeUnit.SECONDS));
+			assertTrue(stopped.getCause() instanceof CancellationException, String.valueOf(stopped.getCause()));
+			String sid = session.sessionId();
+			assertNotNull(sid, "the conversation is kept");
+			assertFalse(session.cancel(), "nothing left in flight");
+
+			// Cancelling the job does not interrupt the agent: its turn finishes
+			// and the reply still lands in the session for the watcher to show.
+			gate.release();
+			assertTrue(awaitReplyInSession(agentId, sid, 10_000), "the turn's reply reaches the session");
+			assertEquals(sid, session.send("second").sessionId(), "the same conversation continues");
+		}
+	}
+
+	/**
+	 * Whether the session's raw conversation gains an assistant turn. Raw, not
+	 * the projection: the test transition replies with a map, which the chat
+	 * projection does not show as a message.
+	 */
+	private static boolean awaitReplyInSession(String agentId, String sid, long timeoutMs) throws Exception {
+		long deadline = System.currentTimeMillis() + timeoutMs;
+		while (System.currentTimeMillis() < deadline) {
+			for (SessionHistory.RawTurn turn : SessionHistory.rawTurns(venue, agentId, sid)) {
+				if ("assistant".equals(turn.role())) return true;
+			}
+			Thread.sleep(100);
+		}
+		return false;
+	}
+
+	@Test
 	void resumeContinuesAnExistingSession() throws Exception {
 		ChatSession first = new ChatSession(venue, echoChat("bs-resume"));
 		String sid = first.send("opening line").sessionId();
@@ -225,7 +287,7 @@ class ChatSessionTest {
 		String sid = good.send("opening line").sessionId();
 
 		AppConfig.Chat broken = new AppConfig.Chat("bs-keep", AppConfig.DEFAULT_OPERATION,
-			"v/ops/no/such/model", "Echo the user.", 30);
+			"v/ops/no/such/model", "Echo the user.");
 		ChatSession s = new ChatSession(venue, broken);
 		s.resume(sid);
 		assertThrows(Exception.class, () -> s.send("hello"));
@@ -245,7 +307,7 @@ class ChatSessionTest {
 		// Suspend it with a broken model, then fix the config behind the
 		// session's back (as Settings does on a restart) and just send.
 		AppConfig.Chat broken = new AppConfig.Chat("bs-susp", AppConfig.DEFAULT_OPERATION,
-			"v/ops/no/such/model", "Echo the user.", 30);
+			"v/ops/no/such/model", "Echo the user.");
 		assertThrows(Exception.class, () -> new ChatSession(venue, broken).send("boom"));
 
 		ChatSession fixed = new ChatSession(venue, echoChat("bs-susp"));
@@ -271,7 +333,7 @@ class ChatSessionTest {
 		created.ensureAgent();
 
 		AppConfig.Chat replacement = new AppConfig.Chat(agentId, AppConfig.DEFAULT_OPERATION,
-			"v/ops/no/such/model", "This must not replace the stored prompt.", 30);
+			"v/ops/no/such/model", "This must not replace the stored prompt.");
 		ChatSession reopened = new ChatSession(venue, replacement, null, false);
 		ChatSession.Reply reply = reopened.send("still configured");
 		assertTrue(reply.text().contains("still configured"), reply.text());

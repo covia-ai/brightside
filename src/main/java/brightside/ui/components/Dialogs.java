@@ -28,6 +28,17 @@ public final class Dialogs {
 			JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE) == JOptionPane.OK_OPTION;
 	}
 
+	/**
+	 * A question answered with named actions rather than OK/Cancel — "Stop
+	 * waiting" / "Keep waiting". True when {@code yes} is chosen; {@code no} is
+	 * the default, so Enter and Escape both keep things as they are.
+	 */
+	public static boolean choose(Component parent, String title, Object message, String yes, String no) {
+		Object[] options = {yes, no};
+		return JOptionPane.showOptionDialog(parent, message, title, JOptionPane.YES_NO_OPTION,
+			JOptionPane.QUESTION_MESSAGE, null, options, no) == JOptionPane.YES_OPTION;
+	}
+
 	/** A form in a dialog with OK and Cancel; true when accepted. */
 	public static boolean form(Component parent, String title, JComponent form) {
 		return confirm(parent, title, form);
