@@ -121,6 +121,40 @@ class ChatSessionTest {
 		assertFalse(declaresReadOnly("v/ops/memory"), "the memory tool is not");
 	}
 
+	@Test
+	void migratesAMemoryContextPinOnAnAgentItDoesNotOtherwiseReconfigure() throws Exception {
+		String agentId = "bs-old-memory-pin";
+		// An agent created by an earlier Brightside, or from a venue template of
+		// the time: its memory pinned through the read/write tool, which the venue
+		// now refuses at every inference.
+		venue.invoke("v/ops/agent/create", Maps.of(
+			"agentId", agentId,
+			"config", Maps.of(
+				Fields.OPERATION, AppConfig.DEFAULT_OPERATION,
+				"llmOperation", AppConfig.ECHO_LLM_OPERATION,
+				"systemPrompt", "Echo the user.",
+				"context", convex.core.data.Vectors.of(Maps.of(
+					"op", "v/ops/memory",
+					"input", Maps.of("path", ChatSession.MEMORY_PATH, "command", "recall"),
+					"label", "Agent memory (edit using path n/memory)")))))
+			.get(5, TimeUnit.SECONDS).future().get(5, TimeUnit.SECONDS);
+
+		// Not the configured assistant: Brightside leaves its configuration as
+		// the record holds it — except for this pin, which would brick every chat.
+		assertTrue(new ChatSession(venue, echoChat(agentId), null, false).ensureAgent());
+
+		ACell context = RT.getIn(agentInfo(agentId), Fields.CONFIG, "context");
+		assertTrue(context instanceof AVector<?> v && v.count() == 1, String.valueOf(context));
+		ACell pin = ((AVector<?>) context).get(0);
+		assertEquals(Strings.create(ChatSession.MEMORY_RECALL_OP), RT.getIn(pin, "op"));
+		assertEquals(Strings.create(ChatSession.MEMORY_PATH), RT.getIn(pin, "input", "path"));
+		assertNull(RT.getIn(pin, "input", "command"));
+		assertEquals(Strings.create("Agent memory (edit using path n/memory)"), RT.getIn(pin, "label"));
+		// And the venue assembles the agent's context again — the failure the owner saw.
+		assertNotNull(venue.invoke("v/ops/agent/context", Maps.of("agentId", agentId))
+			.get(5, TimeUnit.SECONDS).future().get(5, TimeUnit.SECONDS));
+	}
+
 	private static boolean declaresReadOnly(String op) {
 		Asset asset = engine.resolveAsset(Strings.create(op), engine.venueContext());
 		assertNotNull(asset, "resolves on the venue: " + op);

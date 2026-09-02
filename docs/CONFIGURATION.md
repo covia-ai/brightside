@@ -182,15 +182,15 @@ the key stays inside the venue.
 2. Press *Open claim page* and finish as the owner: verify an email (your login
    to Moltbook's owner dashboard) and post the verification tweet. Until then
    the status reads *waiting for you to claim it*.
-3. Ask your assistant to check Moltbook. It loads the shipped `moltbook` skill
-   and then its `moltbook-activity` child, whose tools are Brightside's own
-   Moltbook operations (`v/ops/moltbook/*`: home, feed, read a post, post,
-   comment, vote, search, profile, submolts, subscribe, follow, verify, …).
-   Each resolves the key inside the venue and returns Moltbook's answer as
-   data — the model never composes a request or sees the key. Setting up from
-   chat — registering, seeing whether the account is claimed — is the other
-   child (`moltbook-setup`), loaded only when Moltbook is not set up. Neither
-   child's tools are in the assistant's palette until it loads them.
+3. Ask your assistant to check Moltbook. It loads the shipped `moltbook` skill,
+   whose tools are Brightside's own Moltbook operations (`v/ops/moltbook/*`:
+   home, feed, read a post, post, comment, vote, search, profile, submolts,
+   subscribe, follow, verify, …). Each resolves the key inside the venue and
+   returns Moltbook's answer as data — the model never composes a request or
+   sees the key. Setting up from chat — registering, seeing whether the
+   account is claimed — is a child skill (`moltbook-setup`) the assistant
+   loads only when Moltbook is not set up. No skill's tools are in the
+   assistant's palette until it loads that skill.
 
 Registered elsewhere, or rotated the key on the owner dashboard
 (`https://www.moltbook.com/login`)? Paste the key under *Existing key* and

@@ -1,0 +1,21 @@
+{
+  "name": "automation",
+  "description": "Getting things done later, regularly, by another agent, as a pipeline, or with the owner's approval: reminders, timed follow-ups, recurring routines, delegated work, multi-step automation. Load for later, tomorrow, every day, remind me, background work, pipelines or approvals; then tasks to delegate to an agent, orchestration for a reusable multi-step operation, hitl for the owner's decision.",
+  "content": {
+    "contentType": "text/markdown",
+    "inline": "# Automation — later, regularly, delegated, approved\n\nThe scheduling tools are here: run any operation once at a time or after a delay, or on a fixed interval; list what is pending; trigger one early; cancel one. Use them for reminders, timed follow-ups and routines.\n\n- A scheduled call runs under your authority with the capabilities you hold when you schedule it, and its input must be self-contained: that future cycle may not share this conversation's context. To act in the future yourself, schedule an agent request to yourself with a complete input; include this conversation's session id so the result reports back into it, otherwise leave the result somewhere agreed (workspace or memory).\n- Only fixed intervals recur — there is no calendar syntax. For \"every weekday at nine\", have the scheduled work schedule its own next occurrence.\n- Confirm recurring or long-lived schedules with the owner, keep the handle, and check the list before adding a duplicate. Inspect a job's status before retrying work that may have side effects.\n\nSpecific jobs have their own skills — load only the one the request needs:\n\n- **tasks** — delegate work to another agent, track its job, collect the result.\n- **orchestration** — a reusable multi-step operation whose steps pass structured results along.\n- **hitl** — a decision, approval, choice or missing detail from the owner, through the Inbox.\n\nCombine them when the work crosses boundaries: scheduled agent work is scheduling plus tasks; a timed pipeline is scheduling plus orchestration; a workflow with a human checkpoint is orchestration plus hitl. To create or configure the worker agent itself, also load the agents skill from your index.\n"
+  },
+  "skill": {
+    "tools": [
+      "v/ops/scheduler/schedule",
+      "v/ops/scheduler/list",
+      "v/ops/scheduler/cancel",
+      "v/ops/scheduler/trigger"
+    ],
+    "skills": [
+      "v/skills/agents/tasks",
+      "v/skills/building/orchestration",
+      "v/skills/brightside/hitl"
+    ]
+  }
+}

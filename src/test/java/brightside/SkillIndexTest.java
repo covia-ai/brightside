@@ -67,8 +67,8 @@ class SkillIndexTest {
 			.get(5, TimeUnit.SECONDS).future().get(5, TimeUnit.SECONDS);
 		ACell record = venue.agentRecord(did, "skilled-agent");
 
-		assertEquals(List.of(ChatSession.USER_SKILLSET, BrightsideSkillsAdapter.SKILLSET),
-			SkillIndex.skillsetsOf(record), "the venue's library is revealed by platform, not configured");
+		assertEquals(List.of(ChatSession.USER_SKILLSET, BrightsideSkillsAdapter.SKILLSET, ChatSession.VENUE_SKILLSET),
+			SkillIndex.skillsetsOf(record), "the record's skillsets, in the order the index searches them");
 
 		long jobsBefore = RecordedJobs.of(venue, did);
 		List<SkillIndex.Skill> skills = SkillIndex.of(venue, did, record);
@@ -80,34 +80,31 @@ class SkillIndexTest {
 		assertFalse(own.shadowed());
 		assertTrue(shipped.shadowed());
 		assertTrue(skills.indexOf(own) < skills.indexOf(shipped), "skillset order is kept");
-
-		// A router: no tools of its own; the children it reveals are listed
-		// under the router's own path, after the configured skillsets, never at
-		// the top level.
-		SkillIndex.Skill moltbook = one(skills, "moltbook", BrightsideSkillsAdapter.SKILLSET);
-		assertTrue(moltbook.tools().isEmpty(), "a router grants nothing itself: " + moltbook.tools());
-		assertEquals(List.of(BrightsideSkillsAdapter.MOLTBOOK_ACTIVITY, BrightsideSkillsAdapter.MOLTBOOK_SETUP),
-			moltbook.children());
-		SkillIndex.Skill activity = one(skills, "moltbook-activity", BrightsideSkillsAdapter.MOLTBOOK);
-		assertTrue(activity.tools().contains("v/ops/moltbook/home"), "the child carries the tools: " + activity.tools());
-		assertFalse(activity.shadowed());
-		assertTrue(skills.indexOf(activity) > skills.indexOf(moltbook));
-		assertTrue(skills.stream().noneMatch(s -> "moltbook-activity".equals(s.name())
-			&& BrightsideSkillsAdapter.SKILLSET.equals(s.skillset())));
-
-		// The venue's library follows, reached through platform, and its entry
-		// points reveal their own families in turn.
-		SkillIndex.Skill platform = one(skills, "platform", BrightsideSkillsAdapter.SKILLSET);
-		assertEquals(List.of(ChatSession.VENUE_SKILLSET), platform.children());
-		SkillIndex.Skill agents = one(skills, "agents", ChatSession.VENUE_SKILLSET);
-		assertEquals(List.of("v/skills/agents"), agents.children());
-		assertFalse(one(skills, "tasks", "v/skills/agents").tools().isEmpty());
 		assertTrue(one(skills, "skills", ChatSession.VENUE_SKILLSET).shadowed(),
 			"Brightside's skills comes before the venue's");
+
+		// A useful first load with a child for a sub-issue: the parent has the
+		// tools, and the child is listed under the parent's own path, after the
+		// configured skillsets, never at the top level.
+		SkillIndex.Skill moltbook = one(skills, "moltbook", BrightsideSkillsAdapter.SKILLSET);
+		assertTrue(moltbook.tools().contains("v/ops/moltbook/home"), "the first load is useful: " + moltbook.tools());
+		assertEquals(List.of(BrightsideSkillsAdapter.MOLTBOOK_SETUP), moltbook.children());
+		SkillIndex.Skill setup = one(skills, "moltbook-setup", BrightsideSkillsAdapter.MOLTBOOK);
+		assertTrue(setup.tools().contains("v/ops/moltbook/register"));
+		assertFalse(setup.shadowed());
+		assertTrue(skills.indexOf(setup) > skills.indexOf(moltbook));
+		assertTrue(skills.stream().noneMatch(s -> "moltbook-setup".equals(s.name())
+			&& BrightsideSkillsAdapter.SKILLSET.equals(s.skillset())));
+
+		// The venue's entry points reveal their families in turn.
+		SkillIndex.Skill agents = one(skills, "agents", ChatSession.VENUE_SKILLSET);
+		assertEquals(List.of("v/skills/agents"), agents.children());
 		assertTrue(skills.stream().noneMatch(s -> "agents".equals(s.name()) && !s.equals(agents)),
 			"the same skill at its family address is listed once, not as a shadow");
 
-		// A reveal across libraries: research points at the venue's http skill.
+		// Reveals across libraries: automation points at the venue's tasks
+		// skill, research at its http skill.
+		assertFalse(one(skills, "tasks", "v/skills/agents").tools().isEmpty());
 		assertTrue(one(skills, "http", "v/skills/ops-tools").tools().contains("v/ops/http/get"));
 	}
 

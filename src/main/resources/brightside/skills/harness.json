@@ -1,13 +1,18 @@
 {
   "name": "harness",
-  "description": "How Brightside works internally. Load for architecture, implementation or storage questions; then the child the question is about: covia-engine for the venue, adapters, operations, jobs and identities, etch for the encrypted local store, convex-lattice for the data model.",
+  "description": "How Brightside works internally: its embedded Covia venue and engine, adapters, operations, jobs, identities and protocol surfaces. Load for architecture, implementation or storage questions; then etch for the encrypted local store, convex-lattice for the data model.",
   "content": {
     "contentType": "text/markdown",
-    "inline": "# Brightside harness\n\nBrightside embeds several distinct layers. Load the child matching the question:\n\n- **covia-engine** — agents, operations, adapters, jobs, identities, capabilities and protocol surfaces.\n- **etch** — the local durable store, encrypted file format, flush and recovery boundary.\n- **convex-lattice** — immutable values, mutable cursors, merge semantics, content addressing and replication.\n\nKeep the layers distinct: Covia defines agent and operation behaviour, the lattice defines convergent state, and Etch persists that state locally.\n"
+    "inline": "# Brightside harness\n\nBrightside embeds a complete Covia venue in the desktop JVM. Its `Engine` owns the venue identity, lattice application, adapters, operation catalogue, jobs and agents; `VenueServer` exposes the configured protocol surfaces (REST, MCP, A2A, WebDAV). Adapters publish live operations under `v/ops`, facts under `v/info/adapters`, and optional skills or templates. Invoking a lifecycle-bearing operation creates a job; an agent is a persistent actor whose sessions and runs live in its lattice record. `RequestContext` carries caller, agent, session, job and capability scope through nested work: authentication establishes a principal, and capabilities independently authorise actions. Brightside's chat uses the same agent operations and records as any other authenticated client rather than a private model shortcut.\n\nFor a live answer, inspect `v/info`, `v/info/adapters` or an operation's own schema, and use the who-am-I tool for the current authenticated principal. Never infer an enabled adapter or protocol from the architecture alone.\n\nTwo layers beneath have their own skills; keep the three distinct — Covia defines agent and operation behaviour, the lattice defines convergent state, and Etch persists that state locally:\n\n- **etch** — the local durable store: encrypted file format, flush and recovery boundary.\n- **convex-lattice** — the data model: immutable values, cursors, merge, content addressing, replication.\n"
   },
   "skill": {
+    "tools": [
+      "v/ops/auth/whoami",
+      "v/ops/covia/inspect",
+      "v/ops/covia/list",
+      "v/ops/covia/read"
+    ],
     "skills": [
-      "v/skills/brightside/harness/covia-engine",
       "v/skills/brightside/harness/etch",
       "v/skills/brightside/harness/convex-lattice"
     ]

@@ -25,7 +25,6 @@ import brightside.AppConfig;
 import brightside.BrightsideSkillsAdapter;
 import brightside.EmbeddedVenue;
 import brightside.Identity;
-import brightside.chat.ChatSession;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
@@ -53,8 +52,8 @@ import covia.venue.Config;
  * the owner) says what a skill declares; {@code agent:context} on an agent that
  * pins the skill shows the palette the model would be offered — every declared
  * operation present and nothing unavailable. The same check covers the venue
- * skills a shipped router reveals, and the assistant's own palette is checked
- * for tool sets that belong behind a child. Nothing here inspects prose.</p>
+ * skills a shipped skill reveals, and every top-level skill that reveals
+ * children must bring tools of its own. Nothing here inspects prose.</p>
  */
 class BrightsideSkillsTest {
 
@@ -112,9 +111,28 @@ class BrightsideSkillsTest {
 		// every loop above pass vacuously).
 		tests.add(DynamicTest.dynamicTest("the resolver reports declared tools and children",
 			BrightsideSkillsTest::resolverReportsDeclarations));
-		tests.add(DynamicTest.dynamicTest("heavy tool sets stay behind their routers",
-			BrightsideSkillsTest::heavyToolSetsStayBehindTheirRouters));
+		tests.add(DynamicTest.dynamicTest("every top-level skill is a useful first load",
+			BrightsideSkillsTest::everyTopLevelSkillIsAUsefulFirstLoad));
 		return tests;
+	}
+
+	/**
+	 * A top-level skill is the assistant's first step towards a task, so it must
+	 * bring something itself — tools, or a body that is the guidance — rather
+	 * than only reveal children. A skill that reveals children and has neither
+	 * is a bare router, which the library does not ship.
+	 */
+	private static void everyTopLevelSkillIsAUsefulFirstLoad() throws Exception {
+		for (String path : BrightsideSkillsAdapter.SHIPPED) {
+			if (!path.substring(BrightsideSkillsAdapter.SKILLSET.length() + 1).equals(
+					path.substring(path.lastIndexOf('/') + 1))) continue;   // a child
+			ACell skill = readSkill(path, path + " is not a loadable skill");
+			boolean reveals = !strings(RT.getIn(skill, "skills")).isEmpty()
+				|| !strings(RT.getIn(skill, "skillsets")).isEmpty();
+			if (!reveals) continue;
+			assertFalse(strings(RT.getIn(skill, "tools")).isEmpty(),
+				path + " reveals children but brings no tools of its own: a bare router");
+		}
 	}
 
 	/** Every child a shipped skill reveals that is not itself shipped by Brightside. */
@@ -132,25 +150,6 @@ class BrightsideSkillsTest {
 		}
 		assertFalse(out.isEmpty(), "some shipped skill reveals a venue skill");
 		return out;
-	}
-
-	/**
-	 * A skill's tools join the manifest only once it is loaded. Moltbook's
-	 * sixteen operations and the web tools are deliberately on children, and the
-	 * venue's own library (agent creation, grants…) behind the platform router,
-	 * so the assistant's own palette must not carry them.
-	 */
-	private static void heavyToolSetsStayBehindTheirRouters() throws Exception {
-		new ChatSession(client, new AppConfig.Chat("assistant", AppConfig.DEFAULT_OPERATION,
-			AppConfig.ECHO_LLM_OPERATION, "Skill wiring test."), "Tester").ensureAgent();
-		ACell context = run("v/ops/agent/context", Maps.of(Fields.AGENT_ID, "assistant"));
-		Set<String> offered = operationsOffered(context);
-		assertFalse(offered.isEmpty(), "the assistant's palette is reported");
-		for (String op : offered) {
-			assertFalse(op.startsWith("v/ops/moltbook/") || op.startsWith("v/ops/http/")
-				|| op.equals("v/ops/agent/create") || op.equals("v/ops/ucan/issue"),
-				"declared on every turn although only a child skill should carry it: " + op);
-		}
 	}
 
 	private static void resolverReportsDeclarations() throws Exception {

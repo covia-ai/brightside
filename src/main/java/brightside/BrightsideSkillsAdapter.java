@@ -13,79 +13,79 @@ import covia.venue.RequestContext;
  * namespace — kept as its own adapter so the shipped skills are a self-contained
  * unit, separate from Brightside's operations ({@link BrightsideAdapter}).
  *
+ * <p><b>Every top-level skill is a useful first load.</b> Brightside's
+ * assistant is general-purpose, and loading a skill is its first step towards
+ * specialising for a task: the skill it reaches for from the index must solve
+ * the general form of the problem itself — its judgement and the tools an
+ * everyday ask needs — and reveal children for the specific sub-issues, each
+ * of which is again a useful load. No shipped skill is a bare router. A
+ * skill's tools join the manifest only once it is loaded, so what a
+ * top-level skill costs every turn is its index line, and what a load costs is
+ * its body once and its tools from then on. Unloading retracts only a skill's
+ * tools and the children it revealed — its instructions stay in history — so
+ * no shipped body tells the agent to unload.</p>
+ *
  * <p>Skills, under {@code v/skills/brightside/…}:</p>
  * <ul>
  *   <li><b>introduction</b> — greeting guidance, loaded on demand rather than
  *       occupying every turn.</li>
  *   <li><b>conversations</b> — how it talks with the user and reviews past
- *       conversations. Loaded on demand, <em>not</em> pinned: its facet grants
- *       the read-only past-session tools ({@code agent:sessions},
- *       {@code agent:session-read}).</li>
- *   <li><b>skills</b> — how it grows new abilities (on demand); grants the
- *       read-only skills list/read tools for surveying skillsets, and its
- *       {@code skill.skills} facet reveals <b>skill-authoring</b> plus Covia's
- *       {@code skill-import} (SKILL.md files).</li>
- *   <li><b>skill-authoring</b> — the gated child skill (on demand) whose facet
- *       grants {@code covia:write} plus Brightside's path-constrained skill
- *       deletion tool, so the assistant can reversibly manage skills in its
- *       own {@code w/skills}.</li>
- *   <li><b>lattice</b> — owner-facing guidance for choosing and managing
- *       persistent workspace, agent, conversation and job-scoped data;
- *       reveals Covia's {@code assets} child for immutable, shareable
- *       snapshots.</li>
- *   <li><b>vault-drives-files</b> — routes file work to separate personal
- *       vault, DLFS-drive and host-filesystem child skills.</li>
- *   <li><b>diagnostics-audit-logs</b> — routes read-only investigation to
- *       separate job, session and Brightside-log child skills.</li>
- *   <li><b>harness</b> — explains Brightside's technical foundation through
- *       separate Covia-engine, Etch and Convex-lattice child skills.</li>
- *   <li><b>tasks-scheduler-automation</b> — routes delegated work, reminders
- *       and repeatable workflows to Covia's task, scheduling and orchestration
- *       skills, and human decisions to Brightside's own <b>hitl</b>.</li>
- *   <li><b>platform</b> — the venue's own skill library, {@code v/skills/root}
- *       (agents, grid, auth, connections, venue, discovery, covia, workspace),
- *       revealed by this tool-free router rather than configured on the agent,
- *       so its eight index lines appear only for a turn that wants them.
- *       {@link Odin} keeps the library configured directly.</li>
+ *       conversations; grants the past-session tools ({@code agent:sessions},
+ *       {@code agent:session-read}, {@code agent:compact-session}).</li>
+ *   <li><b>skills</b> — how it grows new abilities; grants the read-only
+ *       skills list/read tools for surveying skillsets, and reveals
+ *       <b>skill-authoring</b> plus Covia's {@code skill-import}.</li>
+ *   <li><b>skill-authoring</b> — the child whose facet grants
+ *       {@code covia:write} plus Brightside's path-constrained skill deletion
+ *       tool, so the assistant can reversibly manage its own {@code w/skills}.</li>
+ *   <li><b>lattice</b> — choosing and managing persistent workspace, agent,
+ *       conversation and job-scoped data, with the edit tools; reveals Covia's
+ *       {@code assets} and {@code secrets} children.</li>
+ *   <li><b>files</b> — Brightside's configured file roots with the file tools;
+ *       reveals <b>vault</b> (the owner's document vault) and <b>dlfs</b>
+ *       (named lattice drives) for the other places files live.</li>
+ *   <li><b>diagnostics</b> — read-only investigation through job records, with
+ *       the lattice read and job tools; reveals <b>sessions</b> and
+ *       <b>brightside-logs</b> for narrower evidence.</li>
+ *   <li><b>harness</b> — how Brightside works internally, through the embedded
+ *       Covia engine, with the read and who-am-I tools; reveals <b>etch</b> and
+ *       <b>convex-lattice</b> for the layers beneath.</li>
+ *   <li><b>automation</b> — later, regularly, delegated or approved work, with
+ *       Covia's scheduler tools; reveals Covia's {@code tasks} and
+ *       {@code orchestration} skills and Brightside's own <b>hitl</b>.</li>
  *   <li><b>hitl</b> — when and how to ask the owner through the Inbox, and
- *       what they will see. Shadows Covia's skill of the same name in the
- *       index; grants the request, inbox-listing and job-status tools.</li>
+ *       what they will see; grants the request, inbox-listing and job-status
+ *       tools.</li>
  *   <li><b>administration</b> — when and how to ask {@link Odin}, the
  *       operator's administrative agent, for changes beyond the assistant's
  *       own authority; grants {@code brightside:ask-odin} and the job tools.</li>
- *   <li><b>convex</b> — the Convex network as the owner meets it; routes to
- *       <b>accounts</b>, <b>convex-lisp</b>, <b>smart-contracts</b> (whose own
- *       child <b>trust</b> covers trust monitors), <b>cns</b>, <b>costs</b>,
- *       <b>security</b>, <b>cpos-consensus</b>, <b>cad3-data</b>,
- *       <b>protonet</b>, <b>ecosystem</b> and the shared <b>convex-lattice</b>
- *       child (the same resource as the harness child, so the index shows it
- *       once). The on-chain children grant {@code convex:query} /
- *       {@code convex:transact}; the knowledge children (security, consensus,
- *       encoding, ecosystem) grant nothing, and security is loaded before
- *       anything that signs.</li>
- *   <li><b>writing</b>, <b>planning</b>, <b>research</b> and <b>coding</b> —
- *       everyday working methods, loaded only when the task calls for them;
- *       research reveals Covia's own {@code http} skill for external evidence
- *       and keeps the untrusted-content boundary in its own body.</li>
+ *   <li><b>convex</b> — the Convex network as the owner meets it, with the
+ *       free query tool; routes to <b>accounts</b>, <b>convex-lisp</b>,
+ *       <b>smart-contracts</b> (whose own child <b>trust</b> covers trust
+ *       monitors), <b>cns</b>, <b>costs</b>, <b>security</b>,
+ *       <b>cpos-consensus</b>, <b>cad3-data</b>, <b>protonet</b>,
+ *       <b>ecosystem</b> and the shared <b>convex-lattice</b> child (the same
+ *       resource as the harness child, so the index shows it once). The
+ *       on-chain children grant {@code convex:transact} too; the knowledge
+ *       children grant nothing.</li>
+ *   <li><b>writing</b>, <b>planning</b> and <b>coding</b> — everyday working
+ *       methods, loaded only when the task calls for them.</li>
+ *   <li><b>research</b> — evidence-led research with the web tools; reveals
+ *       Covia's own {@code http} skill for credentialed APIs and keeps the
+ *       untrusted-content boundary in its own body.</li>
  *   <li><b>moltbook</b> — taking part in Moltbook, the social network for AI
- *       agents, as the owner's agent: a tool-free router carrying the conduct
- *       and owner rules. Its <b>moltbook-activity</b> child grants
- *       {@link MoltbookAdapter}'s typed operations, which resolve the account's
- *       key inside the venue; <b>moltbook-setup</b> — registering the account,
- *       seeing whether the owner has claimed it — is the other child, so those
- *       tools appear only when needed; the owner can also set up in Settings →
- *       Integrations ({@link Moltbook}).</li>
+ *       agents, as the owner's agent; grants {@link MoltbookAdapter}'s typed
+ *       operations, which resolve the account's key inside the venue.
+ *       <b>moltbook-setup</b> — registering the account, seeing whether the
+ *       owner has claimed it — is its child, so those tools appear only when
+ *       needed; the owner can also set up in Settings → Integrations
+ *       ({@link Moltbook}).</li>
  * </ul>
  *
- * <p><b>The hierarchy is the context budget.</b> Nothing is declared ahead of
- * a load: a skill's tools join the manifest only once it is loaded, and stay
- * for the session, while every top-level description is an index line on
- * every turn. A router keeps a set of tools out of the manifest until a turn
- * wants them and keeps the index about the owner's tasks (Moltbook's sixteen
- * operations, the file and Convex tools, the venue's own library). Unloading
- * retracts only a skill's tools and the children it revealed — its
- * instructions stay in history — so no shipped body tells the agent to unload
- * a tool-free router.</p>
+ * <p>The venue's own library, {@code v/skills/root}, sits beside this one in
+ * the assistant's skillsets: its entry points (agents, grid, auth, connections,
+ * venue, discovery, covia, workspace) are useful first loads of the same
+ * shape, each revealing its family.</p>
  *
  * <p>Registered on the embedded engine at launch ({@link EmbeddedVenue}); like
  * any Covia adapter, its skills live and die with it. This adapter has no
@@ -99,45 +99,37 @@ public class BrightsideSkillsAdapter extends AAdapter {
 	public static final String INTRODUCTION = SKILLSET + "/introduction";
 	/** On demand: how it talks with the user and reviews past conversations (grants the session tools). */
 	public static final String CONVERSATIONS = SKILLSET + "/conversations";
-	/** On demand: how the assistant grows new abilities; gates skill-authoring. */
+	/** On demand: how the assistant grows new abilities; reveals skill-authoring. */
 	public static final String SKILLS = SKILLSET + "/skills";
-	/** Gated child: how to author a skill, and the write tool to do it. */
+	/** Child: how to author a skill, and the write tool to do it. */
 	public static final String SKILL_AUTHORING = SKILLSET + "/skills/skill-authoring";
-	/** On demand: how to choose and manage Brightside's lattice data scopes. */
+	/** On demand: how to choose and manage Brightside's lattice data scopes, with the edit tools. */
 	public static final String LATTICE = SKILLSET + "/lattice";
-	/** On demand: routes file-shaped work to the appropriate storage child. */
-	public static final String VAULT_DRIVES_FILES = SKILLSET + "/vault-drives-files";
+	/** On demand: Brightside's configured file roots and the file tools; reveals the other storages. */
+	public static final String FILES = SKILLSET + "/files";
 	/** Personal document vault child. */
-	public static final String VAULT = VAULT_DRIVES_FILES + "/vault";
+	public static final String VAULT = FILES + "/vault";
 	/** Decentralised lattice filesystem child. */
-	public static final String DLFS = VAULT_DRIVES_FILES + "/dlfs";
-	/** Configured host and temporary filesystem roots child. */
-	public static final String FILES = VAULT_DRIVES_FILES + "/files";
-	/** On demand: routes read-only operational investigation to focused children. */
-	public static final String DIAGNOSTICS_AUDIT_LOGS = SKILLSET + "/diagnostics-audit-logs";
-	/** Read-only job audit child. */
-	public static final String JOBS = DIAGNOSTICS_AUDIT_LOGS + "/jobs";
+	public static final String DLFS = FILES + "/dlfs";
+	/** On demand: read-only investigation through job records; reveals narrower evidence. */
+	public static final String DIAGNOSTICS = SKILLSET + "/diagnostics";
 	/** Read-only session diagnostics child. */
-	public static final String SESSIONS = DIAGNOSTICS_AUDIT_LOGS + "/sessions";
+	public static final String SESSIONS = DIAGNOSTICS + "/sessions";
 	/** Read-only Brightside log child. */
-	public static final String BRIGHTSIDE_LOGS = DIAGNOSTICS_AUDIT_LOGS + "/brightside-logs";
-	/** On demand: routes questions about Brightside's internal harness layers. */
+	public static final String BRIGHTSIDE_LOGS = DIAGNOSTICS + "/brightside-logs";
+	/** On demand: how Brightside works internally, through its embedded Covia engine. */
 	public static final String HARNESS = SKILLSET + "/harness";
-	/** Covia venue-engine child. */
-	public static final String COVIA_ENGINE = HARNESS + "/covia-engine";
 	/** Etch persistence-engine child. */
 	public static final String ETCH = HARNESS + "/etch";
 	/** Convex lattice-model child. */
 	public static final String CONVEX_LATTICE = HARNESS + "/convex-lattice";
-	/** On demand: routes tasks, schedules, automation and human checkpoints. */
-	public static final String TASKS_SCHEDULER_AUTOMATION = SKILLSET + "/tasks-scheduler-automation";
-	/** On demand: the venue's own skill library ({@code v/skills/root}), revealed rather than configured. */
-	public static final String PLATFORM = SKILLSET + "/platform";
+	/** On demand: later, regularly, delegated or approved work, with the scheduler tools. */
+	public static final String AUTOMATION = SKILLSET + "/automation";
 	/** Asking the owner through the Inbox; grants the request, inbox-listing and job-status tools. */
 	public static final String HITL = SKILLSET + "/hitl";
 	/** Asking Odin for administrator changes; grants the ask-odin and job tools. */
 	public static final String ADMINISTRATION = SKILLSET + "/administration";
-	/** On demand: the Convex network — routes to topic children with their tools. */
+	/** On demand: the Convex network, with the free query tool — routes to topic children. */
 	public static final String CONVEX = SKILLSET + "/convex";
 	/** Accounts, balances, transfers, creating an account (query + transact). */
 	public static final String CONVEX_ACCOUNTS = CONVEX + "/accounts";
@@ -159,7 +151,7 @@ public class BrightsideSkillsAdapter extends AAdapter {
 	public static final String CONVEX_CAD3 = CONVEX + "/cad3-data";
 	/** Protonet, testnets and local networks; which peer to talk to (query). */
 	public static final String CONVEX_PROTONET = CONVEX + "/protonet";
-	/** The lattice data model, shared with the harness router (same resource as {@link #CONVEX_LATTICE}). */
+	/** The lattice data model, shared with the harness (same resource as {@link #CONVEX_LATTICE}). */
 	public static final String CONVEX_LATTICE_CHILD = CONVEX + "/convex-lattice";
 	/** Repositories, CADs by number, docs, client libraries, vocabulary (no tools). */
 	public static final String CONVEX_ECOSYSTEM = CONVEX + "/ecosystem";
@@ -167,27 +159,25 @@ public class BrightsideSkillsAdapter extends AAdapter {
 	public static final String WRITING = SKILLSET + "/writing";
 	/** On demand: turning goals and decisions into executable plans. */
 	public static final String PLANNING = SKILLSET + "/planning";
-	/** On demand: evidence-led research with honest source handling; reveals Covia's {@code http} skill. */
+	/** On demand: evidence-led research with the web tools; reveals Covia's {@code http} skill. */
 	public static final String RESEARCH = SKILLSET + "/research";
 	/** On demand: evidence-led software design, implementation and review. */
 	public static final String CODING = SKILLSET + "/coding";
-	/** On demand: Moltbook, the social network for AI agents — a tool-free router over the two children below. */
+	/** On demand: Moltbook, the social network for AI agents, through {@link MoltbookAdapter}'s operations. */
 	public static final String MOLTBOOK = SKILLSET + "/moltbook";
-	/** Gated child: taking part — {@link MoltbookAdapter}'s operations, only once the owner wants something done there. */
-	public static final String MOLTBOOK_ACTIVITY = MOLTBOOK + "/moltbook-activity";
-	/** Gated child: registering the owner's account and seeing whether it is claimed — the setup tools, only when needed. */
+	/** Child: registering the owner's account and seeing whether it is claimed — the setup tools, only when needed. */
 	public static final String MOLTBOOK_SETUP = MOLTBOOK + "/moltbook-setup";
-	/** Every shipped skill path, in install order — the single list others derive from. */
+	/** Every shipped skill path, in install order (parents before children) — the single list others derive from. */
 	public static final java.util.List<String> SHIPPED =
 		java.util.List.of(INTRODUCTION, CONVERSATIONS, SKILLS, SKILL_AUTHORING,
-			LATTICE, VAULT_DRIVES_FILES, VAULT, DLFS, FILES,
-			DIAGNOSTICS_AUDIT_LOGS, JOBS, SESSIONS, BRIGHTSIDE_LOGS,
-			HARNESS, COVIA_ENGINE, ETCH, CONVEX_LATTICE,
-			TASKS_SCHEDULER_AUTOMATION, PLATFORM, HITL, ADMINISTRATION,
+			LATTICE, FILES, VAULT, DLFS,
+			DIAGNOSTICS, SESSIONS, BRIGHTSIDE_LOGS,
+			HARNESS, ETCH, CONVEX_LATTICE,
+			AUTOMATION, HITL, ADMINISTRATION,
 			CONVEX, CONVEX_ACCOUNTS, CONVEX_LISP, CONVEX_SMART_CONTRACTS, CONVEX_TRUST, CONVEX_CNS,
 			CONVEX_COSTS, CONVEX_SECURITY, CONVEX_CPOS, CONVEX_CAD3, CONVEX_PROTONET,
 			CONVEX_LATTICE_CHILD, CONVEX_ECOSYSTEM,
-			WRITING, PLANNING, RESEARCH, CODING, MOLTBOOK, MOLTBOOK_ACTIVITY, MOLTBOOK_SETUP);
+			WRITING, PLANNING, RESEARCH, CODING, MOLTBOOK, MOLTBOOK_SETUP);
 
 	@Override
 	public String getName() {

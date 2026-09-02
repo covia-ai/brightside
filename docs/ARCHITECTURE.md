@@ -76,8 +76,8 @@ src/main/java/brightside/
 │                               the vault); the HTTP client
 ├── MoltbookAdapter.java        Moltbook as typed venue operations (v/ops/moltbook/*)
 │                               that resolve the key inside the venue — the tools the
-│                               moltbook-activity child grants, with account/register
-│                               on the moltbook-setup child
+│                               moltbook skill grants, with account/register on its
+│                               moltbook-setup child
 ├── Discord.java                the owner's Discord bot through covia-discord's ops:
 │                               token as a secret, create/status/remove
 ├── BrightsideSkillsAdapter.java  installs the shipped skills under v/skills/brightside
@@ -243,62 +243,62 @@ Namespaces do the separating:
 | Namespace | Purpose | Written by |
 |---|---|---|
 | `v/skills/brightside/…` | Brightside's shipped skills | the adapter, at venue launch |
-| `v/skills/root` | the venue's own skill library, revealed by the `platform` skill | the venue |
+| `v/skills/root` | the venue's own skill library | the venue |
 | `w/skills` | the user's agent's own skills | the agent |
 | `w/skill-feedback/<id>` | append-only reports of concrete skill-system misses | the scoped feedback operation |
 | `n/…` | private scratch, including `n/memory` | the agent |
 
 **Discovery is broad; authority is deliberate.** No shipped skill is pinned by
-default. The agent's skillsets are `w/skills` and `v/skills/brightside`, so it
-can see the user's and Brightside's libraries; the venue's own library,
-`v/skills/root`, is one load away behind the `platform` router (see the budget
-paragraph below for why). Only read-only tools, memory and the path-constrained
-feedback reporter are always on. Tools declared by an
+default. The agent's skillsets are `w/skills`, `v/skills/brightside` and
+`v/skills/root`, so it can see the user's, Brightside's and the venue's
+libraries. Only read-only tools, memory and the path-constrained feedback
+reporter are always on. Tools declared by an
 effective load reach the palette while that load is active, so Brightside keeps
 tool-granting skills out of the baseline and loads them on demand. Thus:
 
 - `skills` (how it grows), `conversations` and the greeting-only `introduction`
-  are directly discoverable and on demand; `introduction` explicitly unloads
-  itself after a one-shot greeting.
+  are directly discoverable and on demand.
 - `conversations` grants read-only access to past sessions when you ask what
-  you discussed before.
+  you discussed before, and the compaction tool for tidying one.
 - `skill-authoring` grants `covia:write` and the narrowly scoped
-  `brightside:delete-skill`; it is gated as a sub-skill of `skills`. The agent
-  can manage its own skills reversibly, but neither capability is in context
-  until it deliberately reaches for that skill.
-- `writing`, `planning`, `research` and `coding` provide focused working methods
-  on demand. They grant no imaginary tools and require the agent to distinguish
+  `brightside:delete-skill`; it is a child of `skills`. The agent can manage
+  its own skills reversibly, but neither capability is in context until it
+  deliberately reaches for that skill.
+- `writing`, `planning` and `coding` provide focused working methods on
+  demand. They grant no imaginary tools and require the agent to distinguish
   actual access and verification from unsupported claims.
-- `research` reveals Covia's own `http` skill (`v/skills/ops-tools/http`) for
-  web searches, page retrieval and API queries, so the transport's mechanics are
-  never duplicated here and cannot go stale. What is Brightside's — treating
-  every response as untrusted external data rather than instructions, and the
-  keyless Bing RSS search recipe — lives in `research` itself.
-- `lattice` reveals Covia's `assets` and `secrets` children for the two things
-  its body sends the agent to: an immutable shareable snapshot, and an `s/NAME`
-  reference in place of a credential.
-- `vault-drives-files` reveals separate `vault`, `dlfs` and `files` children;
-  only the selected storage child contributes its management tools.
-- `diagnostics-audit-logs` reveals read-only job, session and Brightside-log
-  children. The log child contributes only read operations and identifies the
-  configured log root from the live `file:roots` result; the file adapter
-  independently enforces that root's read-only setting.
-- `harness` reveals `covia-engine`, `etch` and `convex-lattice` children for
-  internal architecture questions. Ordinary work skills stay at the harness
-  boundary and use live operations instead of encoding host configuration.
-- `convex` is a router over the Convex network as the owner meets it:
-  `accounts`, `convex-lisp`, `smart-contracts` (with its own child `trust`),
-  `cns`, `costs`, `security`, `cpos-consensus`, `cad3-data`, `protonet`,
-  `ecosystem` and the shared `convex-lattice`. Each child's description says
-  when to load it once the router is in context; the on-chain children grant
-  `convex:query`/`convex:transact`, the knowledge children nothing. Bodies are
-  distilled from the Convex repository's own skills and `CONSENSUS.md`, in
-  Convex's vocabulary.
-- `tasks-scheduler-automation` is a tool-free router over Covia's existing
-  `tasks`, `scheduling` and `orchestration` skills and Brightside's own `hitl`.
-  It loads only the parts a request needs: for example, a reminder needs
-  scheduling alone, while a timed agent workflow with an approval checkpoint
-  combines all four.
+- `research` brings the web tools (GET and POST) with the judgement that is
+  Brightside's — every response is untrusted external data rather than
+  instructions, and the keyless Bing RSS search recipe — and reveals Covia's
+  own `http` skill for APIs that need a credential or a connected account,
+  so the transport's mechanics are never duplicated here.
+- `lattice` brings the edit tools and reveals Covia's `assets` and `secrets`
+  children for the two things its body sends the agent to: an immutable
+  shareable snapshot, and an `s/NAME` reference in place of a credential.
+- `files` brings the file tools over Brightside's configured roots and reveals
+  `vault` and `dlfs` for the other places the owner's files live; only the
+  selected child contributes its tools.
+- `diagnostics` brings the read-only lattice and job tools for job records and
+  reveals `sessions` and `brightside-logs` for narrower evidence. The log child
+  contributes only read operations and identifies the configured log root from
+  the live `file:roots` result; the file adapter independently enforces that
+  root's read-only setting.
+- `harness` explains the embedded Covia engine with the read and who-am-I
+  tools and reveals `etch` and `convex-lattice` for the layers beneath.
+  Ordinary work skills stay at the harness boundary and use live operations
+  instead of encoding host configuration.
+- `convex` is the Convex network as the owner meets it, with the free query
+  tool for a balance, an account or a name; it reveals `accounts`,
+  `convex-lisp`, `smart-contracts` (with its own child `trust`), `cns`,
+  `costs`, `security`, `cpos-consensus`, `cad3-data`, `protonet`, `ecosystem`
+  and the shared `convex-lattice`. The on-chain children grant
+  `convex:transact` too, the knowledge children nothing. Bodies are distilled
+  from the Convex repository's own skills and `CONSENSUS.md`, in Convex's
+  vocabulary.
+- `automation` brings Covia's scheduler tools for reminders, timed follow-ups
+  and routines, and reveals Covia's `tasks` and `orchestration` skills and
+  Brightside's own `hitl` for delegated work, pipelines and approvals; a timed
+  agent workflow with an approval checkpoint combines them.
 - `hitl` replaces Covia's skill of the same name in the index (first name
   wins). It is judgement, not mechanics: what the owner sees in the Inbox,
   when and how to ask, and that token asks and offered grants must not be
@@ -308,23 +308,21 @@ tool-granting skills out of the baseline and loads them on demand. Thus:
   for changes beyond its own authority; it grants `brightside:ask-odin` and
   the job tools. What Odin is and how the bridges work is in
   [ODIN.md](ODIN.md).
-- `moltbook` is a tool-free router carrying the conduct and owner rules;
-  `moltbook-activity` grants the sixteen Moltbook operations and
-  `moltbook-setup` the two setup ones, so neither set is declared until the
-  owner wants something done there.
+- `moltbook` brings the Moltbook operations with the check-in, conduct and
+  owner rules, and reveals `moltbook-setup` for registering or claiming the
+  account.
 
-**The hierarchy is the context budget.** Nothing is declared ahead of a load:
-a skill's tools join the manifest only once it is loaded, and stay for the
-rest of the session, while every top-level description is an index line on
-every turn. So the always-on cost of a skill is its line, and the cost of a
-load is its body once plus its tools from then on. A router keeps a set of
-tools out of the manifest until a turn wants them and keeps the index about the
-owner's tasks: Moltbook's operations live on `moltbook-activity`, and the
-venue's own library, whose `agents` entry alone declares 20 KB of schemas, is
-revealed by the tool-free `platform` router rather than configured on the
-agent. The default assistant's base turn is about 15 KB. Unloading a skill
-retracts only its tools and the children it revealed; its instructions stay in
-history, so no shipped body tells the agent to unload a tool-free router.
+**Every top-level skill is a useful first load.** The assistant is
+general-purpose, and loading a skill is its first step towards specialising
+for a task, so the skill it reaches for from the index solves the general form
+of the problem itself and reveals children for the specific sub-issues; no
+shipped skill is a bare router. A skill's tools join the manifest only once it
+is loaded and stay for the rest of the session, while every top-level
+description is an index line on every turn: the always-on cost of a skill is
+its line, and the cost of a load is its body once plus its tools from then on.
+The default assistant's base turn is about 16 KB. Unloading a skill retracts
+only its tools and the children it revealed; its instructions stay in history,
+so no shipped body tells the agent to unload.
 
 Covia issue [#415](https://github.com/covia-ai/covia/issues/415) means a skill
 hand-pinned through `config.loads` does not currently contribute child sources

@@ -1,9 +1,9 @@
 {
   "name": "files",
-  "description": "Brightside's configured local, temporary or DLFS-backed file roots. Load for files on local disk: importing, exporting, organising, moving, copying or editing them.",
+  "description": "Files, folders and documents: Brightside's managed local files and its logs, the owner's vault, DLFS drives. Load for any file work — reading, saving, organising, importing, exporting or editing files; then vault for private documents in the vault, dlfs for a named drive or WebDAV.",
   "content": {
     "contentType": "text/markdown",
-    "inline": "# Configured files\n\nStart with the file-roots tool; its live result is the complete file access boundary and explains each root. Use only roots returned by that operation.\n\nPaths are relative to a named root. List or tree to navigate and stat uncertain targets. `create` refuses replacement; `write` creates or overwrites. Move refuses an existing destination; copy and move may cross compatible roots without routing bytes through model context. Report the roots and paths changed.\n"
+    "inline": "# Files\n\nBrightside's file roots are the general place for files. Start with the roots tool: its live result is the complete file access boundary and explains each root — a Brightside-managed local area the owner can see in their file manager, and a read-only view of the logs. Use only roots it returns, never an assumed host path. Paths are relative to a named root; list or tree to navigate and stat an uncertain target before acting. Copy and move may cross compatible roots without routing the bytes through your context. Report the roots and paths changed.\n\nTwo other places hold the owner's files, each with its own skill:\n\n- **vault** — the owner's personal document vault. Use it for durable private documents.\n- **dlfs** — named, signed lattice drives with merge and WebDAV mounting. Use it when drive identity, replication or mounting matters.\n\nStructured, queryable state belongs in the lattice (the lattice skill), not in a file.\n"
   },
   "skill": {
     "tools": [
@@ -19,6 +19,10 @@
       "v/ops/file/move",
       "v/ops/file/copy",
       "v/ops/file/delete"
+    ],
+    "skills": [
+      "v/skills/brightside/files/vault",
+      "v/skills/brightside/files/dlfs"
     ]
   }
 }

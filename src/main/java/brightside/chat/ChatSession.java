@@ -14,6 +14,7 @@ import brightside.BrightsideSkillsAdapter;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
+import convex.core.data.AVector;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
 import convex.core.data.Vectors;
@@ -65,10 +66,8 @@ public final class ChatSession {
 	 * The venue's shipped skill library. {@code v/skills/root} is the usable
 	 * skillset level — the per-family entry points (agents, grid, auth,
 	 * connections, venue, discovery…), each revealing its family when loaded.
-	 * Not configured on the assistant: Brightside's tool-free {@code platform}
-	 * skill reveals it, so the venue's entry points join the index only for a
-	 * turn that wants them and the assistant's own index stays about the
-	 * owner's tasks. {@link Odin} configures it directly. (Pointing at bare
+	 * Each is a useful first load for its family and reveals the rest, which is
+	 * the shape Brightside's own skills follow too. (Pointing at bare
 	 * {@code v/skills} would be silently useless: it holds skillsets, not
 	 * skills.)
 	 */
@@ -231,13 +230,13 @@ public final class ChatSession {
 			// skillset below is an explicit source, so lookup does not depend on Covia
 			// #415's unresolved operator-pin child expansion.
 			"skills", Vectors.empty(),
-			// Discovery surface: the user's own skills plus Brightside's. The venue's
-			// library (VENUE_SKILLSET) is revealed by the platform skill, not
-			// configured — see the constant. The agent loads only the body (and any
-			// tools) relevant to the current task.
+			// Discovery surface: the user's own skills plus the venue's shipped
+			// library and Brightside's everyday-work skills. The agent loads only the
+			// body (and any tools) relevant to the current task.
 			"skillsets", Vectors.of(
 				Strings.create(USER_SKILLSET),
-				Strings.create(BrightsideSkillsAdapter.SKILLSET)));
+				Strings.create(BrightsideSkillsAdapter.SKILLSET),
+				Strings.create(VENUE_SKILLSET)));
 		AMap<AString, ACell> input = Maps.of(Fields.AGENT_ID, config.agentId(), Fields.CONFIG, agentConfig);
 		if (status != null) {
 			// agent:update recursively merges nested maps. Replace the loads map in
@@ -249,6 +248,23 @@ public final class ChatSession {
 					log.info("Migrated legacy pinned skill baseline for agent '{}'", config.agentId());
 				} catch (Exception e) {
 					log.warn("Could not migrate pinned skill baseline for agent '{}' (will retry): {}",
+						config.agentId(), e.getMessage());
+					return false;
+				}
+			}
+			// A context pin on the read/write memory tool — an earlier Brightside's,
+			// or a venue template's of the time — is refused by the venue at every
+			// inference now (covia#465), whichever agent carries it. Rewrite it to
+			// the read-only recall op even for an agent whose configuration is
+			// otherwise left as its record holds it.
+			AVector<ACell> context = migratedContext(info);
+			if (context != null) {
+				try {
+					run(OP_UPDATE, Maps.of(Fields.AGENT_ID, config.agentId(),
+						Fields.CONFIG, Maps.of("context", context)), ADMIN_TIMEOUT_SECONDS);
+					log.info("Migrated memory context pin for agent '{}'", config.agentId());
+				} catch (Exception e) {
+					log.warn("Could not migrate memory context pin for agent '{}' (will retry): {}",
 						config.agentId(), e.getMessage());
 					return false;
 				}
@@ -303,6 +319,34 @@ public final class ChatSession {
 	private static AMap<AString, ACell> configuredLoads(ACell info) {
 		ACell loads = RT.getIn(info, Fields.CONFIG, Fields.LOADS);
 		return (loads instanceof AMap<?, ?>) ? (AMap<AString, ACell>) loads : null;
+	}
+
+	/**
+	 * {@code config.context} with every pin on the read/write memory tool
+	 * rewritten to {@link #MEMORY_RECALL_OP} — same path and label, the
+	 * {@code command} dropped — or null when there is nothing to change.
+	 */
+	@SuppressWarnings("unchecked")
+	static AVector<ACell> migratedContext(ACell info) {
+		ACell context = RT.getIn(info, Fields.CONFIG, "context");
+		if (!(context instanceof AVector<?> entries)) return null;
+		AVector<ACell> out = Vectors.empty();
+		boolean changed = false;
+		for (long i = 0; i < entries.count(); i++) {
+			ACell entry = (ACell) entries.get(i);
+			if (entry instanceof AMap<?, ?> && Strings.create(MEMORY_OP).equals(RT.getIn(entry, "op"))) {
+				AMap<AString, ACell> pin = ((AMap<AString, ACell>) entry)
+					.assoc(Strings.create("op"), Strings.create(MEMORY_RECALL_OP));
+				if (RT.getIn(entry, "input") instanceof AMap<?, ?> input) {
+					pin = pin.assoc(Strings.create("input"),
+						((AMap<AString, ACell>) input).dissoc(Strings.create("command")));
+				}
+				entry = pin;
+				changed = true;
+			}
+			out = out.conj(entry);
+		}
+		return changed ? out : null;
 	}
 
 	/** Owner pins plus Brightside context, after removing the three legacy skill defaults. */

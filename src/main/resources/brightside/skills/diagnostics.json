@@ -1,0 +1,23 @@
+{
+  "name": "diagnostics",
+  "description": "Diagnosing Brightside from read-only evidence: what happened to a job, why work failed, stalled or never ran. Load for failures, stuck or slow work, audit trails or errors; then sessions for a conversation's transcript, tool calls and exact model context, brightside-logs for the application's logs.",
+  "content": {
+    "contentType": "text/markdown",
+    "inline": "# Diagnostics\n\nRead existing evidence before retrying: a retry can create a second job. Jobs are the general evidence — durable execution records under `j/`. List or inspect `j` to find IDs, then read `j/<id>` for the exact record: the operation, caller, input, status and timestamps, plus output or error when terminal; its `prev` chain keeps earlier states. Slice or aggregate a large history rather than reading it whole. Job-status polls a known job without starting work; job-result fetches a known job's result — check status first and wait a bounded time for unfinished work. Read-only operations may intentionally leave no job.\n\nDo not diagnose by rerunning the operation. Distinguish a long-running STARTED job from a failed one, and report observed state separately from inference.\n\nNarrower evidence has its own skill:\n\n- **sessions** — a conversation's transcript, raw frames, tool activity and the exact model context.\n- **brightside-logs** — the application's rolling log files.\n"
+  },
+  "skill": {
+    "tools": [
+      "v/ops/covia/inspect",
+      "v/ops/covia/list",
+      "v/ops/covia/read",
+      "v/ops/covia/slice",
+      "v/ops/covia/aggregate",
+      "v/ops/grid/job-status",
+      "v/ops/grid/job-result"
+    ],
+    "skills": [
+      "v/skills/brightside/diagnostics/sessions",
+      "v/skills/brightside/diagnostics/brightside-logs"
+    ]
+  }
+}
