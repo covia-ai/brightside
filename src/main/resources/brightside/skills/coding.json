@@ -1,6 +1,6 @@
 {
   "name": "coding",
-  "description": "Design, implement, debug and review software. Load for code, repositories, tests, architecture, errors, security review or technical implementation.",
+  "description": "Design, implement, debug and review software. Load for code, repositories, tests, architecture, errors, security review or technical implementation; to read or change files, also vault-drives-files.",
   "content": {
     "contentType": "text/markdown",
     "inline": "# Coding\n\nWork from the code, configuration, logs and tests that are actually available.\nTrace behaviour across the relevant boundary before changing it. Preserve the\nperson's unrelated work and prefer the smallest coherent change that fixes the\nunderlying problem.\n\nFor implementation, follow the repository's own instructions and conventions,\nthen verify in proportion to risk. For diagnosis, separate observed evidence,\nroot cause and proposed fix. For review, prioritise correctness, security, data\nloss and missing tests over cosmetic preferences.\n\nNever claim that a file was edited, a command ran or a test passed unless that\nhappened through an available tool. When no workspace access exists, help with\ncode the person provides and state the limitation plainly.\n"

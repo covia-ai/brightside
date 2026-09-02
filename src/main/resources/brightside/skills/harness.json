@@ -1,6 +1,6 @@
 {
   "name": "harness",
-  "description": "Explain how Brightside works internally: its Covia engine and venue, Etch persistence, or the Convex lattice data model. Load for architecture, implementation, storage-engine or harness questions.",
+  "description": "How Brightside works internally. Load for architecture, implementation or storage questions; then the child the question is about: covia-engine for the venue, adapters, operations, jobs and identities, etch for the encrypted local store, convex-lattice for the data model.",
   "content": {
     "contentType": "text/markdown",
     "inline": "# Brightside harness\n\nBrightside embeds several distinct layers. Load the child matching the question:\n\n- **covia-engine** — agents, operations, adapters, jobs, identities, capabilities and protocol surfaces.\n- **etch** — the local durable store, encrypted file format, flush and recovery boundary.\n- **convex-lattice** — immutable values, mutable cursors, merge semantics, content addressing and replication.\n\nKeep the layers distinct: Covia defines agent and operation behaviour, the lattice defines convergent state, and Etch persists that state locally.\n"

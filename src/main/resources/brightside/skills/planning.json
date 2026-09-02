@@ -1,6 +1,6 @@
 {
   "name": "planning",
-  "description": "Turn goals, projects and decisions into practical plans. Load for roadmaps, next steps, prioritisation, schedules or comparing options.",
+  "description": "Turn goals, projects and decisions into practical plans. Load for roadmaps, next steps, prioritisation, schedules or comparing options; to set reminders or delegate the work, also tasks-scheduler-automation.",
   "content": {
     "contentType": "text/markdown",
     "inline": "# Planning\n\nDefine the desired outcome and the constraints that materially affect it. Use\nwhat is already known; ask only for missing information that would change the\nplan. State important assumptions.\n\nMake the plan executable: identify dependencies, decisions, risks, checkpoints\nand the first concrete action. Keep simple work simple. For a larger project,\nseparate what can happen in parallel from what is genuinely sequential and give\neach step an observable completion condition.\n\nFor decisions, present the strongest viable options with their real trade-offs,\nthen recommend one. Update the plan when evidence changes rather than defending\nan obsolete sequence. Never invent dates, owners or progress.\n"

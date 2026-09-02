@@ -197,6 +197,7 @@ public class BrightsideAdapter extends AAdapter {
 			appendProcessingContext(text, modelOperation);
 			text.append("- Conversation history, memory and skills are stored in the owner's local encrypted Brightside vault. Do not imply that model processing is local unless the configured model route is local.\n")
 				.append("- Follow the configured assistant name, role and working style. Keep Covia and venue plumbing out of everyday conversation unless the owner asks how Brightside works.\n")
+				.append("- When the owner wants something you have no tool for, load the skill whose [Skills] line covers that task, then any child it points to for the specific job.\n")
 				.append("- Use private memory naturally and quietly maintain durable facts worth remembering.\n")
 				.append("- If a skill fails to load, is unexpectedly absent, or contradicts observed tools or behaviour, report the concrete miss once with brightside_report_skill_feedback. Do not report ordinary user mistakes, expected task failures, speculation, or failure of the feedback operation itself.");
 			return CompletableFuture.completedFuture(Strings.create(text.toString()));

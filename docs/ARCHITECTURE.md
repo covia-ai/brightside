@@ -341,7 +341,10 @@ captures request provenance and cannot write elsewhere; the agent's ordinary
 read/list tools can inspect the backlog.
 
 Skill **descriptions are the trigger**, so they are written with the words a
-person actually says.
+person actually says: which tasks the skill serves and when to load it, never
+which tools it carries. Because tools arrive only with a load, the index line
+alone has to make the model load the right skill for a given need, and a
+router's line says which child serves which job.
 
 **Identity, runtime context and skills have separate jobs.** The configured
 system prompt names the assistant and its role. One non-skill `config.loads`
