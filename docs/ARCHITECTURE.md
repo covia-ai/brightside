@@ -76,8 +76,8 @@ src/main/java/brightside/
 │                               the vault); the HTTP client
 ├── MoltbookAdapter.java        Moltbook as typed venue operations (v/ops/moltbook/*)
 │                               that resolve the key inside the venue — the tools the
-│                               moltbook skill grants, with account/register behind
-│                               its gated moltbook-setup child
+│                               moltbook-activity child grants, with account/register
+│                               on the moltbook-setup child
 ├── Discord.java                the owner's Discord bot through covia-discord's ops:
 │                               token as a secret, create/status/remove
 ├── BrightsideSkillsAdapter.java  installs the shipped skills under v/skills/brightside
@@ -268,11 +268,14 @@ tool-granting skills out of the baseline and loads them on demand. Thus:
 - `writing`, `planning`, `research` and `coding` provide focused working methods
   on demand. They grant no imaginary tools and require the agent to distinguish
   actual access and verification from unsupported claims.
-- `research` reveals an `http` child for web searches, page retrieval and API
-  queries. Its GET/POST tools arrive with instructions that treat every response
-  as untrusted external data rather than model instructions. A compact Bing RSS
-  query provides keyless keyword discovery; the agent then fetches and cites the
-  original result pages.
+- `research` reveals Covia's own `http` skill (`v/skills/ops-tools/http`) for
+  web searches, page retrieval and API queries, so the transport's mechanics are
+  never duplicated here and cannot go stale. What is Brightside's — treating
+  every response as untrusted external data rather than instructions, and the
+  keyless Bing RSS search recipe — lives in `research` itself.
+- `lattice` reveals Covia's `assets` and `secrets` children for the two things
+  its body sends the agent to: an immutable shareable snapshot, and an `s/NAME`
+  reference in place of a credential.
 - `vault-drives-files` reveals separate `vault`, `dlfs` and `files` children;
   only the selected storage child contributes its management tools.
 - `diagnostics-audit-logs` reveals read-only job, session and Brightside-log
@@ -304,6 +307,24 @@ tool-granting skills out of the baseline and loads them on demand. Thus:
   for changes beyond its own authority; it grants `brightside:ask-odin` and
   the job tools. What Odin is and how the bridges work is in
   [ODIN.md](ODIN.md).
+- `moltbook` is a tool-free router carrying the conduct and owner rules;
+  `moltbook-activity` grants the sixteen Moltbook operations and
+  `moltbook-setup` the two setup ones, so neither set is declared until the
+  owner wants something done there.
+
+**The hierarchy is the context budget.** Every tool a top-level skill declares
+is pre-declared in the model's manifest on every turn as a gated stub — full
+schema, callable only once the skill is loaded — and every top-level
+description is an index line on every turn. A child's tools and description
+cost nothing until its parent is loaded: it is revealed then (the load result
+names it), and its tools arrive with its own load. So a top-level skill keeps
+only its judgement and the few tools an everyday ask needs, and heavy or niche
+tool sets live on children — Moltbook's sixteen operations on
+`moltbook-activity`, not on the `moltbook` router. Measured on the default
+assistant before that move, gated stubs were 59 KB of a 75 KB turn and
+Moltbook's alone 10 KB. Unloading a skill retracts only its tools and the
+children it revealed; its instructions stay in history, so no shipped body
+tells the agent to unload a tool-free router.
 
 Covia issue [#415](https://github.com/covia-ai/covia/issues/415) means a skill
 hand-pinned through `config.loads` does not currently contribute child sources

@@ -71,9 +71,22 @@ class SkillIndexTest {
 			.filter(s -> "moltbook".equals(s.name()) && BrightsideSkillsAdapter.SKILLSET.equals(s.skillset()))
 			.findFirst().orElseThrow(() -> new AssertionError("Brightside's moltbook skill is listed: " + skills));
 		assertEquals(BrightsideSkillsAdapter.SKILLSET + "/moltbook", moltbook.path());
-		assertTrue(moltbook.tools().contains("v/ops/moltbook/home"), "with the tools it grants: " + moltbook.tools());
+		// A router: no tools of its own, and the children it reveals — the ones
+		// whose tools wait for a load — are named, not listed at the top level.
+		assertTrue(moltbook.tools().isEmpty(), "a router grants nothing itself: " + moltbook.tools());
+		assertEquals(List.of(BrightsideSkillsAdapter.MOLTBOOK_ACTIVITY, BrightsideSkillsAdapter.MOLTBOOK_SETUP),
+			moltbook.children(), "what it reveals");
+		assertTrue(skills.stream().noneMatch(s -> "moltbook-activity".equals(s.name())),
+			"a child is not discoverable until its parent is loaded");
 		assertFalse(moltbook.shadowed());
 		assertTrue(moltbook.description() != null && !moltbook.description().isBlank());
+
+		// Children of both kinds are reported: the venue's entry points reveal
+		// whole skillsets, Brightside's routers individual skills.
+		SkillIndex.Skill agents = skills.stream()
+			.filter(s -> "agents".equals(s.name()) && ChatSession.VENUE_SKILLSET.equals(s.skillset()))
+			.findFirst().orElseThrow();
+		assertEquals(List.of("v/skills/agents"), agents.children());
 
 		// Brightside's own "skills" comes before the venue's, so the venue's is shadowed — as the index dedups.
 		SkillIndex.Skill own = skills.stream()

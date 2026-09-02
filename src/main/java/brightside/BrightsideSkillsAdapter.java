@@ -60,14 +60,27 @@ import covia.venue.RequestContext;
  *       anything that signs.</li>
  *   <li><b>writing</b>, <b>planning</b>, <b>research</b> and <b>coding</b> —
  *       everyday working methods, loaded only when the task calls for them;
- *       research reveals a guarded HTTP child for external evidence.</li>
+ *       research reveals Covia's own {@code http} skill for external evidence
+ *       and keeps the untrusted-content boundary in its own body.</li>
  *   <li><b>moltbook</b> — taking part in Moltbook, the social network for AI
- *       agents, as the owner's agent; grants {@link MoltbookAdapter}'s typed
- *       operations, which resolve the account's key inside the venue. Setting
- *       the account up — registering it, seeing whether the owner has claimed
- *       it — is a gated child, so those tools appear only when needed; the
- *       owner can also do it in Settings → Integrations ({@link Moltbook}).</li>
+ *       agents, as the owner's agent: a tool-free router carrying the conduct
+ *       and owner rules. Its <b>moltbook-activity</b> child grants
+ *       {@link MoltbookAdapter}'s typed operations, which resolve the account's
+ *       key inside the venue; <b>moltbook-setup</b> — registering the account,
+ *       seeing whether the owner has claimed it — is the other child, so those
+ *       tools appear only when needed; the owner can also set up in Settings →
+ *       Integrations ({@link Moltbook}).</li>
  * </ul>
+ *
+ * <p><b>The hierarchy is the context budget.</b> Every tool a top-level skill
+ * declares is pre-declared in the model's manifest on every turn as a gated
+ * stub, and every top-level description is an index line on every turn; a
+ * child's tools and description cost nothing until its parent is loaded. So a
+ * top-level skill keeps only its judgement and the few tools an everyday ask
+ * needs, and heavy or niche tool sets live on children (Moltbook's sixteen
+ * operations, the file and Convex tools). Unloading retracts only a skill's
+ * tools and the children it revealed — its instructions stay in history — so
+ * no shipped body tells the agent to unload a tool-free router.</p>
  *
  * <p>Registered on the embedded engine at launch ({@link EmbeddedVenue}); like
  * any Covia adapter, its skills live and die with it. This adapter has no
@@ -147,14 +160,14 @@ public class BrightsideSkillsAdapter extends AAdapter {
 	public static final String WRITING = SKILLSET + "/writing";
 	/** On demand: turning goals and decisions into executable plans. */
 	public static final String PLANNING = SKILLSET + "/planning";
-	/** On demand: evidence-led research with honest source handling. */
+	/** On demand: evidence-led research with honest source handling; reveals Covia's {@code http} skill. */
 	public static final String RESEARCH = SKILLSET + "/research";
-	/** External web and API access child, with an explicit untrusted-content boundary. */
-	public static final String RESEARCH_HTTP = RESEARCH + "/http";
 	/** On demand: evidence-led software design, implementation and review. */
 	public static final String CODING = SKILLSET + "/coding";
-	/** On demand: Moltbook, the social network for AI agents, through {@link MoltbookAdapter}'s operations. */
+	/** On demand: Moltbook, the social network for AI agents — a tool-free router over the two children below. */
 	public static final String MOLTBOOK = SKILLSET + "/moltbook";
+	/** Gated child: taking part — {@link MoltbookAdapter}'s operations, only once the owner wants something done there. */
+	public static final String MOLTBOOK_ACTIVITY = MOLTBOOK + "/moltbook-activity";
 	/** Gated child: registering the owner's account and seeing whether it is claimed — the setup tools, only when needed. */
 	public static final String MOLTBOOK_SETUP = MOLTBOOK + "/moltbook-setup";
 	/** Every shipped skill path, in install order — the single list others derive from. */
@@ -167,7 +180,7 @@ public class BrightsideSkillsAdapter extends AAdapter {
 			CONVEX, CONVEX_ACCOUNTS, CONVEX_LISP, CONVEX_SMART_CONTRACTS, CONVEX_TRUST, CONVEX_CNS,
 			CONVEX_COSTS, CONVEX_SECURITY, CONVEX_CPOS, CONVEX_CAD3, CONVEX_PROTONET,
 			CONVEX_LATTICE_CHILD, CONVEX_ECOSYSTEM,
-			WRITING, PLANNING, RESEARCH, RESEARCH_HTTP, CODING, MOLTBOOK, MOLTBOOK_SETUP);
+			WRITING, PLANNING, RESEARCH, CODING, MOLTBOOK, MOLTBOOK_ACTIVITY, MOLTBOOK_SETUP);
 
 	@Override
 	public String getName() {

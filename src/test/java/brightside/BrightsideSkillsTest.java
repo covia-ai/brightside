@@ -25,6 +25,7 @@ import brightside.AppConfig;
 import brightside.BrightsideSkillsAdapter;
 import brightside.EmbeddedVenue;
 import brightside.Identity;
+import brightside.chat.ChatSession;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
@@ -51,7 +52,9 @@ import covia.venue.Config;
  * <p>Two real mechanisms are exercised. {@code skills:read} (the resolver, as
  * the owner) says what a skill declares; {@code agent:context} on an agent that
  * pins the skill shows the palette the model would be offered — every declared
- * operation present and nothing unavailable. Nothing here inspects prose.</p>
+ * operation present and nothing unavailable. The same check covers the venue
+ * skills a shipped router reveals, and the assistant's own palette is checked
+ * for tool sets that belong behind a child. Nothing here inspects prose.</p>
  */
 class BrightsideSkillsTest {
 
@@ -96,12 +99,57 @@ class BrightsideSkillsTest {
 			tests.add(DynamicTest.dynamicTest(rel + ": loaded palette offers every declared tool",
 				() -> loadedPaletteIsComplete(path, name)));
 		}
+		// The hierarchy crosses libraries: a shipped router may reveal one of the
+		// venue's own skills (tasks, scheduling, http…). One that does not load
+		// cleanly here leaves the router pointing at nothing, so each revealed
+		// venue skill gets the same palette check as a shipped one.
+		for (String ref : revealedVenueSkills()) {
+			tests.add(DynamicTest.dynamicTest(ref + ": revealed venue skill offers every declared tool",
+				() -> loadedPaletteIsComplete(ref, ref.substring(ref.lastIndexOf('/') + 1))));
+		}
 		// Guard against the per-skill checks going hollow: the resolver must be
 		// reporting declarations at all (a renamed field would otherwise make
 		// every loop above pass vacuously).
 		tests.add(DynamicTest.dynamicTest("the resolver reports declared tools and children",
 			BrightsideSkillsTest::resolverReportsDeclarations));
+		tests.add(DynamicTest.dynamicTest("heavy tool sets stay behind their routers",
+			BrightsideSkillsTest::heavyToolSetsStayBehindTheirRouters));
 		return tests;
+	}
+
+	/** Every child a shipped skill reveals that is not itself shipped by Brightside. */
+	private static List<String> revealedVenueSkills() {
+		List<String> out = new ArrayList<>();
+		try {
+			for (String path : BrightsideSkillsAdapter.SHIPPED) {
+				ACell skill = run("v/ops/skills/read", Maps.of("skill", path));
+				for (String child : strings(RT.getIn(skill, "skills"))) {
+					if (!child.startsWith(BrightsideSkillsAdapter.SKILLSET + "/") && !out.contains(child)) out.add(child);
+				}
+			}
+		} catch (Exception e) {
+			throw new AssertionError("could not read the shipped skills' children", e);
+		}
+		assertFalse(out.isEmpty(), "some shipped skill reveals a venue skill");
+		return out;
+	}
+
+	/**
+	 * Every tool a top-level skill declares is pre-declared, as a gated stub, in
+	 * the assistant's manifest on every turn; only a child's tools wait for a
+	 * load. Moltbook's sixteen operations and the web tools are deliberately on
+	 * children, so the assistant's own palette must not carry them.
+	 */
+	private static void heavyToolSetsStayBehindTheirRouters() throws Exception {
+		new ChatSession(client, new AppConfig.Chat("assistant", AppConfig.DEFAULT_OPERATION,
+			AppConfig.ECHO_LLM_OPERATION, "Skill wiring test."), "Tester").ensureAgent();
+		ACell context = run("v/ops/agent/context", Maps.of(Fields.AGENT_ID, "assistant"));
+		Set<String> offered = operationsOffered(context);
+		assertFalse(offered.isEmpty(), "the assistant's palette is reported");
+		for (String op : offered) {
+			assertFalse(op.startsWith("v/ops/moltbook/") || op.startsWith("v/ops/http/"),
+				"declared on every turn although only a child skill should carry it: " + op);
+		}
 	}
 
 	private static void resolverReportsDeclarations() throws Exception {
@@ -148,7 +196,7 @@ class BrightsideSkillsTest {
 	 * nothing it declares is reported unavailable.
 	 */
 	private static void loadedPaletteIsComplete(String path, String name) throws Exception {
-		String agentId = "skill-" + relative(path).replace('/', '-');
+		String agentId = "skill-" + path.replaceAll("[^A-Za-z0-9]+", "-");
 		AMap<AString, ACell> config = Maps.of(
 			Fields.OPERATION, AppConfig.DEFAULT_OPERATION,
 			"llmOperation", AppConfig.ECHO_LLM_OPERATION,
@@ -167,18 +215,24 @@ class BrightsideSkillsTest {
 		}
 		assertTrue(unavailable.isEmpty(), name + " loads with unavailable tools: " + unavailable);
 
-		Set<String> offered = new HashSet<>();
-		if (RT.getIn(palette, "tools") instanceof AVector<?> ts) {
-			for (long i = 0; i < ts.count(); i++) {
-				String op = str(RT.getIn((ACell) ts.get(i), Fields.OPERATION));
-				if (!op.isEmpty()) offered.add(op);
-			}
-		}
+		Set<String> offered = operationsOffered(context);
 		ACell skill = readSkill(path, name + " is not a loadable skill");
 		for (String op : strings(RT.getIn(skill, "tools"))) {
 			assertTrue(offered.contains(op),
 				name + " declares " + op + " but the loaded palette offers only " + offered);
 		}
+	}
+
+	/** The operations behind every tool in an assembled context's palette, gated stubs included. */
+	private static Set<String> operationsOffered(ACell context) {
+		Set<String> offered = new HashSet<>();
+		if (RT.getIn(context, "palette", "tools") instanceof AVector<?> ts) {
+			for (long i = 0; i < ts.count(); i++) {
+				String op = str(RT.getIn((ACell) ts.get(i), Fields.OPERATION));
+				if (!op.isEmpty()) offered.add(op);
+			}
+		}
+		return offered;
 	}
 
 	/** The skill's path below the Brightside skillset, e.g. {@code convex/accounts}. */

@@ -32,7 +32,9 @@ public final class SkillIndex {
 	 * @param skillset    the skillset it was found in
 	 * @param description its one-line description, as the index shows it
 	 * @param tools       the operations it grants when loaded
-	 * @param children    the skillsets it reveals when loaded
+	 * @param children    what it reveals when loaded — its {@code skill.skills} (individual
+	 *                    skills, which Brightside's routers use) then its {@code skill.skillsets}
+	 *                    (directories of skills, which the venue's entry points use)
 	 * @param shadowed    an earlier skillset has a skill of this name, so the index shows that one
 	 */
 	public record Skill(String name, String path, String skillset, String description,
@@ -63,10 +65,11 @@ public final class SkillIndex {
 				ACell skill = e.getValue();
 				if (key == null || !(skill instanceof AMap)) continue;
 				String name = str(RT.getIn(skill, "name"));
+				List<String> children = new ArrayList<>(strings(RT.getIn(skill, "skill", "skills")));
+				children.addAll(strings(RT.getIn(skill, "skill", "skillsets")));
 				here.add(new Skill((name != null) ? name : key, skillset + "/" + key, skillset,
 					str(RT.getIn(skill, "description")),
-					strings(RT.getIn(skill, "skill", "tools")),
-					strings(RT.getIn(skill, "skill", "skillsets")), false));
+					strings(RT.getIn(skill, "skill", "tools")), List.copyOf(children), false));
 			}
 			here.sort(Comparator.comparing(Skill::name));
 			for (Skill s : here) {
