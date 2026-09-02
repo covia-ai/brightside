@@ -45,8 +45,8 @@ import covia.venue.RequestContext;
  *   <li><b>platform</b> — the venue's own skill library, {@code v/skills/root}
  *       (agents, grid, auth, connections, venue, discovery, covia, workspace),
  *       revealed by this tool-free router rather than configured on the agent,
- *       so its thirty kilobytes of tool declarations are paid only by a turn
- *       that wants them. {@link Odin} keeps the library configured directly.</li>
+ *       so its eight index lines appear only for a turn that wants them.
+ *       {@link Odin} keeps the library configured directly.</li>
  *   <li><b>hitl</b> — when and how to ask the owner through the Inbox, and
  *       what they will see. Shadows Covia's skill of the same name in the
  *       index; grants the request, inbox-listing and job-status tools.</li>
@@ -77,15 +77,15 @@ import covia.venue.RequestContext;
  *       Integrations ({@link Moltbook}).</li>
  * </ul>
  *
- * <p><b>The hierarchy is the context budget.</b> Every tool a top-level skill
- * declares is pre-declared in the model's manifest on every turn as a gated
- * stub, and every top-level description is an index line on every turn; a
- * child's tools and description cost nothing until its parent is loaded. So a
- * top-level skill keeps only its judgement and the few tools an everyday ask
- * needs, and heavy or niche tool sets live on children (Moltbook's sixteen
- * operations, the file and Convex tools). Unloading retracts only a skill's
- * tools and the children it revealed — its instructions stay in history — so
- * no shipped body tells the agent to unload a tool-free router.</p>
+ * <p><b>The hierarchy is the context budget.</b> Nothing is declared ahead of
+ * a load: a skill's tools join the manifest only once it is loaded, and stay
+ * for the session, while every top-level description is an index line on
+ * every turn. A router keeps a set of tools out of the manifest until a turn
+ * wants them and keeps the index about the owner's tasks (Moltbook's sixteen
+ * operations, the file and Convex tools, the venue's own library). Unloading
+ * retracts only a skill's tools and the children it revealed — its
+ * instructions stay in history — so no shipped body tells the agent to unload
+ * a tool-free router.</p>
  *
  * <p>Registered on the embedded engine at launch ({@link EmbeddedVenue}); like
  * any Covia adapter, its skills live and die with it. This adapter has no

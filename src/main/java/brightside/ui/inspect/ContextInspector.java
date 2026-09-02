@@ -124,12 +124,7 @@ public final class ContextInspector extends JPanel {
 	}
 
 	private static String toolsSummary(AgentContext.Report r) {
-		long gated = r.tools().stream().filter(AgentContext.Tool::requiresSkill).count();
 		StringBuilder sb = new StringBuilder(Integer.toString(r.tools().size()));
-		if (gated > 0) {
-			sb.append("  (").append(r.tools().size() - gated).append(" usable now  ·  ")
-				.append(gated).append(" declared by skills)");
-		}
 		if (!r.unavailable().isEmpty()) sb.append("  ·  ").append(r.unavailable().size()).append(" unavailable");
 		return sb.toString();
 	}
@@ -220,28 +215,25 @@ public final class ContextInspector extends JPanel {
 	}
 
 	// ------------------------------------------------------------------
-	// Tools: usable now, and declared by skills as gates
+	// Tools: every definition the model receives, by where it comes from
 	// ------------------------------------------------------------------
 
 	/**
-	 * Every tool definition the model receives: the ones it can call now,
-	 * grouped by where they come from; then the ones skills declare as gates;
-	 * then any configured tool that did not resolve.
+	 * Every tool definition the model receives, grouped by where it comes from
+	 * (a skill's tools appear only once the skill is loaded); then any
+	 * configured tool that did not resolve.
 	 */
 	private static JComponent tools(AgentContext.Report r) {
 		EntryList list = entries();
-		List<AgentContext.Tool> usable = r.tools().stream().filter(t -> !t.requiresSkill()).toList();
-		List<AgentContext.Tool> gated = r.tools().stream().filter(AgentContext.Tool::requiresSkill).toList();
 		String source = null;
-		for (AgentContext.Tool t : usable) {
+		for (AgentContext.Tool t : r.tools()) {
 			String s = (t.source() != null) ? t.source() : "other";
 			if (!s.equals(source)) {
 				source = s;
-				list.section(sourceTitle(s) + "  ·  " + usable.stream().filter(u -> s.equals(u.source() != null ? u.source() : "other")).count());
+				list.section(sourceTitle(s) + "  ·  " + r.tools().stream().filter(u -> s.equals(u.source() != null ? u.source() : "other")).count());
 			}
-			list.entry(toolSummary(t), toolDescription(t.description(), null, list));
+			list.entry(toolSummary(t), toolDescription(t.description(), list));
 		}
-		gatedSections(list, gated);
 		if (!r.unavailable().isEmpty()) {
 			list.section("Unavailable  ·  " + r.unavailable().size());
 			for (String u : r.unavailable()) list.note(u);
@@ -258,34 +250,6 @@ public final class ContextInspector extends JPanel {
 			case "skill" -> "From loaded skills";
 			default -> source;
 		};
-	}
-
-	/**
-	 * Tools a skill declares as gates: the model sees their definitions so it
-	 * can find them, and must load the skill before it can call them.
-	 */
-	private static void gatedSections(EntryList list, List<AgentContext.Tool> gated) {
-		if (gated.isEmpty()) return;
-		boolean named = gated.stream().anyMatch(t -> t.skill() != null);
-		list.section("Declared by skills — load the skill to use  ·  " + gated.size());
-		list.note("Declared by skills in the agent's discovery surface, so the model can see what loading each "
-			+ "would bring; a call before the skill is loaded fails." + (named ? " Grouped by skill." : ""));
-		String preamble = sharedPreamble(gated);
-		if (preamble != null) {
-			list.note("Every description begins “" + preamble + "” — shown once here; "
-				+ "the model receives it on each of them (covia#470).");
-		}
-		String skill = null;
-		for (AgentContext.Tool t : gated) {
-			// The palette names the declaring skill when it can; without it, one flat list.
-			String s = (t.skill() != null) ? t.skill() : "";
-			if (named && !s.equals(skill)) {
-				skill = s;
-				list.section((s.isEmpty() ? "Skill not named" : s) + "  ·  "
-					+ gated.stream().filter(g -> s.equals(g.skill() != null ? g.skill() : "")).count());
-			}
-			list.entry(toolSummary(t), toolDescription(t.description(), preamble, list));
-		}
 	}
 
 	// ------------------------------------------------------------------
@@ -339,33 +303,15 @@ public final class ContextInspector extends JPanel {
 
 	private static JComponent toolSummary(AgentContext.Tool t) {
 		List<String> meta = new ArrayList<>();
-		// The section already names the source or skill; the operation is what's new here.
+		// The section already names the source; the operation and declaring skill are what's new here.
 		if (t.operation() != null) meta.add(t.operation());
+		if (t.skill() != null) meta.add(t.skill());
 		return EntryList.summary((t.name() != null) ? t.name() : "(tool)", null, meta.toArray(String[]::new));
 	}
 
-	private static JComponent toolDescription(String description, String preamble, EntryList list) {
+	private static JComponent toolDescription(String description, EntryList list) {
 		String text = (description != null) ? description : "";
-		if (preamble != null && text.startsWith(preamble)) text = text.substring(preamble.length()).stripLeading();
 		return text.isBlank() ? Labels.small("(no description)") : excerpt(text, false, list);
-	}
-
-	/**
-	 * The first paragraph every one of {@code tools}' descriptions opens with,
-	 * or null when they do not share one. What the model is told about a gate
-	 * is worth reading once, not once per tool.
-	 */
-	static String sharedPreamble(List<AgentContext.Tool> tools) {
-		if (tools.size() < 2) return null;
-		String first = tools.get(0).description();
-		if (first == null) return null;
-		int end = first.indexOf("\n\n");
-		if (end <= 0) return null;
-		String preamble = first.substring(0, end);
-		for (AgentContext.Tool t : tools) {
-			if (t.description() == null || !t.description().startsWith(preamble)) return null;
-		}
-		return preamble;
 	}
 
 	// ------------------------------------------------------------------

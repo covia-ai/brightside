@@ -60,11 +60,10 @@ public final class AgentContext {
 	 * {@code description} exactly as sent, and its provenance — {@code source}
 	 * (harness / default / config / skill), the venue {@code operation} behind
 	 * it and the {@code skill} that declares it, where the palette says. A
-	 * {@code requiresSkill} tool is a gate: it is declared so the model can see
-	 * it, but calling it before loading a skill that provides it fails.
+	 * skill's tools reach the manifest only once that skill is loaded; nothing
+	 * is declared ahead of a load.
 	 */
-	public record Tool(String name, String description, String source, String operation, String skill,
-			boolean requiresSkill) {
+	public record Tool(String name, String description, String source, String operation, String skill) {
 	}
 
 	/**
@@ -157,7 +156,7 @@ public final class AgentContext {
 				// A skill-declared tool's palette entry refers to the skill that declares it.
 				String skill = "skill".equals(source) ? str(RT.getIn(entry, "ref")) : null;
 				tools.add(new Tool(name, str(RT.getIn(t, "description")), source,
-					str(RT.getIn(entry, "operation")), skill, bool(RT.getIn(t, "requiresSkill"))));
+					str(RT.getIn(entry, "operation")), skill));
 			}
 		}
 

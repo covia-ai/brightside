@@ -313,19 +313,16 @@ tool-granting skills out of the baseline and loads them on demand. Thus:
   `moltbook-setup` the two setup ones, so neither set is declared until the
   owner wants something done there.
 
-**The hierarchy is the context budget.** Every tool a top-level skill declares
-is pre-declared in the model's manifest on every turn as a gated stub — full
-schema, callable only once the skill is loaded — and every top-level
-description is an index line on every turn. A child's tools and description
-cost nothing until its parent is loaded: it is revealed then (the load result
-names it), and its tools arrive with its own load. So a top-level skill keeps
-only its judgement and the few tools an everyday ask needs, and heavy or niche
-tool sets live on children — Moltbook's sixteen operations on
-`moltbook-activity`, not on the `moltbook` router — and the venue's own
-library, whose `agents` entry alone declares 20 KB of schemas, is revealed by
-the tool-free `platform` router rather than configured on the agent. Measured
-on the default assistant before those moves, gated stubs were 59 KB of a 75 KB
-turn, Moltbook's 10 KB of it and the venue library's 30 KB. Unloading a skill
+**The hierarchy is the context budget.** Nothing is declared ahead of a load:
+a skill's tools join the manifest only once it is loaded, and stay for the
+rest of the session, while every top-level description is an index line on
+every turn. So the always-on cost of a skill is its line, and the cost of a
+load is its body once plus its tools from then on. A router keeps a set of
+tools out of the manifest until a turn wants them and keeps the index about the
+owner's tasks: Moltbook's operations live on `moltbook-activity`, and the
+venue's own library, whose `agents` entry alone declares 20 KB of schemas, is
+revealed by the tool-free `platform` router rather than configured on the
+agent. The default assistant's base turn is about 15 KB. Unloading a skill
 retracts only its tools and the children it revealed; its instructions stay in
 history, so no shipped body tells the agent to unload a tool-free router.
 

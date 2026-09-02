@@ -85,11 +85,11 @@ class AgentContextTest {
 			"the dynamic Brightside context load is represented");
 		assertTrue(report.tools().stream().anyMatch(t -> t.name() != null && t.name().contains("memory")),
 			"the memory tool is offered: " + report.tools());
-		// The palette sidecar does not (yet) cover skill-declared tools, so the
-		// declaring skill may be unknown; the gate flag on the definition is what counts.
-		assertTrue(report.tools().stream().anyMatch(AgentContext.Tool::requiresSkill),
-			"tools a skill declares are flagged as gates: " + report.tools());
-		assertTrue(report.tools().stream().anyMatch(t -> !t.requiresSkill()), "and the usable ones are not");
+		// Nothing is declared ahead of a load: with no skill loaded, every tool
+		// the model receives is the harness's, a default, or configured.
+		assertTrue(report.tools().stream().allMatch(t -> "harness".equals(t.source())
+			|| "default".equals(t.source()) || "config".equals(t.source())),
+			"a skill's tools wait for its load: " + report.tools());
 		assertNotNull(report.rawJson());
 
 		// The marks divide the messages into contiguous bands covering all of them.

@@ -65,12 +65,12 @@ public final class ChatSession {
 	 * The venue's shipped skill library. {@code v/skills/root} is the usable
 	 * skillset level — the per-family entry points (agents, grid, auth,
 	 * connections, venue, discovery…), each revealing its family when loaded.
-	 * Not configured on the assistant: every tool a configured skill declares
-	 * is pre-declared in the manifest on every turn, and this library's come to
-	 * thirty kilobytes, so Brightside's tool-free {@code platform} skill reveals
-	 * it instead and a turn pays for it only when it wants it. {@link Odin}
-	 * configures it directly. (Pointing at bare {@code v/skills} would be
-	 * silently useless: it holds skillsets, not skills.)
+	 * Not configured on the assistant: Brightside's tool-free {@code platform}
+	 * skill reveals it, so the venue's entry points join the index only for a
+	 * turn that wants them and the assistant's own index stays about the
+	 * owner's tasks. {@link Odin} configures it directly. (Pointing at bare
+	 * {@code v/skills} would be silently useless: it holds skillsets, not
+	 * skills.)
 	 */
 	public static final String VENUE_SKILLSET = "v/skills/root";
 	private static final String MEMORY_OP = "v/ops/memory";

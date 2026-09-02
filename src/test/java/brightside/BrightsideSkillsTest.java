@@ -135,11 +135,10 @@ class BrightsideSkillsTest {
 	}
 
 	/**
-	 * Every tool a top-level skill declares is pre-declared, as a gated stub, in
-	 * the assistant's manifest on every turn; only a child's tools wait for a
-	 * load. Moltbook's sixteen operations and the web tools are deliberately on
-	 * children, and the venue's own library (agent creation, grants…) behind the
-	 * platform router, so the assistant's own palette must not carry them.
+	 * A skill's tools join the manifest only once it is loaded. Moltbook's
+	 * sixteen operations and the web tools are deliberately on children, and the
+	 * venue's own library (agent creation, grants…) behind the platform router,
+	 * so the assistant's own palette must not carry them.
 	 */
 	private static void heavyToolSetsStayBehindTheirRouters() throws Exception {
 		new ChatSession(client, new AppConfig.Chat("assistant", AppConfig.DEFAULT_OPERATION,
@@ -225,7 +224,7 @@ class BrightsideSkillsTest {
 		}
 	}
 
-	/** The operations behind every tool in an assembled context's palette, gated stubs included. */
+	/** The operations behind every tool in an assembled context's palette. */
 	private static Set<String> operationsOffered(ACell context) {
 		Set<String> offered = new HashSet<>();
 		if (RT.getIn(context, "palette", "tools") instanceof AVector<?> ts) {
