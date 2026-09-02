@@ -138,7 +138,8 @@ class BrightsideSkillsTest {
 	 * Every tool a top-level skill declares is pre-declared, as a gated stub, in
 	 * the assistant's manifest on every turn; only a child's tools wait for a
 	 * load. Moltbook's sixteen operations and the web tools are deliberately on
-	 * children, so the assistant's own palette must not carry them.
+	 * children, and the venue's own library (agent creation, grants…) behind the
+	 * platform router, so the assistant's own palette must not carry them.
 	 */
 	private static void heavyToolSetsStayBehindTheirRouters() throws Exception {
 		new ChatSession(client, new AppConfig.Chat("assistant", AppConfig.DEFAULT_OPERATION,
@@ -147,7 +148,8 @@ class BrightsideSkillsTest {
 		Set<String> offered = operationsOffered(context);
 		assertFalse(offered.isEmpty(), "the assistant's palette is reported");
 		for (String op : offered) {
-			assertFalse(op.startsWith("v/ops/moltbook/") || op.startsWith("v/ops/http/"),
+			assertFalse(op.startsWith("v/ops/moltbook/") || op.startsWith("v/ops/http/")
+				|| op.equals("v/ops/agent/create") || op.equals("v/ops/ucan/issue"),
 				"declared on every turn although only a child skill should carry it: " + op);
 		}
 	}

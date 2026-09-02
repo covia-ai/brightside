@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -18,6 +19,7 @@ import brightside.chat.ChatSession;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
+import convex.core.data.Maps;
 import convex.core.data.Strings;
 import convex.core.data.prim.CVMLong;
 import covia.api.Fields;
@@ -26,7 +28,8 @@ import covia.venue.Config;
 
 /**
  * The inspector's Skills tab data: every skill of every skillset the agent's
- * record names, read in-process, with a later namesake marked shadowed.
+ * record names, then the hierarchy those reveal, read in-process — with a
+ * later namesake marked shadowed and a child listed under its parent.
  */
 class SkillIndexTest {
 
@@ -53,53 +56,63 @@ class SkillIndexTest {
 	}
 
 	@Test
-	void listsEverySkillTheAgentCanDiscoverInSkillsetOrder() throws Exception {
+	void listsEverySkillTheAgentCanDiscoverThenWhatTheyReveal() throws Exception {
 		String did = Identity.of("skilled").userDID(venue.did());
 		Venue client = venue.clientAs(did);
 		new ChatSession(client, new AppConfig.Chat("skilled-agent", AppConfig.DEFAULT_OPERATION,
 			AppConfig.ECHO_LLM_OPERATION, "You are a test assistant."), "Skilled").ensureAgent();
+		// The user's own library comes first, so a skill of theirs shadows a shipped namesake.
+		client.invoke("v/ops/covia/write", Maps.of("path", "w/skills/coding",
+			"value", Maps.of("name", "coding", "description", "How this user likes code written.")))
+			.get(5, TimeUnit.SECONDS).future().get(5, TimeUnit.SECONDS);
 		ACell record = venue.agentRecord(did, "skilled-agent");
 
-		assertEquals(List.of(ChatSession.USER_SKILLSET, BrightsideSkillsAdapter.SKILLSET, ChatSession.VENUE_SKILLSET),
-			SkillIndex.skillsetsOf(record), "the record's skillsets, in the order the index searches them");
+		assertEquals(List.of(ChatSession.USER_SKILLSET, BrightsideSkillsAdapter.SKILLSET),
+			SkillIndex.skillsetsOf(record), "the venue's library is revealed by platform, not configured");
 
 		long jobsBefore = RecordedJobs.of(venue, did);
 		List<SkillIndex.Skill> skills = SkillIndex.of(venue, did, record);
 		assertEquals(jobsBefore, RecordedJobs.of(venue, did), "a lattice read: no job record");
 
-		SkillIndex.Skill moltbook = skills.stream()
-			.filter(s -> "moltbook".equals(s.name()) && BrightsideSkillsAdapter.SKILLSET.equals(s.skillset()))
-			.findFirst().orElseThrow(() -> new AssertionError("Brightside's moltbook skill is listed: " + skills));
-		assertEquals(BrightsideSkillsAdapter.SKILLSET + "/moltbook", moltbook.path());
-		// A router: no tools of its own, and the children it reveals — the ones
-		// whose tools wait for a load — are named, not listed at the top level.
+		// Configured skillsets first, in order; the index keeps the first name.
+		SkillIndex.Skill own = one(skills, "coding", ChatSession.USER_SKILLSET);
+		SkillIndex.Skill shipped = one(skills, "coding", BrightsideSkillsAdapter.SKILLSET);
+		assertFalse(own.shadowed());
+		assertTrue(shipped.shadowed());
+		assertTrue(skills.indexOf(own) < skills.indexOf(shipped), "skillset order is kept");
+
+		// A router: no tools of its own; the children it reveals are listed
+		// under the router's own path, after the configured skillsets, never at
+		// the top level.
+		SkillIndex.Skill moltbook = one(skills, "moltbook", BrightsideSkillsAdapter.SKILLSET);
 		assertTrue(moltbook.tools().isEmpty(), "a router grants nothing itself: " + moltbook.tools());
 		assertEquals(List.of(BrightsideSkillsAdapter.MOLTBOOK_ACTIVITY, BrightsideSkillsAdapter.MOLTBOOK_SETUP),
-			moltbook.children(), "what it reveals");
-		assertTrue(skills.stream().noneMatch(s -> "moltbook-activity".equals(s.name())),
-			"a child is not discoverable until its parent is loaded");
-		assertFalse(moltbook.shadowed());
-		assertTrue(moltbook.description() != null && !moltbook.description().isBlank());
+			moltbook.children());
+		SkillIndex.Skill activity = one(skills, "moltbook-activity", BrightsideSkillsAdapter.MOLTBOOK);
+		assertTrue(activity.tools().contains("v/ops/moltbook/home"), "the child carries the tools: " + activity.tools());
+		assertFalse(activity.shadowed());
+		assertTrue(skills.indexOf(activity) > skills.indexOf(moltbook));
+		assertTrue(skills.stream().noneMatch(s -> "moltbook-activity".equals(s.name())
+			&& BrightsideSkillsAdapter.SKILLSET.equals(s.skillset())));
 
-		// Children of both kinds are reported: the venue's entry points reveal
-		// whole skillsets, Brightside's routers individual skills.
-		SkillIndex.Skill agents = skills.stream()
-			.filter(s -> "agents".equals(s.name()) && ChatSession.VENUE_SKILLSET.equals(s.skillset()))
-			.findFirst().orElseThrow();
+		// The venue's library follows, reached through platform, and its entry
+		// points reveal their own families in turn.
+		SkillIndex.Skill platform = one(skills, "platform", BrightsideSkillsAdapter.SKILLSET);
+		assertEquals(List.of(ChatSession.VENUE_SKILLSET), platform.children());
+		SkillIndex.Skill agents = one(skills, "agents", ChatSession.VENUE_SKILLSET);
 		assertEquals(List.of("v/skills/agents"), agents.children());
+		assertFalse(one(skills, "tasks", "v/skills/agents").tools().isEmpty());
+		assertTrue(one(skills, "skills", ChatSession.VENUE_SKILLSET).shadowed(),
+			"Brightside's skills comes before the venue's");
+		assertTrue(skills.stream().noneMatch(s -> "agents".equals(s.name()) && !s.equals(agents)),
+			"the same skill at its family address is listed once, not as a shadow");
 
-		// Brightside's own "skills" comes before the venue's, so the venue's is shadowed — as the index dedups.
-		SkillIndex.Skill own = skills.stream()
-			.filter(s -> "skills".equals(s.name()) && BrightsideSkillsAdapter.SKILLSET.equals(s.skillset()))
-			.findFirst().orElseThrow();
-		SkillIndex.Skill venues = skills.stream()
-			.filter(s -> "skills".equals(s.name()) && ChatSession.VENUE_SKILLSET.equals(s.skillset()))
-			.findFirst().orElseThrow();
-		assertFalse(own.shadowed());
-		assertTrue(venues.shadowed());
-		assertTrue(skills.indexOf(own) < skills.indexOf(venues), "skillset order is kept");
+		// A reveal across libraries: research points at the venue's http skill.
+		assertTrue(one(skills, "http", "v/skills/ops-tools").tools().contains("v/ops/http/get"));
+	}
 
-		// The user's own skillset is empty for a fresh user and simply contributes nothing.
-		assertTrue(skills.stream().noneMatch(s -> ChatSession.USER_SKILLSET.equals(s.skillset())));
+	private static SkillIndex.Skill one(List<SkillIndex.Skill> skills, String name, String skillset) {
+		return skills.stream().filter(s -> name.equals(s.name()) && skillset.equals(s.skillset()))
+			.findFirst().orElseThrow(() -> new AssertionError(name + " under " + skillset + " is listed: " + skills));
 	}
 }

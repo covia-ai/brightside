@@ -63,12 +63,14 @@ public final class ChatSession {
 	public static final String USER_SKILLSET = "w/skills";
 	/**
 	 * The venue's shipped skill library. {@code v/skills/root} is the usable
-	 * skillset level — the per-family entry routers (ops-tools, data, agents,
-	 * and adapter integrations such as telegram/discord). Loading a router
-	 * reveals its family, so the always-on index stays small while the whole
-	 * library — and every tool the active adapters contribute — is reachable.
-	 * (Pointing at bare {@code v/skills} would be silently useless: it holds
-	 * skillsets, not skills.)
+	 * skillset level — the per-family entry points (agents, grid, auth,
+	 * connections, venue, discovery…), each revealing its family when loaded.
+	 * Not configured on the assistant: every tool a configured skill declares
+	 * is pre-declared in the manifest on every turn, and this library's come to
+	 * thirty kilobytes, so Brightside's tool-free {@code platform} skill reveals
+	 * it instead and a turn pays for it only when it wants it. {@link Odin}
+	 * configures it directly. (Pointing at bare {@code v/skills} would be
+	 * silently useless: it holds skillsets, not skills.)
 	 */
 	public static final String VENUE_SKILLSET = "v/skills/root";
 	private static final String MEMORY_OP = "v/ops/memory";
@@ -229,13 +231,13 @@ public final class ChatSession {
 			// skillset below is an explicit source, so lookup does not depend on Covia
 			// #415's unresolved operator-pin child expansion.
 			"skills", Vectors.empty(),
-			// Discovery surface: the user's own skills plus the venue's shipped
-			// library and Brightside's everyday-work skills. The agent loads only the
-			// body (and any tools) relevant to the current task.
+			// Discovery surface: the user's own skills plus Brightside's. The venue's
+			// library (VENUE_SKILLSET) is revealed by the platform skill, not
+			// configured — see the constant. The agent loads only the body (and any
+			// tools) relevant to the current task.
 			"skillsets", Vectors.of(
 				Strings.create(USER_SKILLSET),
-				Strings.create(BrightsideSkillsAdapter.SKILLSET),
-				Strings.create(VENUE_SKILLSET)));
+				Strings.create(BrightsideSkillsAdapter.SKILLSET)));
 		AMap<AString, ACell> input = Maps.of(Fields.AGENT_ID, config.agentId(), Fields.CONFIG, agentConfig);
 		if (status != null) {
 			// agent:update recursively merges nested maps. Replace the loads map in

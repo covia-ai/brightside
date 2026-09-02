@@ -42,6 +42,11 @@ import covia.venue.RequestContext;
  *   <li><b>tasks-scheduler-automation</b> — routes delegated work, reminders
  *       and repeatable workflows to Covia's task, scheduling and orchestration
  *       skills, and human decisions to Brightside's own <b>hitl</b>.</li>
+ *   <li><b>platform</b> — the venue's own skill library, {@code v/skills/root}
+ *       (agents, grid, auth, connections, venue, discovery, covia, workspace),
+ *       revealed by this tool-free router rather than configured on the agent,
+ *       so its thirty kilobytes of tool declarations are paid only by a turn
+ *       that wants them. {@link Odin} keeps the library configured directly.</li>
  *   <li><b>hitl</b> — when and how to ask the owner through the Inbox, and
  *       what they will see. Shadows Covia's skill of the same name in the
  *       index; grants the request, inbox-listing and job-status tools.</li>
@@ -126,6 +131,8 @@ public class BrightsideSkillsAdapter extends AAdapter {
 	public static final String CONVEX_LATTICE = HARNESS + "/convex-lattice";
 	/** On demand: routes tasks, schedules, automation and human checkpoints. */
 	public static final String TASKS_SCHEDULER_AUTOMATION = SKILLSET + "/tasks-scheduler-automation";
+	/** On demand: the venue's own skill library ({@code v/skills/root}), revealed rather than configured. */
+	public static final String PLATFORM = SKILLSET + "/platform";
 	/** Asking the owner through the Inbox; grants the request, inbox-listing and job-status tools. */
 	public static final String HITL = SKILLSET + "/hitl";
 	/** Asking Odin for administrator changes; grants the ask-odin and job tools. */
@@ -176,7 +183,7 @@ public class BrightsideSkillsAdapter extends AAdapter {
 			LATTICE, VAULT_DRIVES_FILES, VAULT, DLFS, FILES,
 			DIAGNOSTICS_AUDIT_LOGS, JOBS, SESSIONS, BRIGHTSIDE_LOGS,
 			HARNESS, COVIA_ENGINE, ETCH, CONVEX_LATTICE,
-			TASKS_SCHEDULER_AUTOMATION, HITL, ADMINISTRATION,
+			TASKS_SCHEDULER_AUTOMATION, PLATFORM, HITL, ADMINISTRATION,
 			CONVEX, CONVEX_ACCOUNTS, CONVEX_LISP, CONVEX_SMART_CONTRACTS, CONVEX_TRUST, CONVEX_CNS,
 			CONVEX_COSTS, CONVEX_SECURITY, CONVEX_CPOS, CONVEX_CAD3, CONVEX_PROTONET,
 			CONVEX_LATTICE_CHILD, CONVEX_ECOSYSTEM,

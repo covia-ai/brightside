@@ -302,9 +302,10 @@ public final class ContextInspector extends JPanel {
 		for (AgentContext.Load l : r.loads()) {
 			if (l.ref() != null) loaded.put(l.ref(), l);
 		}
-		list.note("Every skill in the agent's skillsets, in the order they are searched: the names and "
-			+ "descriptions the model's [Skills] index carries. A loaded skill's instructions are in the "
-			+ "context and its tools in the palette; the rest load on demand.");
+		list.note("Every skill in the agent's skillsets, in the order they are searched, then every skill "
+			+ "those would reveal once loaded, grouped by where it lives: the names and descriptions the "
+			+ "model's [Skills] index carries. A loaded skill's instructions are in the context and its "
+			+ "tools in the palette; the rest load on demand.");
 		String skillset = null;
 		for (SkillIndex.Skill s : skills) {
 			if (!s.skillset().equals(skillset)) {
@@ -327,7 +328,7 @@ public final class ContextInspector extends JPanel {
 				content.add(excerpt(String.join("\n", s.tools()), true, list));
 			}
 			if (!s.children().isEmpty()) {
-				content.add(caption("skillsets it reveals"));
+				content.add(caption("what it reveals"));
 				content.add(excerpt(String.join("\n", s.children()), true, list));
 			}
 			list.entry(EntryList.summary(s.name(), s.shadowed() ? Styles.MUTED : null, meta.toArray(String[]::new)),

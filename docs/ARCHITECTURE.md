@@ -243,16 +243,17 @@ Namespaces do the separating:
 | Namespace | Purpose | Written by |
 |---|---|---|
 | `v/skills/brightside/…` | Brightside's shipped skills | the adapter, at venue launch |
-| `v/skills/root` | the venue's own skill library | the venue |
+| `v/skills/root` | the venue's own skill library, revealed by the `platform` skill | the venue |
 | `w/skills` | the user's agent's own skills | the agent |
 | `w/skill-feedback/<id>` | append-only reports of concrete skill-system misses | the scoped feedback operation |
 | `n/…` | private scratch, including `n/memory` | the agent |
 
 **Discovery is broad; authority is deliberate.** No shipped skill is pinned by
-default. The agent's skillsets are
-`w/skills`, `v/skills/brightside` and `v/skills/root`, so it can see the user's,
-Brightside's and the venue's shipped libraries. Only read-only tools, memory and
-the path-constrained feedback reporter are always on. Tools declared by an
+default. The agent's skillsets are `w/skills` and `v/skills/brightside`, so it
+can see the user's and Brightside's libraries; the venue's own library,
+`v/skills/root`, is one load away behind the `platform` router (see the budget
+paragraph below for why). Only read-only tools, memory and the path-constrained
+feedback reporter are always on. Tools declared by an
 effective load reach the palette while that load is active, so Brightside keeps
 tool-granting skills out of the baseline and loads them on demand. Thus:
 
@@ -320,11 +321,13 @@ cost nothing until its parent is loaded: it is revealed then (the load result
 names it), and its tools arrive with its own load. So a top-level skill keeps
 only its judgement and the few tools an everyday ask needs, and heavy or niche
 tool sets live on children — Moltbook's sixteen operations on
-`moltbook-activity`, not on the `moltbook` router. Measured on the default
-assistant before that move, gated stubs were 59 KB of a 75 KB turn and
-Moltbook's alone 10 KB. Unloading a skill retracts only its tools and the
-children it revealed; its instructions stay in history, so no shipped body
-tells the agent to unload a tool-free router.
+`moltbook-activity`, not on the `moltbook` router — and the venue's own
+library, whose `agents` entry alone declares 20 KB of schemas, is revealed by
+the tool-free `platform` router rather than configured on the agent. Measured
+on the default assistant before those moves, gated stubs were 59 KB of a 75 KB
+turn, Moltbook's 10 KB of it and the venue library's 30 KB. Unloading a skill
+retracts only its tools and the children it revealed; its instructions stay in
+history, so no shipped body tells the agent to unload a tool-free router.
 
 Covia issue [#415](https://github.com/covia-ai/covia/issues/415) means a skill
 hand-pinned through `config.loads` does not currently contribute child sources
