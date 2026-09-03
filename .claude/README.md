@@ -9,6 +9,7 @@ What git keeps and ignores here (`../.gitignore`):
 | File | Tracked | Purpose |
 |---|---|---|
 | `README.md` | yes | this note |
+| `skills/*/SKILL.md` | yes | project skills for agents working here — `design-docs` maps the design documents and states the rules for changing them |
 | `settings.json` | yes, if present | project-wide Claude Code settings shared by everyone working on Brightside |
 | `settings.local.json` | no | one person's own permissions and overrides |
 | anything else | no | personal state |

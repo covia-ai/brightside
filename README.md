@@ -88,9 +88,9 @@ end to end.
 <details>
 <summary><b>Building against a local Covia checkout</b></summary>
 
-Brightside depends on the Covia `0.9.5` release, which resolves from Maven
-Central. To build against local checkouts instead — Covia depends on Convex, so
-Convex first:
+`covia.version` in `pom.xml` names the Covia line. A release resolves from
+Maven Central; a SNAPSHOT needs local checkouts installed — Covia depends on
+Convex, so Convex first:
 
 ```bash
 cd ../convex && mvn clean install -DskipTests
@@ -175,8 +175,9 @@ Namespaces do the separating: `v/skills/brightside/…` holds the skills
 Brightside ships, `w/skills` is where your agent writes its own, and `n/` is
 private scratch including memory. Only the venue writes `v/`.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the project layout and the
-design rules behind it, [docs/DESIGN.md](docs/DESIGN.md) for the product
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the shape and the
+decisions behind it, [docs/SKILLS.md](docs/SKILLS.md) for how the assistant
+gets its abilities, [docs/DESIGN.md](docs/DESIGN.md) for the product
 principles, and [docs/NETWORK.md](docs/NETWORK.md) for where this is going once
 venues meet other venues.
 
@@ -214,8 +215,7 @@ comments — and **every key in it is optional**:
   "venue": { "name": "Brightside Venue", "port": 8085 },
   "chat": {
     "agentId": "Brightside",
-    "llmOperation": "v/models/anthropic/claude-sonnet-5",
-    "timeout": 120
+    "llmOperation": "v/models/anthropic/claude-sonnet-5"
   }
 }
 ```
@@ -236,11 +236,11 @@ Covia-hosted dependency. The venue binds to `127.0.0.1`. The only outbound
 traffic is the model call you configured, to the provider whose key you gave it.
 
 **Where is my data?** `~/.brightside/` — `venue.etch` (the encrypted lattice
-store, which holds conversations, memory and skills), `identity.enc` (the
-encrypted venue identity), `keys.enc` (encrypted provider credentials),
-`identity.json` (your name), `config.json` and `logs/`. Back the whole folder up;
-delete the whole folder to start over completely. Brightside never creates a
-plaintext `venue.key`.
+store, which holds conversations, memory, skills and your provider keys),
+`identity.enc` (the encrypted venue identity), `identity.json` (your name),
+`config.json` and `logs/`. Back the whole folder up; delete the whole folder to
+start over completely. Brightside never creates a plaintext `venue.key`; the
+full list is in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 
 **Can it run fully offline?** The app, the venue, your memory and your skills
 are all local and work with no network. The *model* is the exception: point

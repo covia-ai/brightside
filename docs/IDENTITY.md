@@ -1,110 +1,89 @@
 # Identity
 
-Three principals, one key. Brightside has exactly one secret — a 32-byte
-Ed25519 seed — and everything that can act, own or be addressed is named
+Three principals, one key. Brightside has exactly one secret, a 32-byte
+Ed25519 seed, and everything that can act, own or be addressed is named
 relative to it.
+
+- **The venue** is the seed's `did:key`: it signs tokens, owns the store's
+  encryption key, and is what other venues will know Brightside by.
+- **The owner** is a user of that venue, `<venueDID>:u:<slug>`, with no key of
+  its own: the venue signs for it, and the chat acts as it so every turn is
+  attributed to the owner rather than to "the operator".
+- **An agent** is a sub-principal of its owner, `<userDID>:g:<agentId>`,
+  bounded by its capabilities, never by its name.
+- **The slug is fixed once chosen.** Renaming yourself changes the display
+  name only; it never switches you to a different, empty agent.
 
 | Principal | Form | Key | State |
 |---|---|---|---|
 | Venue | `did:key:z6Mk…` | the identity seed | `venue.etch`; the `v/` catalogue |
 | User (the owner) | `<venueDID>:u:<slug>` | none — the venue signs for it | `w/`, `g/`, `s/`, `h/` under the user |
 | Agent | `<userDID>:g:<agentId>` | none — acts under the owner, capability-scoped | `<userDID>/g/<agentId>`; `n/` while it runs |
-| Anonymous | `<venueDID>:public` | none | — (public access is off by default) |
+| Anonymous | `<venueDID>:public` | none | none; public access is off by default |
 
 ## Venue identity
 
 The seed comes from the BIP39 recovery phrase chosen or imported at onboarding
-(`Mnemonic`; key hierarchy in [SECURITY.md](SECURITY.md)). It is the venue's
-signing key, and the venue's DID is the `did:key` of its public key — Brightside
-binds to loopback, so there is no `did:web` alias. The DID is fixed the moment
-the seed exists; the recovery phrase reproduces it on any machine.
-
-What the venue key does:
-
-- signs the bearer tokens the venue trusts — the ones *Settings → Auth* mints,
-  and the one a newly launched instance uses to take over ([LAUNCH.md](LAUNCH.md));
-- identifies the venue to other venues, which is the basis of everything in
-  [NETWORK.md](NETWORK.md);
-- derives, through a domain-separated hash, the key that encrypts the store.
-
-It is also a Convex-capable key — the same curve a Convex account uses — but
-Brightside does not yet create or link a Convex account to it; the wallet-grade
-adapter is [covia#433](https://github.com/covia-ai/covia/issues/433).
+(key hierarchy in [SECURITY.md](SECURITY.md)). The venue's DID is the
+`did:key` of its public key, fixed the moment the seed exists and reproduced by
+the phrase on any machine; Brightside binds to loopback, so there is no
+`did:web` alias. The venue key signs the bearer tokens the venue trusts,
+identifies the venue to other venues ([NETWORK.md](NETWORK.md)), and derives
+the key that encrypts the store. It is Convex-capable, but Brightside does not
+yet create or link a Convex account to it.
 
 ## User identity
 
-The owner picks a **name**. Two forms are kept apart (`Identity`):
+The owner picks a **name**. `Identity` keeps two forms apart: the display
+name exactly as typed, which the UI shows and the assistant says; and the
+slug, a lower-case DID-safe label used only to form the principal.
+`identity.json` holds name, slug and the full DID. The DID is pinned when the
+home venue first launches and must equal `<runningVenueDID>:u:<slug>` on every
+later launch, so a copied or edited profile cannot quietly move the UI to
+another principal.
 
-- the *display name*, exactly as typed (`Mike`) — what the UI shows and the
-  assistant says;
-- the *slug*, a lower-case DID-safe label (`mike`) — used only to form the
-  principal `<venueDID>:u:mike`.
+The user has no key: the owner-controlled venue key is its signing authority.
+Off-process tools act as the user with a venue-signed token whose subject is
+the user DID ([CONFIGURATION.md](CONFIGURATION.md)). Model API keys are kept
+per user in the venue's encrypted secret stores, so each user's agents resolve
+that user's key. *Settings → Identity* shows the name, the user DID, the home
+venue DID, the venue's public key and, behind the passphrase, the seed; the
+identicons beside them derive from the venue's public key and are a comparison
+aid, not a substitute for checking the value.
 
-The principal is what the chat window acts as, so that Covia attributes every
-turn to the agent's *owner* rather than to "the venue operator". Because the
-user is not the venue, model API keys must sit in the venue's `secrets.public`
-store, which is what a user-scoped secret lookup falls back to.
-
-`identity.json` holds `name`, `slug` and the full `did`. The DID is pinned when
-the home venue first launches and must equal `<runningVenueDID>:u:<slug>` on
-every later launch, so a copied or edited profile cannot quietly move the UI to
-another principal. **The slug is fixed once chosen; only the display name
-changes** — renaming yourself must never switch you to a different, empty
-agent.
-
-The user has no key of its own: the owner-controlled venue key is its signing
-authority. One gap follows from the venue being a `did:key`: Covia's
-root-authority policy only lets a venue mint UCAN grants for users under a
-`did:web` namespace, so approving an Inbox request that *offers a grant* fails
-until [covia#440](https://github.com/covia-ai/covia/issues/440) lands; answers
-without a grant are unaffected. Off-process tools act as the user with a venue-signed token whose
-`sub` is the user DID ([CONFIGURATION.md](CONFIGURATION.md)). *Settings →
-Identity* shows the name, the user DID, the home venue DID, the venue's public
-key and — behind the passphrase — the primary seed; the identicons beside them
-are all derived from the venue's public key and are a comparison aid, not a
-substitute for checking the value.
-
-Two limits, both on the roadmap: the recovery phrase reproduces the venue but
-not the `:u:` suffix, so `identity.json` travels with vault backups; and one
-venue currently serves one owner ([#3](https://github.com/covia-ai/brightside/issues/3)).
-
-**Switching user.** *Settings → Identity → Switch user* switches the app
-from the named user to the venue principal itself, for the session only: the
-agents pane then lists the venue's own agents ([Odin](ODIN.md) first), the chat
-talks to them, the Inbox is the venue's, and the Identity page shows the
-venue's DID as the acting principal. The operator has a display name of its
-own — *Operator* until you change it under *Your name* while acting as it —
-kept in `identity.json` as `operator`. It is a label only: the operator is the
-venue itself and has no slug or user DID. Everyday use is as the user; each
-launch starts there.
+**Switching user.** *Settings → Identity → Switch user* switches the app to
+the venue principal itself for the session: the agents pane lists the venue's
+own agents with [Odin](ODIN.md) first, the chat talks to them and the Inbox is
+the venue's. The operator has a display name of its own, kept in
+`identity.json` as `operator`; it is a label only, since the operator is the
+venue itself and has no slug or user DID. Every launch starts as the user.
 
 ## Agent identity
 
-An agent is a sub-principal of its owner (Covia `Principals`):
-`<userDID>:g:<agentId>`, the same `g` namespace its record lives in,
-`<userDID>/g/<agentId>`. A bare path in the agent's configuration — `w/skills`,
-`n/memory` — still means the *owner's* namespace: the DID says who acted, not
-whose data a path names.
+An agent is `<userDID>:g:<agentId>`, the same `g` namespace its record lives
+in. A bare path in its configuration, `w/skills` or `n/memory`, still means
+the owner's namespace: the DID says who acted, not whose data a path names.
 
-In Brightside the default agent's id is `Brightside` (`chat.agentId` in
-`config.json`). A new agent's id is the name the owner typed, case kept, with
-anything a path cannot carry turned into `-` (`Research helper` →
-`Research-helper`); it never changes. The display name is the id exactly,
-unless the record sets an explicit `config.name`. The list shows the default
-agent first and the rest by id. Right-click an agent for its info screen — id,
-DID, status, model, instructions, capabilities — or to delete it outright
-(record, conversations and memory); the default agent cannot be deleted.
+The default agent is `Brightside` (`chat.agentId`). A new agent's id is the
+name the owner typed, with anything a path cannot carry turned into `-`, and it
+never changes; the display name is the id unless the record sets one. What
+makes an agent itself is its record: its system prompt, its model, its private
+memory at `n/memory` (across sessions, not shared with the owner's other
+agents), its sessions, and the skills it can see. Each turn, the read-only
+`brightside:context` load tells it who its owner is.
 
-What makes an agent *itself* is its record: the system prompt (its name and
-role, from a template), its model, its private memory at `n/memory` — which
-survives across sessions but is not shared with the owner's other agents — its
-sessions, and the skills it can see: its owner's `w/skills` (shared across the
-owner's agents) plus the shipped libraries. Each turn, the read-only
-`brightside:context` load tells it who its owner is by name and DID.
+An agent has no key and cannot sign for itself or hold funds. Authority is
+delegated to it with a UCAN whose audience is the agent DID. Per-agent keys and
+accounts, agents as economic actors, are the direction in
+[NETWORK.md](NETWORK.md).
 
-An agent has no key. It acts under the owner's authority, narrowed by its
-capability scope — an agent is bounded by its caps, never by its name.
-Authority is delegated *to* an agent with a UCAN whose audience is the agent
-DID (Covia `UCAN.md`); it cannot sign for itself or hold funds. Per-agent keys
-and accounts — agents as economic actors — are the direction in
-[NETWORK.md](NETWORK.md) and covia#433.
+## Known limits
+
+- The recovery phrase reproduces the venue but not the `:u:` suffix, so
+  `identity.json` travels with vault backups.
+- One venue serves one owner
+  ([brightside#3](https://github.com/covia-ai/brightside/issues/3)).
+- A `did:key` venue cannot yet mint UCAN grants for its own users, so an Inbox
+  answer that offers a grant fails until
+  [covia#440](https://github.com/covia-ai/covia/issues/440) lands; answers
+  without a grant are unaffected.

@@ -1,42 +1,42 @@
-# Brightside security and vault recovery
+# Security and vault recovery
 
-This document describes the security properties of the current Brightside
-implementation. It is intended for reviewers, operators and anyone testing
-whether an installation can be recovered. It is not a claim that the host
-computer, Java process, model provider or user-installed skills are trusted in
-all circumstances.
+The security properties of Brightside as implemented, for reviewers,
+operators and anyone testing whether an installation can be recovered. It is
+not a claim that the host computer, the Java process, the model provider or
+user-installed skills are trusted in all circumstances.
 
-The implementation entry points are
-[`Vault`](../src/main/java/brightside/vault/Vault.java),
-[`Mnemonic`](../src/main/java/brightside/vault/Mnemonic.java) and the
-[`BrightSide` recovery flow](../src/main/java/brightside/BrightSide.java).
-The user-facing flow is described separately in [ONBOARDING.md](ONBOARDING.md).
+- **One secret.** A 32-byte Ed25519 seed is both the venue's signing identity
+  and, through a domain-separated hash, the key that opens the store.
+- **The recovery invariant.** Recovery phrase plus the retained store equals
+  the same identity and the same conversations, memory, skills and secrets.
+  The phrase reproduces the seed; the passphrase does not.
+- **Nothing sensitive is plaintext at rest**, except a passphrase the owner
+  explicitly chose to remember.
+- **Loopback only, authenticated only.** The venue binds to `127.0.0.1` with
+  anonymous access off; the only outbound traffic is the model call the owner
+  asked for.
+- **The UI is a separate principal.** The chat acts as the owner's user, and
+  Covia's capability checks are the boundary between principals.
+
+The implementation is `Vault`, `Mnemonic` and the recovery flow in
+`BrightSide`; the person-facing flow is [ONBOARDING.md](ONBOARDING.md); the
+files are listed in [CONFIGURATION.md](CONFIGURATION.md).
 
 ## The recovery invariant
 
-Brightside has one primary cryptographic secret: a **32-byte Ed25519 seed**.
-It has two independent uses:
-
-1. it creates the venue's Ed25519 key pair, key-derived DID and signing
-   authority, including venue-signed access tokens; and
-2. it deterministically derives the master key which opens `venue.etch`.
-
-The BIP39 recovery phrase deterministically reproduces that same seed. The
-login passphrase does not. Therefore:
+The seed has two independent uses: it creates the venue's Ed25519 key pair,
+its `did:key` and its signing authority, including the access tokens the venue
+trusts; and it deterministically derives the master key that opens
+`venue.etch`. The BIP39 recovery phrase reproduces that seed. Therefore:
 
 > **Recovery phrase + retained `venue.etch` = the same venue identity and the
-> same conversations, memory, skills and other lattice state.**
+> same lattice state.**
 
-The phrase cannot recreate data if `venue.etch` has been lost. Conversely, a
-copy of `venue.etch` cannot be decrypted without the primary seed (normally
-obtained from the phrase or from `identity.enc` plus its passphrase and salt).
-Provider API credentials protected by a forgotten passphrase are not part of
-the phrase-recovery promise and should be re-entered afterwards.
-
-The old `vault.salt` is **not** required when the recovery phrase is available:
-Brightside can create a new salt and wrap the recovered seed under a new
-passphrase. The salt is required to unlock the existing `identity.enc` with the
-old passphrase.
+The phrase cannot recreate data if the store has been lost, and a copy of the
+store cannot be decrypted without the seed. The salt is not needed when the
+phrase is available: Brightside creates a new salt and wraps the recovered seed
+under a new passphrase. The salt is needed to unlock the existing identity
+envelope with the old passphrase.
 
 ## Key hierarchy
 
@@ -69,262 +69,190 @@ login passphrase + vault.salt
                                       └─ AES-256-GCM ──► keys.enc (onboarding key staging)
 ```
 
-New installations generate 12 words. The import and recovery UI also accepts a
-valid 24-word BIP39 phrase. Brightside uses the empty optional BIP39 passphrase;
-there is no additional BIP39 "25th word" to remember. The recovery phrase is
-therefore a bearer-equivalent master secret and should be backed up offline.
-
-The raw 32-byte seed is available from **Settings → Identity** for development
-and interoperability. Revealing it requires the vault
-passphrase. The seed is sufficient to reproduce the signing identity and Etch
-master key, but it cannot be converted back into the original BIP39 phrase.
+New installations generate twelve words; import and recovery also accept a
+valid twenty-four-word phrase. The BIP39 passphrase is empty, so there is no
+"25th word". The recovery phrase is a bearer-equivalent master secret and
+belongs offline. The raw seed can be revealed under *Settings → Identity*
+behind the vault passphrase; it reproduces the identity and the store key but
+cannot be turned back into the phrase.
 
 ## Algorithms and parameters
 
-| Purpose | Current construction | External specification |
+| Purpose | Construction | Specification |
 |---|---|---|
-| Recovery words | BIP39 English mnemonic; 12 words generated by default from Java `SecureRandom` | [BIP-0039](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) |
-| Phrase to BIP39 seed | PBKDF2-HMAC-SHA-512, 2,048 iterations, salt `"mnemonic"` because the optional BIP39 passphrase is empty, 64-byte output | [BIP-0039](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) |
-| BIP39 seed to primary seed | SLIP-0010 Ed25519 master derivation: HMAC-SHA-512 keyed by `"ed25519 seed"`, empty derivation path, left 32 bytes | [SLIP-0010](https://github.com/satoshilabs/slips/blob/master/slip-0010.md) |
-| Venue identity and signatures | Ed25519 from the primary 32-byte seed | [RFC 8032](https://www.rfc-editor.org/rfc/rfc8032) |
-| Venue access tokens | JWT/JWS signed with Ed25519 (`EdDSA`); `iss`, `sub` and `aud` are the venue DID, with `iat` and `exp` | [RFC 7519](https://www.rfc-editor.org/rfc/rfc7519), [RFC 8037](https://www.rfc-editor.org/rfc/rfc8037), [RFC 8725](https://www.rfc-editor.org/rfc/rfc8725) |
-| Passphrase hardening | Argon2id v1.3; 64 MiB memory, 3 iterations, parallelism 1, 16-byte random salt, 32-byte output | [RFC 9106](https://www.rfc-editor.org/rfc/rfc9106) |
-| Seed and provider-key envelopes | AES-256-GCM; fresh 96-bit random nonce, 128-bit tag, no associated data; stored as `nonce || ciphertext || tag` | [NIST SP 800-38D](https://csrc.nist.gov/pubs/sp/800/38/d/final) |
-| Brightside Etch master key | `SHA-256(UTF8("brightside-etch-v1") || primarySeed)` | [NIST FIPS 180-4](https://csrc.nist.gov/pubs/fips/180-4/upd1/final) |
-| Etch file subkeys | HKDF-SHA-256 with Etch's 32-byte per-file salt and separate file-cipher/header-MAC contexts | [RFC 5869](https://www.rfc-editor.org/rfc/rfc5869) |
-| Etch data confidentiality | 20-round ChaCha20 random-access file overlay with a 256-bit derived file key | [RFC 8439](https://www.rfc-editor.org/rfc/rfc8439) |
-| Etch header authenticity | HMAC-SHA-256 over each of two v3 header copies with a separately derived key | [RFC 2104](https://www.rfc-editor.org/rfc/rfc2104) |
-| Lattice value identity | Canonical CAD3 encodings and SHA3-256 content identifiers form a Merkle DAG | [CAD003](https://docs.convex.world/docs/cad/encoding) |
+| Recovery words | BIP39 English mnemonic; 12 words by default, from `SecureRandom` | [BIP-0039](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) |
+| Phrase to BIP39 seed | PBKDF2-HMAC-SHA-512, 2,048 iterations, salt `"mnemonic"`, 64-byte output | [BIP-0039](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) |
+| BIP39 seed to primary seed | SLIP-0010 Ed25519 master derivation, empty path, left 32 bytes | [SLIP-0010](https://github.com/satoshilabs/slips/blob/master/slip-0010.md) |
+| Venue identity and signatures | Ed25519 from the primary seed | [RFC 8032](https://www.rfc-editor.org/rfc/rfc8032) |
+| Venue access tokens | JWT/JWS signed with Ed25519 (`EdDSA`); `iss`, `sub`, `aud`, `iat`, `exp` | [RFC 7519](https://www.rfc-editor.org/rfc/rfc7519), [RFC 8037](https://www.rfc-editor.org/rfc/rfc8037), [RFC 8725](https://www.rfc-editor.org/rfc/rfc8725) |
+| Passphrase hardening | Argon2id v1.3; 64 MiB, 3 iterations, parallelism 1, 16-byte random salt, 32-byte output | [RFC 9106](https://www.rfc-editor.org/rfc/rfc9106) |
+| Seed and key-staging envelopes | AES-256-GCM; fresh 96-bit nonce, 128-bit tag, no associated data; `nonce ‖ ciphertext ‖ tag` | [NIST SP 800-38D](https://csrc.nist.gov/pubs/sp/800/38/d/final) |
+| Etch master key | `SHA-256(UTF8("brightside-etch-v1") ‖ primarySeed)` | [FIPS 180-4](https://csrc.nist.gov/pubs/fips/180-4/upd1/final) |
+| Etch file subkeys | HKDF-SHA-256 with Etch's per-file salt and separate cipher and MAC contexts | [RFC 5869](https://www.rfc-editor.org/rfc/rfc5869) |
+| Etch data confidentiality | ChaCha20 random-access overlay with a 256-bit derived file key | [RFC 8439](https://www.rfc-editor.org/rfc/rfc8439) |
+| Etch header authenticity | HMAC-SHA-256 over each of two v3 header copies | [RFC 2104](https://www.rfc-editor.org/rfc/rfc2104) |
+| Lattice value identity | Canonical CAD3 encodings and SHA3-256 content identifiers, a Merkle DAG | [CAD003](https://docs.convex.world/docs/cad/encoding) |
 
-Brightside currently pins Bouncy Castle 1.85 for Argon2id. AES-GCM and
-`SecureRandom` use the Java Cryptography Architecture; BIP39, SLIP-0010,
-Ed25519 and Etch come through the Covia/Convex runtime. Dependency versions are
-declared in [`pom.xml`](../pom.xml).
-
-The SHA-256 Brightside derivation is used only with a uniformly generated
-32-byte seed; it is not a password KDF. Etch then performs its own
-domain-separated HKDF derivations. The implementation-level Etch details are in
-[`EtchKeyDerivation`](https://github.com/Convex-Dev/convex/blob/develop/convex-core/src/main/java/convex/etch/EtchKeyDerivation.java),
-[`ChaCha20EtchCipher`](https://github.com/Convex-Dev/convex/blob/develop/convex-core/src/main/java/convex/etch/ChaCha20EtchCipher.java) and
-[`EtchV3Header`](https://github.com/Convex-Dev/convex/blob/develop/convex-core/src/main/java/convex/etch/EtchV3Header.java).
+Argon2id comes from Bouncy Castle; AES-GCM and `SecureRandom` from the Java
+Cryptography Architecture; BIP39, SLIP-0010, Ed25519 and Etch from the
+Covia/Convex runtime. Versions are in `pom.xml`. The SHA-256 derivation is
+used only with a uniformly random seed and is not a password KDF; Etch then
+performs its own domain-separated HKDF derivations.
 
 ### Etch confidentiality and integrity boundary
 
-Brightside requests Etch v3 with `cipher: "chacha20"`. It does not currently
-request `encryptIndex: true`, so the root radix index and file-layout metadata
-remain plaintext. Data records, including their content-address keys and CAD3
-encodings, pass through the ChaCha20 overlay. File size and access-independent
-layout information are therefore visible to someone who copies the file.
+Brightside requests Etch v3 with the ChaCha20 cipher and does not encrypt the
+index, so the root radix index and file-layout metadata are plaintext; data
+records, including their content-address keys and encodings, are encrypted.
+File size and layout are therefore visible to someone who copies the file.
 
-Etch v3 is not a whole-file AEAD container. Its dual-copy header, including the
-root hash and clean-close state, is authenticated with HMAC-SHA-256. ChaCha20
-provides confidentiality for the body but not a per-record authentication tag.
-CAD3 supplies content-addressed logical values and a Merkle structure, but it
-should not be treated as an AEAD tag over every physical file byte. Backups are
-still required for corruption, malicious modification and storage failure.
+Etch v3 is not a whole-file AEAD container. Its dual-copy header, including
+the root hash and clean-close state, is authenticated; ChaCha20 gives the body
+confidentiality but not a per-record authentication tag, and CAD3's Merkle
+structure is not an AEAD tag over every physical byte. Backups are still
+required against corruption, malicious modification and storage failure.
 
-For a newly created file, Covia also stamps a non-secret public-key hint derived
-from the Etch master key into the header. A wrong configured key normally fails
-that identity check first; Etch then HMAC-verifies the selected header with the
-derived header key. A wrong primary seed therefore fails before the venue
-starts. Brightside uses that property to validate a candidate recovery phrase
-before replacing credentials.
+A new file carries a non-secret hint derived from the Etch master key, and a
+wrong key fails that check before the header is verified, so a wrong seed
+fails before the venue starts. Brightside uses that property to validate a
+candidate recovery phrase before replacing any credential.
 
 ## Files and their recovery role
 
-The data home is the directory containing `config.json`; it defaults to
-`~/.brightside/`. A custom configuration path creates a custom data home for the
-vault files and rolling logs.
+The data home is the directory holding `config.json`, by default
+`~/.brightside/`. The full listing is in
+[CONFIGURATION.md](CONFIGURATION.md); what matters for recovery:
 
-| Path | Contents and protection | Recovery significance |
+| Path | Protection | Recovery significance |
 |---|---|---|
-| `venue.etch` | Etch v3 lattice store. Data records are ChaCha20-encrypted under the seed-derived key; see the integrity boundary above. | **Required to recover conversations, memory, skills, agents and other retained state.** |
-| `identity.enc` | The primary 32-byte seed, AES-256-GCM-wrapped by the passphrase key. | With `vault.salt` and the correct passphrase, recovers the primary seed. Replaceable from the recovery phrase. |
-| `vault.salt` | 16 random bytes used by Argon2id. It is deliberately non-secret and never silently replaced when malformed. | Required for old-passphrase unlock; not required for phrase-based recovery. Back it up anyway. |
-| `keys.enc` | Transient staging for an onboarding API key, AES-256-GCM-wrapped by the passphrase key; moved into the venue's encrypted secret stores and deleted at first launch. | Normally absent. Provider keys live in the stores inside `venue.etch` and recover with it. |
-| `unlock.passphrase` | Optional remembered passphrase, stored deliberately as UTF-8 plaintext after explicit user opt-in. | Anyone who obtains it can unlock the vault. Rely on OS-account and filesystem protection, exclude it from ordinary vault backups, and clear it before transferring the data home. Cleared during recovery. |
-| `identity.json` | Plaintext display name, stable user slug and full Covia user DID. The DID selects `<venueDID>:u:<slug>`, where that user's agents and memory live, and is pinned against the running venue identity. | **Back this up.** The seed still opens the store without it, but the recovery phrase alone does not reconstruct the previous user suffix automatically. |
-| `config.json` | Plaintext application and venue configuration, including the store path and security-relevant overrides. No Brightside-managed secret is written here. | Back up when the data home or store path is customised. |
-| `model.txt`, `prefs.properties` | Plaintext model choice and UI preferences. | Optional convenience state. |
-| `skills/` | Plaintext filesystem skills imported into the encrypted lattice store. | Back up if the source files themselves matter. Treat third-party skill instructions and tools as executable authority. |
-| `files/` | Host files explicitly managed by Brightside through its confined writable file root. | Back up when these owner-created files matter; they are outside the encrypted Etch store. |
-| `logs/` | Plaintext operational logs, rotated at 10 MiB with seven-day/100 MiB caps. | Not required for recovery; may contain operational metadata and error details. |
+| `venue.etch` | ChaCha20 under the seed-derived key; see the boundary above | **Required** to recover conversations, memory, skills, agents and the secret stores |
+| `identity.enc` | the seed, AES-GCM under the passphrase key | With `vault.salt` and the passphrase, recovers the seed. Replaceable from the phrase |
+| `vault.salt` | non-secret, never silently replaced | Needed for old-passphrase unlock; not for phrase recovery. Back it up anyway |
+| `keys.enc` | transient onboarding key staging, AES-GCM | Normally absent; provider keys live in the stores inside `venue.etch` |
+| `unlock.passphrase` | **plaintext**, after explicit opt-in | Anyone who reads it can unlock the vault. Exclude from ordinary backups; cleared on recovery |
+| `identity.json` | plaintext name, slug and user DID | **Back it up**: the phrase reproduces the venue, not the user suffix |
+| `config.json`, `model.txt`, `prefs.properties` | plaintext, no secrets | Back up when customised |
+| `skills/`, `files/` | plaintext, the owner's own | Outside the encrypted store; back up if they matter. Treat third-party skills as executable authority |
+| `logs/` | plaintext, rotated | Not needed; may contain operational detail |
 
-There is no plaintext `venue.key` and there is no supported plaintext legacy
-mode. The seed and derived Etch key are inserted into the venue configuration
-in memory immediately before launch; they are not written to `config.json`.
-Sensitive files are changed to mode `0600` on POSIX filesystems where supported.
-On Windows they inherit the user's directory ACL. `venue.etch` itself inherits
-the data directory's filesystem permissions.
+Sensitive files are set to mode `0600` where the filesystem supports it; on
+Windows they inherit the user's directory ACL. The seed and derived store key
+enter the venue configuration in memory just before launch and are never
+written to `config.json`; there is no plaintext `venue.key` and no plaintext
+legacy mode.
 
 ## Recovery procedure
 
-### What to back up
+**What to back up.** The recovery phrase, offline and apart from the computer;
+and consistent backups of the whole data home, above all `venue.etch` and
+`identity.json`. Quit Brightside before copying so the store records a clean
+close. Keep the original until the recovered installation is verified.
+Recording the non-secret venue DID and public key beside the backup gives an
+independent fingerprint to compare afterwards; the identicons on the Identity
+page are a quick visual aid, and a reviewer compares the full value.
 
-For disaster recovery, keep both:
+**Forgotten passphrase.** From the unlock screen, choose *Forgot passphrase?*,
+enter the phrase and a new passphrase. Brightside then:
 
-1. the BIP39 recovery phrase offline, separate from the computer; and
-2. consistent backups of the complete data home, especially `venue.etch` and
-   `identity.json`.
+1. normalises and checksum-validates the words;
+2. derives the candidate seed through BIP39 and SLIP-0010, and the candidate
+   Etch master key;
+3. if a store exists and is not open, opens it far enough to check the key
+   identity and authenticate the header; if the venue is running, compares the
+   candidate with the in-memory seed;
+4. only then deletes any staged key file, clears the remembered passphrase and
+   writes the recovered seed into a new `identity.enc`;
+5. launches the venue with the recovered seed and reopens the store.
 
-Quit Brightside before copying the data home so that Etch records a clean close
-and all lattice state is flushed. Preserve the original backup until the
-recovered installation has been verified. Recording the non-secret venue DID
-and Ed25519 public key alongside the backup gives the reviewer an independent
-identity fingerprint to compare after recovery.
+Without a store, step 3 has nothing to validate and recovery restores the
+identity only. A valid but unrelated phrase is rejected when a store is
+present because it cannot authenticate the header. Afterwards, verify the DID
+and public key, look at conversations and memory, and confirm the expected
+slug is in use. Provider keys reopen with the store; nothing to re-enter.
 
-The Identity page renders DIDs, public keys and the primary seed in selectable,
-monospaced fields with explicit copy controls. Its DID, public-key and primary-
-seed rows also show the canonical Convex 7x7 identicon generated from the
-venue's Ed25519 public key. The named user and primary seed are tied to that same
-key, so those rows intentionally share an icon; the secret itself is never used
-as identicon input. An identicon is only a quick visual comparison aid: reviewers
-must compare the complete DID or public-key value for authentication.
+**Recovery matrix.**
 
-### Forgotten-passphrase recovery
-
-From the unlock screen, choose **Forgot passphrase?**, enter the recovery phrase
-and choose a new passphrase of at least eight characters. Brightside then:
-
-1. normalises and checksum-validates the BIP39 words;
-2. derives the candidate primary Ed25519 seed through BIP39 and SLIP-0010;
-3. derives the candidate Etch master key;
-4. if `venue.etch` exists and is not already open, opens it far enough to check
-   its Etch key identity and authenticate the v3 header; if the venue is already
-   running, compares the candidate seed with the in-memory running seed;
-5. only after that check succeeds, deletes the old `keys.enc`, clears
-   `unlock.passphrase`, and AES-GCM-wraps the recovered seed into a new `identity.enc`;
-6. launches the venue with the recovered seed and reopens the existing store.
-
-If no `venue.etch` exists, step 4 has no retained data to validate and recovery
-restores the identity only. A valid but unrelated BIP39 phrase will be rejected
-when a retained store is present because it cannot authenticate the Etch header.
-
-After recovery, verify the venue DID/public key, inspect conversations and
-memory, and confirm that the expected `identity.json` slug is in use. Provider
-API keys live in the venue's secret stores and reopen with the store — nothing
-to re-enter. The current rewrite is not transactional: it removes
-`keys.enc` before rewriting `identity.enc`, and the encrypted envelope files are
-overwritten in place. This is why an untouched backup should be kept until the
-procedure succeeds. A failed rewrite does not invalidate the recovery phrase or
-the seed-derived Etch key, so recovery can be retried against the retained store.
-
-### Recovery matrix
-
-| Material retained | Identity/signing authority | Lattice data | Provider API keys |
+| Material retained | Identity | Lattice data | Provider keys |
 |---|---|---|---|
-| Complete data home + correct passphrase | Yes | Yes | Yes |
-| `venue.etch` + recovery phrase + `identity.json` | Yes; a new `identity.enc` and salt can be created | Yes | Yes — the secret stores reopen with the store |
-| `venue.etch` + raw primary seed | Yes, using Advanced/standard Convex tooling | Yes | Yes — the secret stores reopen with the store |
-| Recovery phrase only | Yes; same Ed25519 seed and venue identity | No; an empty store can be created | No |
-| `identity.enc` + `vault.salt` + correct passphrase, but no store | Yes | No | No — the stores live in `venue.etch` |
-| `venue.etch` without phrase, raw seed, or unlockable `identity.enc` | No | No | No |
+| Whole data home + passphrase | Yes | Yes | Yes |
+| `venue.etch` + phrase + `identity.json` | Yes; new envelope and salt are made | Yes | Yes |
+| `venue.etch` + raw seed | Yes, with Convex tooling | Yes | Yes |
+| Phrase only | Yes; same seed and venue identity | No; an empty store can be created | No |
+| Envelope + salt + passphrase, no store | Yes | No | No |
+| `venue.etch` alone | No | No | No |
 
-Neither the passphrase nor the mnemonic is an online account-recovery service.
-There is no server-held escrow or operator backdoor.
+There is no online recovery service, no escrow and no operator backdoor.
 
 ## Authentication and network exposure
 
-Brightside's default venue configuration:
+By default the venue binds HTTP to `127.0.0.1`, disables the anonymous public
+principal, requires venue authentication for the API and MCP, and permits
+browser Private Network Access preflights so local web tooling can reach the
+authenticated loopback API. These are defaults: `config.json` overrides the
+venue map, including bind, CORS and authentication. The endpoint is plain
+HTTP; binding beyond loopback needs a TLS boundary and restrictive policy, and
+a reviewer inspects the effective configuration first.
 
-- binds HTTP to `127.0.0.1`;
-- disables the anonymous Covia public principal;
-- requires venue authentication for protected Covia API and MCP operations;
-- permits browser Private Network Access preflights so web tooling can reach the
-  authenticated loopback API.
+*Settings → Auth* mints an Ed25519-signed bearer token for the current user or,
+as an advanced option, the venue operator: `iss = aud = <venueDID>`, `sub` the
+chosen principal. It is shown for copying and never persisted. Instance
+takeover uses a five-minute operator token and invokes only the authenticated
+shutdown operation. Treat a copied token as a password until it expires.
 
-These are defaults, not immutable policy. `config.json` shallowly overrides the
-venue map, including bind, CORS and authentication settings. A reviewer should
-inspect the effective configuration, particularly before binding beyond
-loopback. The embedded endpoint is HTTP; a non-loopback deployment needs an
-appropriate TLS boundary as well as restrictive authentication and CORS policy.
-
-**Settings → Auth** can mint an Ed25519-signed bearer token for either the
-current named user (the default) or the venue operator (advanced). Both use
-`iss = aud = <venueDID>`; `sub` is the selected user DID or, for operator mode,
-the venue DID. The token is shown for copying and is not persisted by
-Brightside. Instance takeover uses an operator token with a five-minute expiry
-and invokes only the authenticated Brightside shutdown operation. Treat all
-copied tokens as passwords until they expire.
-
-The desktop chat acts as a separate named principal,
-`<venueDID>:u:<identity.json slug>`, rather than as the venue operator. Covia's
-capability checks remain the authority boundary between principals. This user
-DID does not currently have a separate key pair: the owner-controlled home venue
-key signs its authentication and is therefore shown separately on **Settings →
-Identity**. The local in-process application and the venue process share one
-trust boundary.
-
-The display name may change without changing the user DID because
-`identity.json` pins both the slug and full DID. On launch Brightside requires
-that saved DID to equal `<runningVenueDID>:u:<savedSlug>`, preventing a copied or
-edited profile from silently moving the UI to another principal. The recovery
-phrase reproduces the venue DID and signing key, but not the suffix if
-`identity.json` is lost. A durable P2P identity therefore still needs either a
-canonical/recoverable owner suffix or a signed, recoverable identity record;
-until then, retain `identity.json` with vault backups as described above.
+The desktop chat acts as the named user, not the operator, and Covia's
+capability checks remain the boundary between principals. The user has no key
+of its own; the venue key signs for it and is shown separately on the Identity
+page. `identity.json` pins slug and DID, and launch requires the saved DID to
+equal `<runningVenueDID>:u:<slug>`, so a copied or edited profile cannot move
+the UI to another principal. The in-process application and the venue share
+one trust boundary.
 
 ## Runtime secret handling
 
-- Brightside clears passphrase `char[]` and temporary seed byte arrays on the
-  paths which expose them, on a best-effort basis.
-- Java strings, UI text components, clipboard contents, provider SDKs and JVM
-  copies cannot be reliably zeroed. Advanced seed export and token copy should
-  be used only in a trusted desktop session, and the clipboard should be cleared
-  afterwards.
-- The primary seed and derived keys necessarily exist in the running JVM. A
-  debugger, malicious same-user process, injected code or compromised JVM can
-  read or use them.
-- **Log out** clears the current Brightside user's UI/client/session state but
-  intentionally leaves the embedded venue running. It is a user-session lock,
-  not key erasure. Quit Brightside to terminate the process and release its
-  in-memory keys.
-- Model calls send the assembled model context to the selected provider. Local
-  Ollama avoids that external disclosure; remote providers receive what is
-  needed for the requested call under their own security and retention terms.
+- Passphrase and temporary seed arrays are cleared on the paths that expose
+  them, best-effort. Java strings, UI components, the clipboard, provider SDKs
+  and JVM copies cannot be reliably zeroed; use seed export and token copy only
+  in a trusted desktop session and clear the clipboard after.
+- The seed and derived keys necessarily exist in the running JVM; a debugger,
+  a malicious same-user process or a compromised JVM can read them.
+- *Log out* clears the user's UI and session state but leaves the venue
+  running: a session lock, not key erasure. Quit to release in-memory keys.
+- Model calls send the assembled context to the chosen provider under its
+  terms; a local model avoids that disclosure.
 
-## Security assumptions and limitations
+## Assumptions and limitations
 
-- The recovery phrase compromises both identity authority and any copied
-  `venue.etch`, because both intentionally converge on the same primary seed.
-  Keep it separate from data backups.
-- The minimum UI passphrase length is eight characters. Argon2id raises the
-  cost of guessing but cannot make a weak passphrase strong.
-- `unlock.passphrase` is an explicit user convenience decision. It is plaintext,
-  grants access to the vault, and relies only on OS-account and filesystem
-  protection. It should not be copied alongside the encrypted vault unless that
-  backup has equivalent access controls.
-- Etch's index is currently plaintext, and the body cipher is not a whole-file
-  AEAD construction, as detailed above.
-- Vault envelope writes are in-place rather than atomic and have no explicit
-  format version or associated-data binding to the file name.
-- `identity.json` and custom store configuration are recovery metadata not
-  reproduced by the mnemonic, even though they are not cryptographic secrets.
-- Filesystem ACLs, full-disk encryption, backups, malware protection and physical
-  security remain the host operator's responsibility.
-- Separating the signing seed from the store key and transactional rekey/recovery
-  are tracked in
-  [Brightside issue #5](https://github.com/covia-ai/brightside/issues/5).
+- The phrase compromises both identity and any copied store, because both
+  converge on one seed by design. Keep it apart from data backups.
+- The minimum passphrase length is eight characters; Argon2id raises the cost
+  of guessing but cannot make a weak passphrase strong.
+- The remembered passphrase is plaintext by the owner's decision and relies
+  only on OS-account and filesystem protection.
+- Etch's index is plaintext and its body cipher is not whole-file AEAD.
+- Envelope writes are in place, not atomic, and recovery removes the staged
+  key file before rewriting the identity envelope, which is why an untouched
+  backup is kept until it succeeds; a failed rewrite never invalidates the
+  phrase or the store key.
+- `identity.json` and a custom store path are recovery metadata the phrase
+  does not reproduce.
+- Filesystem ACLs, disk encryption, backups, malware protection and physical
+  security are the host's responsibility.
+- Separating the signing seed from the store key, and transactional rekey, are
+  [brightside#5](https://github.com/covia-ai/brightside/issues/5).
 
 ## Reviewer verification
 
-The focused tests are
-[`MnemonicTest`](../src/test/java/brightside/vault/MnemonicTest.java) and
-[`VaultTest`](../src/test/java/brightside/vault/VaultTest.java), plus
-[`RememberedPassphraseTest`](../src/test/java/brightside/RememberedPassphraseTest.java).
-They verify deterministic BIP39-to-seed derivation, authenticated failure on a
-wrong passphrase, preservation of `vault.salt`, rejection of a wrong recovery
-seed, reopening the same written Etch value with the same seed under a different
-passphrase, and the explicit plaintext remembered-unlock contract.
-
-Run them with:
+`MnemonicTest`, `VaultTest` and `RememberedPassphraseTest` verify
+deterministic phrase-to-seed derivation, authenticated failure on a wrong
+passphrase, preservation of the salt, rejection of a wrong recovery seed,
+reopening the same stored value with the same seed under a new passphrase, and
+the plaintext remembered-unlock contract:
 
 ```shell
 mvn "-Dtest=MnemonicTest,VaultTest,RememberedPassphraseTest" test
 ```
 
-A release review should additionally perform a copy-based recovery drill:
-create a test installation, record its DID/public key, write a distinctive
-conversation or lattice marker, quit, copy the data home, discard the test
-passphrase, recover the copy from the phrase, and compare both the identity
-fingerprint and retained value.
+A release review adds a copy-based drill: create a test installation, record
+its DID and public key, write a distinctive marker, quit, copy the data home,
+discard the passphrase, recover the copy from the phrase, and compare the
+fingerprint and the marker.

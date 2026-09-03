@@ -26,19 +26,29 @@ full technical surface lives under Settings. One Maven module,
 
 ## Where the detail lives
 
+Start with `docs/DESIGN.md` for what Brightside is, `docs/ARCHITECTURE.md`
+for how it is put together, and `docs/SKILLS.md` for how the assistant gets
+its abilities. Each doc opens with an overview and key bullets; the
+`design-docs` skill (`.claude/skills/design-docs/SKILL.md`) is the map and the
+rules for changing them.
+
 | Topic | See |
 |---|---|
-| Product principles, namespaces, how the assistant is shaped | `docs/DESIGN.md` |
-| Structure, threading, chat session, transcript, watcher, skills, packaging | `docs/ARCHITECTURE.md` |
+| Product principles, how the assistant is shaped | `docs/DESIGN.md` |
+| The one-process shape, reads versus actions, orientation map, key decisions, packaging | `docs/ARCHITECTURE.md` |
+| Skills, tools, memory: namespaces, what loads when, the shipped library | `docs/SKILLS.md` |
 | Startup, takeover, tray, exit | `docs/LAUNCH.md` |
 | Venue, user and agent identity | `docs/IDENTITY.md` |
 | Odin, the operator's administrative agent | `docs/ODIN.md` |
 | Vault, keys, recovery, authentication, network exposure | `docs/SECURITY.md` |
-| Onboarding flows and identity | `docs/ONBOARDING.md` |
-| `config.json`, API keys, reaching the venue from other tools | `docs/CONFIGURATION.md` |
+| First run, unlock, recovery, settings | `docs/ONBOARDING.md` |
+| `config.json`, files, API keys, integrations, reaching the venue from other tools | `docs/CONFIGURATION.md` |
 | Federation roadmap | `docs/NETWORK.md` |
-| Shipped skills and Brightside operations | `BrightsideSkillsAdapter`, `BrightsideAdapter` |
-| Covia's own conventions and vocabulary | `../covia/AGENTS.md` |
+| The shipped skills and Brightside's operations, in code | `BrightsideSkillsAdapter`, `BrightsideAdapter` |
+| Covia's own conventions, vocabulary and design | `../covia/AGENTS.md`, `../covia/venue/docs/` |
+
+When a change moves a decision or a name, fix the doc that owns it in the same
+commit.
 
 ## Conventions
 

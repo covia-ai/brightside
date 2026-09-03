@@ -132,15 +132,13 @@ messages from unknown parties are untrusted content by default, gated by a rule
 the owner set, and can never carry authority — an inbound message is data, and
 the capability model is what stops it becoming an instruction.
 
-**Identity self-inspection.** **Settings → Identity** is the canonical local
-surface for *Your name*, the full Covia user DID, home venue DID, venue signing
-public key and passphrase-gated primary seed. The current named user is a venue
-sub-principal and does not yet have an independent signing key. When P2P ships,
-the share action should produce a signed contact card containing the user DID,
-public name/CNS name when present, current reachability endpoints, signing key
-identifier and rotation/revocation references. Volatile endpoints and public
-profile data do not belong in `identity.json`, and the UI should not show fake
-placeholders before those facilities exist.
+**What this needs from identity.** Today's identity model is in
+[IDENTITY.md](IDENTITY.md): the named user is a venue sub-principal without a
+key of its own. When peer-to-peer ships, sharing should produce a signed
+contact card — user DID, public or CNS name when present, current reachability
+endpoints, signing key identifier and rotation or revocation references.
+Volatile endpoints and public profile data do not belong in `identity.json`,
+and the UI shows no placeholders before those facilities exist.
 
 ## Hiring another agent
 

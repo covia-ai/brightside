@@ -1,8 +1,19 @@
 # Configuration reference
 
-Everything Brightside keeps lives under `~/.brightside/`. Every key in the
-configuration file is optional; an empty `{}` is valid and Brightside supplies a
-working default for anything you omit.
+Everything Brightside keeps lives under `~/.brightside/`, and everything it
+can be told is in one hand-edited file there.
+
+- **Every key is optional.** An empty `{}` is valid; Brightside supplies a
+  working default for anything omitted. Changes take effect on restart.
+- **The `venue` map is passed through.** Any key the Covia venue understands
+  can be set, merged over Brightside's private-by-default settings.
+- **No secrets in the file.** Model keys, bot tokens and the Moltbook key
+  live in the venue's encrypted secret stores, entered through Settings.
+- **Back up the whole directory as one unit**; delete it to start over. The
+  protection and recovery role of each file is in
+  [SECURITY.md](SECURITY.md).
+- **Other tools reach the venue** over loopback with a token minted under
+  *Settings → Auth*, as the user rather than across users.
 
 ## Where things live
 
@@ -18,9 +29,8 @@ working default for anything you omit.
 | `~/.brightside/files/` | Brightside-managed local files; exposed to the assistant as the confined writable `files` root. |
 | `~/.brightside/logs/` | Plaintext rolling logs; exposed to the assistant as the server-enforced read-only `logs` root. |
 
-Back up the whole directory as one unit. To reset Brightside completely, remove
-the whole data directory while Brightside is stopped. There is no supported
-plaintext or unencrypted legacy-install mode.
+To reset Brightside completely, remove the whole data directory while
+Brightside is stopped.
 
 If remembered unlock is enabled, omit `unlock.passphrase` from a normal backup:
 putting the plaintext passphrase beside the encrypted vault defeats the backup's
@@ -105,7 +115,7 @@ A reply has no time limit. A turn takes as long as its model and tool calls
 take — the venue bounds each of those itself — and a turn that runs long shows
 a stop control in the chat. Stopping cancels the chat job, not the agent: you
 can carry on at once, and anything the assistant still finishes appears in the
-conversation. A `timeout` key from an older config is ignored.
+conversation.
 
 ## Model API keys
 
@@ -183,14 +193,10 @@ the key stays inside the venue.
    to Moltbook's owner dashboard) and post the verification tweet. Until then
    the status reads *waiting for you to claim it*.
 3. Ask your assistant to check Moltbook. It loads the shipped `moltbook` skill,
-   whose tools are Brightside's own Moltbook operations (`v/ops/moltbook/*`:
-   home, feed, read a post, post, comment, vote, search, profile, submolts,
-   subscribe, follow, verify, …). Each resolves the key inside the venue and
-   returns Moltbook's answer as data — the model never composes a request or
-   sees the key. Setting up from chat — registering, seeing whether the
-   account is claimed — is a child skill (`moltbook-setup`) the assistant
-   loads only when Moltbook is not set up. No skill's tools are in the
-   assistant's palette until it loads that skill.
+   whose tools are Brightside's own Moltbook operations. Each resolves the key
+   inside the venue and returns Moltbook's answer as data — the model never
+   composes a request or sees the key. Setting up from chat is a child skill
+   it loads only when Moltbook is not set up ([SKILLS.md](SKILLS.md)).
 
 Registered elsewhere, or rotated the key on the owner dashboard
 (`https://www.moltbook.com/login`)? Paste the key under *Existing key* and
@@ -203,10 +209,8 @@ itself stays yours on Moltbook.
 | The claim page | remembered under your workspace at `w/moltbook` until the account is claimed |
 | The account | one, named as you chose, owned by you on Moltbook; Brightside holds nothing else |
 
-New content on Moltbook may come with a verification challenge (an obfuscated
-arithmetic problem the agent must solve) and the site rate-limits posting; the
-skill covers both. A periodic check-in can be set up with the scheduling skill
-if you want the assistant to keep up by itself.
+A periodic check-in can be set up with the `automation` skill if you want the
+assistant to keep up by itself.
 
 ## Your identity
 

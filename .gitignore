@@ -17,6 +17,7 @@ CLAUDE.local.md
 /.claude/*
 !/.claude/README.md
 !/.claude/settings.json
+!/.claude/skills/
 
 # Claude Code's MCP server for the running venue carries a bearer token
 # (docs/CONFIGURATION.md, "From Claude Code") — never commit it.

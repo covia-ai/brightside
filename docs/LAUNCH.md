@@ -3,6 +3,15 @@
 How a Brightside process starts, what happens when one is already running, and
 how it stops. Code: `BrightSide`, `Takeover`, `EmbeddedVenue`, `TrayManager`.
 
+- **Nothing shows without live data behind it.** The unlock dialog or wizard
+  comes first; the main window appears only once the venue is ready.
+- **A launch submits no jobs.** Everything read at startup is read
+  in-process; the agent is configured on the first message.
+- **Two processes cannot share the store**, so a newcomer asks the running
+  instance to step aside with a request only the venue's own key can sign.
+- **Closing the window quits** unless the owner opts into the tray; quitting
+  always flushes state.
+
 ## Startup
 
 1. `BrightSide.main` loads `~/.brightside/config.json` (`AppConfig`), configures
@@ -57,10 +66,10 @@ Two processes cannot share `venue.etch`; the second fails on the file lock. So
   DID) and runs its `exit()`: the store flushes and the process ends. Another
   identity is refused (`400` or `401`) and the newcomer reports that it could
   not take over.
-- `Takeover.waitUntilDown` polls until nothing answers (up to 20 s); then the
-  newcomer launches its own venue.
+- `Takeover.waitUntilDown` polls until nothing answers, then the newcomer
+  launches its own venue.
 
-This is not `venue/restart`: the newcomer is already up and only needs the
+This is not a venue restart: the newcomer is already up and only needs the
 incumbent to step aside, and it works from an IDE launch with no jar.
 `TakeoverTest` runs the handshake against a private venue.
 
