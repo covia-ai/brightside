@@ -105,11 +105,16 @@ the index and open their own families.
 
 ## Growing, importing and feedback
 
-- The assistant writes its own skills to `w/skills/<name>`; `skill-authoring`
-  is the only skill that brings the write tool, and deletion goes through a
-  Brightside operation that can address one named skill and nothing else. So
+- The assistant writes its own skills to `w/skills/<name>`. `skill-authoring`
+  brings the lattice write tool for that purpose and a Brightside deletion
+  operation that can address one named skill and nothing else, so
   self-improvement is discoverable and reversible, and the power to change
-  skills is never in context until deliberately reached for.
+  skills is never in context until deliberately reached for. The write tool
+  itself is not exclusive to it: `lattice` brings write, append, copy and
+  delete for the owner's structured data, and the venue's `workspace` skill
+  the same. What is always on is read-only; destructive operations are a
+  loaded skill's, and the owner's confirmation for them is
+  [brightside#16](https://github.com/covia-ai/brightside/issues/16).
 - Folders of `SKILL.md` files under `~/.brightside/skills/` are imported into
   `w/skills` at launch (`FilesystemSkills`), unchanged when nothing changed.
 - A narrow always-on operation appends concrete misses — a failed load, a

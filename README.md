@@ -54,8 +54,8 @@ portable format Claude Code and a dozen other agents use.
 
 **Power stays gated, not absent.** Only read-only tools and memory are always
 on. Writing, HTTP, files, other agents — each arrives by loading the skill that
-grants it, so capability is deliberate rather than ambient. The skill that
-grants the write tool is itself gated behind the skill that explains growing.
+carries it, so capability is deliberate rather than ambient. The ability to
+change its own skills sits behind the skill that explains growing.
 
 **It remembers.** A private memory (`n/memory`) persists across conversations,
 so it feels like *your* assistant instead of a stranger every morning. Every
