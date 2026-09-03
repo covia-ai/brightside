@@ -58,15 +58,24 @@ skills. Those three jobs are kept apart on purpose.
 
 - The `[Skills]` index — one line per discoverable skill — is in the context on
   every turn. That line is the whole always-on cost of a skill.
-- Loading appends the skill's body to the conversation as one event and adds
-  its tools to the manifest for the rest of the session. Like any message, the
-  body is then part of the history the model reads on every later turn of that
-  session, until compaction or a new conversation. Nothing is declared ahead
-  of a load.
-- A pinned skill (`config.loads`) is different only in where and how long: it
-  is rendered into the head of every session of that agent, and rebuilt there
-  after compaction, whether or not the conversation needs it. Per turn, a pin
-  and a load of the same skill weigh the same; a pin is simply always there.
+- Loading appends the skill's body to the conversation as one event, followed
+  by a tool-availability event carrying its tools' definitions. Like any
+  message, both are then part of the history the model reads on every later
+  turn of that session, until compaction or a new conversation. Nothing is
+  declared ahead of a load.
+- A load never rewrites the cached prefix. The tool manifest sent to the
+  provider is fixed when the session's prefix is built, so tools that arrive
+  mid-session are called through the harness's `invoke_tool` until the prefix
+  is next rebuilt (compaction, reset, or a configuration change), after which
+  they sit in the manifest natively.
+- A pinned skill (`config.loads`) is different in where and how long: it is
+  rendered into the cached prefix of every session of that agent, and rebuilt
+  there after compaction, whether or not the conversation needs it. Per turn,
+  a pin and a load of the same skill weigh about the same; a pin is simply
+  always there.
+- The memory pin (`config.context`) is an operation entry, so it is watched:
+  resolved before every inference and appended to the conversation only when
+  its rendered value changes. An unchanged memory costs no new bytes.
 - A loaded skill's children join the index and can be loaded by name while
   the parent stays loaded. Children are discoverable, never auto-loaded.
 - Unloading retracts a skill's tools and the children it revealed. Its body
