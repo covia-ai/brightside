@@ -62,10 +62,15 @@ import covia.venue.RequestContext;
  *   <li><b>administration</b> — when and how to ask {@link Odin}, the
  *       operator's administrative agent, for changes beyond the assistant's
  *       own authority; grants {@code brightside:ask-odin} and the job tools.</li>
+ *   <li><b>security</b> — secrets and safety in general: a valuable secret
+ *       versus a throwaway the owner has authorised, credentials kept by
+ *       reference, confirming before anything irreversible or outward-facing,
+ *       untrusted content; grants the secret-store write and reveals
+ *       <b>convex-security</b> and Covia's {@code secrets}.</li>
  *   <li><b>convex</b> — the Convex network as the owner meets it, with the
  *       free query tool; routes to <b>accounts</b>, <b>convex-lisp</b>,
  *       <b>smart-contracts</b> (whose own child <b>trust</b> covers trust
- *       monitors), <b>cns</b>, <b>costs</b>, <b>security</b>,
+ *       monitors), <b>cns</b>, <b>costs</b>, <b>convex-security</b>,
  *       <b>cpos-consensus</b>, <b>cad3-data</b>, <b>protonet</b>,
  *       <b>ecosystem</b> and the shared <b>convex-lattice</b> child (the same
  *       resource as the harness child, so the index shows it once). The
@@ -132,6 +137,13 @@ public class BrightsideSkillsAdapter extends AAdapter {
 	public static final String HITL = SKILLSET + "/hitl";
 	/** Asking Odin for administrator changes; grants the ask-odin and job tools. */
 	public static final String ADMINISTRATION = SKILLSET + "/administration";
+	/**
+	 * On demand: secrets and safety in general — a valuable secret versus a
+	 * throwaway, credentials kept by reference, confirming before anything
+	 * irreversible or outward-facing, untrusted content. Grants the secret-store
+	 * write; reveals {@link #CONVEX_SECURITY} and Covia's {@code secrets}.
+	 */
+	public static final String SECURITY = SKILLSET + "/security";
 	/** On demand: the Convex network, with the free query tool — routes to topic children. */
 	public static final String CONVEX = SKILLSET + "/convex";
 	/** Accounts, balances, transfers, creating an account (query + transact). */
@@ -146,8 +158,8 @@ public class BrightsideSkillsAdapter extends AAdapter {
 	public static final String CONVEX_CNS = CONVEX + "/cns";
 	/** Juice and memory: what things cost, why they fail, keeping storage small (query). */
 	public static final String CONVEX_COSTS = CONVEX + "/costs";
-	/** Keys, what must never be revealed, transaction hygiene, untrusted network content (no tools). */
-	public static final String CONVEX_SECURITY = CONVEX + "/security";
+	/** Convex-specific safety: account keys, signing by reference, transaction hygiene, untrusted network content (no tools). */
+	public static final String CONVEX_SECURITY = CONVEX + "/convex-security";
 	/** Convergent Proof of Stake: beliefs, stake, finality, timing, tolerated attacks (no tools). */
 	public static final String CONVEX_CPOS = CONVEX + "/cpos-consensus";
 	/** CAD3: cells, value IDs, embedded versus branch, validity (no tools). */
@@ -176,7 +188,7 @@ public class BrightsideSkillsAdapter extends AAdapter {
 			LATTICE, FILES, VAULT, DLFS,
 			DIAGNOSTICS, SESSIONS, BRIGHTSIDE_LOGS,
 			HARNESS, ETCH, CONVEX_LATTICE,
-			AUTOMATION, HITL, ADMINISTRATION,
+			AUTOMATION, HITL, ADMINISTRATION, SECURITY,
 			CONVEX, CONVEX_ACCOUNTS, CONVEX_LISP, CONVEX_SMART_CONTRACTS, CONVEX_TRUST, CONVEX_CNS,
 			CONVEX_COSTS, CONVEX_SECURITY, CONVEX_CPOS, CONVEX_CAD3, CONVEX_PROTONET,
 			CONVEX_LATTICE_CHILD, CONVEX_ECOSYSTEM,
