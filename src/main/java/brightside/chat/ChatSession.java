@@ -81,6 +81,15 @@ public final class ChatSession {
 	 */
 	static final String MEMORY_RECALL_OP = "v/ops/memory-recall";
 	private static final String SKILL_FEEDBACK_OP = "v/ops/brightside/report-skill-feedback";
+	/**
+	 * The harness's conversation-compaction control. Covia offers it only to an
+	 * agent that names it (covia#464): without it the context-budget notice at
+	 * 90% tells the assistant it has no way to compact, and a long conversation
+	 * grows until the model refuses it. With it, the notice asks for a summary
+	 * and the venue rebuilds the session's cached prefix around that summary,
+	 * with the memory pin, the app context and the skills index refreshed.
+	 */
+	static final String COMPACT_TOOL = "compact";
 	private static final String LEGACY_IDENTITY_SKILL = BrightsideSkillsAdapter.SKILLSET + "/identity";
 	/** Read-only dynamic product context; deliberately a non-skill load. */
 	public static final String CONTEXT_OP = "v/ops/brightside/context";
@@ -210,12 +219,14 @@ public final class ChatSession {
 			// Read-only workspace access (covia read/list) on top of the tools
 			// below — so it can inspect its own namespace out of the box.
 			"defaultTools", true,
-			// The memory tool, plus a narrow append-only channel for concrete skill
-			// misses. Neither exposes general workspace mutation.
+			// The memory tool, a narrow append-only channel for concrete skill
+			// misses, and the harness's compact control so a long conversation can
+			// be summarised in place. None exposes general workspace mutation.
 			// Broader capabilities (writes, HTTP, files, agents, telegram/discord…)
 			// arrive by discovering and loading the skills that grant them — see
 			// skillsets below — so authority stays deliberate rather than always-on.
-			"tools", Vectors.of(Strings.create(MEMORY_OP), Strings.create(SKILL_FEEDBACK_OP)),
+			"tools", Vectors.of(Strings.create(MEMORY_OP), Strings.create(SKILL_FEEDBACK_OP),
+				Strings.create(COMPACT_TOOL)),
 			// Pin the assistant's memory (n/memory) into every turn's context,
 			// through the read-only recall op; the memory tool above is for edits.
 			"context", Vectors.of(Maps.of(

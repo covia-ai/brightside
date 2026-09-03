@@ -85,6 +85,10 @@ class AgentContextTest {
 			"the dynamic Brightside context load is represented");
 		assertTrue(report.tools().stream().anyMatch(t -> t.name() != null && t.name().contains("memory")),
 			"the memory tool is offered: " + report.tools());
+		// The venue offers compact only to an agent that names it (covia#464); a
+		// long conversation must be able to summarise itself in place.
+		assertTrue(report.tools().stream().anyMatch(t -> "compact".equals(t.name()) && "harness".equals(t.source())),
+			"the compact control is offered from the first turn: " + report.tools());
 		// Nothing is declared ahead of a load: with no skill loaded, every tool
 		// the model receives is the harness's, a default, or configured.
 		assertTrue(report.tools().stream().allMatch(t -> "harness".equals(t.source())

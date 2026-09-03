@@ -8,8 +8,9 @@ mechanism is Covia's (`../covia/venue/docs/SKILLS.md`).
 
 - **Discovery is broad; authority is deliberate.** The assistant can see its
   owner's, Brightside's and the venue's libraries, but starts every turn with
-  only read-only lattice reads, memory and the skill-feedback reporter. Every
-  other tool arrives by loading the skill that carries it.
+  only read-only lattice reads, memory, the skill-feedback reporter and the
+  compact control. Every other tool arrives by loading the skill that carries
+  it.
 - **Every top-level skill is a useful first load.** The assistant is
   general-purpose, and loading a skill is its first step towards specialising
   for a task. A skill therefore solves the general form of its problem itself
@@ -43,8 +44,11 @@ the same name, and Brightside's shadow the venue's.
 
 - **Skillsets** `w/skills`, `v/skills/brightside`, `v/skills/root`, in that
   order. No skill is pinned.
-- **Tools** the memory tool and the skill-feedback reporter, plus the default
-  read-only lattice reads.
+- **Tools** the memory tool, the skill-feedback reporter and the harness's
+  `compact` control, plus the default read-only lattice reads. Compaction is
+  how a long conversation stays usable: the assistant writes the summary, the
+  exact history is archived beneath it, and the venue rebuilds the session's
+  cached prefix around it with the pins, memory and skills index refreshed.
 - **Context** its memory at `n/memory`, rendered every turn through the
   read-only recall operation, and one non-skill load, `brightside-context`,
   which the read-only `brightside:context` operation assembles: the owner's
@@ -80,7 +84,7 @@ skills. Those three jobs are kept apart on purpose.
   the parent stays loaded. Children are discoverable, never auto-loaded.
 - Unloading retracts a skill's tools and the children it revealed. Its body
   stays in history, so no shipped skill tells the agent to unload.
-- The default assistant's base turn is around 16 KB: harness tools, the two
+- The default assistant's base turn is around 16 KB: harness tools, the three
   always-on tools, the context load and the index.
 
 ## The shipped library
