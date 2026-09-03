@@ -1303,8 +1303,11 @@ public final class BrightSide {
 			fresh.start();
 			agentEventsSub = v.subscribeAgent(did, aid, event -> {
 				SwingUtilities.invokeLater(fresh::checkNow);
-				String activity = activityLabel(v, did, event);
-				if (activity != null) SwingUtilities.invokeLater(() -> window.showActivity(activity));
+				if (!concernsChat(event)) return;
+				// The tool's display name is resolved here, on the venue's thread
+				// (an in-process read), so the event thread only paints.
+				String label = liveToolLabel(v, did, event);
+				SwingUtilities.invokeLater(() -> window.showActivity(event, label));
 			});
 		});
 	}
@@ -1586,27 +1589,37 @@ public final class BrightSide {
 	private final Map<String, String> toolLabels = new java.util.concurrent.ConcurrentHashMap<>();
 
 	/**
-	 * A live-progress label for the thinking bubble, from one agent event:
-	 * "Thinking…" when a model call starts, the tool's catalogue name while a
-	 * tool runs, null for everything else. Events for another session (a
-	 * Discord turn on the same agent, say) are ignored. Called on the venue's
-	 * emitting thread — in-process reads only, never blocking.
+	 * Whether a live agent event belongs to the conversation on screen. Events
+	 * for another session (a Discord turn on the same agent, say) are not
+	 * shown; before the venue has accepted the first message there is no
+	 * session id yet and every event is the chat's.
 	 */
-	private String activityLabel(EmbeddedVenue v, String did, covia.venue.AgentEvents.Event event) {
+	private boolean concernsChat(covia.venue.AgentEvents.Event event) {
 		ChatSession c = chat;
 		String sid = (c != null) ? c.sessionId() : null;
-		if (sid != null && !event.concerns(Strings.create(sid))) return null;
-		if (covia.venue.AgentEvents.INFERENCE_START.equals(event.type())) return "Thinking…";
-		if (!covia.venue.AgentEvents.TOOL_START.equals(event.type())) return null;
-		AString name = convex.core.lang.RT.ensureString(
-			convex.core.lang.RT.getIn(event.data(), "name"));
-		return (name == null) ? null : toolLabel(v, did, name.toString()) + "…";
+		return sid == null || event.concerns(Strings.create(sid));
 	}
 
 	/**
-	 * The tool's display name: its op asset's {@code name} when one resolves
-	 * (until covia#463 carries a label on the event itself), else the tool
-	 * name with the underscores spaced. Cached per tool.
+	 * The display name of the tool a {@code tool:start} event names, else null:
+	 * the label the venue put on the event when it has one beyond the raw name
+	 * (covia#463), else the op asset's {@code name} from the catalogue. Called
+	 * on the venue's emitting thread — in-process reads only, never blocking.
+	 */
+	private String liveToolLabel(EmbeddedVenue v, String did, covia.venue.AgentEvents.Event event) {
+		if (!covia.venue.AgentEvents.TOOL_START.equals(event.type())) return null;
+		AString name = convex.core.lang.RT.ensureString(
+			convex.core.lang.RT.getIn(event.data(), "name"));
+		if (name == null) return null;
+		AString label = convex.core.lang.RT.ensureString(
+			convex.core.lang.RT.getIn(event.data(), "activityLabel"));
+		if (label != null && !label.isEmpty() && !label.equals(name)) return label.toString();
+		return toolLabel(v, did, name.toString());
+	}
+
+	/**
+	 * The tool's display name: its op asset's {@code name} when one resolves,
+	 * else the tool name with the underscores spaced. Cached per tool.
 	 */
 	private String toolLabel(EmbeddedVenue v, String did, String toolName) {
 		return toolLabels.computeIfAbsent(toolName, t -> {

@@ -40,6 +40,7 @@ import javax.swing.text.JTextComponent;
 
 import brightside.SessionHistory;
 import brightside.chat.ChatSession;
+import brightside.chat.LiveTurn;
 import brightside.ui.components.Buttons;
 import brightside.ui.components.Clipboard;
 import brightside.ui.components.Dialogs;
@@ -49,6 +50,7 @@ import brightside.ui.components.Scrolls;
 import brightside.ui.components.SelectableText;
 import brightside.ui.components.Styles;
 import brightside.ui.components.TextArea;
+import covia.venue.AgentEvents;
 
 /**
  * The chat: a scrolling {@link MessageColumn} of message components above a
@@ -79,6 +81,9 @@ public final class ChatPanel extends JPanel {
 	private JTextComponent lastSelectedBubble; // the bubble or step holding the current selection, if any
 	private Component thinkingRow; // assistant progress row while a reply is pending
 	private ThinkingBubble thinkingBubble;
+	private LiveTurn liveTurn; // the turn in flight, built from the agent's live events
+	private ExpandableActivity liveChip; // its steps so far, grown in place
+	private Component liveRow;
 	private Consumer<String> conversationCommitted = ignored -> {
 	};
 	private volatile ChatSession session;
@@ -220,12 +225,27 @@ public final class ChatPanel extends JPanel {
 	private javax.swing.Timer activityTimer;
 
 	/**
-	 * A live step from the venue's agent event tap while a reply is pending;
-	 * ignored when idle. Fast tool calls would flash by unreadably, so each
-	 * label holds for {@link #ACTIVITY_HOLD_MS} and a burst shows only its
+	 * One event from the venue's agent event tap while a reply is pending;
+	 * ignored when idle. The assistant's narration and each tool call become
+	 * the steps of a chip that grows above the bubble, and the bubble's line
+	 * shows the latest status — the assistant's own words when it narrates,
+	 * else "Thinking…" or the running tool's name.
+	 *
+	 * @param toolLabel the display name of the tool a {@code tool:start} names, or null
+	 */
+	public void showActivity(AgentEvents.Event event, String toolLabel) {
+		if (liveTurn == null || thinkingBubble == null) return;
+		if (!liveTurn.apply(event, toolLabel)) return;
+		showStatus(liveTurn.status());
+		showLiveSteps();
+	}
+
+	/**
+	 * The bubble's status line. Fast tool calls would flash by unreadably, so
+	 * each label holds for {@link #ACTIVITY_HOLD_MS} and a burst shows only its
 	 * latest label once the hold elapses.
 	 */
-	public void showActivity(String label) {
+	private void showStatus(String label) {
 		if (thinkingBubble == null) return;
 		long now = System.currentTimeMillis();
 		long elapsed = now - activityShownAt;
@@ -253,6 +273,34 @@ public final class ChatPanel extends JPanel {
 			activityTimer.setRepeats(false);
 			activityTimer.start();
 		}
+	}
+
+	/**
+	 * The steps chip for the turn in flight: made on the first step, above the
+	 * bubble, and grown in place after. It is the same chip the transcript
+	 * shows for a finished turn, so it simply stays when the reply lands.
+	 */
+	private void showLiveSteps() {
+		SessionHistory.Activity a = liveTurn.activity();
+		if (a == null) return;
+		if (liveChip == null) {
+			liveChip = new ExpandableActivity(a, column::revalidate, ta -> lastSelectedBubble = ta);
+			liveRow = activityRow(liveChip);
+			column.add(liveRow, indexOf(thinkingRow));
+		} else {
+			liveChip.update(a);
+		}
+		column.revalidate();
+		scrollToBottom();
+	}
+
+	/** The row's index in the column, or -1 (append) when it is not there. */
+	private int indexOf(Component row) {
+		Component[] rows = column.getComponents();
+		for (int i = 0; i < rows.length; i++) {
+			if (rows[i] == row) return i;
+		}
+		return -1;
 	}
 
 	/** Called after a successful send has committed and returned its session id. */
@@ -382,8 +430,8 @@ public final class ChatPanel extends JPanel {
 				return s.send(text, sid -> {
 					accepted.complete(sid);
 					SwingUtilities.invokeLater(() -> {
-						if (session == s && bindingVersion == version && thinkingBubble != null) {
-							thinkingBubble.setSummary("Working…");
+						if (session == s && bindingVersion == version && liveTurn != null && liveTurn.accepted()) {
+							showStatus(liveTurn.status());
 						}
 					});
 				});
@@ -515,7 +563,8 @@ public final class ChatPanel extends JPanel {
 	private void showThinking() {
 		if (thinkingRow != null) return;
 		hideEmptyState();
-		thinkingBubble = new ThinkingBubble("Preparing…", this::confirmStop);
+		liveTurn = new LiveTurn();
+		thinkingBubble = new ThinkingBubble(liveTurn.status(), this::confirmStop);
 		JPanel row = new JPanel(new BorderLayout());
 		row.setOpaque(false);
 		row.setBorder(BorderFactory.createEmptyBorder(4, 2, 4, 2));
@@ -535,13 +584,23 @@ public final class ChatPanel extends JPanel {
 		}
 		pendingActivity = null;
 		activityShownAt = 0;
-		if (thinkingRow == null) return;
 		if (thinkingBubble != null) {
 			thinkingBubble.stop();
 			thinkingBubble = null;
 		}
-		column.remove(thinkingRow);
-		thinkingRow = null;
+		if (thinkingRow != null) {
+			column.remove(thinkingRow);
+			thinkingRow = null;
+		}
+		// The steps chip stays as the turn's record, and `displayed` learns of
+		// it so the venue's own projection of the same turn is not re-rendered.
+		if (liveTurn != null) {
+			SessionHistory.Activity a = liveTurn.activity();
+			if (a != null && liveRow != null) displayed.add(a);
+			liveTurn = null;
+			liveChip = null;
+			liveRow = null;
+		}
 		column.revalidate();
 		column.repaint();
 	}
@@ -697,10 +756,14 @@ public final class ChatPanel extends JPanel {
 
 	/** An assistant-side, collapsed-by-default group of a turn's tool-use steps. */
 	private Component activityRow(SessionHistory.Activity a) {
+		return activityRow(new ExpandableActivity(a, column::revalidate, ta -> lastSelectedBubble = ta));
+	}
+
+	private static Component activityRow(ExpandableActivity chip) {
 		JPanel row = new JPanel(new BorderLayout());
 		row.setOpaque(false);
 		row.setBorder(BorderFactory.createEmptyBorder(0, 2, 0, 2));
-		row.add(new ExpandableActivity(a, column::revalidate, ta -> lastSelectedBubble = ta), BorderLayout.WEST);
+		row.add(chip, BorderLayout.WEST);
 		row.setAlignmentX(Component.LEFT_ALIGNMENT);
 		return row;
 	}

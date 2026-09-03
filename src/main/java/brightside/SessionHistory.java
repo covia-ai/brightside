@@ -490,8 +490,12 @@ public final class SessionHistory {
 		return s != null && !s.isBlank();
 	}
 
-	/** A tool result rendered for display: strings verbatim, structures as JSON. */
-	private static String renderContent(ACell content) {
+	/**
+	 * A tool input or result rendered for display: strings verbatim, structures
+	 * as JSON. The live turn renders event payloads the same way, so a step
+	 * built as it happens equals the step projected from the stored turn.
+	 */
+	public static String renderContent(ACell content) {
 		if (content == null) return "";
 		if (content instanceof AString s) return s.toString();
 		return JSON.toStringPretty(content);

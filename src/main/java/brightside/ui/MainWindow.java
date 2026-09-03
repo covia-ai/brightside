@@ -515,9 +515,13 @@ public final class MainWindow extends JFrame {
 		chatPanel.restore(turns);
 	}
 
-	/** Live turn progress ("Thinking…", "Moltbook feed…") for the pending-reply bubble. */
-	public void showActivity(String label) {
-		chatPanel.showActivity(label);
+	/**
+	 * One live agent event for the turn in flight: the pending-reply bubble's
+	 * status and the growing steps chip. {@code toolLabel} is the display name
+	 * of the tool a {@code tool:start} names, or null.
+	 */
+	public void showActivity(covia.venue.AgentEvents.Event event, String toolLabel) {
+		chatPanel.showActivity(event, toolLabel);
 	}
 
 	/** Switch the bottom-nav content between the chat screens and settings. */

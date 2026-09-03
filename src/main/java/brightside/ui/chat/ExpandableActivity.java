@@ -1,8 +1,11 @@
 package brightside.ui.chat;
 
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Insets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -33,6 +36,10 @@ import brightside.ui.components.Theme;
  * narration and results are {@link SelectableText} so they can be selected
  * and copied; the ✓/✕ marks are {@link Lucide} icons, not glyphs, so they
  * render in any UI font.
+ *
+ * <p>The same chip shows the turn in flight: {@link #update} grows it step by
+ * step from the live turn, a running tool step marked … until its result
+ * arrives, and it then stays as the turn's record once the reply lands.
  */
 @SuppressWarnings("serial")
 final class ExpandableActivity extends JPanel {
@@ -44,6 +51,10 @@ final class ExpandableActivity extends JPanel {
 
 	private final Runnable onToggle;
 	private final Consumer<JTextArea> selectionSink;
+	private final JPanel body = Panels.column();
+	private final JLabel summary = Labels.small("");
+	/** The steps as shown, in body order, so an update touches only what changed. */
+	private final List<SessionHistory.Step> shown = new ArrayList<>();
 
 	/**
 	 * @param a             the grouped narration and tool steps for one turn
@@ -58,16 +69,47 @@ final class ExpandableActivity extends JPanel {
 		setOpaque(false);
 		setAlignmentX(LEFT_ALIGNMENT);
 
-		int toolCount = (int) a.steps().stream().filter(SessionHistory.Step::tool).count();
-		JPanel body = Panels.column();
 		body.setBorder(BorderFactory.createEmptyBorder(2, 12, 6, 4));
-		for (SessionHistory.Step s : a.steps()) body.add(s.tool() ? new ToolStep(s) : selectable(s.detail(), true));
-
-		Disclosure chip = new Disclosure(Labels.small(summary(toolCount)), body, CHEVRON)
+		Disclosure chip = new Disclosure(summary, body, CHEVRON)
 			.compact()
 			.onToggle(this::relayout);
 		chip.header().setMargin(new Insets(2, 6, 2, 6));
 		add(chip);
+		update(a);
+	}
+
+	/**
+	 * Brings the chip up to date with a later view of the same turn, as the
+	 * live turn grows: steps already shown stay as they are (a tool step the
+	 * owner has opened stays open), a running tool step is replaced by its
+	 * finished self, and new steps are appended.
+	 */
+	void update(SessionHistory.Activity a) {
+		List<SessionHistory.Step> steps = a.steps();
+		for (int i = 0; i < steps.size(); i++) {
+			SessionHistory.Step s = steps.get(i);
+			if (i >= shown.size()) {
+				body.add(row(s));
+				shown.add(s);
+				continue;
+			}
+			if (s.equals(shown.get(i))) continue;
+			Component was = body.getComponent(i);
+			Component now = row(s);
+			if (was instanceof ToolStep open && now instanceof ToolStep fresh && open.isExpanded()) {
+				fresh.setExpanded(true);
+			}
+			body.remove(i);
+			body.add(now, i);
+			shown.set(i, s);
+		}
+		int toolCount = (int) shown.stream().filter(SessionHistory.Step::tool).count();
+		summary.setText(summary(toolCount));
+		relayout();
+	}
+
+	private Component row(SessionHistory.Step s) {
+		return s.tool() ? new ToolStep(s) : selectable(s.detail(), true);
 	}
 
 	private static String summary(int toolCount) {
@@ -94,11 +136,18 @@ final class ExpandableActivity extends JPanel {
 		return t;
 	}
 
-	/** The header of a tool step: a ✓/✕ mark and the tool's name. */
+	/** A tool step whose result has not arrived: only the live turn has these. */
+	private static boolean running(SessionHistory.Step s) {
+		return s.tool() && s.detail() == null;
+	}
+
+	/** The header of a tool step: a ✓/✕ mark (… while it runs) and the tool's name. */
 	private static JPanel stepHeader(SessionHistory.Step s) {
 		JPanel row = Panels.row();
 		Supplier<Color> tone = s.error() ? Theme::error : Theme::success;
-		JLabel status = Labels.icon(Lucide.icon(s.error() ? "x" : "check", MARK, tone));
+		JLabel status = Labels.icon(running(s)
+			? Lucide.icon("ellipsis", MARK, Theme::muted)
+			: Lucide.icon(s.error() ? "x" : "check", MARK, tone));
 		status.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 5));
 		JLabel name = Styles.classes(Labels.text(s.title()), Styles.SMALL);
 		if (s.error()) Styles.add(name, Styles.ERROR);
