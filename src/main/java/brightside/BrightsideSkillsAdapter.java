@@ -20,8 +20,9 @@ import covia.venue.RequestContext;
  * everyday ask needs — and reveal children for the specific sub-issues, each
  * of which is again a useful load. No shipped skill is a bare router. A
  * skill's tools join the manifest only once it is loaded, so what a
- * top-level skill costs every turn is its index line, and what a load costs is
- * its body once and its tools from then on. Unloading retracts only a skill's
+ * top-level skill costs every turn is its index line; a load adds its body to
+ * that session's history and its tools to the manifest, both re-read on every
+ * later turn until compaction. Unloading retracts only a skill's
  * tools and the children it revealed — its instructions stay in history — so
  * no shipped body tells the agent to unload.</p>
  *

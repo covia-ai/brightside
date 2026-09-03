@@ -58,9 +58,15 @@ skills. Those three jobs are kept apart on purpose.
 
 - The `[Skills]` index — one line per discoverable skill — is in the context on
   every turn. That line is the whole always-on cost of a skill.
-- Loading appends the skill's body to the conversation once and adds its tools
-  to the manifest for the rest of the session. Nothing is declared ahead of a
-  load.
+- Loading appends the skill's body to the conversation as one event and adds
+  its tools to the manifest for the rest of the session. Like any message, the
+  body is then part of the history the model reads on every later turn of that
+  session, until compaction or a new conversation. Nothing is declared ahead
+  of a load.
+- A pinned skill (`config.loads`) is different only in where and how long: it
+  is rendered into the head of every session of that agent, and rebuilt there
+  after compaction, whether or not the conversation needs it. Per turn, a pin
+  and a load of the same skill weigh the same; a pin is simply always there.
 - A loaded skill's children join the index and can be loaded by name while
   the parent stays loaded. Children are discoverable, never auto-loaded.
 - Unloading retracts a skill's tools and the children it revealed. Its body
