@@ -51,9 +51,11 @@ final class EmptyChatState extends JPanel {
 		greeting.setHorizontalAlignment(SwingConstants.CENTER);
 		greeting.setAlignmentX(Component.CENTER_ALIGNMENT);
 
+		// Wrapped within the card's inner width: Labels.html scales the width by
+		// the UI scale (1.25 at the default font), the card's own size is not.
 		JLabel invitation = Styles.classes(Labels.html(
 			"Start with a question, a half-formed idea, or something you want to get done.",
-			390, SwingConstants.CENTER), Styles.MUTED);
+			340, SwingConstants.CENTER), Styles.MUTED);
 		invitation.setAlignmentX(Component.CENTER_ALIGNMENT);
 
 		card.add(mark);

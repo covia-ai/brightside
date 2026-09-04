@@ -24,6 +24,7 @@ import java.util.function.Consumer;
 
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
+import javax.swing.Box;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
@@ -46,27 +47,59 @@ import brightside.ui.components.Clipboard;
 import brightside.ui.components.Dialogs;
 import brightside.ui.components.Documents;
 import brightside.ui.components.Labels;
+import brightside.ui.components.Lucide;
 import brightside.ui.components.Scrolls;
 import brightside.ui.components.SelectableText;
 import brightside.ui.components.Styles;
 import brightside.ui.components.TextArea;
+import brightside.ui.components.Theme;
 import covia.venue.AgentEvents;
 
 /**
  * The chat: a scrolling {@link MessageColumn} of message components above a
- * rounded input box and an accent Send button. Each transcript item is rendered
- * by its own component — a {@link Bubble} for a user/assistant message, an
- * {@link ExpandableActivity} chip for a turn's tool use — kept as separate
- * components (in this {@code ui.chat} package) so new item kinds (images, cards,
- * richer tool output) can be added as their own row types. Text within a bubble
- * is selectable; a right-click offers <em>Copy message</em> and <em>Copy
- * conversation</em>. Enter sends; Ctrl+Enter or Shift+Enter inserts a newline.
+ * rounded input box, an accent Send button and a small menu for the
+ * conversation as a whole. Each transcript item is rendered by its own
+ * component — a {@link Bubble} for a user/assistant message, an
+ * {@link ExpandableActivity} chip for a turn's tool use, a captioned bubble for
+ * a compacted stretch's summary — kept as separate components (in this
+ * {@code ui.chat} package) so new item kinds (images, cards, richer tool output)
+ * can be added as their own row types. Text within a bubble is selectable; a
+ * right-click offers <em>Copy message</em> and <em>Copy conversation</em>.
+ * Enter sends; Ctrl+Enter or Shift+Enter inserts a newline.
+ *
+ * <p>The conversation menu beside Send starts a new conversation, asks the
+ * assistant to compact this one, copies it, opens its context, or shows it
+ * among the others in Sessions. What the app does with those is the
+ * {@link Host}'s; copying is the panel's own.
  */
 @SuppressWarnings("serial")
 public final class ChatPanel extends JPanel {
 
+	/** The conversation menu's actions that the app performs. */
+	public interface Host {
+		/** Leave the conversation on screen for a clean one; the next message mints its session. */
+		void newConversation();
+
+		/** Open the context inspector for the conversation on screen. */
+		void inspectConversation(String sessionId);
+
+		/** Show the conversation on screen among the others, on the Sessions tab. */
+		void showInSessions(String sessionId);
+	}
+
 	private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ChatPanel.class);
 	private static final int MAX_INPUT_ROWS = 6;
+
+	/**
+	 * What "Compact conversation" sends. The summary a compaction keeps is what
+	 * every later turn will know of this one, so it has to be the assistant's
+	 * own: compacting is a request to it, through its compact control, rather
+	 * than something the app does behind its back. The venue archives the exact
+	 * turns beneath the summary, and the transcript redraws as it now stands.
+	 */
+	static final String COMPACT_REQUEST = "Please compact this conversation now: use your compact tool"
+		+ " with a summary of what still matters — decisions, facts, preferences and open threads —"
+		+ " then tell me briefly what you kept.";
 
 	private final MessageColumn column = new MessageColumn();
 	private final EmptyChatState emptyState = new EmptyChatState();
@@ -76,6 +109,8 @@ public final class ChatPanel extends JPanel {
 	private final TextArea input = new TextArea(1, 20).placeholder(COMPOSER_HINT);
 	private final JScrollPane inputScroll;
 	private final JButton send = Buttons.primary("Send");
+	private final JButton more = Buttons.icon(Lucide.icon("ellipsis", 18, Theme::muted), "Conversation options");
+	private Host host;
 
 	private final List<SessionHistory.Item> displayed = new ArrayList<>();
 	private JTextComponent lastSelectedBubble; // the bubble or step holding the current selection, if any
@@ -156,11 +191,24 @@ public final class ChatPanel extends JPanel {
 		send.setPreferredSize(new Dimension(sendSize.width, defaultComposerHeight));
 		send.setMinimumSize(new Dimension(sendSize.width, defaultComposerHeight));
 
+		// The conversation menu: a quiet icon button the height of the composer,
+		// never the focus owner — the input keeps it — opening the menu upwards.
+		more.setFocusable(false);
+		more.addActionListener(e -> showConversationMenu());
+		Dimension moreSize = new Dimension(more.getPreferredSize().width + 6, defaultComposerHeight);
+		more.setPreferredSize(moreSize);
+		more.setMinimumSize(moreSize);
+
 		JPanel bottom = new JPanel(new BorderLayout(8, 0));
 		bottom.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
 		bottom.add(inputScroll, BorderLayout.CENTER);
+		// Send and the menu sit on the composer's baseline as it grows.
+		Box actions = Box.createHorizontalBox();
+		actions.add(send);
+		actions.add(Box.createHorizontalStrut(2));
+		actions.add(more);
 		JPanel sendWrap = new JPanel(new BorderLayout());
-		sendWrap.add(send, BorderLayout.SOUTH);
+		sendWrap.add(actions, BorderLayout.SOUTH);
 		bottom.add(sendWrap, BorderLayout.EAST);
 
 		add(scroll, BorderLayout.CENTER);
@@ -309,6 +357,11 @@ public final class ChatPanel extends JPanel {
 		};
 	}
 
+	/** The app's side of the conversation menu. */
+	public void setHost(Host host) {
+		this.host = host;
+	}
+
 	/** Removes the current user's session and all locally rendered conversation data. */
 	public void clearSession() {
 		session = null;
@@ -342,9 +395,13 @@ public final class ChatPanel extends JPanel {
 
 	private Component rowFor(SessionHistory.Item it) {
 		if (it instanceof SessionHistory.Message m) {
-			return bubbleRow(m.text(), "user".equals(m.role()), m.origin());
+			return bubbleRow(m.text(), "user".equals(m.role()), (m.origin() != null) ? "via " + m.origin() : null);
 		}
 		if (it instanceof SessionHistory.Activity a) return activityRow(a);
+		if (it instanceof SessionHistory.Summary s) {
+			// The assistant's own summary, in its bubble, captioned for what it is.
+			return bubbleRow(s.text(), false, "Summary of the conversation so far");
+		}
 		return new JPanel();
 	}
 
@@ -398,19 +455,101 @@ public final class ChatPanel extends JPanel {
 	private void setInputEnabled(boolean on) {
 		input.setEnabled(on);
 		send.setEnabled(on);
+		more.setEnabled(on);
+	}
+
+	// ------------------------------------------------------------------
+	// The conversation menu
+	// ------------------------------------------------------------------
+
+	/**
+	 * Built afresh on each press, so every item reflects the conversation as it
+	 * is: nothing to leave, copy or compact on a clean Home; no compaction
+	 * while a reply is pending.
+	 */
+	private void showConversationMenu() {
+		ChatSession s = session;
+		String sid = (s != null) ? s.sessionId() : null;
+		boolean bound = s != null;
+		boolean hasSession = sid != null;
+		boolean hasMessages = displayed.stream().anyMatch(it -> !(it instanceof SessionHistory.Activity));
+		JPopupMenu menu = new JPopupMenu();
+
+		JMenuItem fresh = new JMenuItem("New conversation");
+		fresh.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_N, GraphicsEnvironment.isHeadless()
+			? InputEvent.CTRL_DOWN_MASK : Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
+		fresh.setEnabled(bound && (hasSession || hasMessages));
+		fresh.addActionListener(e -> {
+			if (host != null) host.newConversation();
+		});
+		menu.add(fresh);
+
+		JMenuItem compact = new JMenuItem("Compact conversation…");
+		compact.setToolTipText("Ask Brightside to sum up the conversation so far and carry on from the summary");
+		compact.setEnabled(hasSession && !busy);
+		compact.addActionListener(e -> confirmCompact());
+		menu.add(compact);
+
+		menu.addSeparator();
+
+		JMenuItem copy = new JMenuItem("Copy conversation");
+		copy.setEnabled(hasMessages);
+		copy.addActionListener(e -> Clipboard.copy(conversationText()));
+		menu.add(copy);
+
+		JMenuItem context = new JMenuItem("Context…");
+		context.setToolTipText("What Brightside's model receives for this conversation");
+		context.setEnabled(hasSession);
+		context.addActionListener(e -> {
+			if (host != null) host.inspectConversation(sid);
+		});
+		menu.add(context);
+
+		JMenuItem sessions = new JMenuItem("Show in Sessions");
+		sessions.setEnabled(hasSession);
+		sessions.addActionListener(e -> {
+			if (host != null) host.showInSessions(sid);
+		});
+		menu.add(sessions);
+
+		// The composer is the foot of the window: open upwards, off the button's
+		// top edge and flush with its right.
+		Dimension size = menu.getPreferredSize();
+		menu.show(more, more.getWidth() - size.width, -size.height);
+	}
+
+	/**
+	 * Confirms, then sends {@link #COMPACT_REQUEST} as the next message. The
+	 * draft in the composer is left alone.
+	 */
+	private void confirmCompact() {
+		ChatSession s = session;
+		if (s == null || s.sessionId() == null || busy) return;
+		boolean go = Dialogs.choose(this, "Compact this conversation?",
+			"Brightside will sum up the conversation so far and carry on from the\n"
+			+ "summary, which keeps it quick and focused. The full transcript is kept\n"
+			+ "underneath, and the summary is shown here in its place.",
+			"Compact", "Cancel");
+		if (go && session == s && !busy) deliver(COMPACT_REQUEST);
 	}
 
 	// ------------------------------------------------------------------
 	// Sending
 	// ------------------------------------------------------------------
 
+	/** Sends the composer's draft. */
 	private void send() {
-		ChatSession s = session;
-		if (s == null) return;
-		long version = bindingVersion;
 		String text = input.getText().trim();
 		if (text.isEmpty()) return;
 		input.setText("");
+		deliver(text);
+	}
+
+	/** Sends {@code text} as the user's next message. */
+	private void deliver(String text) {
+		ChatSession s = session;
+		if (s == null) return;
+		long version = bindingVersion;
 		addTurn("user", text);
 		if (busy) {
 			enqueue(s, version, text);
@@ -633,14 +772,7 @@ public final class ChatPanel extends JPanel {
 
 	/** The whole conversation as plain text ("You:" / "Brightside:" turns). */
 	public String conversationText() {
-		StringBuilder sb = new StringBuilder();
-		for (SessionHistory.Item it : displayed) {
-			if (it instanceof SessionHistory.Message m) {
-				String who = "user".equals(m.role()) ? "You" : "Brightside";
-				sb.append(who).append(": ").append(m.text()).append("\n\n");
-			}
-		}
-		return sb.toString().stripTrailing();
+		return SessionHistory.plainText(displayed);
 	}
 
 	private static boolean hasSelection(JTextComponent ta) {
@@ -670,8 +802,11 @@ public final class ChatPanel extends JPanel {
 		return bubbleRow(text, user, null);
 	}
 
-	/** A message row; {@code origin} adds a small caption naming where an inbound message came from. */
-	private Component bubbleRow(String text, boolean user, String origin) {
+	/**
+	 * A message row; {@code caption} (or null) is a small muted line above the
+	 * bubble — where an inbound message came from, what a summary stands for.
+	 */
+	private Component bubbleRow(String text, boolean user, String caption) {
 		// The assistant writes Markdown; the user's own words are shown as typed.
 		Bubble bubble = user ? Bubble.plain(text, true) : Bubble.markdown(text);
 		bubble.setAvailableWidth(scroll.getViewport().getWidth());
@@ -696,15 +831,15 @@ public final class ChatPanel extends JPanel {
 		ta.addMouseListener(popup);
 
 		Component content = bubble;
-		if (origin != null) {
+		if (caption != null) {
 			JPanel stack = new JPanel();
 			stack.setLayout(new javax.swing.BoxLayout(stack, javax.swing.BoxLayout.Y_AXIS));
 			stack.setOpaque(false);
-			JLabel caption = Labels.small("via " + origin, Styles.MUTED);
+			JLabel label = Labels.small(caption, Styles.MUTED);
 			float edge = user ? Component.RIGHT_ALIGNMENT : Component.LEFT_ALIGNMENT;
-			caption.setAlignmentX(edge);
+			label.setAlignmentX(edge);
 			bubble.setAlignmentX(edge);
-			stack.add(caption);
+			stack.add(label);
 			stack.add(bubble);
 			content = stack;
 		}

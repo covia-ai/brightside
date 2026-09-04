@@ -115,7 +115,7 @@ public final class NavBar extends JPanel {
 			setPreferredSize(new Dimension(84, 58));
 			setMaximumSize(new Dimension(84, 58));
 			setToolTipText(switch (tab) {
-				case HOME -> "Start a new chat";
+				case HOME -> "Your conversation";
 				case SESSIONS -> "Chat with the agents and conversations panel";
 				case INBOX -> "Requests from your agents waiting for your decision";
 				case SETTINGS -> "Identity, theme, model, vault and auth settings";

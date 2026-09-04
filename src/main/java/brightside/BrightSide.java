@@ -1254,9 +1254,17 @@ public final class BrightSide {
 		// The venue is in-process: read the agent record straight from the lattice
 		// (no job) and project it, rather than submitting a covia:read.
 		convex.core.data.ACell record = v.agentRecord(did, aid);
-		// Home keeps the conversation you were in — at startup, the most recent
-		// one — until a new conversation is explicitly created.
-		SessionHistory.Snapshot history = SessionHistory.snapshotOf(record, null);
+		// What Home shows once bound. A launch lands on a clean Home: nothing
+		// resumes until the first message mints a session, and the saved
+		// conversations wait in Sessions (DESIGN.md §5). A name change keeps the
+		// conversation on screen, if any; a switch of agent or principal opens
+		// that agent's latest, so "Now chatting with X" has X's context behind it.
+		String viewed = viewedSessionId;
+		SessionHistory.Snapshot history = switch (bind) {
+			case FIRST -> null;
+			case NAME_CHANGE -> (viewed != null) ? SessionHistory.snapshotOf(record, viewed) : null;
+			case AGENT_SWITCH, PRINCIPAL_SWITCH -> SessionHistory.snapshotOf(record, null);
+		};
 		if (history != null) session.resume(history.sessionId());
 		List<SessionHistory.Item> turns = (history != null) ? history.items() : List.of();
 		viewedSessionId = (history != null) ? history.sessionId() : null;

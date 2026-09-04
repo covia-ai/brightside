@@ -240,6 +240,66 @@ class SessionHistoryTest {
 			"an app-typed message carries no origin caption");
 	}
 
+	@Test
+	void compactedTurnsShowAsTheirSummary() throws Exception {
+		String userDID = Identity.of("compactor").userDID(venue.did());
+		Venue client = venue.clientAs(userDID);
+		AppConfig.Chat chat = new AppConfig.Chat("compact-agent",
+			AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo the user.");
+		ChatSession s = new ChatSession(client, chat, "Compactor");
+		String sid = s.send("the opening question").sessionId();
+		s.send("a second message");
+
+		// The owner compacts the idle session under a summary (in the app the
+		// assistant writes it, through its compact control).
+		compact(client, userDID, "compact-agent", sid, "We discussed the opening question.");
+
+		SessionHistory.Snapshot snap = SessionHistory.load(client, "compact-agent", sid);
+		assertEquals(1, snap.items().size(), "the archived turns are replaced by one item: " + snap.items());
+		SessionHistory.Summary summary = (SessionHistory.Summary) snap.items().get(0);
+		assertEquals("We discussed the opening question.", summary.text());
+		assertTrue(summary.turns() >= 4, "two questions and their replies stand behind it: " + summary.turns());
+
+		// The switcher still titles and times it by the archived turns.
+		SessionHistory.Session listed = SessionHistory.listSessions(client, "compact-agent").get(0);
+		assertEquals(sid, listed.sessionId());
+		assertTrue(listed.title().contains("the opening question"),
+			"titled by the archived first message: " + listed.title());
+		assertTrue(listed.lastTs() > 0, "timed by the archived turns");
+
+		// The raw view names the compaction rather than dropping it.
+		List<SessionHistory.RawTurn> raw = SessionHistory.rawTurns(client, "compact-agent", sid);
+		assertEquals(1, raw.size());
+		assertEquals("compacted", raw.get(0).role());
+		assertEquals("We discussed the opening question.", raw.get(0).content());
+
+		// The conversation carries on after its summary.
+		s.send("and a third");
+		SessionHistory.Snapshot after = SessionHistory.load(client, "compact-agent", sid);
+		assertTrue(after.items().get(0) instanceof SessionHistory.Summary, "the summary leads");
+		assertTrue(hasUserMessage(after, "and a third"), "new turns follow it");
+	}
+
+	/** Compacts once the session is idle: the venue refuses compaction mid-cycle. */
+	private static void compact(Venue client, String userDID, String agentId, String sid, String summary)
+			throws Exception {
+		Exception refused = null;
+		for (int attempt = 0; attempt < 50; attempt++) {
+			if (!SessionHistory.isSessionActive(venue.agentRecord(userDID, agentId), sid)) {
+				try {
+					invoke(client, "v/ops/agent/compact-session",
+						Maps.of("agentId", agentId, "sessionId", sid, "summary", summary));
+					return;
+				} catch (Exception e) {
+					if (!String.valueOf(e.getMessage()).contains("active")) throw e;
+					refused = e;
+				}
+			}
+			Thread.sleep(100);
+		}
+		throw new AssertionError("the session never went idle", refused);
+	}
+
 	private static String titleOf(Venue client, String agentId, String sessionId) {
 		return SessionHistory.listSessions(client, agentId).stream()
 			.filter(x -> x.sessionId().equals(sessionId))

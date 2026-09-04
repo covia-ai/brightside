@@ -127,9 +127,16 @@ hidden model reasoning.
 
 **Conversations are switchable, and a change never yanks you elsewhere.** The
 agent record holds many sessions; a background update re-renders the one on
-screen. Home shows the conversation in progress and startup restores the most
-recent; only the explicit new-chat control starts an empty one, and the venue
-mints its session on the first message.
+screen. A launch lands on a clean Home: nothing resumes until the first
+message mints a session, and past conversations wait in Sessions. The menu
+beside Send acts on the conversation in progress — a new one, compaction,
+copy, its context, or a jump to it in Sessions.
+
+**Compaction is the assistant's.** The summary a compaction keeps is what
+every later turn knows of the conversation, so it must be the assistant's own:
+the menu's Compact sends it a request to use its compact control, never a
+summary written behind its back. The venue archives the exact turns under the
+summary, and the transcript shows that summary, captioned, in their place.
 
 **The tray is best-effort.** Without a tray the window still behaves sensibly,
 and a tray failure never takes the app down.

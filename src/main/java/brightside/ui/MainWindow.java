@@ -138,6 +138,25 @@ public final class MainWindow extends JFrame {
 			}
 		});
 
+		// The conversation menu beside Send acts on the conversation on screen.
+		chatPanel.setHost(new ChatPanel.Host() {
+			@Override
+			public void newConversation() {
+				app.newConversation();
+			}
+
+			@Override
+			public void inspectConversation(String sessionId) {
+				app.showSessionInfo(sessionId);
+			}
+
+			@Override
+			public void showInSessions(String sessionId) {
+				selectTab(NavBar.Tab.SESSIONS);
+				conversations.reveal(sessionId);
+			}
+		});
+
 		// Agents pane (left) beside the sessions list — together the split's left
 		// side. Each agent has its own sessions; selecting one switches the chat.
 		agentList = new brightside.ui.chat.AgentList(new brightside.ui.chat.AgentList.Listener() {

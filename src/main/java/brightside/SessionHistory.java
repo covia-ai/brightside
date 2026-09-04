@@ -33,7 +33,9 @@ import covia.grid.Venue;
  * {@link Item}s: user and final-assistant {@link Message}s, plus an
  * {@link Activity} group (the intermediate "let me try…" narration and the tool
  * calls/results) between a question and its answer — so a turn's tool use is
- * hidden by default but available to expand.
+ * hidden by default but available to expand. A compacted stretch of the
+ * conversation — the exact turns archived under a summary the assistant wrote —
+ * is a {@link Summary} in their place.
  *
  * <p>Change detection is a plain lattice value compare: the {@link Snapshot}
  * carries the agent value cell, and lattice values are immutable and
@@ -53,8 +55,8 @@ public final class SessionHistory {
 	private static final String ROLE_ASSISTANT = "assistant";
 	private static final String ROLE_TOOL = "tool";
 
-	/** A rendered transcript item: a {@link Message} bubble or an {@link Activity} group. */
-	public sealed interface Item permits Message, Activity {
+	/** A rendered transcript item: a {@link Message} bubble, an {@link Activity} group or a {@link Summary}. */
+	public sealed interface Item permits Message, Activity, Summary {
 	}
 
 	/**
@@ -70,6 +72,14 @@ public final class SessionHistory {
 
 	/** The tool-use steps of one turn, shown collapsed and expandable. */
 	public record Activity(List<Step> steps) implements Item {
+	}
+
+	/**
+	 * Earlier turns compacted into a summary the assistant wrote — {@code text}
+	 * is that summary, {@code turns} how many turns it stands for. The exact
+	 * turns are archived beneath it on the venue, kept rather than lost.
+	 */
+	public record Summary(String text, long turns) implements Item {
 	}
 
 	/**
@@ -183,6 +193,12 @@ public final class SessionHistory {
 		List<RawTurn> out = new ArrayList<>();
 		for (long i = 0; i < conversation.count(); i++) {
 			ACell turn = conversation.get(i);
+			if (isSegment(turn)) {
+				// The raw view names the compaction rather than dropping it.
+				out.add(new RawTurn("compacted", str(RT.getIn(turn, "summary")), List.of(), null, false,
+					turnsOf(turn) + " turns archived"));
+				continue;
+			}
 			String role = str(RT.getIn(turn, "role"));
 			if (role == null) continue;
 			List<RawCall> calls = new ArrayList<>();
@@ -316,6 +332,8 @@ public final class SessionHistory {
 				String who = ROLE_USER.equals(m.role())
 					? (m.origin() != null ? m.origin() : "You") : "Brightside";
 				sb.append(who).append(": ").append(m.text()).append("\n\n");
+			} else if (it instanceof Summary s) {
+				sb.append("Summary of the conversation so far: ").append(s.text()).append("\n\n");
 			}
 		}
 		return sb.toString().stripTrailing();
@@ -323,13 +341,29 @@ public final class SessionHistory {
 
 	/** A session's title: its first non-blank user message, first line, truncated. */
 	private static String titleOf(AVector<ACell> conversation) {
-		for (long i = 0; i < conversation.count(); i++) {
-			ACell turn = conversation.get(i);
+		String title = firstUserLine(conversation);
+		return (title != null) ? title : "New conversation";
+	}
+
+	/**
+	 * The first line of the first non-blank user message among {@code turns},
+	 * looking inside a compacted segment's archive — a compacted conversation
+	 * keeps the title it had — or null when there is none.
+	 */
+	private static String firstUserLine(AVector<ACell> turns) {
+		for (long i = 0; i < turns.count(); i++) {
+			ACell turn = turns.get(i);
+			if (isSegment(turn)) {
+				AVector<ACell> archived = archivedOf(turn);
+				String inner = (archived != null) ? firstUserLine(archived) : null;
+				if (inner != null) return inner;
+				continue;
+			}
 			if (!ROLE_USER.equals(str(RT.getIn(turn, "role")))) continue;
 			String content = contentText(RT.getIn(turn, "content"));
 			if (notBlank(content)) return firstLine(content);
 		}
-		return "New conversation";
+		return null;
 	}
 
 	/**
@@ -392,10 +426,37 @@ public final class SessionHistory {
 	private static long latestTurnTs(AVector<ACell> conversation) {
 		long ts = 0;
 		for (long i = 0; i < conversation.count(); i++) {
-			ACell t = RT.getIn(conversation.get(i), "ts");
+			ACell turn = conversation.get(i);
+			if (isSegment(turn)) {
+				// A freshly compacted conversation is as recent as its archived turns.
+				AVector<ACell> archived = archivedOf(turn);
+				if (archived != null) ts = Math.max(ts, latestTurnTs(archived));
+				continue;
+			}
+			ACell t = RT.getIn(turn, "ts");
 			if (t instanceof CVMLong l) ts = Math.max(ts, l.longValue());
 		}
 		return ts;
+	}
+
+	/**
+	 * Whether a conversation entry is a compacted segment — {@code summary} over
+	 * the archived {@code items} — rather than a live turn (which has a role).
+	 * The shape is Covia's {@code GoalTreeContext.createSegment}.
+	 */
+	private static boolean isSegment(ACell entry) {
+		return entry instanceof AMap && RT.getIn(entry, "summary") != null && RT.getIn(entry, "items") != null;
+	}
+
+	/** How many turns a compacted segment stands for. */
+	private static long turnsOf(ACell segment) {
+		return (RT.getIn(segment, "turns") instanceof CVMLong n) ? n.longValue() : 0;
+	}
+
+	/** A compacted segment's archived turns, or null. */
+	@SuppressWarnings("unchecked")
+	private static AVector<ACell> archivedOf(ACell segment) {
+		return (RT.getIn(segment, "items") instanceof AVector<?> v) ? (AVector<ACell>) v : null;
 	}
 
 	/**
@@ -411,6 +472,13 @@ public final class SessionHistory {
 		Map<String, String> callArgs = new HashMap<>();
 		for (long i = 0; i < conversation.count(); i++) {
 			ACell turn = conversation.get(i);
+			if (isSegment(turn)) {
+				// Compacted: the summary stands in for the turns archived under it.
+				flush(items, pending);
+				String summary = str(RT.getIn(turn, "summary"));
+				items.add(new Summary((summary != null) ? summary : "", turnsOf(turn)));
+				continue;
+			}
 			String role = str(RT.getIn(turn, "role"));
 			if (role == null) continue;
 			String content = str(RT.getIn(turn, "content"));

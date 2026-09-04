@@ -7,7 +7,9 @@ import java.awt.Dimension;
 import java.awt.Insets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -16,6 +18,7 @@ import javax.swing.JLabel;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
+import javax.swing.SwingUtilities;
 
 import brightside.SessionHistory;
 import brightside.ui.components.Borders;
@@ -60,6 +63,7 @@ public final class ConversationList extends JPanel {
 
 	private final Listener listener;
 	private final JPanel rows = Panels.column();
+	private final Map<String, Row> rowsById = new HashMap<>();
 	private String selectedId;
 
 	public ConversationList(Listener listener) {
@@ -90,6 +94,7 @@ public final class ConversationList extends JPanel {
 	public void setSessions(List<SessionHistory.Session> sessions, String selectedId) {
 		this.selectedId = selectedId;
 		rows.removeAll();
+		rowsById.clear();
 		if (sessions.isEmpty()) {
 			JLabel empty = Labels.small("No past conversations yet");
 			empty.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6));
@@ -103,6 +108,13 @@ public final class ConversationList extends JPanel {
 		rows.repaint();
 	}
 
+	/** Scrolls a conversation's row into view, once the list has laid out. */
+	public void reveal(String sessionId) {
+		Row row = rowsById.get(sessionId);
+		if (row == null) return;
+		SwingUtilities.invokeLater(() -> rows.scrollRectToVisible(row.getBounds()));
+	}
+
 	private Component rowFor(SessionHistory.Session s) {
 		boolean selected = s.sessionId() != null && s.sessionId().equals(selectedId);
 		Row row = new Row(s);
@@ -111,6 +123,7 @@ public final class ConversationList extends JPanel {
 			if (!s.sessionId().equals(selectedId)) listener.onSelectSession(s.sessionId());
 		});
 		row.onPopup(() -> menuFor(s));
+		if (s.sessionId() != null) rowsById.put(s.sessionId(), row);
 		return row;
 	}
 
