@@ -4,13 +4,17 @@ import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Font;
 import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import javax.swing.BorderFactory;
@@ -20,6 +24,7 @@ import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.DefaultCaret;
+import javax.swing.text.DefaultHighlighter;
 import javax.swing.text.DefaultStyledDocument;
 import javax.swing.text.Element;
 import javax.swing.text.SimpleAttributeSet;
@@ -32,13 +37,19 @@ import com.formdev.flatlaf.util.UIScale;
 
 /**
  * A read-only document for the inspectors: sections, entries, prose, code,
- * key/value pairs and notes, laid out as text in one {@link JTextPane}. The
- * text wraps at whatever width the pane is given and scrolls in
+ * lists, key/value pairs and notes, laid out as text in one {@link JTextPane}.
+ * The text wraps at whatever width the pane is given and scrolls in
  * {@link Scrolls#vertical}, so a long list needs no layout of its own — and
  * because it is one document, everything shown (headings, metadata, values)
  * is selectable and copyable in a single sweep. Long prose or code goes in as
  * an {@linkplain #excerpt excerpt}, folded to a few lines behind a "Show all"
  * link.
+ *
+ * <p>Text can trigger things: a {@link Link} — in an entry's metadata, as a
+ * pair's value, in a {@linkplain #lines list} or on a {@linkplain #link line
+ * of its own} — runs its action on a click and shows a hand cursor. A block
+ * {@linkplain #anchor named} beforehand can be brought into view with
+ * {@link #scrollTo}, which is how a link navigates to detail elsewhere.
  *
  * <p>Build it fluently, in reading order; the document is rendered when the
  * pane is first shown, and again in the theme's fresh faces and colours after
@@ -52,11 +63,19 @@ public class Readout extends JTextPane {
 	public static final int EXCERPT_LINES = 6;
 	public static final int EXCERPT_CHARS = 600;
 
-	/** Character attribute on a fold link: the index of the excerpt it shows or hides. */
-	private static final Object TOGGLE = new Object() {
+	/** Clickable text: {@code text} in the accent, running {@code action} on a click. */
+	public record Link(String text, Runnable action) {
+		public Link {
+			Objects.requireNonNull(text, "text");
+			Objects.requireNonNull(action, "action");
+		}
+	}
+
+	/** Character attribute on clickable text: its {@link Runnable}. */
+	private static final Object ACTION = new Object() {
 		@Override
 		public String toString() {
-			return "readout.toggle";
+			return "readout.action";
 		}
 	};
 
@@ -65,17 +84,25 @@ public class Readout extends JTextPane {
 	private static final int KEY_WIDTH = 130;
 	private static final int GAP = 8;
 
-	private sealed interface Part permits Section, Entry, Block, Caption, Note, Pair {
+	private sealed interface Part permits Section, Entry, Block, Lines, LinkLine, Caption, Note, Pair {
 	}
 
 	private record Section(String title, String tone) implements Part {
 	}
 
-	private record Entry(String title, String tone, List<String> meta) implements Part {
+	/** {@code meta}: strings and links, one per line under the title. */
+	private record Entry(String title, String tone, List<Object> meta) implements Part {
 	}
 
 	/** Prose or code, indented under an entry, folded behind a link when clamped. */
 	private record Block(String text, boolean mono, boolean indented, boolean clamped) implements Part {
+	}
+
+	/** Strings and links, one per line, folded past the excerpt's line count. */
+	private record Lines(List<Object> items, boolean mono, boolean indented) implements Part {
+	}
+
+	private record LinkLine(Link link, boolean indented) implements Part {
 	}
 
 	private record Caption(String text, boolean indented) implements Part {
@@ -84,12 +111,21 @@ public class Readout extends JTextPane {
 	private record Note(String text) implements Part {
 	}
 
-	private record Pair(String key, String value, String tone) implements Part {
+	/** {@code value}: a string or a link. */
+	private record Pair(String key, Object value, String tone) implements Part {
 	}
 
 	private final List<Part> parts = new ArrayList<>();
-	/** The excerpts shown whole, by index in {@link #parts}. */
+	/** The folds shown whole, by index in {@link #parts}. */
 	private final Set<Integer> expanded = new HashSet<>();
+	/** Anchor id → the index in {@link #parts} of the block it names. */
+	private final Map<String, Integer> anchors = new HashMap<>();
+	/** Where each part starts in the rendered document, and where its first line ends. */
+	private int[] starts = new int[0];
+	private int[] firstLineEnds = new int[0];
+	/** The highlight {@link #scrollTo} leaves on the block it reached. */
+	private Object mark;
+	private String pendingAnchor;
 	/** Whether the next block sits under an entry, and so indents. */
 	private boolean underEntry;
 	private boolean stale = true;
@@ -100,31 +136,35 @@ public class Readout extends JTextPane {
 		setOpaque(false);
 		setBorder(BorderFactory.createEmptyBorder(12, 16, 16, 16));
 		quietCaret();
-		MouseAdapter folds = new MouseAdapter() {
+		MouseAdapter clicks = new MouseAdapter() {
 			@Override
 			public void mouseClicked(MouseEvent e) {
 				if (!SwingUtilities.isLeftMouseButton(e) || e.getClickCount() != 1) return;
 				if (getSelectionStart() != getSelectionEnd()) return; // a selection, not a click
-				Integer index = toggleAt(e.getPoint());
-				if (index == null) return;
-				if (!expanded.remove(index)) expanded.add(index);
-				render();
+				Runnable action = actionAt(e.getPoint());
+				if (action != null) action.run();
 			}
 
 			@Override
 			public void mouseMoved(MouseEvent e) {
 				setCursor(Cursor.getPredefinedCursor(
-					toggleAt(e.getPoint()) != null ? Cursor.HAND_CURSOR : Cursor.TEXT_CURSOR));
+					actionAt(e.getPoint()) != null ? Cursor.HAND_CURSOR : Cursor.TEXT_CURSOR));
 			}
 		};
-		addMouseListener(folds);
-		addMouseMotionListener(folds);
+		addMouseListener(clicks);
+		addMouseMotionListener(clicks);
 		built = true;
 	}
 
 	// ------------------------------------------------------------------
 	// Building
 	// ------------------------------------------------------------------
+
+	/** Names the next block, so {@link #scrollTo} can bring it into view. */
+	public Readout anchor(String id) {
+		pendingAnchor = id;
+		return this;
+	}
 
 	/** A heading in the accent, introducing the entries that follow. */
 	public Readout section(String title) {
@@ -138,14 +178,11 @@ public class Readout extends JTextPane {
 
 	/**
 	 * An entry: a bold title (in {@code tone} when one is given) over small
-	 * muted lines; blank lines are dropped. What follows is indented under it.
+	 * muted lines — each a string or a {@link Link}; blank ones are dropped.
+	 * What follows is indented under it.
 	 */
-	public Readout entry(String title, String tone, String... meta) {
-		List<String> lines = new ArrayList<>();
-		for (String m : meta) {
-			if (m != null && !m.isBlank()) lines.add(m);
-		}
-		return add(new Entry(title, tone, List.copyOf(lines)), true);
+	public Readout entry(String title, String tone, Object... meta) {
+		return add(new Entry(title, tone, textsAndLinks(meta)), true);
 	}
 
 	/** Wrapping prose, shown whole. */
@@ -161,6 +198,19 @@ public class Readout extends JTextPane {
 	/** Prose or code folded to a few lines behind a "Show all" link when it is longer. */
 	public Readout excerpt(String text, boolean mono) {
 		return add(new Block(orEmpty(text), mono, underEntry, true), underEntry);
+	}
+
+	/**
+	 * A list, one item per line — each a string or a {@link Link} — in the
+	 * monospaced face when {@code mono}, folded like an excerpt when long.
+	 */
+	public Readout lines(boolean mono, List<?> items) {
+		return add(new Lines(textsAndLinks(items.toArray()), mono, underEntry), underEntry);
+	}
+
+	/** A small clickable line of its own. */
+	public Readout link(String text, Runnable action) {
+		return add(new LinkLine(new Link(text, action), underEntry), underEntry);
 	}
 
 	/** The smallest, muted line: a caption over a detail. */
@@ -180,15 +230,40 @@ public class Readout extends JTextPane {
 
 	/** A key beside its value in a tone. */
 	public Readout pair(String key, String value, String tone) {
-		return add(new Pair(key, value, tone), false);
+		return add(new Pair(key, orEmpty(value), tone), false);
+	}
+
+	/** A key beside a clickable value. */
+	public Readout pair(String key, Link value) {
+		return add(new Pair(key, Objects.requireNonNull(value, "value"), null), false);
 	}
 
 	private Readout add(Part part, boolean underEntry) {
+		if (pendingAnchor != null) {
+			anchors.put(pendingAnchor, parts.size());
+			pendingAnchor = null;
+		}
 		parts.add(part);
 		this.underEntry = underEntry;
 		stale = true;
 		if (isDisplayable()) render();
 		return this;
+	}
+
+	/** Strings and links, blanks and nulls dropped; anything else is a programming error. */
+	private static List<Object> textsAndLinks(Object... items) {
+		List<Object> out = new ArrayList<>();
+		for (Object item : items) {
+			if (item == null) continue;
+			if (item instanceof String s) {
+				if (!s.isBlank()) out.add(s);
+			} else if (item instanceof Link l) {
+				out.add(l);
+			} else {
+				throw new IllegalArgumentException("a String or a Readout.Link, not " + item.getClass().getName());
+			}
+		}
+		return List.copyOf(out);
 	}
 
 	private static String orEmpty(String s) {
@@ -198,6 +273,30 @@ public class Readout extends JTextPane {
 	// ------------------------------------------------------------------
 	// Showing
 	// ------------------------------------------------------------------
+
+	/**
+	 * Brings the block anchored {@code id} into view — at the top where the
+	 * document allows — and highlights its first line. False when nothing is
+	 * anchored so, or the pane has not been laid out yet.
+	 */
+	public boolean scrollTo(String id) {
+		Integer index = anchors.get(id);
+		if (index == null || index >= starts.length) return false;
+		int start = starts[index];
+		try {
+			Rectangle2D at = modelToView2D(start);
+			if (at == null) return false;
+			JViewport viewport = (JViewport) SwingUtilities.getAncestorOfClass(JViewport.class, this);
+			int height = (viewport != null) ? viewport.getExtentSize().height : (int) at.getHeight();
+			scrollRectToVisible(new Rectangle(0, (int) at.getY() - UIScale.scale(GAP), 1, height));
+			if (mark != null) getHighlighter().removeHighlight(mark);
+			mark = getHighlighter().addHighlight(start, firstLineEnds[index],
+				new DefaultHighlighter.DefaultHighlightPainter(Theme.fade(Theme.accent(), 0.3f)));
+		} catch (BadLocationException e) {
+			return false;
+		}
+		return true;
+	}
 
 	/** Always as wide as its viewport: text wraps rather than widening the page. */
 	@Override
@@ -232,20 +331,29 @@ public class Readout extends JTextPane {
 		stale = false;
 		JViewport viewport = (JViewport) SwingUtilities.getAncestorOfClass(JViewport.class, this);
 		Point at = (viewport != null) ? viewport.getViewPosition() : null;
+		if (mark != null) {
+			getHighlighter().removeHighlight(mark);
+			mark = null;
+		}
 		setStyledDocument(new Writer().write());
 		setCaretPosition(0);
 		// A fold re-renders the whole document; the reader stays where they were.
 		if (at != null) SwingUtilities.invokeLater(() -> viewport.setViewPosition(at));
 	}
 
-	/** The excerpt whose fold link is under {@code p}, or null when there is none. */
-	private Integer toggleAt(Point p) {
+	private void toggle(int index) {
+		if (!expanded.remove(index)) expanded.add(index);
+		render();
+	}
+
+	/** The action of the clickable text under {@code p}, or null when there is none. */
+	private Runnable actionAt(Point p) {
 		StyledDocument doc = getStyledDocument();
 		int pos = viewToModel2D(p);
 		if (pos < 0 || pos >= doc.getLength()) return null;
 		Element run = doc.getCharacterElement(pos);
-		Object index = run.getAttributes().getAttribute(TOGGLE);
-		if (!(index instanceof Integer i)) return null;
+		Object action = run.getAttributes().getAttribute(ACTION);
+		if (!(action instanceof Runnable r)) return null;
 		try {
 			// The nearest position past a line's end is its last character:
 			// only a pointer actually on the run counts.
@@ -256,7 +364,7 @@ public class Readout extends JTextPane {
 		} catch (BadLocationException e) {
 			return null;
 		}
-		return i;
+		return r;
 	}
 
 	/**
@@ -309,17 +417,37 @@ public class Readout extends JTextPane {
 		private boolean afterCaption;
 
 		StyledDocument write() {
-			for (int i = 0; i < parts.size(); i++) {
+			int n = parts.size();
+			int[] from = new int[n];
+			int[] lineEnd = new int[n];
+			for (int i = 0; i < n; i++) {
+				// open() puts one line break before every block but the first.
+				from[i] = (doc.getLength() > 0) ? doc.getLength() + 1 : 0;
 				switch (parts.get(i)) {
 					case Section s -> section(s);
 					case Entry e -> entry(e);
 					case Block b -> block(b, i);
+					case Lines l -> lines(l, i);
+					case LinkLine l -> linkLine(l);
 					case Caption c -> caption(c);
-					case Note n -> note(n);
+					case Note x -> note(x);
 					case Pair p -> pair(p);
 				}
+				lineEnd[i] = firstLineEnd(from[i]);
 			}
+			starts = from;
+			firstLineEnds = lineEnd;
 			return doc;
+		}
+
+		private int firstLineEnd(int from) {
+			try {
+				String rest = doc.getText(from, doc.getLength() - from);
+				int nl = rest.indexOf('\n');
+				return (nl >= 0) ? from + nl : doc.getLength();
+			} catch (BadLocationException e) {
+				return doc.getLength();
+			}
 		}
 
 		private void section(Section s) {
@@ -332,7 +460,10 @@ public class Readout extends JTextPane {
 		private void entry(Entry e) {
 			int start = open();
 			insert(e.title(), run(body, true, colour(e.tone(), foreground)));
-			for (String m : e.meta()) insert("\n" + m, run(small, false, muted));
+			for (Object m : e.meta()) {
+				insert("\n", run(small, false, muted));
+				item(m, small, false);
+			}
 			close(start, 0, 0, gap * 1.5f, null);
 			afterCaption = false;
 		}
@@ -356,13 +487,35 @@ public class Readout extends JTextPane {
 			int start = open();
 			insert(shown, b.mono() ? code() : run(body, false, foreground));
 			close(start, left, 0, afterCaption ? gap / 4f : gap / 2f, null);
-			if (fold != null) {
-				int link = open();
-				SimpleAttributeSet a = run(small, false, accent);
-				a.addAttribute(TOGGLE, index);
-				insert(fold, a);
-				close(link, left, 0, gap / 4f, null);
+			if (fold != null) fold(fold, index, left);
+			afterCaption = false;
+		}
+
+		private void lines(Lines l, int index) {
+			List<Object> items = l.items();
+			String fold = null;
+			if (items.size() > EXCERPT_LINES) {
+				boolean whole = expanded.contains(index);
+				if (!whole) items = items.subList(0, EXCERPT_LINES);
+				fold = whole ? "Show less" : String.format("Show all  ·  %,d lines", l.items().size());
 			}
+			int left = l.indented() ? indent : 0;
+			int start = open();
+			boolean first = true;
+			for (Object item : items) {
+				if (!first) insert("\n", l.mono() ? code() : run(body, false, foreground));
+				first = false;
+				item(item, l.mono() ? mono : body, l.mono());
+			}
+			close(start, left, 0, afterCaption ? gap / 4f : gap / 2f, null);
+			if (fold != null) fold(fold, index, left);
+			afterCaption = false;
+		}
+
+		private void linkLine(LinkLine l) {
+			int start = open();
+			insert(l.link().text(), link(l.link(), small, false));
+			close(start, l.indented() ? indent : 0, 0, afterCaption ? gap / 4f : gap / 2f, null);
 			afterCaption = false;
 		}
 
@@ -384,9 +537,27 @@ public class Readout extends JTextPane {
 		private void pair(Pair p) {
 			int start = open();
 			insert(p.key() + "\t", run(body, false, muted));
-			insert(p.value(), run(body, false, colour(p.tone(), foreground)));
+			if (p.value() instanceof Link l) insert(l.text(), link(l, body, false));
+			else insert((String) p.value(), run(body, false, colour(p.tone(), foreground)));
 			close(start, keyWidth, keyWidth, gap / 2f, new TabSet(new TabStop[] {new TabStop(0)}));
 			afterCaption = false;
+		}
+
+		/** A string as small muted text, or a link, in {@code font}; on the code ground when {@code mono}. */
+		private void item(Object item, Font font, boolean mono) {
+			if (item instanceof Link l) {
+				insert(l.text(), link(l, font, mono));
+			} else {
+				SimpleAttributeSet a = mono ? code() : run(font, false, muted);
+				insert((String) item, a);
+			}
+		}
+
+		/** The "Show all" / "Show less" line under a folded block. */
+		private void fold(String text, int index, int left) {
+			int start = open();
+			insert(text, link(new Link(text, () -> toggle(index)), small, false));
+			close(start, left, 0, gap / 4f, null);
 		}
 
 		/** Starts a block: a line break after whatever came before. Returns where it starts. */
@@ -439,6 +610,14 @@ public class Readout extends JTextPane {
 		private SimpleAttributeSet code() {
 			SimpleAttributeSet a = run(mono, false, foreground);
 			StyleConstants.setBackground(a, codeGround);
+			return a;
+		}
+
+		/** Clickable text: the accent, carrying its action. */
+		private SimpleAttributeSet link(Link l, Font font, boolean mono) {
+			SimpleAttributeSet a = mono ? code() : run(font, false, accent);
+			StyleConstants.setForeground(a, accent);
+			a.addAttribute(ACTION, l.action());
 			return a;
 		}
 
