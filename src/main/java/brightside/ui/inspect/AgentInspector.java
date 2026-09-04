@@ -1,9 +1,5 @@
 package brightside.ui.inspect;
 
-import static brightside.ui.inspect.Blocks.body;
-import static brightside.ui.inspect.Blocks.column;
-import static brightside.ui.inspect.Blocks.heading;
-import static brightside.ui.inspect.Blocks.kv;
 import static brightside.ui.inspect.Blocks.raw;
 
 import java.awt.BorderLayout;
@@ -11,15 +7,11 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
-import javax.swing.BorderFactory;
-import javax.swing.JComponent;
-import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
 
 import brightside.AgentInfo;
-import brightside.ui.components.Labels;
-import brightside.ui.components.Panels;
+import brightside.ui.components.Readout;
 import brightside.ui.components.Scrolls;
 import brightside.ui.components.Styles;
 
@@ -28,7 +20,8 @@ import brightside.ui.components.Styles;
  * (identity, status, model, activity), <em>Instructions</em> (the system prompt
  * and what is pinned into every turn), <em>Capabilities</em> (always-on tools,
  * skill libraries, pinned loads, anything unavailable) and <em>Raw</em> (the
- * venue's {@code agent:info} summary). Everything shown is selectable and copyable.
+ * venue's {@code agent:info} summary). Each tab is a {@link Readout} document:
+ * everything shown is selectable and copyable.
  */
 @SuppressWarnings("serial")
 public final class AgentInspector extends JPanel {
@@ -43,66 +36,57 @@ public final class AgentInspector extends JPanel {
 		add(tabs, BorderLayout.CENTER);
 	}
 
-	private static JComponent overview(AgentInfo.Summary a) {
-		JPanel p = column();
-		p.setBorder(BorderFactory.createEmptyBorder(16, 18, 16, 18));
-		p.add(kv("Name", a.name()));
-		p.add(kv("Id", a.id()));
-		p.add(kv("Agent DID", a.did()));
-		p.add(kv("Owner", a.ownerName() + "  ·  " + a.ownerDID()));
-		p.add(kv("Status", status(a)));
-		p.add(kv("Model", orDash(a.model())));
-		p.add(kv("Operation", orDash(a.operation())));
-		p.add(kv("Conversations", activity(a)));
-		p.add(kv("Tasks", Long.toString(a.tasks())));
-		p.add(kv("Timeline", a.timelineLength() + " event" + (a.timelineLength() == 1 ? "" : "s")));
-		JLabel note = Labels.small(a.standard()
+	private static Readout overview(AgentInfo.Summary a) {
+		Readout d = new Readout();
+		d.pair("Name", a.name());
+		d.pair("Id", a.id());
+		d.pair("Agent DID", a.did());
+		d.pair("Owner", a.ownerName() + "  ·  " + a.ownerDID());
+		d.pair("Status", status(a));
+		d.pair("Model", orDash(a.model()));
+		d.pair("Operation", orDash(a.operation()));
+		d.pair("Conversations", activity(a));
+		d.pair("Tasks", Long.toString(a.tasks()));
+		d.pair("Timeline", a.timelineLength() + " event" + (a.timelineLength() == 1 ? "" : "s"));
+		d.note(a.standard()
 			? "Brightside's standard agent: its model and instructions follow Settings and config.json."
 			: "Created from the agents pane; it keeps the model and instructions it was given.");
-		note.setBorder(BorderFactory.createEmptyBorder(14, 0, 0, 0));
-		p.add(note);
-		return p;
+		return d;
 	}
 
-	private static JComponent instructions(AgentInfo.Summary a) {
-		JPanel p = column();
-		p.add(heading("System prompt"));
-		p.add(body(orDash(a.systemPrompt()), false));
-		p.add(Panels.rule());
-		p.add(heading("In every turn"));
-		for (String c : a.context()) p.add(body(c, false));
-		for (AgentInfo.Pin pin : a.pins()) p.add(body(pinLine(pin), false));
-		if (a.context().isEmpty() && a.pins().isEmpty()) p.add(Labels.small("Nothing pinned."));
-		return p;
+	private static Readout instructions(AgentInfo.Summary a) {
+		Readout d = new Readout();
+		d.section("System prompt");
+		d.prose(orDash(a.systemPrompt()));
+		d.section("In every turn");
+		for (String c : a.context()) d.prose(c);
+		for (AgentInfo.Pin pin : a.pins()) d.prose(pinLine(pin));
+		if (a.context().isEmpty() && a.pins().isEmpty()) d.note("Nothing pinned.");
+		return d;
 	}
 
-	private static JComponent capabilities(AgentInfo.Summary a) {
-		JPanel p = column();
-		p.add(heading("Always-on tools"));
-		if (a.defaultTools()) p.add(body("Read-only workspace access (covia read/list)", false));
-		for (String t : a.tools()) p.add(body(t, false));
-		if (!a.defaultTools() && a.tools().isEmpty()) p.add(Labels.small("None."));
-		p.add(Panels.rule());
-		p.add(heading("Skill libraries"));
-		list(p, a.skillsets(), "None — the agent cannot discover skills.");
-		p.add(Panels.rule());
-		p.add(heading("Pinned loads"));
-		if (a.pins().isEmpty()) p.add(Labels.small("None."));
-		for (AgentInfo.Pin pin : a.pins()) p.add(body(pinLine(pin), false));
+	private static Readout capabilities(AgentInfo.Summary a) {
+		Readout d = new Readout();
+		d.section("Always-on tools");
+		if (a.defaultTools()) d.prose("Read-only workspace access (covia read/list)");
+		for (String t : a.tools()) d.prose(t);
+		if (!a.defaultTools() && a.tools().isEmpty()) d.note("None.");
+		d.section("Skill libraries");
+		list(d, a.skillsets(), "None — the agent cannot discover skills.");
+		d.section("Pinned loads");
+		if (a.pins().isEmpty()) d.note("None.");
+		for (AgentInfo.Pin pin : a.pins()) d.prose(pinLine(pin));
 		if (!a.unavailable().isEmpty()) {
-			p.add(Panels.rule());
-			p.add(Styles.classes(heading("Unavailable"), Styles.STRONG, Styles.ERROR));
-			list(p, a.unavailable(), "");
+			d.section("Unavailable", Styles.ERROR);
+			list(d, a.unavailable(), "");
 		}
-		JLabel note = Labels.small("Everything else arrives by loading a skill that grants it.");
-		note.setBorder(BorderFactory.createEmptyBorder(14, 0, 0, 0));
-		p.add(note);
-		return p;
+		d.note("Everything else arrives by loading a skill that grants it.");
+		return d;
 	}
 
-	private static void list(JPanel p, List<String> items, String whenEmpty) {
-		if (items.isEmpty() && !whenEmpty.isEmpty()) p.add(Labels.small(whenEmpty));
-		for (String s : items) p.add(body(s, false));
+	private static void list(Readout d, List<String> items, String whenEmpty) {
+		if (items.isEmpty() && !whenEmpty.isEmpty()) d.note(whenEmpty);
+		for (String s : items) d.prose(s);
 	}
 
 	private static String pinLine(AgentInfo.Pin pin) {

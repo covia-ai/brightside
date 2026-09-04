@@ -152,11 +152,6 @@ public class SelectableText extends JTextArea {
 		return this;
 	}
 
-	/** The fixed wrap width from {@link #wrapAt}, or 0 when the text wraps at whatever width it is given. */
-	public int wrapWidth() {
-		return wrapWidth;
-	}
-
 	@Override
 	public Dimension getPreferredSize() {
 		if (wrapWidth <= 0) return super.getPreferredSize();

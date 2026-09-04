@@ -1,43 +1,28 @@
 package brightside.ui.inspect;
 
 import javax.swing.BorderFactory;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 
-import brightside.ui.components.Labels;
-import brightside.ui.components.Panels;
 import brightside.ui.components.Scrolls;
 import brightside.ui.components.SelectableText;
 import brightside.ui.components.Styles;
 
 /**
- * The read-only compositions the inspectors and the inbox share, built from
- * {@code brightside.ui.components}: a padded column, a key/value row, an
- * accent heading, a body block and a raw (JSON) view.
+ * The read-only pieces the inbox and the inspectors share, built from
+ * {@code brightside.ui.components}: an accent heading, a body block and a raw
+ * (JSON) view — each selectable, like everything around it. The inspectors'
+ * own tabs are {@link brightside.ui.components.Readout} documents.
  */
 public final class Blocks {
 
 	private Blocks() {
 	}
 
-	/** A padded column of blocks. */
-	public static JPanel column() {
-		JPanel p = Panels.column();
-		p.setBorder(BorderFactory.createEmptyBorder(12, 14, 12, 14));
-		return p;
-	}
-
-	/** A key beside a selectable value. */
-	public static JPanel kv(String key, String value) {
-		return Panels.keyValue(key, new SelectableText(value));
-	}
-
 	/** A bold heading in the accent, spaced from the block above. */
-	public static JLabel heading(String text) {
-		JLabel l = Styles.classes(Labels.heading(text), Styles.STRONG, Styles.ACCENT);
-		l.setBorder(BorderFactory.createEmptyBorder(6, 0, 4, 0));
-		return l;
+	public static SelectableText heading(String text) {
+		SelectableText t = new SelectableText(text).bold().tone(Styles.ACCENT);
+		t.setBorder(BorderFactory.createEmptyBorder(6, 0, 4, 0));
+		return t;
 	}
 
 	/** A read-only, selectable block: wrapping prose, or unwrapped monospaced text. */
