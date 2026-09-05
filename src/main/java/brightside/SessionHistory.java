@@ -333,7 +333,7 @@ public final class SessionHistory {
 					? (m.origin() != null ? m.origin() : "You") : "Brightside";
 				sb.append(who).append(": ").append(m.text()).append("\n\n");
 			} else if (it instanceof Summary s) {
-				sb.append("Summary of the conversation so far: ").append(s.text()).append("\n\n");
+				sb.append("Earlier conversation summarised: ").append(s.text()).append("\n\n");
 			}
 		}
 		return sb.toString().stripTrailing();

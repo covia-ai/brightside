@@ -60,8 +60,8 @@ import covia.venue.AgentEvents;
  * rounded input box, an accent Send button and a small menu for the
  * conversation as a whole. Each transcript item is rendered by its own
  * component — a {@link Bubble} for a user/assistant message, an
- * {@link ExpandableActivity} chip for a turn's tool use, a captioned bubble for
- * a compacted stretch's summary — kept as separate components (in this
+ * {@link ExpandableActivity} chip for a turn's tool use, a {@link CompactedFold}
+ * where a compacted stretch was — kept as separate components (in this
  * {@code ui.chat} package) so new item kinds (images, cards, richer tool output)
  * can be added as their own row types. Text within a bubble is selectable; a
  * right-click offers <em>Copy message</em> and <em>Copy conversation</em>.
@@ -95,11 +95,16 @@ public final class ChatPanel extends JPanel {
 	 * every later turn will know of this one, so it has to be the assistant's
 	 * own: compacting is a request to it, through its compact control, rather
 	 * than something the app does behind its back. The venue archives the exact
-	 * turns beneath the summary, and the transcript redraws as it now stands.
+	 * turns beneath the summary, and the transcript redraws as it now stands:
+	 * a {@link CompactedFold} where the archived turns were, then the reply.
+	 * That reply is asked to carry on, not to report — the summary already
+	 * says what was kept, and a second account of it would say the one event
+	 * twice, in the harness's vocabulary.
 	 */
 	static final String COMPACT_REQUEST = "Please compact this conversation now: use your compact tool"
-		+ " with a summary of what still matters — decisions, facts, preferences and open threads —"
-		+ " then tell me briefly what you kept.";
+		+ " with a summary of what still matters — decisions, facts, preferences and open threads."
+		+ " Then carry on from where we were: pick up anything in progress, or ask what's next."
+		+ " No need to describe the compaction itself.";
 
 	private final MessageColumn column = new MessageColumn();
 	private final EmptyChatState emptyState = new EmptyChatState();
@@ -333,7 +338,7 @@ public final class ChatPanel extends JPanel {
 		if (a == null) return;
 		if (liveChip == null) {
 			liveChip = new ExpandableActivity(a, column::revalidate, ta -> lastSelectedBubble = ta);
-			liveRow = activityRow(liveChip);
+			liveRow = leftRow(liveChip);
 			column.add(liveRow, indexOf(thinkingRow));
 		} else {
 			liveChip.update(a);
@@ -399,8 +404,8 @@ public final class ChatPanel extends JPanel {
 		}
 		if (it instanceof SessionHistory.Activity a) return activityRow(a);
 		if (it instanceof SessionHistory.Summary s) {
-			// The assistant's own summary, in its bubble, captioned for what it is.
-			return bubbleRow(s.text(), false, "Summary of the conversation so far");
+			// The assistant's context, not its words: folded, a click from view.
+			return leftRow(new CompactedFold(s, column::revalidate, ta -> lastSelectedBubble = ta));
 		}
 		return new JPanel();
 	}
@@ -528,7 +533,7 @@ public final class ChatPanel extends JPanel {
 		boolean go = Dialogs.choose(this, "Compact this conversation?",
 			"Brightside will sum up the conversation so far and carry on from the\n"
 			+ "summary, which keeps it quick and focused. The full transcript is kept\n"
-			+ "underneath, and the summary is shown here in its place.",
+			+ "underneath, folded into a summary you can open here.",
 			"Compact", "Cancel");
 		if (go && session == s && !busy) deliver(COMPACT_REQUEST);
 	}
@@ -891,10 +896,11 @@ public final class ChatPanel extends JPanel {
 
 	/** An assistant-side, collapsed-by-default group of a turn's tool-use steps. */
 	private Component activityRow(SessionHistory.Activity a) {
-		return activityRow(new ExpandableActivity(a, column::revalidate, ta -> lastSelectedBubble = ta));
+		return leftRow(new ExpandableActivity(a, column::revalidate, ta -> lastSelectedBubble = ta));
 	}
 
-	private static Component activityRow(ExpandableActivity chip) {
+	/** A row holding one of the assistant-side chips (tool activity, a compacted fold) at the left. */
+	private static Component leftRow(Component chip) {
 		JPanel row = new JPanel(new BorderLayout());
 		row.setOpaque(false);
 		row.setBorder(BorderFactory.createEmptyBorder(0, 2, 0, 2));

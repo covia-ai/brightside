@@ -136,7 +136,9 @@ copy, its context, or a jump to it in Sessions.
 every later turn knows of the conversation, so it must be the assistant's own:
 the menu's Compact sends it a request to use its compact control, never a
 summary written behind its back. The venue archives the exact turns under the
-summary, and the transcript shows that summary, captioned, in their place.
+summary. The transcript is the conversation, not the assistant's context: the
+archived stretch folds into a quiet marker that opens to the summary, and the
+assistant carries on from it rather than reporting on the compaction.
 
 **The tray is best-effort.** Without a tray the window still behaves sensibly,
 and a tray failure never takes the app down.
