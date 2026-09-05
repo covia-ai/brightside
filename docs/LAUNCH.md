@@ -92,6 +92,20 @@ the `VenueServer` on a background thread before `System.exit`. A Convex
 `Shutdown` hook at `SERVER - 10` closes the venue on Ctrl-C and SIGTERM.
 `EmbeddedVenue.close()` is idempotent.
 
+## When the store was not closed cleanly
+
+Etch v3 records a clean checkpoint in the store's header. A process that dies
+between a write and its next sync or close — a crash, a power cut, an IDE
+launch stopped dead — leaves the header open, and Etch refuses to open the
+file: by its design there is no writable recovery open, only a repair into a
+fresh file. `StoreRepair` does that at launch, with the key in hand: it
+rebuilds `venue.etch` into a fresh file beside it, moves the old one aside as
+`venue.etch.unclean-<stamp>` and installs the fresh one, then the launch goes
+on and the chat opens with a note saying so. Only writes after the last sync
+can be missing. `"repairStore": false` in `config.json` stops the launch
+instead, for an owner who would rather restore a backup by hand
+([CONFIGURATION.md](CONFIGURATION.md)).
+
 ## When launch fails
 
 `Venue failed to start` in the log names the cause. `File lock failed on

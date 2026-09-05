@@ -22,6 +22,7 @@ can be told is in one hand-edited file there.
 | `~/.brightside/config.json` | Settings (JSON5 — comments allowed). Hand-edited. |
 | `~/.brightside/identity.json` | Your name, stable slug and full Covia user DID, kept apart so identity changes never rewrite settings. |
 | `~/.brightside/venue.etch` | The encrypted lattice store: conversations, memory, skills, agent state. |
+| `~/.brightside/venue.etch.unclean-<stamp>` | The store as it was before a launch-time repair ([LAUNCH.md](LAUNCH.md)); delete once the repaired store has proved itself. |
 | `~/.brightside/vault.salt` | The non-secret salt for passphrase hardening. |
 | `~/.brightside/identity.enc` | The AES-GCM-encrypted Ed25519 identity seed. |
 | `~/.brightside/keys.enc` | Transient: stages an onboarding API key until the first launch moves it into the venue's encrypted secret stores; absent afterwards. |
@@ -51,6 +52,7 @@ independent agents side by side.
 ```json5
 {
   "theme": "dark",                      // or "light"
+  "repairStore": true,                  // rebuild the store on launch after a crash
 
   "venue": {                            // a Covia venue config map
     "name": "Brightside Venue",
@@ -79,6 +81,15 @@ themes there is an accent colour too. Choices apply at once and are remembered
 in `prefs.properties` (`ui.mode`, `ui.theme.dark`, `ui.theme.light`, and
 `ui.accent` as `#RRGGBB`), which then take precedence over this key; delete
 those lines to return to the file's setting and Brightside's purple.
+
+### `repairStore`
+
+`true` (default): a store that was not closed cleanly — a crash, a power cut,
+a launch stopped dead — is rebuilt into a fresh file on the next launch, with
+the old file kept beside it as `venue.etch.unclean-<stamp>`; the chat opens
+with a note saying so. `false` stops the launch instead, for an owner who
+would rather restore a backup by hand. How the repair works is in
+[LAUNCH.md](LAUNCH.md).
 
 ### `venue`
 

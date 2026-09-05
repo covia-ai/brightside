@@ -13,6 +13,7 @@ import convex.core.data.AString;
 import convex.core.data.MapEntry;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
+import convex.core.data.prim.CVMBool;
 import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
 import convex.core.util.JSON;
@@ -89,6 +90,11 @@ public final class AppConfig {
 			// in the app (Settings → Theme) are remembered in prefs.properties and win over this.
 			"theme": "dark",
 
+			// If Brightside wasn't closed cleanly (a crash, a power cut), its data
+			// store is rebuilt on the next launch and the old file kept beside it.
+			// Set false to be stopped instead, and restore a backup by hand.
+			"repairStore": true,
+
 			// The embedded Covia venue. Any Covia venue config key is accepted here
 			// and replaces Brightside's default for that key. Defaults: bound to
 			// 127.0.0.1, encrypted persistent store at ~/.brightside/venue.etch,
@@ -122,12 +128,14 @@ public final class AppConfig {
 
 	private final Path home;
 	private final String theme;
+	private final boolean repairStore;
 	private final AMap<AString, ACell> venue;
 	private final Chat chat;
 
 	private AppConfig(AMap<AString, ACell> raw, Path home) {
 		this.home = home;
 		this.theme = string(raw, "theme", DEFAULT_THEME);
+		this.repairStore = bool(raw, "repairStore", true);
 		this.venue = merge(defaultVenue(home), RT.ensureMap(raw.get(Strings.create("venue"))));
 		AMap<AString, ACell> c = RT.ensureMap(raw.get(Strings.create("chat")));
 		// The chosen model persists in a small side-file (model.txt), so changing
@@ -253,6 +261,12 @@ public final class AppConfig {
 		return (v instanceof AString s) ? s.toString() : v.toString();
 	}
 
+	private static boolean bool(AMap<AString, ACell> m, String key, boolean dflt) {
+		if (m == null) return dflt;
+		ACell v = m.get(Strings.create(key));
+		return (v instanceof CVMBool b) ? b.booleanValue() : dflt;
+	}
+
 	/** Data directory (the config file's directory). */
 	public Path home() {
 		return home;
@@ -270,6 +284,15 @@ public final class AppConfig {
 	/** {@code "dark"} or {@code "light"}. */
 	public String theme() {
 		return theme;
+	}
+
+	/**
+	 * Whether a store left open by a crash is repaired on launch (the default)
+	 * rather than the launch stopping for the owner to restore a backup. See
+	 * {@link StoreRepair}.
+	 */
+	public boolean repairStore() {
+		return repairStore;
 	}
 
 	/** The complete venue config to launch: defaults with the user's keys applied. */

@@ -280,7 +280,38 @@ public final class BrightSide {
 			SwingUtilities.invokeLater(() -> {
 				if (unlockDialog != null) unlockDialog.showProgress("Starting the venue…");
 			});
-			EmbeddedVenue v = EmbeddedVenue.launch(venueConfig, this::exit);
+			EmbeddedVenue v;
+			StoreRepair.Outcome repaired = null;
+			try {
+				v = EmbeddedVenue.launch(venueConfig, this::exit);
+			} catch (RuntimeException e) {
+				// A store left open by a crash (or a launch stopped dead) is refused
+				// by Etch v3 until it is repaired into a fresh file. Do that here,
+				// where the key is in hand, unless the owner has switched it off.
+				if (!StoreRepair.isUncleanClose(e)) throw e;
+				if (!config.repairStore()) {
+					log.error("The store was not closed cleanly and repairStore is off", e);
+					startupFailed("Brightside's data store wasn't closed cleanly last time. Set \"repairStore\": true"
+						+ " in config.json to have it repaired on launch, or restore a backup of venue.etch.");
+					return;
+				}
+				log.warn("The store was not closed cleanly; repairing it before launch");
+				SwingUtilities.invokeLater(() -> {
+					if (unlockDialog != null) unlockDialog.showProgress("Checking the data store…");
+				});
+				try {
+					repaired = StoreRepair.repair(venueConfig);
+				} catch (IOException ioe) {
+					log.error("Store repair failed", ioe);
+					startupFailed("Brightside couldn't repair its data store: " + ioe.getMessage());
+					return;
+				}
+				log.warn("Store repaired — {}", repaired.summary());
+				SwingUtilities.invokeLater(() -> {
+					if (unlockDialog != null) unlockDialog.showProgress("Starting the venue…");
+				});
+				v = EmbeddedVenue.launch(venueConfig, this::exit);
+			}
 			venue = v;
 			log.info("Venue '{}' ready at {} as {}", v.name(), v.url(), v.did());
 			// Reveal only now that the venue is up: the dialog drops and the window
@@ -288,6 +319,10 @@ public final class BrightSide {
 			// update is queued after it and fills in the conversation.
 			if (clearToShow != null) SwingUtilities.invokeLater(clearToShow);
 			onVenueReady();
+			if (repaired != null) {
+				String notice = repaired.notice();
+				SwingUtilities.invokeLater(() -> window.showSystemMessage(notice));
+			}
 		} catch (Throwable t) {
 			log.error("Venue failed to start", t);
 			closeVenue();
