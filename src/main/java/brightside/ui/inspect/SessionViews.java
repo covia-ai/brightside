@@ -45,6 +45,9 @@ public final class SessionViews extends JPanel {
 
 		/** Read what the agent is, answering through {@link #showAgent}. */
 		void loadAgent(String agentId);
+
+		/** Show a skill or directory in the library — the Skills screen — by its path. */
+		void showSkill(String path);
 	}
 
 	/** The tabs, in order: the chat, the conversation's context, its agent. */
@@ -204,7 +207,7 @@ public final class SessionViews extends JPanel {
 		if (report == null) {
 			noteSession("Brightside couldn't read the context for this conversation.");
 		} else {
-			List<ContextInspector.Tab> views = ContextInspector.tabs(report, turns, skills);
+			List<ContextInspector.Tab> views = ContextInspector.tabs(report, turns, skills, host::showSkill);
 			for (int i = 0; i < SESSION_VIEWS.size(); i++) {
 				fill(SESSION_VIEWS.get(i), views.get(i).title(), views.get(i).view());
 			}

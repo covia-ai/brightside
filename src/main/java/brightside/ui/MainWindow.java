@@ -201,6 +201,12 @@ public final class MainWindow extends JFrame {
 			public void loadAgent(String agentId) {
 				app.showAgentInfo(agentId);
 			}
+
+			@Override
+			public void showSkill(String path) {
+				selectTab(NavBar.Tab.SKILLS);
+				skillsScreen.reveal(path);
+			}
 		});
 
 		// A split so the sessions area can be resized (Sessions tab) or collapsed

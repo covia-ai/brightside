@@ -9,6 +9,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import javax.swing.JComponent;
 import javax.swing.JTabbedPane;
@@ -27,8 +28,8 @@ import brightside.ui.components.Styles;
  * (model, budget, counts), <em>Context</em> (every assembled message, by band
  * — head, live surface, conversation, tool loop, tail), <em>Cycle detail</em>
  * (the stored turns), <em>Tools</em> (every definition the model receives, by
- * where it comes from), <em>Skills</em> (the index as this conversation's
- * model sees it: the top level, and what its loaded skills reveal),
+ * where it comes from), <em>Skills</em> (the skills loaded in this
+ * conversation, each linking to what it reveals in the library),
  * <em>Loaded</em> (the context entries and their accounting) and <em>Raw</em>
  * (the untouched report). {@link SessionViews} shows them above the chat;
  * every view is the conversation's own situation, and the whole skill
@@ -55,15 +56,9 @@ public final class ContextInspector {
 	private static final String TIP_LOADED = "The context entries loaded for this conversation, and their accounting.";
 	private static final String TIP_META_CYCLE = "The cycle that produced the turn: its source, the model's finish "
 		+ "reason, its tokens and its job.";
-	private static final String TIP_SKILLSET = "A skillset: a folder of skills the agent can discover. Skillsets are "
-		+ "searched in this order, and the first skill of a name wins.";
-	private static final String TIP_SHADOWED = "An earlier skillset has a skill of this name, which wins; this one "
-		+ "stays out of the index.";
-	private static final String TIP_GRANTS = "Tools the skill grants once it is loaded.";
-	private static final String TIP_REVEALS = "Skills that enter the index only once this one is loaded.";
+	private static final String TIP_GRANTS = "Tools the skill grants while it is loaded.";
+	private static final String TIP_REVEALS = "Skills and directories that enter the index once this one is loaded.";
 	private static final String TIP_PATH = "Where the skill lives on the venue.";
-	private static final String TIP_LOADED_SKILL = "Loaded in this conversation: its instructions are in the context "
-		+ "and its tools in the palette.";
 	private static final String TIP_ACCOUNTING = "What the entry put into the context on this assembly, against the "
 		+ "most it may: content past the budget is cut and the entry marked truncated. An entry the cached "
 		+ "prefix already holds is left as it is and not measured again.";
@@ -77,12 +72,13 @@ public final class ContextInspector {
 	/**
 	 * The views for one conversation, in tab order.
 	 *
-	 * @param index the skills the model's index offers in this conversation
-	 *              ({@link SkillIndex#visible}); may be empty
+	 * @param loaded  the skills loaded in this conversation; may be empty
+	 * @param library shows a skill or directory in the library (the Skills
+	 *                screen) by its path — where a reveal's link goes
 	 */
 	public static List<Tab> tabs(AgentContext.Report report, List<SessionHistory.RawTurn> turns,
-			List<SkillIndex.Skill> index) {
-		return new ContextInspector(report, turns, index).tabs;
+			List<SkillIndex.Skill> loaded, Consumer<String> library) {
+		return new ContextInspector(report, turns, loaded, library).tabs;
 	}
 
 	private final List<Tab> tabs = new ArrayList<>();
@@ -91,32 +87,28 @@ public final class ContextInspector {
 	private final Readout tools = new Readout();
 	private final Readout skills = new Readout();
 	private final Readout loads = new Readout();
+	private final Consumer<String> library;
 
 	/** What a cross-reference can reach: the anchors the other views carry. */
 	private final Set<String> skillPaths = new HashSet<>();
-	private final Set<String> skillsets = new HashSet<>();
 	private final Map<String, String> toolByOperation = new HashMap<>();
 	private final Set<String> loadRefs = new HashSet<>();
 
 	private ContextInspector(AgentContext.Report report, List<SessionHistory.RawTurn> turns,
-			List<SkillIndex.Skill> index) {
-		for (SkillIndex.Skill s : index) {
-			skillPaths.add(s.path());
-			skillsets.add(s.skillset());
-		}
+			List<SkillIndex.Skill> loaded, Consumer<String> library) {
+		this.library = library;
+		for (SkillIndex.Skill s : loaded) skillPaths.add(s.path());
 		for (AgentContext.Tool t : report.tools()) {
 			if (t.operation() != null && t.name() != null) toolByOperation.putIfAbsent(t.operation(), t.name());
 		}
 		for (AgentContext.Load l : report.loads()) {
 			if (l.ref() != null) loadRefs.add(l.ref());
 		}
-		long shown = index.stream().filter(s -> !s.shadowed()).count();
-
 		tabs.add(new Tab("Overview", Scrolls.vertical(overview(report))));
 		tabs.add(new Tab("Context (" + report.messages().size() + ")", Scrolls.vertical(messages(report))));
 		tabs.add(new Tab("Cycle detail (" + turns.size() + ")", Scrolls.vertical(cycle(turns))));
 		tabs.add(new Tab("Tools (" + report.tools().size() + ")", Scrolls.vertical(tools(report))));
-		tabs.add(new Tab("Skills (" + shown + ")", Scrolls.vertical(skills(index, report))));
+		tabs.add(new Tab("Skills (" + loaded.size() + ")", Scrolls.vertical(skills(loaded, report))));
 		tabs.add(new Tab("Loaded (" + report.loads().size() + ")", Scrolls.vertical(loads(report))));
 		tabs.add(new Tab("Raw", raw(report.rawJson())));
 	}
@@ -145,10 +137,6 @@ public final class ContextInspector {
 		return "skill " + path;
 	}
 
-	private static String skillsetAnchor(String dir) {
-		return "skillset " + dir;
-	}
-
 	private static String toolAnchor(String name) {
 		return "tool " + name;
 	}
@@ -161,11 +149,10 @@ public final class ContextInspector {
 		return "load " + ref;
 	}
 
-	/** {@code path} as a link to its skill (or skillset) when the Skills view lists it, else as text. */
+	/** {@code path} as a link: to its entry here when the skill is loaded, else to it in the library. */
 	private Object skillRef(String path) {
 		if (skillPaths.contains(path)) return to(skills, skillAnchor(path), path);
-		if (skillsets.contains(path)) return to(skills, skillsetAnchor(path), path);
-		return path;
+		return new Readout.Link(path, () -> library.accept(path));
 	}
 
 	/** {@code operation} as a link to the tool the model has for it, else as text. */
@@ -402,45 +389,33 @@ public final class ContextInspector {
 	}
 
 	// ------------------------------------------------------------------
-	// Skills: the model's [Skills] index as it stands in this conversation
+	// Skills: the ones loaded in this conversation
 	// ------------------------------------------------------------------
 
-	private Readout skills(List<SkillIndex.Skill> index, AgentContext.Report r) {
+	private Readout skills(List<SkillIndex.Skill> loaded, AgentContext.Report r) {
 		Readout d = skills;
-		if (index.isEmpty()) {
-			return d.note("Nothing in the index: the agent names no skillsets, or they hold no skills.");
-		}
-		Map<String, AgentContext.Load> loaded = new HashMap<>();
+		if (loaded.isEmpty()) return d.note("No skill is loaded in this conversation.");
+		Map<String, AgentContext.Load> entries = new HashMap<>();
 		for (AgentContext.Load l : r.loads()) {
-			if (l.ref() != null) loaded.put(l.ref(), l);
+			if (l.ref() != null) entries.put(l.ref(), l);
 		}
-		d.note("The index as this conversation's model sees it — the skills it can load by name now: the "
-			+ "top-level entries of each skillset it searches, then what the skills loaded here reveal, by "
-			+ "where each lives. A loaded skill's instructions are in the context and its tools in the "
-			+ "palette. The whole library, to the bottom, is on the Skills screen.");
-		String skillset = null;
-		for (SkillIndex.Skill s : index) {
-			if (!s.skillset().equals(skillset)) {
-				skillset = s.skillset();
-				String set = skillset;
-				d.anchor(skillsetAnchor(set));
-				d.section(set + "  ·  " + index.stream().filter(k -> set.equals(k.skillset())).count()).tip(TIP_SKILLSET);
-			}
+		d.note("The skills loaded in this conversation: their instructions are in the context and their "
+			+ "tools in the palette. What each reveals is in the library, the Skills screen, which a link "
+			+ "below opens at that skill or directory.");
+		for (SkillIndex.Skill s : loaded) {
 			List<Object> meta = new ArrayList<>();
-			AgentContext.Load l = loaded.get(s.path());
+			AgentContext.Load l = entries.get(s.path());
 			if (l != null) {
 				String text = "loaded" + (l.status() != null ? "  ·  " + l.status() : "");
-				meta.add(loadRefs.contains(s.path()) ? to(loads, loadAnchor(s.path()), text)
-					: new Readout.Tip(text, TIP_LOADED_SKILL));
+				meta.add(loadRefs.contains(s.path()) ? to(loads, loadAnchor(s.path()), text) : text);
 			}
-			if (s.shadowed()) meta.add(new Readout.Tip("shadowed", TIP_SHADOWED));
 			if (!s.tools().isEmpty()) {
 				meta.add(new Readout.Tip(s.tools().size() + (s.tools().size() == 1 ? " tool" : " tools"), TIP_GRANTS));
 			}
 			if (!s.children().isEmpty()) meta.add(new Readout.Tip("reveals " + s.children().size() + " more", TIP_REVEALS));
 			meta.add(new Readout.Tip(s.path(), TIP_PATH));
 			d.anchor(skillAnchor(s.path()));
-			d.entry(s.name(), s.shadowed() ? Styles.MUTED : null, meta.toArray());
+			d.entry(s.name(), null, meta.toArray());
 
 			d.excerpt((s.description() != null) ? s.description() : "(no description)", false);
 			if (!s.tools().isEmpty()) {
@@ -448,7 +423,7 @@ public final class ContextInspector {
 				d.lines(true, s.tools().stream().map(this::toolRef).toList());
 			}
 			if (!s.children().isEmpty()) {
-				d.caption("what it reveals");
+				d.caption("what it reveals  ·  in the library");
 				d.lines(true, s.children().stream().map(this::skillRef).toList());
 			}
 		}

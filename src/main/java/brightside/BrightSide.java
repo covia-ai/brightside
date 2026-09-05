@@ -1883,17 +1883,16 @@ public final class BrightSide {
 			AgentContext.Report report = AgentContext.load(c, aid, sessionId);
 			ACell record = v.agentRecord(did, aid);
 			List<SessionHistory.RawTurn> turns = SessionHistory.rawTurnsOf(record, sessionId);
-			// The conversation's Skills tab is the index as its model sees it: the
-			// top level plus what its loaded skills reveal. The whole library is
-			// the Skills screen's.
+			// The conversation's Skills tab lists the skills loaded in it; what they
+			// reveal links into the library, the Skills screen.
 			java.util.Set<String> loaded = new java.util.HashSet<>();
 			if (report != null) {
 				for (AgentContext.Load l : report.loads()) {
 					if ("skill".equals(l.kind()) && l.ref() != null) loaded.add(l.ref());
 				}
 			}
-			List<SkillIndex.Skill> skills = SkillIndex.visible(SkillIndex.skillsetsOf(record),
-				SkillIndex.of(v, did, record), loaded);
+			List<SkillIndex.Skill> skills = SkillIndex.of(v, did, record).stream()
+				.filter(s -> loaded.contains(s.path())).toList();
 			SwingUtilities.invokeLater(() -> window.showContextInfo(sessionId, report, turns, skills));
 		}, "brightside-session-info");
 		t.setDaemon(true);

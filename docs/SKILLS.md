@@ -7,8 +7,8 @@ and the skill files under `src/main/resources/brightside/skills/`, and the
 mechanism is Covia's (`../covia/venue/docs/SKILLS.md`). The Skills screen
 shows the library as the assistant can discover it: each skillset it
 searches, the skills in it, and beneath each skill what it reveals. A
-conversation's Skills tab on Sessions shows the narrower index its model
-sees: the top level, plus what the skills loaded there reveal.
+conversation's Skills tab on Sessions lists only the skills loaded there;
+what each reveals links into the library.
 
 - **Discovery is broad; authority is deliberate.** The assistant can see its
   owner's, Brightside's and the venue's libraries, but starts every turn with

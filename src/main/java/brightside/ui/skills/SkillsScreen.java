@@ -51,6 +51,8 @@ public final class SkillsScreen extends JPanel {
 	private final JTree tree = new JTree(model);
 	private final JPanel detail = new JPanel(new BorderLayout());
 	private boolean shown;
+	/** A path asked for before the tree held it; shown once it does. */
+	private String pendingReveal;
 
 	public SkillsScreen() {
 		super(new BorderLayout());
@@ -102,16 +104,33 @@ public final class SkillsScreen extends JPanel {
 				if (expanded.contains(nodeOf(n).path())) tree.expandPath(pathTo(n));
 			}
 		}
-		if (selected != null) {
-			for (DefaultMutableTreeNode n : all) {
-				if (selected.equals(nodeOf(n).path())) {
-					tree.setSelectionPath(pathTo(n));
-					tree.scrollPathToVisible(pathTo(n));
-					break;
-				}
+		if (selected != null) select(selected);
+		if (pendingReveal != null && select(pendingReveal)) pendingReveal = null;
+		showSelected();
+	}
+
+	/**
+	 * Brings the skill or directory at {@code path} into view, selected —
+	 * now, or as soon as the tree next holds it. The shallowest of several
+	 * places it appears is the one shown.
+	 */
+	public void reveal(String path) {
+		if (path == null) return;
+		if (select(path)) pendingReveal = null;
+		else pendingReveal = path;
+	}
+
+	/** Selects and scrolls to the shallowest node at {@code path}, opening the way to it; false when there is none. */
+	private boolean select(String path) {
+		for (Enumeration<?> e = root.breadthFirstEnumeration(); e.hasMoreElements();) {
+			if (e.nextElement() instanceof DefaultMutableTreeNode n && n != root && path.equals(nodeOf(n).path())) {
+				TreePath to = pathTo(n);
+				tree.setSelectionPath(to);
+				tree.scrollPathToVisible(to);
+				return true;
 			}
 		}
-		showSelected();
+		return false;
 	}
 
 	private static DefaultMutableTreeNode treeNode(SkillTree.Node n) {

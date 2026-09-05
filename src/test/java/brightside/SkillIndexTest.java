@@ -29,39 +29,9 @@ import covia.venue.Config;
 /**
  * The skills the agent can discover: every skill of every skillset the agent's
  * record names, then the hierarchy those reveal, read in-process — with a
- * later namesake marked shadowed and a child listed under its parent. And the
- * narrower view a conversation's model has of it: the top level plus what
- * its loaded skills reveal.
+ * later namesake marked shadowed and a child listed under its parent.
  */
 class SkillIndexTest {
-
-	private static SkillIndex.Skill skill(String dir, String key, List<String> children, boolean shadowed) {
-		return new SkillIndex.Skill(key, dir + "/" + key, dir, "about " + key, List.of(), children, shadowed);
-	}
-
-	@Test
-	void theModelsIndexIsTheTopLevelPlusWhatLoadedSkillsReveal() {
-		SkillIndex.Skill convex = skill("v/skills/brightside", "convex",
-			List.of("v/skills/brightside/convex/accounts", "v/skills/lattice"), false);
-		SkillIndex.Skill accounts = skill("v/skills/brightside/convex", "accounts",
-			List.of("v/skills/brightside/convex/accounts/deep"), false);
-		SkillIndex.Skill deep = skill("v/skills/brightside/convex/accounts", "deep", List.of(), false);
-		SkillIndex.Skill lattice = skill("v/skills/lattice", "reads", List.of(), false);
-		SkillIndex.Skill shadow = skill("v/skills/root", "convex", List.of(), true);
-		SkillIndex.Skill workspace = skill("v/skills/root", "workspace", List.of(), false);
-		List<SkillIndex.Skill> index = List.of(convex, accounts, deep, lattice, shadow, workspace);
-		List<String> sets = List.of("v/skills/brightside", "v/skills/root");
-
-		// Nothing loaded: the top level alone, and never the shadowed namesake.
-		assertEquals(List.of(convex, workspace), SkillIndex.visible(sets, index, java.util.Set.of()));
-		// convex loaded: the skill and the directory it reveals join; deep waits for accounts.
-		assertEquals(List.of(convex, accounts, lattice, workspace),
-			SkillIndex.visible(sets, index, java.util.Set.of(convex.path())));
-		assertEquals(List.of(convex, accounts, deep, lattice, workspace),
-			SkillIndex.visible(sets, index, java.util.Set.of(convex.path(), accounts.path())));
-		// A loaded skill nothing reveals is shown all the same: its instructions are in the context.
-		assertEquals(List.of(convex, deep, workspace), SkillIndex.visible(sets, index, java.util.Set.of(deep.path())));
-	}
 
 	@TempDir
 	static Path home;

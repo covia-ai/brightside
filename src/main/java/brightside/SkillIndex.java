@@ -71,47 +71,6 @@ public final class SkillIndex {
 		return List.copyOf(out);
 	}
 
-	/**
-	 * The index as one conversation's model sees it, from the whole surface
-	 * {@link #of} read: the skills of each configured skillset, then what the
-	 * skills loaded in that conversation reveal — a revealed skill that is
-	 * itself loaded revealing its own — and any loaded skill besides, since its
-	 * instructions are in the context. In the order {@code index} lists them.
-	 * A shadowed skill is left out: the index never offers it.
-	 *
-	 * @param skillsets the agent's configured skillsets ({@link #skillsetsOf})
-	 * @param loaded    the paths of the skills loaded in the conversation
-	 */
-	public static List<Skill> visible(List<String> skillsets, List<Skill> index, Set<String> loaded) {
-		Set<String> paths = new HashSet<>();
-		for (Skill s : index) paths.add(s.path());
-		Set<String> openDirectories = new HashSet<>(skillsets);
-		Set<String> openPaths = new HashSet<>();
-		Set<String> shown = new HashSet<>();
-		boolean grew;
-		do {
-			grew = false;
-			for (Skill s : index) {
-				if (s.shadowed() || shown.contains(s.path())) continue;
-				boolean isLoaded = loaded.contains(s.path());
-				if (!isLoaded && !openDirectories.contains(s.skillset()) && !openPaths.contains(s.path())) continue;
-				shown.add(s.path());
-				grew = true;
-				if (!isLoaded) continue;
-				// A child names a skill, or a directory of them.
-				for (String child : s.children()) {
-					if (paths.contains(child)) openPaths.add(child);
-					else openDirectories.add(child);
-				}
-			}
-		} while (grew);
-		List<Skill> out = new ArrayList<>();
-		for (Skill s : index) {
-			if (shown.contains(s.path())) out.add(s);
-		}
-		return List.copyOf(out);
-	}
-
 	/** A discovery source: a directory of skills, or one skill. */
 	private record Ref(boolean directory, String path) {
 	}
