@@ -13,7 +13,6 @@ import java.awt.event.WindowEvent;
 import javax.swing.AbstractAction;
 import javax.swing.ImageIcon;
 import javax.swing.JComponent;
-import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JSplitPane;
 import javax.swing.JPanel;
@@ -30,6 +29,7 @@ import brightside.ui.chat.ConversationList;
 import brightside.ui.chat.NewAgentPanel;
 import brightside.ui.components.Dialogs;
 import brightside.ui.components.SelectableText;
+import brightside.ui.inspect.SessionViews;
 import brightside.ui.settings.AuthPanel;
 import brightside.ui.settings.DiscordPanel;
 import brightside.ui.settings.GeneralPanel;
@@ -69,6 +69,8 @@ public final class MainWindow extends JFrame {
 	private JSplitPane split;
 	private JPanel mainDeck;
 	private JPanel sessionsPane; // agents + sessions, the split's left side
+	private SessionViews views; // the chat and its tabs, the split's right side
+	private String currentAgentId;
 	private NavBar navBar;
 	private SettingsScreen settingsScreen;
 	private brightside.ui.inbox.InboxScreen inboxScreen;
@@ -129,7 +131,7 @@ public final class MainWindow extends JFrame {
 
 			@Override
 			public void onInspectSession(String sessionId) {
-				app.showSessionInfo(sessionId);
+				showSessionView(sessionId, SessionViews.View.OVERVIEW);
 			}
 
 			@Override
@@ -147,7 +149,7 @@ public final class MainWindow extends JFrame {
 
 			@Override
 			public void inspectConversation(String sessionId) {
-				app.showSessionInfo(sessionId);
+				showSessionView(sessionId, SessionViews.View.OVERVIEW);
 			}
 
 			@Override
@@ -173,7 +175,7 @@ public final class MainWindow extends JFrame {
 
 			@Override
 			public void onAgentInfo(String agentId) {
-				app.showAgentInfo(agentId);
+				showAgentView(agentId);
 			}
 
 			@Override
@@ -185,9 +187,23 @@ public final class MainWindow extends JFrame {
 		sessionsPane.add(agentList, BorderLayout.WEST);
 		sessionsPane.add(conversations, BorderLayout.CENTER);
 
+		// The chat with, on Sessions, tabs above it for the conversation's context
+		// and its agent. Their reads are the app's, off the event thread.
+		views = new SessionViews(chatPanel, new SessionViews.Host() {
+			@Override
+			public void loadSession(String sessionId) {
+				app.showSessionInfo(sessionId);
+			}
+
+			@Override
+			public void loadAgent(String agentId) {
+				app.showAgentInfo(agentId);
+			}
+		});
+
 		// A split so the sessions area can be resized (Sessions tab) or collapsed
 		// (Home tab). The bottom nav switches Home/Sessions/Settings.
-		split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sessionsPane, chatPanel);
+		split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sessionsPane, views);
 		split.setBorder(null);
 		split.setContinuousLayout(true);
 		split.setResizeWeight(0.0); // extra width goes to the chat, not the sidebar
@@ -501,6 +517,9 @@ public final class MainWindow extends JFrame {
 		chatPanel.clearSession();
 		conversations.setSessions(List.of(), null);
 		agentList.setAgents(List.of(), null, null);
+		currentAgentId = null;
+		views.setSession(null);
+		views.setAgent(null);
 		setInbox(List.of());
 		settingsScreen.profile().clearSensitive();
 		settingsScreen.integrations().clearSensitive();
@@ -517,16 +536,44 @@ public final class MainWindow extends JFrame {
 	/** Update once the selected session's pending/in-cycle work has settled. */
 	public void refreshConversation(List<SessionHistory.Item> turns, boolean sessionActive) {
 		chatPanel.refreshTo(turns, sessionActive);
+		// The context views follow the settled conversation, not its work in flight.
+		if (!sessionActive) views.sessionChanged();
 	}
 
 	/** Replace the switcher's list of past conversations, highlighting the open one. */
 	public void setConversations(List<SessionHistory.Session> sessions, String selectedId) {
 		conversations.setSessions(sessions, selectedId);
+		views.setSession(selectedId);
 	}
 
 	/** Replace the agents pane's list, highlighting the current agent; {@code defaultId} is the standard agent. */
 	public void setAgents(List<brightside.model.AgentRef> agents, String selectedId, String defaultId) {
 		agentList.setAgents(agents, selectedId, defaultId);
+		if (java.util.Objects.equals(selectedId, currentAgentId)) views.agentChanged();
+		else views.setAgent(selectedId);
+		currentAgentId = selectedId;
+	}
+
+	/**
+	 * Show a conversation's context on Sessions: the conversation opens (if it
+	 * is not the one on screen) and the chosen view comes to the front.
+	 */
+	private void showSessionView(String sessionId, SessionViews.View view) {
+		selectTab(NavBar.Tab.SESSIONS);
+		if (sessionId != null) {
+			app.openSession(sessionId);
+			conversations.reveal(sessionId);
+			views.setSession(sessionId);
+		}
+		views.select(view);
+	}
+
+	/** Show an agent on Sessions: the chat switches to it (if it is not the current one) and its view comes to the front. */
+	private void showAgentView(String agentId) {
+		selectTab(NavBar.Tab.SESSIONS);
+		if (agentId != null && !agentId.equals(currentAgentId)) app.switchAgent(agentId);
+		views.setAgent(agentId);
+		views.select(SessionViews.View.AGENT);
 	}
 
 	/** Show a chosen past conversation's transcript (a definite switch, not a poll). */
@@ -552,10 +599,12 @@ public final class MainWindow extends JFrame {
 			case HOME -> {
 				mainCards.show(mainDeck, MAIN_CHAT);
 				setSidebar(false);
+				views.setTabsVisible(false);
 			}
 			case SESSIONS -> {
 				mainCards.show(mainDeck, MAIN_CHAT);
 				setSidebar(true);
+				views.setTabsVisible(true);
 				// Agents and conversations can change out of band (assistant-created
 				// agents, another client): re-read on entry.
 				app.refreshAgents();
@@ -639,25 +688,15 @@ public final class MainWindow extends JFrame {
 		settingsScreen.integrations().moltbook().showStatus(account, note);
 	}
 
-	/** Open a (non-modal) inspector showing exactly what the model receives for a conversation. */
-	public void showContextInfo(brightside.AgentContext.Report report,
-			List<SessionHistory.RawTurn> turns, List<brightside.SkillIndex.Skill> skills, String title) {
-		JDialog dialog = new JDialog(this, "Context — " + title, false);
-		dialog.setContentPane(new brightside.ui.inspect.ContextInspector(report, turns, skills));
-		dialog.setSize(940, 720);
-		dialog.setMinimumSize(new Dimension(640, 460));
-		dialog.setLocationRelativeTo(this);
-		dialog.setVisible(true);
+	/** What the model receives for a conversation, as read ({@code report} null: it could not be), for the Sessions tabs. */
+	public void showContextInfo(String sessionId, brightside.AgentContext.Report report,
+			List<SessionHistory.RawTurn> turns, List<brightside.SkillIndex.Skill> skills) {
+		views.showSession(sessionId, report, turns, skills);
 	}
 
-	/** Open a (non-modal) window describing an agent: identity, status, model, instructions, capabilities. */
-	public void showAgentInfo(brightside.AgentInfo.Summary info) {
-		JDialog dialog = new JDialog(this, "Agent — " + info.name(), false);
-		dialog.setContentPane(new brightside.ui.inspect.AgentInspector(info));
-		dialog.setSize(760, 600);
-		dialog.setMinimumSize(new Dimension(520, 400));
-		dialog.setLocationRelativeTo(this);
-		dialog.setVisible(true);
+	/** An agent as read ({@code info} null: it could not be), for the Agent tab on Sessions. */
+	public void showAgentInfo(String agentId, brightside.AgentInfo.Summary info) {
+		views.showAgent(agentId, info);
 	}
 
 	/** Replace the Inbox's requests (open first) and badge the tab with the number waiting. */

@@ -68,7 +68,7 @@ import covia.venue.AgentEvents;
  * Enter sends; Ctrl+Enter or Shift+Enter inserts a newline.
  *
  * <p>The conversation menu beside Send starts a new conversation, asks the
- * assistant to compact this one, copies it, opens its context, or shows it
+ * assistant to compact this one, copies it, shows its context, or shows it
  * among the others in Sessions. What the app does with those is the
  * {@link Host}'s; copying is the panel's own.
  */
@@ -80,7 +80,7 @@ public final class ChatPanel extends JPanel {
 		/** Leave the conversation on screen for a clean one; the next message mints its session. */
 		void newConversation();
 
-		/** Open the context inspector for the conversation on screen. */
+		/** Show what the model receives for the conversation on screen: its Context tabs on Sessions. */
 		void inspectConversation(String sessionId);
 
 		/** Show the conversation on screen among the others, on the Sessions tab. */
@@ -502,7 +502,7 @@ public final class ChatPanel extends JPanel {
 		copy.addActionListener(e -> Clipboard.copy(conversationText()));
 		menu.add(copy);
 
-		JMenuItem context = new JMenuItem("Context…");
+		JMenuItem context = new JMenuItem("Context");
 		context.setToolTipText("What Brightside's model receives for this conversation");
 		context.setEnabled(hasSession);
 		context.addActionListener(e -> {

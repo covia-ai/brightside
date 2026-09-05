@@ -29,7 +29,7 @@ import brightside.ui.components.Theme;
  * The agents pane (left of the sessions list on the Sessions screen): one row per
  * agent the user owns — e.g. Brightside and Bob — each with its own conversations.
  * Selecting one switches the chat (and the sessions list) to that agent; a
- * right-click offers its info screen and deletion. The separate button beneath
+ * right-click offers its Agent view and deletion. The separate button beneath
  * the scrollable list creates another agent.
  *
  * <p>Dumb like {@link ConversationList}: it renders what it's given and reports
@@ -118,7 +118,7 @@ public final class AgentList extends JPanel {
 		open.addActionListener(e -> listener.onSelectAgent(aid));
 		menu.add(open);
 
-		JMenuItem info = new JMenuItem("Agent info…");
+		JMenuItem info = new JMenuItem("Agent info");
 		info.addActionListener(e -> listener.onAgentInfo(aid));
 		menu.add(info);
 

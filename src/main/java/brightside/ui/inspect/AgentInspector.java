@@ -1,14 +1,10 @@
 package brightside.ui.inspect;
 
-import static brightside.ui.inspect.Blocks.raw;
-
-import java.awt.BorderLayout;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
-import javax.swing.JPanel;
-import javax.swing.JTabbedPane;
+import javax.swing.JComponent;
 
 import brightside.AgentInfo;
 import brightside.ui.components.Readout;
@@ -16,27 +12,24 @@ import brightside.ui.components.Scrolls;
 import brightside.ui.components.Styles;
 
 /**
- * A read-only view of one agent (from {@link AgentInfo}). Tabs: <em>Overview</em>
- * (identity, status, model, activity), <em>Instructions</em> (the system prompt
- * and what is pinned into every turn), <em>Capabilities</em> (always-on tools,
- * skill libraries, pinned loads, anything unavailable) and <em>Raw</em> (the
- * venue's {@code agent:info} summary). Each tab is a {@link Readout} document:
- * everything shown is selectable and copyable.
+ * A read-only view of one agent (from {@link AgentInfo}), as one
+ * {@link Readout} document: identity, status, model and activity; the system
+ * prompt and what is pinned into every turn; the always-on tools, skill
+ * libraries and anything unavailable; and, folded at the end, the venue's raw
+ * {@code agent:info} summary. Everything shown is selectable and copyable.
+ * {@link SessionViews} shows it as the Agent tab above the chat.
  */
-@SuppressWarnings("serial")
-public final class AgentInspector extends JPanel {
+public final class AgentInspector {
 
-	public AgentInspector(AgentInfo.Summary a) {
-		super(new BorderLayout());
-		JTabbedPane tabs = new JTabbedPane();
-		tabs.addTab("Overview", Scrolls.vertical(overview(a)));
-		tabs.addTab("Instructions", Scrolls.vertical(instructions(a)));
-		tabs.addTab("Capabilities", Scrolls.vertical(capabilities(a)));
-		tabs.addTab("Raw", raw(a.rawJson()));
-		add(tabs, BorderLayout.CENTER);
+	private AgentInspector() {
 	}
 
-	private static Readout overview(AgentInfo.Summary a) {
+	/** The agent's document, scrolling. */
+	public static JComponent view(AgentInfo.Summary a) {
+		return Scrolls.vertical(document(a));
+	}
+
+	static Readout document(AgentInfo.Summary a) {
 		Readout d = new Readout();
 		d.pair("Name", a.name());
 		d.pair("Id", a.id());
@@ -51,36 +44,28 @@ public final class AgentInspector extends JPanel {
 		d.note(a.standard()
 			? "Brightside's standard agent: its model and instructions follow Settings and config.json."
 			: "Created from the agents pane; it keeps the model and instructions it was given.");
-		return d;
-	}
 
-	private static Readout instructions(AgentInfo.Summary a) {
-		Readout d = new Readout();
 		d.section("System prompt");
 		d.prose(orDash(a.systemPrompt()));
 		d.section("In every turn");
 		for (String c : a.context()) d.prose(c);
 		for (AgentInfo.Pin pin : a.pins()) d.prose(pinLine(pin));
 		if (a.context().isEmpty() && a.pins().isEmpty()) d.note("Nothing pinned.");
-		return d;
-	}
 
-	private static Readout capabilities(AgentInfo.Summary a) {
-		Readout d = new Readout();
 		d.section("Always-on tools");
 		if (a.defaultTools()) d.prose("Read-only workspace access (covia read/list)");
 		for (String t : a.tools()) d.prose(t);
 		if (!a.defaultTools() && a.tools().isEmpty()) d.note("None.");
 		d.section("Skill libraries");
 		list(d, a.skillsets(), "None — the agent cannot discover skills.");
-		d.section("Pinned loads");
-		if (a.pins().isEmpty()) d.note("None.");
-		for (AgentInfo.Pin pin : a.pins()) d.prose(pinLine(pin));
 		if (!a.unavailable().isEmpty()) {
 			d.section("Unavailable", Styles.ERROR);
 			list(d, a.unavailable(), "");
 		}
 		d.note("Everything else arrives by loading a skill that grants it.");
+
+		d.section("Raw");
+		d.excerpt(a.rawJson(), true);
 		return d;
 	}
 

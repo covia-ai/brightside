@@ -29,9 +29,9 @@ the person in front of the screen over the platform behind it.
 
 The power underneath is real; keep it reachable for those who want it, just
 not in the way. The dashboard, the identity and DIDs, the local address, the
-settings file, the logs and the raw model context live under **Settings**,
-where a curious or technical person can pull back the curtain and the everyday
-person never has to.
+settings file and the logs live under **Settings**, and the raw model context
+under **Sessions**, where a curious or technical person can pull back the
+curtain and the everyday person never has to.
 
 ## 3. Identity
 

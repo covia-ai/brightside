@@ -130,7 +130,10 @@ agent record holds many sessions; a background update re-renders the one on
 screen. A launch lands on a clean Home: nothing resumes until the first
 message mints a session, and past conversations wait in Sessions. The menu
 beside Send acts on the conversation in progress — a new one, compaction,
-copy, its context, or a jump to it in Sessions.
+copy, its context, or a jump to it in Sessions. On Sessions, tabs above the
+chat show what the model receives for the conversation on screen and what its
+agent is, read when shown and again when the conversation moves on; Home shows
+the chat alone.
 
 **Compaction is the assistant's.** The summary a compaction keeps is what
 every later turn knows of the conversation, so it must be the assistant's own:

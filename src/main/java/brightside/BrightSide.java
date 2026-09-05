@@ -1364,11 +1364,9 @@ public final class BrightSide {
 		if (c == null || v == null || id == null || did == null || agentId == null) return;
 		boolean standard = agentId.equals(defaultAgentId());
 		Thread t = new Thread(() -> {
+			// Null when it could not be read: the Agent view says so.
 			AgentInfo.Summary info = AgentInfo.load(c, v.agentRecord(did, agentId), agentId, did, id.name(), standard);
-			SwingUtilities.invokeLater(() -> {
-				if (info == null) window.showSystemMessage("Sorry — I couldn't read that agent.");
-				else window.showAgentInfo(info);
-			});
+			SwingUtilities.invokeLater(() -> window.showAgentInfo(agentId, info));
 		}, "brightside-agent-info");
 		t.setDaemon(true);
 		t.start();
@@ -1843,28 +1841,18 @@ public final class BrightSide {
 		EmbeddedVenue v = venue;
 		String aid = agentId, did = userDID;
 		if (c == null || v == null || aid == null || did == null || sessionId == null) return;
-		String title = titleOf(sessionId);
 		Thread t = new Thread(() -> {
 			// The assembled context is a computation (agent:context op); the raw
 			// turns and the discoverable skills are lattice reads, done in-process.
+			// A null report (it could not be read) reaches the views, which say so.
 			AgentContext.Report report = AgentContext.load(c, aid, sessionId);
 			ACell record = v.agentRecord(did, aid);
 			List<SessionHistory.RawTurn> turns = SessionHistory.rawTurnsOf(record, sessionId);
 			List<SkillIndex.Skill> skills = SkillIndex.of(v, did, record);
-			SwingUtilities.invokeLater(() -> {
-				if (report == null) window.showSystemMessage("Sorry — I couldn't read the context for that conversation.");
-				else window.showContextInfo(report, turns, skills, title);
-			});
+			SwingUtilities.invokeLater(() -> window.showContextInfo(sessionId, report, turns, skills));
 		}, "brightside-session-info");
 		t.setDaemon(true);
 		t.start();
-	}
-
-	private String titleOf(String sessionId) {
-		return sessions.stream()
-			.filter(s -> sessionId.equals(s.sessionId()))
-			.map(SessionHistory.Session::title)
-			.findFirst().orElse("this conversation");
 	}
 
 	/** Delete a conversation. If it was the one on screen, drop back to a new chat. */

@@ -2,7 +2,7 @@ package brightside.ui.inspect;
 
 import static brightside.ui.inspect.Blocks.raw;
 
-import java.awt.BorderLayout;
+import java.awt.Component;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -10,8 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
+import javax.swing.JComponent;
 import javax.swing.JTabbedPane;
 import javax.swing.SwingUtilities;
 
@@ -23,44 +22,55 @@ import brightside.ui.components.Scrolls;
 import brightside.ui.components.Styles;
 
 /**
- * A read-only view of the exact context an agent sends its model (from
- * {@link AgentContext}). Tabs: <em>Overview</em> (model, budget, counts),
- * <em>Context</em> (every assembled message, by band — head, live surface,
- * conversation, tool loop, tail), <em>Cycle detail</em> (the stored turns),
- * <em>Tools</em> (every definition the model receives, by where it comes
- * from), <em>Skills</em> (every skill the agent can discover, by skillset —
- * the surface behind the model's index), <em>Loaded</em> (the context entries
- * and their accounting) and <em>Raw</em> (the untouched report).
+ * Read-only views of the exact context an agent sends its model (from
+ * {@link AgentContext}), as tabs for a {@link JTabbedPane}: <em>Overview</em>
+ * (model, budget, counts), <em>Context</em> (every assembled message, by band
+ * — head, live surface, conversation, tool loop, tail), <em>Cycle detail</em>
+ * (the stored turns), <em>Tools</em> (every definition the model receives, by
+ * where it comes from), <em>Skills</em> (every skill the agent can discover,
+ * by skillset — the surface behind the model's index), <em>Loaded</em> (the
+ * context entries and their accounting) and <em>Raw</em> (the untouched
+ * report). {@link SessionViews} shows them above the chat.
  *
- * <p>Each tab is a {@link Readout}: one document of sections and entries,
+ * <p>Each view is a {@link Readout}: one document of sections and entries,
  * long content folded behind a "Show all" link, everything shown selectable
- * and copyable. The tabs cross-refer: a tool to the skill that declares it, a
+ * and copyable. The views cross-refer: a tool to the skill that declares it, a
  * skill to what it reveals and the tools it grants, a call to its result, a
- * loaded entry to its skill — each a link that brings the detail into view.
+ * loaded entry to its skill — each a link that selects the tab holding the
+ * target document and brings the detail into view.
  */
-@SuppressWarnings("serial")
-public final class ContextInspector extends JPanel {
+public final class ContextInspector {
 
-	private final JTabbedPane tabs = new JTabbedPane();
+	/** One view and the title of its tab (with a count where one is telling). */
+	public record Tab(String title, JComponent view) {
+	}
+
+	/**
+	 * The views for one conversation, in tab order.
+	 *
+	 * @param index the skills the agent can discover ({@link SkillIndex}) — the
+	 *              surface behind the index the model sees; may be empty
+	 */
+	public static List<Tab> tabs(AgentContext.Report report, List<SessionHistory.RawTurn> turns,
+			List<SkillIndex.Skill> index) {
+		return new ContextInspector(report, turns, index).tabs;
+	}
+
+	private final List<Tab> tabs = new ArrayList<>();
 	private final Readout context = new Readout();
 	private final Readout cycle = new Readout();
 	private final Readout tools = new Readout();
 	private final Readout skills = new Readout();
 	private final Readout loads = new Readout();
 
-	/** What a cross-reference can reach: the anchors the other tabs carry. */
+	/** What a cross-reference can reach: the anchors the other views carry. */
 	private final Set<String> skillPaths = new HashSet<>();
 	private final Set<String> skillsets = new HashSet<>();
 	private final Map<String, String> toolByOperation = new HashMap<>();
 	private final Set<String> loadRefs = new HashSet<>();
 
-	/**
-	 * @param index the skills the agent can discover ({@link SkillIndex}) — the
-	 *              surface behind the index the model sees; may be empty
-	 */
-	public ContextInspector(AgentContext.Report report, List<SessionHistory.RawTurn> turns,
+	private ContextInspector(AgentContext.Report report, List<SessionHistory.RawTurn> turns,
 			List<SkillIndex.Skill> index) {
-		super(new BorderLayout());
 		for (SkillIndex.Skill s : index) {
 			skillPaths.add(s.path());
 			skillsets.add(s.skillset());
@@ -73,24 +83,31 @@ public final class ContextInspector extends JPanel {
 		}
 		long shown = index.stream().filter(s -> !s.shadowed()).count();
 
-		tabs.addTab("Overview", Scrolls.vertical(overview(report)));
-		tabs.addTab("Context (" + report.messages().size() + ")", Scrolls.vertical(messages(report)));
-		tabs.addTab("Cycle detail (" + turns.size() + ")", Scrolls.vertical(cycle(turns)));
-		tabs.addTab("Tools (" + report.tools().size() + ")", Scrolls.vertical(tools(report)));
-		tabs.addTab("Skills (" + shown + ")", Scrolls.vertical(skills(index, report)));
-		tabs.addTab("Loaded (" + report.loads().size() + ")", Scrolls.vertical(loads(report)));
-		tabs.addTab("Raw", raw(report.rawJson()));
-		add(tabs, BorderLayout.CENTER);
+		tabs.add(new Tab("Overview", Scrolls.vertical(overview(report))));
+		tabs.add(new Tab("Context (" + report.messages().size() + ")", Scrolls.vertical(messages(report))));
+		tabs.add(new Tab("Cycle detail (" + turns.size() + ")", Scrolls.vertical(cycle(turns))));
+		tabs.add(new Tab("Tools (" + report.tools().size() + ")", Scrolls.vertical(tools(report))));
+		tabs.add(new Tab("Skills (" + shown + ")", Scrolls.vertical(skills(index, report))));
+		tabs.add(new Tab("Loaded (" + report.loads().size() + ")", Scrolls.vertical(loads(report))));
+		tabs.add(new Tab("Raw", raw(report.rawJson())));
 	}
 
 	// ------------------------------------------------------------------
-	// Navigation: a link shows another tab and brings its detail into view
+	// Navigation: a link selects the tab holding another view and brings its detail into view
 	// ------------------------------------------------------------------
 
-	/** A link reading {@code text} that shows {@code pane}'s tab and scrolls to the block anchored {@code id} (null: the top). */
+	/**
+	 * A link reading {@code text} that selects the tab holding {@code pane} —
+	 * whichever tabbed pane the views were placed in, however the pane is
+	 * wrapped — and scrolls to the block anchored {@code id} (null: the top).
+	 */
 	private Readout.Link to(Readout pane, String id, String text) {
 		return new Readout.Link(text, () -> {
-			tabs.setSelectedComponent(SwingUtilities.getAncestorOfClass(JScrollPane.class, pane));
+			JTabbedPane tabbed = (JTabbedPane) SwingUtilities.getAncestorOfClass(JTabbedPane.class, pane);
+			if (tabbed == null) return;
+			Component tab = pane;
+			while (tab.getParent() != null && tab.getParent() != tabbed) tab = tab.getParent();
+			tabbed.setSelectedComponent(tab);
 			if (id != null) SwingUtilities.invokeLater(() -> pane.scrollTo(id));
 		});
 	}
@@ -115,7 +132,7 @@ public final class ContextInspector extends JPanel {
 		return "load " + ref;
 	}
 
-	/** {@code path} as a link to its skill (or skillset) when the Skills tab lists it, else as text. */
+	/** {@code path} as a link to its skill (or skillset) when the Skills view lists it, else as text. */
 	private Object skillRef(String path) {
 		if (skillPaths.contains(path)) return to(skills, skillAnchor(path), path);
 		if (skillsets.contains(path)) return to(skills, skillsetAnchor(path), path);
