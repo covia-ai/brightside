@@ -21,6 +21,7 @@ import javax.swing.BorderFactory;
 import javax.swing.JTextPane;
 import javax.swing.JViewport;
 import javax.swing.SwingUtilities;
+import javax.swing.ToolTipManager;
 import javax.swing.UIManager;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.DefaultCaret;
@@ -51,6 +52,10 @@ import com.formdev.flatlaf.util.UIScale;
  * {@linkplain #anchor named} beforehand can be brought into view with
  * {@link #scrollTo}, which is how a link navigates to detail elsewhere.
  *
+ * <p>Text can explain itself: a {@link Tip} — wherever a string could go —
+ * shows its explanation in a tooltip on hover, and {@link #tip} explains the
+ * part just added, on its heading, title, key or text.
+ *
  * <p>Build it fluently, in reading order; the document is rendered when the
  * pane is first shown, and again in the theme's fresh faces and colours after
  * a look-and-feel change. Text is shown literally: much of it is written by an
@@ -71,11 +76,27 @@ public class Readout extends JTextPane {
 		}
 	}
 
+	/** Text explained on hover: {@code text} as shown, {@code tip} in its tooltip. */
+	public record Tip(String text, String tip) {
+		public Tip {
+			Objects.requireNonNull(text, "text");
+			Objects.requireNonNull(tip, "tip");
+		}
+	}
+
 	/** Character attribute on clickable text: its {@link Runnable}. */
 	private static final Object ACTION = new Object() {
 		@Override
 		public String toString() {
 			return "readout.action";
+		}
+	};
+
+	/** Character attribute on explained text: its tooltip, a String. */
+	private static final Object TIP = new Object() {
+		@Override
+		public String toString() {
+			return "readout.tip";
 		}
 	};
 
@@ -120,6 +141,8 @@ public class Readout extends JTextPane {
 	private final Set<Integer> expanded = new HashSet<>();
 	/** Anchor id → the index in {@link #parts} of the block it names. */
 	private final Map<String, Integer> anchors = new HashMap<>();
+	/** Explanations of parts, on their leading text (a heading, a title, a key), by index in {@link #parts}. */
+	private final Map<Integer, String> tips = new HashMap<>();
 	/** Where each part starts in the rendered document, and where its first line ends. */
 	private int[] starts = new int[0];
 	private int[] firstLineEnds = new int[0];
@@ -153,6 +176,7 @@ public class Readout extends JTextPane {
 		};
 		addMouseListener(clicks);
 		addMouseMotionListener(clicks);
+		ToolTipManager.sharedInstance().registerComponent(this);
 		built = true;
 	}
 
@@ -238,6 +262,20 @@ public class Readout extends JTextPane {
 		return add(new Pair(key, Objects.requireNonNull(value, "value"), null), false);
 	}
 
+	/**
+	 * Explains the part just added, in a tooltip on hover: over a section's
+	 * heading, an entry's title, a pair's key, or a caption's, note's or
+	 * block's text. Nothing on a list or a link line — explain their items
+	 * with {@link Tip}s.
+	 */
+	public Readout tip(String text) {
+		if (parts.isEmpty() || text == null || text.isBlank()) return this;
+		tips.put(parts.size() - 1, text);
+		stale = true;
+		if (isDisplayable()) render();
+		return this;
+	}
+
 	private Readout add(Part part, boolean underEntry) {
 		if (pendingAnchor != null) {
 			anchors.put(pendingAnchor, parts.size());
@@ -250,17 +288,18 @@ public class Readout extends JTextPane {
 		return this;
 	}
 
-	/** Strings and links, blanks and nulls dropped; anything else is a programming error. */
+	/** Strings, links and tips, blanks and nulls dropped; anything else is a programming error. */
 	private static List<Object> textsAndLinks(Object... items) {
 		List<Object> out = new ArrayList<>();
 		for (Object item : items) {
 			if (item == null) continue;
 			if (item instanceof String s) {
 				if (!s.isBlank()) out.add(s);
-			} else if (item instanceof Link l) {
-				out.add(l);
+			} else if (item instanceof Link || item instanceof Tip) {
+				out.add(item);
 			} else {
-				throw new IllegalArgumentException("a String or a Readout.Link, not " + item.getClass().getName());
+				throw new IllegalArgumentException(
+					"a String, a Readout.Link or a Readout.Tip, not " + item.getClass().getName());
 			}
 		}
 		return List.copyOf(out);
@@ -346,14 +385,25 @@ public class Readout extends JTextPane {
 		render();
 	}
 
+	/** The explanation of the text under the pointer, wrapping, or the pane's own tooltip. */
+	@Override
+	public String getToolTipText(MouseEvent e) {
+		return (attributeAt(e.getPoint(), TIP) instanceof String tip) ? html(tip) : super.getToolTipText(e);
+	}
+
 	/** The action of the clickable text under {@code p}, or null when there is none. */
 	private Runnable actionAt(Point p) {
+		return (attributeAt(p, ACTION) instanceof Runnable r) ? r : null;
+	}
+
+	/** The character attribute {@code key} of the run under {@code p}, or null when the pointer is not on a run carrying one. */
+	private Object attributeAt(Point p, Object key) {
 		StyledDocument doc = getStyledDocument();
 		int pos = viewToModel2D(p);
 		if (pos < 0 || pos >= doc.getLength()) return null;
 		Element run = doc.getCharacterElement(pos);
-		Object action = run.getAttributes().getAttribute(ACTION);
-		if (!(action instanceof Runnable r)) return null;
+		Object value = run.getAttributes().getAttribute(key);
+		if (value == null) return null;
 		try {
 			// The nearest position past a line's end is its last character:
 			// only a pointer actually on the run counts.
@@ -364,7 +414,13 @@ public class Readout extends JTextPane {
 		} catch (BadLocationException e) {
 			return null;
 		}
-		return r;
+		return value;
+	}
+
+	/** A tooltip that wraps at a readable width, its text shown literally. */
+	static String html(String tip) {
+		String literal = tip.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+		return "<html><div style='width:" + UIScale.scale(300) + "px'>" + literal + "</div></html>";
 	}
 
 	/**
@@ -415,6 +471,8 @@ public class Readout extends JTextPane {
 		private final int keyWidth = UIScale.scale(KEY_WIDTH);
 		/** The block just written was a caption, so the next sits close under it. */
 		private boolean afterCaption;
+		/** The explanation of the part being written, carried by its leading run (null: none). */
+		private String lead;
 
 		StyledDocument write() {
 			int n = parts.size();
@@ -423,6 +481,7 @@ public class Readout extends JTextPane {
 			for (int i = 0; i < n; i++) {
 				// open() puts one line break before every block but the first.
 				from[i] = (doc.getLength() > 0) ? doc.getLength() + 1 : 0;
+				lead = tips.get(i);
 				switch (parts.get(i)) {
 					case Section s -> section(s);
 					case Entry e -> entry(e);
@@ -452,14 +511,14 @@ public class Readout extends JTextPane {
 
 		private void section(Section s) {
 			int start = open();
-			insert(s.title(), run(body, true, colour(s.tone(), accent)));
+			insert(s.title(), tipped(run(body, true, colour(s.tone(), accent))));
 			close(start, 0, 0, gap * 2, null);
 			afterCaption = false;
 		}
 
 		private void entry(Entry e) {
 			int start = open();
-			insert(e.title(), run(body, true, colour(e.tone(), foreground)));
+			insert(e.title(), tipped(run(body, true, colour(e.tone(), foreground))));
 			for (Object m : e.meta()) {
 				insert("\n", run(small, false, muted));
 				item(m, small, false);
@@ -485,7 +544,7 @@ public class Readout extends JTextPane {
 			}
 			int left = b.indented() ? indent : 0;
 			int start = open();
-			insert(shown, b.mono() ? code() : run(body, false, foreground));
+			insert(shown, tipped(b.mono() ? code() : run(body, false, foreground)));
 			close(start, left, 0, afterCaption ? gap / 4f : gap / 2f, null);
 			if (fold != null) fold(fold, index, left);
 			afterCaption = false;
@@ -521,14 +580,14 @@ public class Readout extends JTextPane {
 
 		private void caption(Caption c) {
 			int start = open();
-			insert(c.text(), run(mini, false, muted));
+			insert(c.text(), tipped(run(mini, false, muted)));
 			close(start, c.indented() ? indent : 0, 0, gap, null);
 			afterCaption = true;
 		}
 
 		private void note(Note n) {
 			int start = open();
-			insert(n.text(), run(small, false, muted));
+			insert(n.text(), tipped(run(small, false, muted)));
 			close(start, 0, 0, gap * 1.5f, null);
 			afterCaption = false;
 		}
@@ -536,21 +595,32 @@ public class Readout extends JTextPane {
 		/** The key hangs in the column to the left of the indent; a tab takes the value to the indent, where its wrapped lines continue. */
 		private void pair(Pair p) {
 			int start = open();
-			insert(p.key() + "\t", run(body, false, muted));
+			insert(p.key(), tipped(run(body, false, muted)));
+			insert("\t", run(body, false, muted));
 			if (p.value() instanceof Link l) insert(l.text(), link(l, body, false));
 			else insert((String) p.value(), run(body, false, colour(p.tone(), foreground)));
 			close(start, keyWidth, keyWidth, gap / 2f, new TabSet(new TabStop[] {new TabStop(0)}));
 			afterCaption = false;
 		}
 
-		/** A string as small muted text, or a link, in {@code font}; on the code ground when {@code mono}. */
+		/** A string as small muted text, a link, or a tip's text carrying its explanation, in {@code font}; on the code ground when {@code mono}. */
 		private void item(Object item, Font font, boolean mono) {
 			if (item instanceof Link l) {
 				insert(l.text(), link(l, font, mono));
+			} else if (item instanceof Tip t) {
+				SimpleAttributeSet a = mono ? code() : run(font, false, muted);
+				a.addAttribute(TIP, t.tip());
+				insert(t.text(), a);
 			} else {
 				SimpleAttributeSet a = mono ? code() : run(font, false, muted);
 				insert((String) item, a);
 			}
+		}
+
+		/** {@code a}, carrying the part's explanation when it has one. */
+		private SimpleAttributeSet tipped(SimpleAttributeSet a) {
+			if (lead != null) a.addAttribute(TIP, lead);
+			return a;
 		}
 
 		/** The "Show all" / "Show less" line under a folded block. */

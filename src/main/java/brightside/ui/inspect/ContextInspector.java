@@ -37,9 +37,36 @@ import brightside.ui.components.Styles;
  * and copyable. The views cross-refer: a tool to the skill that declares it, a
  * skill to what it reveals and the tools it grants, a call to its result, a
  * loaded entry to its skill — each a link that selects the tab holding the
- * target document and brings the detail into view.
+ * target document and brings the detail into view. Terms explain themselves
+ * on hover: a band, a role, a load's kind or status, a tool's source.
  */
 public final class ContextInspector {
+
+	// What the terms mean, for the tooltips. Each is one plain sentence or two.
+	private static final String TIP_MODEL = "The model operation the assistant's replies run through.";
+	private static final String TIP_BUDGET = "The model's declared context size, and how much of it this assembly uses. "
+		+ "A guide the assembler warns against, not a cap.";
+	private static final String TIP_TOKENS = "Tokens the model provider has counted for this conversation so far: "
+		+ "in, out, and read from or written to the provider's cache.";
+	private static final String TIP_MESSAGES = "Every message the model receives, in order, by band.";
+	private static final String TIP_TOOLS = "Every tool definition the model receives.";
+	private static final String TIP_LOADED = "The context entries loaded for this conversation, and their accounting.";
+	private static final String TIP_META_CYCLE = "The cycle that produced the turn: its source, the model's finish "
+		+ "reason, its tokens and its job.";
+	private static final String TIP_SKILLSET = "A skillset: a folder of skills the agent can discover. Skillsets are "
+		+ "searched in this order, and the first skill of a name wins.";
+	private static final String TIP_SHADOWED = "An earlier skillset has a skill of this name, which wins; this one "
+		+ "stays out of the index.";
+	private static final String TIP_GRANTS = "Tools the skill grants once it is loaded.";
+	private static final String TIP_REVEALS = "Skills that enter the index only once this one is loaded.";
+	private static final String TIP_PATH = "Where the skill lives on the venue.";
+	private static final String TIP_LOADED_SKILL = "Loaded in this conversation: its instructions are in the context "
+		+ "and its tools in the palette.";
+	private static final String TIP_ACCOUNTING = "What the entry put into the context on this assembly, against the "
+		+ "most it may: content past the budget is cut and the entry marked truncated. An entry the cached "
+		+ "prefix already holds is left as it is and not measured again.";
+	private static final String TIP_UNAVAILABLE = "Configured tools that did not resolve to an operation the agent "
+		+ "may call.";
 
 	/** One view and the title of its tab (with a count where one is telling). */
 	public record Tab(String title, JComponent view) {
@@ -151,14 +178,14 @@ public final class ContextInspector {
 
 	private Readout overview(AgentContext.Report r) {
 		Readout d = new Readout();
-		d.pair("Model", r.model().isBlank() ? "—" : r.model());
+		d.pair("Model", r.model().isBlank() ? "—" : r.model()).tip(TIP_MODEL);
 		int pct = r.budgetPercent();
 		d.pair("Context budget", String.format("%,d of %,d bytes  ·  %d%%", r.budgetUsed(), r.budgetBytes(), pct),
-			(pct >= 100) ? Styles.WARNING : null);
-		d.pair("Session tokens", (r.sessionTokens() != null) ? r.sessionTokens() : "—");
-		d.pair("Messages", to(context, null, messagesSummary(r)));
-		d.pair("Tools", to(tools, null, toolsSummary(r)));
-		d.pair("Loaded entries", to(loads, null, Integer.toString(r.loads().size())));
+			(pct >= 100) ? Styles.WARNING : null).tip(TIP_BUDGET);
+		d.pair("Session tokens", (r.sessionTokens() != null) ? r.sessionTokens() : "—").tip(TIP_TOKENS);
+		d.pair("Messages", to(context, null, messagesSummary(r))).tip(TIP_MESSAGES);
+		d.pair("Tools", to(tools, null, toolsSummary(r))).tip(TIP_TOOLS);
+		d.pair("Loaded entries", to(loads, null, Integer.toString(r.loads().size()))).tip(TIP_LOADED);
 		d.note("Exactly what the assistant's model receives for this conversation, assembled as for a live "
 			+ "reply but not sent. The budget is the model's declared context size — a guide the assembler "
 			+ "warns against, not a cap.");
@@ -203,7 +230,7 @@ public final class ContextInspector {
 			}
 		}
 		for (AgentContext.Band band : r.bands()) {
-			d.section(band.name() + "  ·  " + span(band));
+			d.section(band.name() + "  ·  " + span(band)).tip(bandTip(band.name()));
 			for (int i = band.from(); i < band.to(); i++) {
 				AgentContext.Message m = r.messages().get(i);
 				List<Object> meta = new ArrayList<>();
@@ -217,9 +244,9 @@ public final class ContextInspector {
 					Integer result = (c.id() != null) ? resultOf.get(c.id()) : null;
 					meta.add((result != null) ? to(d, messageAnchor(result), text) : text);
 				}
-				meta.add("#" + i);
+				meta.add(new Readout.Tip("#" + i, "Its place in the messages the model receives."));
 				d.anchor(messageAnchor(i));
-				d.entry(m.role(), m.error() ? Styles.ERROR : null, meta.toArray());
+				d.entry(m.role(), m.error() ? Styles.ERROR : null, meta.toArray()).tip(roleTip(m.role()));
 
 				boolean empty = true;
 				if (!m.text().isBlank()) {
@@ -252,6 +279,33 @@ public final class ContextInspector {
 			: "messages " + b.from() + "–" + (b.to() - 1);
 	}
 
+	/** What a band of the assembled messages is, by the name {@link AgentContext#bands} gives it. */
+	private static String bandTip(String band) {
+		return switch (band) {
+			case "Head" -> "The fixed opening: the assistant's identity and instructions, the skills index and "
+				+ "pinned context. Stable across inferences, so the provider can cache it.";
+			case "Live" -> "Loaded context: skill instructions and context entries, as resolved for this conversation.";
+			case "Conversation" -> "The turns so far, with a compacted stretch standing as its summary.";
+			case "Tool loop" -> "The turn in progress: its tool calls and their results so far.";
+			case "Tail" -> "What the assembler adds last: the task in hand and its notices, such as the "
+				+ "context-budget warning.";
+			default -> "The messages the model receives, in order.";
+		};
+	}
+
+	/** What a message's or turn's role means. */
+	private static String roleTip(String role) {
+		if (role == null) return null;
+		return switch (role) {
+			case "system" -> "Instructions to the model, sent as the system message.";
+			case "user" -> "From the owner — or a context entry presented in the owner's voice.";
+			case "assistant" -> "The model's own words, or a compacted stretch's summary in its voice.";
+			case "tool" -> "A tool's result, answering the call it names.";
+			case "compacted" -> "A compacted stretch: its summary stands for the turns archived beneath it.";
+			default -> null;
+		};
+	}
+
 	// ------------------------------------------------------------------
 	// Cycle detail: the stored turns
 	// ------------------------------------------------------------------
@@ -261,11 +315,11 @@ public final class ContextInspector {
 		if (turns.isEmpty()) return d.note("No turns recorded for this conversation.");
 		int i = 0;
 		for (SessionHistory.RawTurn t : turns) {
-			List<String> meta = new ArrayList<>();
-			if (t.meta() != null && !t.meta().isBlank()) meta.add(t.meta());
+			List<Object> meta = new ArrayList<>();
+			if (t.meta() != null && !t.meta().isBlank()) meta.add(new Readout.Tip(t.meta(), TIP_META_CYCLE));
 			for (SessionHistory.RawCall c : t.calls()) meta.add("→ " + c.name() + (c.id() != null ? "  (" + shortId(c.id()) + ")" : ""));
-			meta.add("#" + i++);
-			d.entry(t.role(), t.error() ? Styles.ERROR : null, meta.toArray());
+			meta.add(new Readout.Tip("#" + i++, "Its place among the stored turns."));
+			d.entry(t.role(), t.error() ? Styles.ERROR : null, meta.toArray()).tip(roleTip(t.role()));
 
 			boolean empty = true;
 			if (t.content() != null && !t.content().isBlank()) {
@@ -306,7 +360,7 @@ public final class ContextInspector {
 			if (!s.equals(source)) {
 				source = s;
 				long n = r.tools().stream().filter(u -> s.equals((u.source() != null) ? u.source() : "other")).count();
-				d.section(sourceTitle(s) + "  ·  " + n);
+				d.section(sourceTitle(s) + "  ·  " + n).tip(sourceTip(s));
 			}
 			// The section already names the source; the operation and declaring skill are what's new here.
 			if (t.name() != null) d.anchor(toolAnchor(t.name()));
@@ -316,7 +370,7 @@ public final class ContextInspector {
 			else d.excerpt(t.description(), false);
 		}
 		if (!r.unavailable().isEmpty()) {
-			d.section("Unavailable  ·  " + r.unavailable().size());
+			d.section("Unavailable  ·  " + r.unavailable().size()).tip(TIP_UNAVAILABLE);
 			for (String u : r.unavailable()) d.note(u);
 		}
 		if (r.tools().isEmpty() && r.unavailable().isEmpty()) d.note("No tools offered.");
@@ -330,6 +384,18 @@ public final class ContextInspector {
 			case "config" -> "Configured";
 			case "skill" -> "From loaded skills";
 			default -> source;
+		};
+	}
+
+	/** Where a tool definition comes from. */
+	private static String sourceTip(String source) {
+		return switch (source) {
+			case "harness" -> "Controls the venue's harness offers an agent that names them — compacting the "
+				+ "conversation, loading a skill.";
+			case "default" -> "Read-only reads of the agent's own workspace: the default tools its configuration keeps on.";
+			case "config" -> "Tools named in the agent's configuration, always on.";
+			case "skill" -> "Tools granted by skills loaded in this conversation. A skill's tools arrive only once it is loaded.";
+			default -> "Tools from " + source + ".";
 		};
 	}
 
@@ -354,18 +420,21 @@ public final class ContextInspector {
 				skillset = s.skillset();
 				String set = skillset;
 				d.anchor(skillsetAnchor(set));
-				d.section(set + "  ·  " + index.stream().filter(k -> set.equals(k.skillset())).count());
+				d.section(set + "  ·  " + index.stream().filter(k -> set.equals(k.skillset())).count()).tip(TIP_SKILLSET);
 			}
 			List<Object> meta = new ArrayList<>();
 			AgentContext.Load l = loaded.get(s.path());
 			if (l != null) {
 				String text = "loaded" + (l.status() != null ? "  ·  " + l.status() : "");
-				meta.add(loadRefs.contains(s.path()) ? to(loads, loadAnchor(s.path()), text) : text);
+				meta.add(loadRefs.contains(s.path()) ? to(loads, loadAnchor(s.path()), text)
+					: new Readout.Tip(text, TIP_LOADED_SKILL));
 			}
-			if (s.shadowed()) meta.add("shadowed — an earlier skillset has this name");
-			if (!s.tools().isEmpty()) meta.add(s.tools().size() + (s.tools().size() == 1 ? " tool" : " tools"));
-			if (!s.children().isEmpty()) meta.add("reveals " + s.children().size() + " more");
-			meta.add(s.path());
+			if (s.shadowed()) meta.add(new Readout.Tip("shadowed", TIP_SHADOWED));
+			if (!s.tools().isEmpty()) {
+				meta.add(new Readout.Tip(s.tools().size() + (s.tools().size() == 1 ? " tool" : " tools"), TIP_GRANTS));
+			}
+			if (!s.children().isEmpty()) meta.add(new Readout.Tip("reveals " + s.children().size() + " more", TIP_REVEALS));
+			meta.add(new Readout.Tip(s.path(), TIP_PATH));
 			d.anchor(skillAnchor(s.path()));
 			d.entry(s.name(), s.shadowed() ? Styles.MUTED : null, meta.toArray());
 
@@ -391,15 +460,67 @@ public final class ContextInspector {
 		if (r.loads().isEmpty()) return d.note("Nothing loaded.");
 		for (AgentContext.Load l : r.loads()) {
 			if (l.ref() != null) d.anchor(loadAnchor(l.ref()));
-			d.entry((l.ref() != null) ? l.ref() : "(entry)", null, l.kind(), l.status(),
+			d.entry((l.ref() != null) ? l.ref() : "(entry)", null, tipped(l.kind(), kindTip(l.kind())),
+				tipped(l.status(), statusTip(l.status())),
 				(l.ref() != null && skillPaths.contains(l.ref())) ? to(skills, skillAnchor(l.ref()), "the skill") : null);
-			StringBuilder accounting = new StringBuilder(String.format("%,d bytes", l.bytes()));
-			if (l.budget() > 0) accounting.append(String.format("  of a %,d-byte budget", l.budget()));
-			if (l.truncated()) accounting.append("  ·  truncated");
-			if (l.deduplicated()) accounting.append("  ·  deduplicated");
-			d.prose(accounting.toString());
+			d.prose(accounting(l)).tip(TIP_ACCOUNTING);
 		}
 		return d;
+	}
+
+	/**
+	 * A load's size against its budget. An entry the session's cached prefix
+	 * already holds is not measured again on a later assembly (the venue
+	 * reports it materialised with no bytes), so it is described rather than
+	 * shown as nothing; a tools-only entry has no text to measure.
+	 */
+	static String accounting(AgentContext.Load l) {
+		StringBuilder sb = new StringBuilder();
+		if ("tools".equals(l.kind())) {
+			sb.append("no text, tools only");
+			if (l.budget() > 0) sb.append(String.format("  ·  %,d-byte budget", l.budget()));
+		} else if (l.bytes() == 0 && "materialised".equals(l.status())) {
+			sb.append("in the cached prefix, not re-measured");
+			if (l.budget() > 0) sb.append(String.format("  ·  %,d-byte budget", l.budget()));
+		} else {
+			sb.append(String.format("%,d bytes", l.bytes()));
+			if (l.budget() > 0) sb.append(String.format("  of a %,d-byte budget", l.budget()));
+		}
+		if (l.truncated()) sb.append("  ·  truncated");
+		if (l.deduplicated()) sb.append("  ·  deduplicated");
+		return sb.toString();
+	}
+
+	/** {@code text} explained by {@code tip} — or plain when there is no explanation, or nothing to explain. */
+	private static Object tipped(String text, String tip) {
+		return (text != null && tip != null) ? new Readout.Tip(text, tip) : text;
+	}
+
+	/** What a load entry's kind means. */
+	private static String kindTip(String kind) {
+		if (kind == null) return null;
+		return switch (kind) {
+			case "skill" -> "A skill: instructions placed in the context, with the tools it grants.";
+			case "load" -> "A load: an operation's result or a lattice value, placed in the context under its label.";
+			case "tools" -> "Tools only: an entry that grants tools and adds no text.";
+			default -> null;
+		};
+	}
+
+	/** What a load entry's status means. */
+	private static String statusTip(String status) {
+		if (status == null) return null;
+		return switch (status) {
+			case "materialised" -> "Rendered into the session's cached prefix, where it stays as it is between "
+				+ "inferences until the prefix is next rebuilt.";
+			case "appended" -> "Loaded by the assistant during the conversation: its text was appended to the "
+				+ "history rather than rendered into the cached prefix.";
+			case "resolved" -> "Read afresh for this assembly.";
+			case "deduplicated" -> "The same skill is already loaded under another entry, so this one adds nothing.";
+			case "absent" -> "Nothing was found at its path, or its operation returned nothing.";
+			case "unavailable" -> "Its path or operation could not be read.";
+			default -> null;
+		};
 	}
 
 	private static String shortId(String id) {

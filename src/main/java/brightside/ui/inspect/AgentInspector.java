@@ -31,40 +31,44 @@ public final class AgentInspector {
 
 	static Readout document(AgentInfo.Summary a) {
 		Readout d = new Readout();
-		d.pair("Name", a.name());
-		d.pair("Id", a.id());
-		d.pair("Agent DID", a.did());
-		d.pair("Owner", a.ownerName() + "  ·  " + a.ownerDID());
-		d.pair("Status", status(a));
-		d.pair("Model", orDash(a.model()));
-		d.pair("Operation", orDash(a.operation()));
-		d.pair("Conversations", activity(a));
-		d.pair("Tasks", Long.toString(a.tasks()));
-		d.pair("Timeline", a.timelineLength() + " event" + (a.timelineLength() == 1 ? "" : "s"));
+		d.pair("Name", a.name()).tip("How the agent is shown; the owner's choice.");
+		d.pair("Id", a.id()).tip("The name the venue knows the agent by. Its record lives under it in the owner's namespace.");
+		d.pair("Agent DID", a.did()).tip("The agent's own identifier, distinct from its owner's: what it acts and signs as.");
+		d.pair("Owner", a.ownerName() + "  ·  " + a.ownerDID()).tip("The user the agent belongs to and acts for.");
+		d.pair("Status", status(a)).tip("The agent's state as the venue reports it, with its last error if it stopped on one.");
+		d.pair("Model", orDash(a.model())).tip("The model operation its replies run through.");
+		d.pair("Operation", orDash(a.operation())).tip("The agent operation Brightside invokes to chat with it.");
+		d.pair("Conversations", activity(a)).tip("How many conversations the agent holds, and when it last acted.");
+		d.pair("Tasks", Long.toString(a.tasks())).tip("Tasks on the agent's queue.");
+		d.pair("Timeline", a.timelineLength() + " event" + (a.timelineLength() == 1 ? "" : "s"))
+			.tip("Events the venue has recorded on the agent's timeline.");
 		d.note(a.standard()
 			? "Brightside's standard agent: its model and instructions follow Settings and config.json."
 			: "Created from the agents pane; it keeps the model and instructions it was given.");
 
-		d.section("System prompt");
+		d.section("System prompt").tip("The instructions that open every turn: the agent's identity and role.");
 		d.prose(orDash(a.systemPrompt()));
-		d.section("In every turn");
+		d.section("In every turn").tip("Context pinned by configuration: read afresh each turn and watched for change, "
+			+ "so the agent always has it without loading anything.");
 		for (String c : a.context()) d.prose(c);
-		for (AgentInfo.Pin pin : a.pins()) d.prose(pinLine(pin));
+		for (AgentInfo.Pin pin : a.pins()) d.prose(pinLine(pin)).tip("A pinned load: what it refers to, its kind, "
+			+ "its label in the context, and the most of it that is placed there.");
 		if (a.context().isEmpty() && a.pins().isEmpty()) d.note("Nothing pinned.");
 
-		d.section("Always-on tools");
+		d.section("Always-on tools").tip("Tools the agent has without loading anything.");
 		if (a.defaultTools()) d.prose("Read-only workspace access (covia read/list)");
 		for (String t : a.tools()) d.prose(t);
 		if (!a.defaultTools() && a.tools().isEmpty()) d.note("None.");
-		d.section("Skill libraries");
+		d.section("Skill libraries").tip("The skillsets the agent searches for skills, in order; the first skill "
+			+ "of a name wins.");
 		list(d, a.skillsets(), "None — the agent cannot discover skills.");
 		if (!a.unavailable().isEmpty()) {
-			d.section("Unavailable", Styles.ERROR);
+			d.section("Unavailable", Styles.ERROR).tip("Configured entries that did not resolve.");
 			list(d, a.unavailable(), "");
 		}
 		d.note("Everything else arrives by loading a skill that grants it.");
 
-		d.section("Raw");
+		d.section("Raw").tip("The venue's own summary of the agent, as JSON.");
 		d.excerpt(a.rawJson(), true);
 		return d;
 	}
