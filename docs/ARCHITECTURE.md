@@ -80,7 +80,7 @@ brightside/
   vault/                 passphrase key, seed-derived store key, BIP39 phrase
   markdown/              Markdown → StyledDocument; depends only on commonmark
   ui/                    LAF and MainWindow; components/ (the kit), settings/,
-                         onboarding/, chat/, inspect/, inbox/
+                         onboarding/, chat/, inspect/, skills/, inbox/
 
 resources/
   brightside/skills/*.json       the shipped skills

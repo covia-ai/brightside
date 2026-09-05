@@ -59,6 +59,7 @@ public final class MainWindow extends JFrame {
 	private static final String MAIN_CHAT = "chat-main";
 	private static final String MAIN_SETTINGS = "settings";
 	private static final String MAIN_INBOX = "inbox";
+	private static final String MAIN_SKILLS = "skills";
 
 	private final BrightSide app;
 	private final CardLayout cards = new CardLayout();
@@ -74,6 +75,7 @@ public final class MainWindow extends JFrame {
 	private NavBar navBar;
 	private SettingsScreen settingsScreen;
 	private brightside.ui.inbox.InboxScreen inboxScreen;
+	private brightside.ui.skills.SkillsScreen skillsScreen;
 	private brightside.ui.chat.AgentList agentList;
 	private int sidebarWidth = SIDEBAR_WIDTH;
 	private final brightside.ui.onboarding.OnboardingWizard onboarding;
@@ -397,6 +399,9 @@ public final class MainWindow extends JFrame {
 		});
 		mainDeck.add(inboxScreen, MAIN_INBOX);
 
+		skillsScreen = new brightside.ui.skills.SkillsScreen();
+		mainDeck.add(skillsScreen, MAIN_SKILLS);
+
 		navBar = new NavBar(this::selectTab);
 
 		JPanel chatCard = new JPanel(new BorderLayout());
@@ -610,6 +615,11 @@ public final class MainWindow extends JFrame {
 				app.refreshAgents();
 			}
 			case INBOX -> mainCards.show(mainDeck, MAIN_INBOX);
+			case SKILLS -> {
+				mainCards.show(mainDeck, MAIN_SKILLS);
+				// The assistant can author skills between visits: re-read on entry.
+				app.refreshSkills();
+			}
 			case SETTINGS -> {
 				refreshSettings();
 				mainCards.show(mainDeck, MAIN_SETTINGS);
@@ -697,6 +707,16 @@ public final class MainWindow extends JFrame {
 	/** An agent as read ({@code info} null: it could not be), for the Agent tab on Sessions. */
 	public void showAgentInfo(String agentId, brightside.AgentInfo.Summary info) {
 		views.showAgent(agentId, info);
+	}
+
+	/** Replace the Skills screen's tree: {@code agentName}'s skillsets (the roots, in search order) over what they reach. */
+	public void setSkills(String agentName, List<String> skillsets, List<brightside.SkillIndex.Skill> index) {
+		skillsScreen.setSkills(agentName, skillsets, index);
+	}
+
+	/** Whether the Skills screen is on view, so a refresh knows to re-read it. */
+	public boolean isSkillsShowing() {
+		return isShowing() && CARD_CHAT.equals(currentCard) && activeTab == NavBar.Tab.SKILLS;
 	}
 
 	/** Replace the Inbox's requests (open first) and badge the tab with the number waiting. */

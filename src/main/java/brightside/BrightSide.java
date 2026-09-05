@@ -2035,6 +2035,31 @@ public final class BrightSide {
 		if (w != null) w.checkNow();
 		ConversationWatcher i = inboxWatcher;
 		if (i != null) i.checkNow();
+		if (window.isSkillsShowing()) refreshSkills();
+	}
+
+	/**
+	 * Re-read the skills the current agent can discover, for the Skills
+	 * screen: its skillsets and everything they reach, read in-process as the
+	 * owner. Nothing is watched for this — the screen re-reads on every visit.
+	 */
+	public void refreshSkills() {
+		EmbeddedVenue v = venue;
+		String did = userDID;
+		String aid = agentId;
+		if (v == null || did == null || aid == null) return;
+		Thread t = new Thread(() -> {
+			ACell record = v.agentRecord(did, aid);
+			List<String> skillsets = SkillIndex.skillsetsOf(record);
+			List<SkillIndex.Skill> index = SkillIndex.of(v, did, record);
+			String name = (convex.core.lang.RT.getIn(record, "config", "name") instanceof AString s && !s.isEmpty())
+				? s.toString() : aid;
+			SwingUtilities.invokeLater(() -> {
+				if (java.util.Objects.equals(agentId, aid)) window.setSkills(name, skillsets, index);
+			});
+		}, "brightside-skills-refresh");
+		t.setDaemon(true);
+		t.start();
 	}
 
 	public void newConversation() {

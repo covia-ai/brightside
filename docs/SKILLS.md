@@ -4,7 +4,9 @@ How Brightside's assistant gets its abilities: a small always-on core, three
 libraries of skills it loads when a task calls for one, and a private memory.
 This is the design; the shipped library itself is `BrightsideSkillsAdapter`
 and the skill files under `src/main/resources/brightside/skills/`, and the
-mechanism is Covia's (`../covia/venue/docs/SKILLS.md`).
+mechanism is Covia's (`../covia/venue/docs/SKILLS.md`). The Skills screen
+shows the library as the assistant can discover it: each skillset it
+searches, the skills in it, and beneath each skill what it reveals.
 
 - **Discovery is broad; authority is deliberate.** The assistant can see its
   owner's, Brightside's and the venue's libraries, but starts every turn with

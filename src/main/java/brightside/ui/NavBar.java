@@ -32,7 +32,7 @@ import brightside.ui.components.Theme;
 
 /**
  * A centred bottom navigation bar: one {@link PressButton} per screen (Home,
- * Sessions, Inbox, Settings), each a painted icon over a label. The theme
+ * Sessions, Skills, Inbox, Settings), each a painted icon over a label. The theme
  * supplies hover, pressed and selected looks; the active tab is selected and
  * drawn in the accent colour; a tab can carry a count badge (requests waiting
  * in the Inbox). A tab reports through the {@link Listener} the moment it is
@@ -42,7 +42,7 @@ import brightside.ui.components.Theme;
 public final class NavBar extends JPanel {
 
 	public enum Tab {
-		HOME, SESSIONS, INBOX, SETTINGS
+		HOME, SESSIONS, SKILLS, INBOX, SETTINGS
 	}
 
 	public interface Listener {
@@ -67,6 +67,7 @@ public final class NavBar extends JPanel {
 		row.setBorder(BorderFactory.createEmptyBorder(6, 0, 6, 0));
 		addItem(row, Tab.HOME, "Home");
 		addItem(row, Tab.SESSIONS, "Sessions");
+		addItem(row, Tab.SKILLS, "Skills");
 		addItem(row, Tab.INBOX, "Inbox");
 		addItem(row, Tab.SETTINGS, "Settings");
 		add(row);
@@ -117,6 +118,7 @@ public final class NavBar extends JPanel {
 			setToolTipText(switch (tab) {
 				case HOME -> "Your conversation";
 				case SESSIONS -> "Chat with the agents and conversations panel";
+				case SKILLS -> "The skills your assistant can discover, and what each reveals";
 				case INBOX -> "Requests from your agents waiting for your decision";
 				case SETTINGS -> "Identity, theme, model, vault and auth settings";
 			});
@@ -178,6 +180,7 @@ public final class NavBar extends JPanel {
 		return switch (tab) {
 			case HOME -> "house";
 			case SESSIONS -> "messages-square";
+			case SKILLS -> "book-open";
 			case INBOX -> "inbox";
 			case SETTINGS -> "settings";
 		};
