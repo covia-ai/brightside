@@ -27,10 +27,12 @@ import brightside.ui.components.Styles;
  * (model, budget, counts), <em>Context</em> (every assembled message, by band
  * — head, live surface, conversation, tool loop, tail), <em>Cycle detail</em>
  * (the stored turns), <em>Tools</em> (every definition the model receives, by
- * where it comes from), <em>Skills</em> (every skill the agent can discover,
- * by skillset — the surface behind the model's index), <em>Loaded</em> (the
- * context entries and their accounting) and <em>Raw</em> (the untouched
- * report). {@link SessionViews} shows them above the chat.
+ * where it comes from), <em>Skills</em> (the index as this conversation's
+ * model sees it: the top level, and what its loaded skills reveal),
+ * <em>Loaded</em> (the context entries and their accounting) and <em>Raw</em>
+ * (the untouched report). {@link SessionViews} shows them above the chat;
+ * every view is the conversation's own situation, and the whole skill
+ * library is the Skills screen's.
  *
  * <p>Each view is a {@link Readout}: one document of sections and entries,
  * long content folded behind a "Show all" link, everything shown selectable
@@ -75,8 +77,8 @@ public final class ContextInspector {
 	/**
 	 * The views for one conversation, in tab order.
 	 *
-	 * @param index the skills the agent can discover ({@link SkillIndex}) — the
-	 *              surface behind the index the model sees; may be empty
+	 * @param index the skills the model's index offers in this conversation
+	 *              ({@link SkillIndex#visible}); may be empty
 	 */
 	public static List<Tab> tabs(AgentContext.Report report, List<SessionHistory.RawTurn> turns,
 			List<SkillIndex.Skill> index) {
@@ -400,20 +402,22 @@ public final class ContextInspector {
 	}
 
 	// ------------------------------------------------------------------
-	// Skills: the discovery surface behind the model's [Skills] index
+	// Skills: the model's [Skills] index as it stands in this conversation
 	// ------------------------------------------------------------------
 
 	private Readout skills(List<SkillIndex.Skill> index, AgentContext.Report r) {
 		Readout d = skills;
-		if (index.isEmpty()) return d.note("The agent names no skillsets, so there is nothing for it to discover.");
+		if (index.isEmpty()) {
+			return d.note("Nothing in the index: the agent names no skillsets, or they hold no skills.");
+		}
 		Map<String, AgentContext.Load> loaded = new HashMap<>();
 		for (AgentContext.Load l : r.loads()) {
 			if (l.ref() != null) loaded.put(l.ref(), l);
 		}
-		d.note("Every skill in the agent's skillsets, in the order they are searched, then every skill "
-			+ "those would reveal once loaded, grouped by where it lives: the names and descriptions the "
-			+ "model's [Skills] index carries. A loaded skill's instructions are in the context and its "
-			+ "tools in the palette; the rest load on demand.");
+		d.note("The index as this conversation's model sees it — the skills it can load by name now: the "
+			+ "top-level entries of each skillset it searches, then what the skills loaded here reveal, by "
+			+ "where each lives. A loaded skill's instructions are in the context and its tools in the "
+			+ "palette. The whole library, to the bottom, is on the Skills screen.");
 		String skillset = null;
 		for (SkillIndex.Skill s : index) {
 			if (!s.skillset().equals(skillset)) {
