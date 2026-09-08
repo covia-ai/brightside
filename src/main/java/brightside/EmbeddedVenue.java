@@ -47,16 +47,28 @@ public final class EmbeddedVenue implements AutoCloseable {
 	 */
 	public static EmbeddedVenue launch(AMap<AString, ACell> config, Runnable onShutdown) {
 		VenueServer server = VenueServer.launch(config);
-		// Brightside's venue adapters: operations, and the default skill library.
-		Engine engine = server.getEngine();
-		engine.registerAdapter(new BrightsideAdapter(onShutdown));
-		engine.registerAdapter(new BrightsideSkillsAdapter());
-		// Moltbook as typed operations; idle until the owner connects an account.
-		engine.registerAdapter(new MoltbookAdapter());
-		// Covia's Discord module, in-process rather than as a loaded module jar:
-		// the same adapter, on Brightside's own classpath. With no bots it costs
-		// nothing; the owner's bot is created from Settings (see Discord).
-		engine.registerAdapter(new covia.adapter.discord.DiscordAdapter());
+		try {
+			// Brightside's venue adapters: operations, and the default skill library.
+			Engine engine = server.getEngine();
+			engine.registerAdapter(new BrightsideAdapter(onShutdown));
+			engine.registerAdapter(new BrightsideSkillsAdapter());
+			// Moltbook as typed operations; idle until the owner connects an account.
+			engine.registerAdapter(new MoltbookAdapter());
+			// Covia's Discord module, in-process rather than as a loaded module jar:
+			// the same adapter, on Brightside's own classpath. With no bots it costs
+			// nothing; the owner's bot is created from Settings (see Discord).
+			engine.registerAdapter(new covia.adapter.discord.DiscordAdapter());
+		} catch (RuntimeException | Error e) {
+			// The server is up — port bound, store locked — and nobody else holds
+			// it: close it, or a retry would find "a running Brightside" that is
+			// this very process.
+			try {
+				server.close();
+			} catch (RuntimeException c) {
+				e.addSuppressed(c);
+			}
+			throw e;
+		}
 		return new EmbeddedVenue(server);
 	}
 

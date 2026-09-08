@@ -66,6 +66,8 @@ public class BrightsideAdapter extends AAdapter {
 	private static final AString K_VENUE = Strings.intern("venue");
 	private static final AString K_DID = Strings.intern("did");
 	private static final AString K_SKILLS = Strings.intern("skills");
+	private static final AString K_STORE = Strings.intern("store");
+	private static final AString K_PID = Strings.intern("pid");
 	private static final AString K_ACCEPTED = Strings.intern("accepted");
 	private static final AString K_NAME = Strings.intern("name");
 	private static final AString K_DELETED = Strings.intern("deleted");
@@ -499,7 +501,20 @@ public class BrightsideAdapter extends AAdapter {
 			K_VERSION, (version != null) ? version : "dev",
 			K_VENUE, (venueName != null) ? venueName.toString() : null,
 			K_DID, (did != null) ? did.toString() : null,
-			K_SKILLS, shippedSkills());
+			K_SKILLS, shippedSkills(),
+			// Which instance this is: the store it holds and the process holding
+			// it. A newcomer taking over waits on both (Takeover).
+			K_STORE, storeName(),
+			K_PID, CVMLong.create(ProcessHandle.current().pid()));
+	}
+
+	/** The store this venue runs on, as configured: a path, or {@code temp}. */
+	private String storeName() {
+		try {
+			return new covia.venue.Config(engine.getConfig()).getStore();
+		} catch (RuntimeException e) {
+			return null;
+		}
 	}
 
 	/**

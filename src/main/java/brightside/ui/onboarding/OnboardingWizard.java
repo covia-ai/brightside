@@ -455,7 +455,18 @@ public final class OnboardingWizard extends JPanel {
 		Providers.Model selectedModel = modelSelector.selectedModel();
 		String model = offline || selectedModel == null ? null : selectedModel.id();
 		String apiKey = (offline || keyField.getPassword().length == 0) ? null : new String(keyField.getPassword());
+		next.setEnabled(false);
+		setError("Setting things up…", false);
 		listener.onComplete(new Setup(passphrase, seedHex, name, provider, model, apiKey));
+	}
+
+	/**
+	 * The launch that Finish started did not get there: say why, and let the
+	 * person try again once they have dealt with it. Event thread.
+	 */
+	public void showFailure(String message) {
+		next.setEnabled(true);
+		setError(message, true);
 	}
 
 	// ------------------------------------------------------------------

@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -95,6 +96,9 @@ public final class BrightSide {
 	private final AtomicBoolean chatStarted = new AtomicBoolean();
 	/** The owner already agreed, at startup, to take over the instance found running. */
 	private volatile boolean takeoverApproved;
+	/** A venue launch in progress, for {@link #closeVenue} to wait on; null when none is. */
+	private volatile CountDownLatch launching;
+	private volatile Thread launchThread;
 	private volatile Vault vault; // set once onboarded/unlocked
 	private volatile String venueSeedHex; // the venue's Ed25519 seed hex (authorises operator takeover)
 	private volatile String llmOverride; // chosen model op for the first onboarding launch
@@ -126,6 +130,10 @@ public final class BrightSide {
 	public static void main(String[] args) {
 		Path path = (args.length > 0) ? Path.of(args[0]).toAbsolutePath().normalize() : AppConfig.DEFAULT_FILE;
 		configureLogging(path.getParent());
+		// Threads' uncaught exceptions — the event thread's included — go to the
+		// log file, not only to a console nobody is watching.
+		Thread.setDefaultUncaughtExceptionHandler(
+			(thread, e) -> log.error("Uncaught exception in {}", thread.getName(), e));
 		AppConfig config;
 		try {
 			config = AppConfig.load(path);
@@ -161,6 +169,15 @@ public final class BrightSide {
 		// Cancel needs no passphrase first. The handover itself waits for the
 		// vault: the shutdown request must be signed with the venue seed.
 		if (Takeover.isRunning(config.port())) {
+			if (mode == Mode.ONBOARD) {
+				// A new install mints a new identity, and only the running venue's
+				// own key can ask it to stop: a takeover could never succeed, so
+				// say so now rather than after the whole wizard.
+				log.info("Something answers on port {} and this install has no vault yet; exiting", config.port());
+				alreadyRunning();
+				System.exit(0);
+				return;
+			}
 			if (!confirmTakeover()) {
 				log.info("Another Brightside instance is running and takeover was declined; exiting");
 				System.exit(0);
@@ -247,13 +264,17 @@ public final class BrightSide {
 	/**
 	 * Brings the venue up. If another instance already holds the store, the
 	 * owner is first asked whether to take over — and only once that is settled,
-	 * the other instance has stepped aside <em>and the venue is actually up</em>
-	 * does {@code clearToShow} run (on the event thread): the moment the main
-	 * window may appear. Two windows are never on screen together, and the
+	 * the other instance has released the store <em>and the venue is actually
+	 * up</em> does {@code clearToShow} run (on the event thread): the moment the
+	 * main window may appear. Two windows are never on screen together, and the
 	 * window never shows without live data behind it — while the venue boots,
-	 * the unlock dialog stays up showing progress.
+	 * the unlock dialog stays up showing progress. {@link #closeVenue} waits for
+	 * a launch in progress, so a quit mid-boot still ends with a clean store.
 	 */
 	private void launchVenueWith(AMap<AString, ACell> venueConfig, Runnable clearToShow) {
+		CountDownLatch done = new CountDownLatch(1);
+		launchThread = Thread.currentThread();
+		launching = done;
 		try {
 			// Another instance already holds the venue store? Offer to take over
 			// (ask it to shut down cleanly) rather than fail on the store lock.
@@ -261,10 +282,14 @@ public final class BrightSide {
 			if (Takeover.isRunning(port)) {
 				boolean proceed;
 				try {
-					proceed = takeOver(port);
+					proceed = takeOver(port, storePath(venueConfig));
+				} catch (Takeover.Refused e) {
+					// Not ours to stop: a different identity, a venue that is not
+					// Brightside, or something else on the port. Say which.
+					log.warn("Could not take over the instance on port {}: {}", port, e.getMessage());
+					startupFailed(e.getMessage());
+					return;
 				} catch (Exception e) {
-					// The running instance refused or didn't stop — typically a
-					// different identity (its key isn't ours), so we can't ask it.
 					log.warn("Could not take over the running instance on port {}: {}", port, e.toString());
 					startupFailed("Brightside is already running on this computer and couldn't be taken over"
 						+ " — please quit it (tray icon ▸ Quit) and try again.");
@@ -277,9 +302,7 @@ public final class BrightSide {
 				}
 			}
 			// The slow part: opening the encrypted store, adapters, provisioning.
-			SwingUtilities.invokeLater(() -> {
-				if (unlockDialog != null) unlockDialog.showProgress("Starting the venue…");
-			});
+			progress("Starting the venue…");
 			EmbeddedVenue v;
 			StoreRepair.Outcome repaired = null;
 			try {
@@ -296,9 +319,7 @@ public final class BrightSide {
 					return;
 				}
 				log.warn("The store was not closed cleanly; repairing it before launch");
-				SwingUtilities.invokeLater(() -> {
-					if (unlockDialog != null) unlockDialog.showProgress("Checking the data store…");
-				});
+				progress("Checking the data store…");
 				try {
 					repaired = StoreRepair.repair(venueConfig);
 				} catch (IOException ioe) {
@@ -307,18 +328,19 @@ public final class BrightSide {
 					return;
 				}
 				log.warn("Store repaired — {}", repaired.summary());
-				SwingUtilities.invokeLater(() -> {
-					if (unlockDialog != null) unlockDialog.showProgress("Starting the venue…");
-				});
+				progress("Starting the venue…");
 				v = EmbeddedVenue.launch(venueConfig, this::exit);
 			}
 			venue = v;
 			log.info("Venue '{}' ready at {} as {}", v.name(), v.url(), v.did());
-			// Reveal only now that the venue is up: the dialog drops and the window
-			// comes up in its startup state; the chat bind's own event-thread
-			// update is queued after it and fills in the conversation.
+			// Bind the identity and move any keys the vault still holds while the
+			// dialog is still up, so a failure goes back to it. Only then reveal:
+			// the dialog drops and the window comes up in its startup state; the
+			// chat bind starts after that, so its own event-thread update is
+			// queued behind the reveal and fills in the conversation.
+			Identity bound = onVenueReady();
 			if (clearToShow != null) SwingUtilities.invokeLater(clearToShow);
-			onVenueReady();
+			if (bound != null) startChatOnce(v, bound);
 			if (repaired != null) {
 				String notice = repaired.notice();
 				SwingUtilities.invokeLater(() -> window.showSystemMessage(notice));
@@ -328,7 +350,25 @@ public final class BrightSide {
 			closeVenue();
 			venue = null;
 			startupFailed(t);
+		} finally {
+			launching = null;
+			launchThread = null;
+			done.countDown();
 		}
+	}
+
+	/** The persistent store {@code venueConfig} names, or null for a temp or memory store. */
+	private static Path storePath(AMap<AString, ACell> venueConfig) {
+		String store = new covia.venue.Config(venueConfig).getStore();
+		if (store == null || store.isBlank() || "temp".equals(store) || "memory".equals(store)) return null;
+		return Path.of(store).toAbsolutePath().normalize();
+	}
+
+	/** What the app is doing, on the unlock dialog while it is up. Any thread. */
+	private void progress(String message) {
+		SwingUtilities.invokeLater(() -> {
+			if (unlockDialog != null) unlockDialog.showProgress(message);
+		});
 	}
 
 	/** Startup failed: say so where the owner is looking — the unlock dialog while locked, else the window. */
@@ -1029,21 +1069,55 @@ public final class BrightSide {
 	/**
 	 * Prompts (Take Over / Cancel); on Take Over, asks the running instance to
 	 * shut down cleanly and waits for it to release the store. Returns true to
-	 * proceed with launch, false to cancel this instance.
+	 * proceed with launch, false to cancel this instance. Refused, with a
+	 * message for the owner, when what answers on the port is not a Brightside
+	 * holding our identity.
 	 */
-	private boolean takeOver(int port) throws Exception {
+	private boolean takeOver(int port, Path store) throws Exception {
 		// Already agreed at startup; otherwise the instance appeared since, so ask now.
 		if (!takeoverApproved && !confirmTakeover()) return false;
 		takeoverApproved = false;
-		log.info("Taking over from a running Brightside instance on port {}", port);
-		SwingUtilities.invokeLater(() -> {
-			if (unlockDialog != null) unlockDialog.showProgress("Taking over from the running Brightside…");
-		});
-		Takeover.requestShutdown(port, Takeover.venueDID(port), venueSeedHex);
+		progress("Taking over from the running Brightside…");
+		// Who is it? A Brightside holding our identity answers brightside:info
+		// to our key and names its store and process; anything else is refused.
+		Takeover.Instance other = Takeover.identify(port, venueSeedHex);
+		log.info("Taking over from {} on port {}", other.describe(), port);
+		Path theirs = other.storePath();
+		if (theirs != null && store != null && !theirs.equals(store)) {
+			log.warn("The running instance holds a different store ({}); this one will open {}", theirs, store);
+		}
+		Takeover.requestShutdown(port, other.did(), venueSeedHex);
 		if (!Takeover.waitUntilDown(port, 20_000)) {
 			throw new IllegalStateException("the previous instance did not shut down in time");
 		}
+		// The venue closes its port before it flushes and closes the store, so
+		// a quiet port is not a free store: wait for the process to go, then for
+		// the store file's lock to lift.
+		progress("Waiting for it to finish saving…");
+		if (!Takeover.waitUntilExited(other.pid(), 60_000)) {
+			throw new IllegalStateException("the previous instance did not exit in time");
+		}
+		if (!Takeover.waitUntilReleased(store, 20_000)) {
+			throw new IllegalStateException("the previous instance did not release the data store in time");
+		}
 		return true;
+	}
+
+	/**
+	 * A new install found the port taken: there is nothing to unlock and no key
+	 * to take over with, so say so and stop. Never on the event thread.
+	 */
+	private void alreadyRunning() {
+		try {
+			SwingUtilities.invokeAndWait(() -> JOptionPane.showMessageDialog(null,
+				"Brightside seems to be running on this computer already"
+					+ " (something answers on port " + config.port() + ").\n\n"
+					+ "Quit it (tray icon ▸ Quit) before setting up a new Brightside here — or, to run two,\n"
+					+ "give this one another port in config.json.",
+				APP_NAME, JOptionPane.INFORMATION_MESSAGE));
+		} catch (Exception e) {
+			log.warn("Could not show the already-running notice", e);
+		}
 	}
 
 	/**
@@ -1072,11 +1146,13 @@ public final class BrightSide {
 	}
 
 	/**
-	 * The venue is up. A returning person (name already known) — or a new one
-	 * who typed their name while it booted — starts chatting now; otherwise we
-	 * wait for {@link #submitName}.
+	 * The venue is up: bind the identity to it and move any provider keys the
+	 * vault still holds. Returns the bound identity for the caller to start the
+	 * chat with — a returning person (name already known), or a new one who
+	 * typed their name while it booted — or null while {@link #submitName} is
+	 * still awaited.
 	 */
-	private void onVenueReady() {
+	private Identity onVenueReady() {
 		// Default skills are installed by BrightsideAdapter at venue launch. Odin
 		// is not touched here: he is created or reconfigured when first needed
 		// (acting as the operator, or a model change), so a launch submits no jobs.
@@ -1086,7 +1162,7 @@ public final class BrightSide {
 		if (v != null && vlt != null && id != null) {
 			migrateProviderKeys(v, vlt, id.userDID(v.did()));
 		}
-		if (id != null) startChatOnce(venue, bindIdentityToVenue(id, venue));
+		return (v != null && id != null) ? bindIdentityToVenue(id, v) : null;
 	}
 
 	/**
@@ -1241,7 +1317,17 @@ public final class BrightSide {
 
 	private void startChatBackground(EmbeddedVenue v, Identity id, AppConfig.Chat chatConfig, Bind bind,
 			boolean configureExisting) {
-		Thread t = new Thread(() -> startChat(v, id, chatConfig, bind, configureExisting), "brightside-chat");
+		Thread t = new Thread(() -> {
+			try {
+				startChat(v, id, chatConfig, bind, configureExisting);
+			} catch (Throwable e) {
+				// Off the event thread and after the reveal: without this the
+				// window would say "starting up" for ever, and the trace would
+				// reach no one.
+				log.error("Could not bind the chat", e);
+				startupFailed("Brightside couldn't open the conversation (" + rootMessage(e) + "). See the logs.");
+			}
+		}, "brightside-chat");
 		t.setDaemon(true);
 		t.start();
 	}
@@ -2227,6 +2313,17 @@ public final class BrightSide {
 	}
 
 	private void closeVenue() {
+		// A launch in progress owns the store: let it finish (or fail) first, or
+		// the process ends with the store open and the next launch must repair it.
+		// Not when the launch thread itself is exiting — it would wait on itself.
+		CountDownLatch launch = launching;
+		if (launch != null && launchThread != Thread.currentThread()) {
+			try {
+				if (!launch.await(60, TimeUnit.SECONDS)) log.warn("Exiting while the venue is still launching");
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+		}
 		EmbeddedVenue v = venue;
 		if (v == null) return;
 		try {

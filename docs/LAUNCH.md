@@ -8,15 +8,16 @@ how it stops. Code: `BrightSide`, `Takeover`, `EmbeddedVenue`, `TrayManager`.
 - **A launch submits no jobs.** Everything read at startup is read
   in-process; the agent is configured on the first message.
 - **Two processes cannot share the store**, so a newcomer asks the running
-  instance to step aside with a request only the venue's own key can sign.
+  instance to step aside with a request only the venue's own key can sign, and
+  waits for it to release the store before opening it.
 - **Closing the window quits** unless the owner opts into the tray; quitting
-  always flushes state.
+  always flushes state, and waits for a launch in progress first.
 
 ## Startup
 
 1. `BrightSide.main` loads `~/.brightside/config.json` (`AppConfig`), configures
-   logging to `~/.brightside/logs/brightside.log` (dated rollovers) and installs
-   the look and feel.
+   logging to `~/.brightside/logs/brightside.log` (dated rollovers; uncaught
+   exceptions on any thread land there too) and installs the look and feel.
 2. `start()` installs the tray icon where the desktop has one and shows the
    first screen at once: the onboarding wizard in the main window when no
    vault exists; otherwise the **unlock dialog** (`UnlockDialog`) on its own,
@@ -24,20 +25,27 @@ how it stops. Code: `BrightSide`, `Takeover`, `EmbeddedVenue`, `TrayManager`.
    stays hidden until the passphrase is accepted. *Lock* (Settings → General)
    hides the window and brings the dialog back; the tray's *Show* brings back
    whichever is current.
-3. Unlock or onboarding opens the vault, yields the identity seed, secures the
-   venue config with it (seed plus the Etch v3 store key) and provisions the
-   model API keys. `launchVenueWith` then runs on a background thread while the
-   unlock dialog stays up showing progress ("Starting the venue…"); the main
-   window appears only once the venue is actually ready, so it never shows
-   without live data behind it.
+3. Unlock or onboarding opens the vault, yields the identity seed and secures
+   the venue config with it (seed plus the Etch v3 store key). `launchVenueWith`
+   then runs on a background thread while the unlock dialog stays up showing
+   progress ("Starting the venue…"); the main window appears only once the
+   venue is actually ready, so it never shows without live data behind it.
 4. `EmbeddedVenue.launch` starts the `VenueServer` on loopback with public
    access disabled and registers `BrightsideAdapter` and
-   `BrightsideSkillsAdapter`. `onVenueReady` binds the identity to the venue
-   and starts the chat as `<venueDID>:u:<slug>`: the agent record, the
-   conversations, the agents list and the inbox are read in-process, any
-   changed filesystem skill is imported and the conversation watcher starts.
-   Nothing else is submitted: the agent is created or reconfigured on the
-   first message, and Odin when first needed, so a launch writes no jobs.
+   `BrightsideSkillsAdapter`; a failure after the server is up closes it again,
+   so nothing is left holding the port or the store. `onVenueReady` binds the
+   identity to the venue and moves any provider keys still in the vault into
+   the encrypted secret stores, still behind the dialog so a failure returns
+   to it. Only then is the window revealed, and the chat starts as
+   `<venueDID>:u:<slug>`: the agent record, the conversations, the agents list
+   and the inbox are read in-process, any changed filesystem skill is imported
+   and the conversation watcher starts. Nothing else is submitted: the agent
+   is created or reconfigured on the first message, and Odin when first
+   needed, so a launch writes no jobs. A failure while the chat binds is
+   reported in the window rather than left as a composer that never wakes.
+
+A first run that fails to launch reports on the wizard's last step, with
+Finish available again once the cause is dealt with.
 
 ## Taking over a running instance
 
@@ -45,29 +53,37 @@ Two processes cannot share `venue.etch`; the second fails on the file lock. So
 `start()` probes the configured port before any window appears, and
 `launchVenueWith` probes it again before launching:
 
-- `Takeover.isRunning(port)` — any HTTP answer from `/api/v1/status` means a
-  venue is running; only a refused connection means none. (A private venue may
-  answer `401` to strangers; that still counts.)
-- The owner is asked *Take Over / Cancel* at startup, before the unlock dialog
-  — Cancel exits without a passphrase ever being typed. The unlock dialog then
-  notes that the running instance will hand over once unlocked. (An instance
-  that appears only later is asked about at launch time instead.)
-- The handover itself waits for the vault, since the shutdown request must be
-  signed with the seed; it runs from the unlock dialog ("Taking over…") and
-  this instance's main window appears only once the other has released the
-  store — two main windows are never on screen together.
-- `Takeover.requestShutdown` signs a short-lived JWT (`iss = sub = aud =` the
-  venue's DID) with the seed both instances unlocked and POSTs
-  `v/ops/brightside/shutdown` to `/api/v1/run`. The DID is the one the venue
-  reports anonymously when it does; otherwise `Takeover.venueDIDFor(seed)`, the
-  `did:key` of the seed's public key — the venue's own derivation on loopback.
-- The running instance accepts only the venue operator
-  (`BrightsideAdapter.handleShutdown` requires the caller DID to equal the venue
-  DID) and runs its `exit()`: the store flushes and the process ends. Another
-  identity is refused (`400` or `401`) and the newcomer reports that it could
-  not take over.
-- `Takeover.waitUntilDown` polls until nothing answers, then the newcomer
-  launches its own venue.
+- `Takeover.isRunning(port)` — any HTTP answer from `/api/v1/status` means
+  something is running; only a refused connection means nothing is. (A private
+  venue answers `401` to strangers; that still counts.)
+- A returning owner is asked *Take Over / Cancel* at startup, before the unlock
+  dialog — Cancel exits without a passphrase ever being typed. The unlock
+  dialog then notes that the running instance will hand over once unlocked.
+  (An instance that appears only later is asked about at launch time instead.)
+- A new install is told to quit the running Brightside first, and exits. It
+  would mint a fresh identity, and only the running venue's own key can ask it
+  to stop, so a takeover could never succeed.
+- The handover itself waits for the vault, since the requests must be signed
+  with the seed; it runs from the unlock dialog ("Taking over…") and this
+  instance's main window appears only once the other has released the store —
+  two main windows are never on screen together.
+- `Takeover.identify` first asks what is on the port, running
+  `v/ops/brightside/info` with a short-lived JWT (`iss = sub = aud =` the
+  venue's DID) signed with the seed both instances unlocked. A Brightside
+  holding our identity answers with its app name, venue DID, the store it
+  holds and its process id. Anything else is refused with a message the owner
+  can act on: a `401` is a Brightside with a different identity; an unknown
+  operation is a Covia venue that is not Brightside; no venue answer at all is
+  something else on the port.
+- `Takeover.requestShutdown` then POSTs `v/ops/brightside/shutdown` with the
+  same kind of token. The running instance accepts only the venue operator
+  (`BrightsideAdapter.handleShutdown` requires the caller DID to equal the
+  venue DID) and runs its `exit()`: the store flushes and the process ends.
+- The venue closes its HTTP listener before it flushes and closes the store, so
+  a quiet port is not a free store. `Takeover.waitUntilDown` polls until nothing
+  answers, `waitUntilExited` waits for the process the instance named, and
+  `waitUntilReleased` waits for the lock on `venue.etch` to lift. Only then
+  does the newcomer launch its own venue.
 
 This is not a venue restart: the newcomer is already up and only needs the
 incumbent to step aside, and it works from an IDE launch with no jar.
@@ -88,9 +104,11 @@ incumbent to step aside, and it works from an IDE launch with no jar.
 ## Exit and flush
 
 `exit()` stops the watcher, hides the window, removes the tray icon and closes
-the `VenueServer` on a background thread before `System.exit`. A Convex
-`Shutdown` hook at `SERVER - 10` closes the venue on Ctrl-C and SIGTERM.
-`EmbeddedVenue.close()` is idempotent.
+the `VenueServer` on a background thread before `System.exit`. A launch still
+in progress is waited for first (bounded), so a quit from the unlock dialog
+mid-boot still ends with a cleanly closed store. A Convex `Shutdown` hook at
+`SERVER - 10` does the same on Ctrl-C and SIGTERM. `EmbeddedVenue.close()` is
+idempotent.
 
 ## When the store was not closed cleanly
 
@@ -102,13 +120,15 @@ fresh file. `StoreRepair` does that at launch, with the key in hand: it
 rebuilds `venue.etch` into a fresh file beside it, moves the old one aside as
 `venue.etch.unclean-<stamp>` and installs the fresh one, then the launch goes
 on and the chat opens with a note saying so. Only writes after the last sync
-can be missing. `"repairStore": false` in `config.json` stops the launch
-instead, for an owner who would rather restore a backup by hand
-([CONFIGURATION.md](CONFIGURATION.md)).
+can be missing. If the fresh file cannot be installed, the old one is put back
+so there is never no store at all. `"repairStore": false` in `config.json`
+stops the launch instead, for an owner who would rather restore a backup by
+hand ([CONFIGURATION.md](CONFIGURATION.md)).
 
 ## When launch fails
 
 `Venue failed to start` in the log names the cause. `File lock failed on
-venue.etch` means another process still holds the store — usually one that is
-mid-exit: wait a moment, or quit it from its tray icon. A wrong passphrase is
-reported on the unlock screen, not in the log.
+venue.etch` means another process still holds the store without answering on
+the port — one stopped dead mid-exit, or a different tool holding the file:
+wait a moment, or quit it. A wrong passphrase is reported on the unlock screen,
+not in the log.

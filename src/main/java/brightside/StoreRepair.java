@@ -97,7 +97,21 @@ public final class StoreRepair {
 				+ "; the partial rebuild is at " + fresh);
 		}
 		move(store, kept);
-		move(fresh, store);
+		try {
+			move(fresh, store);
+		} catch (IOException e) {
+			// Never leave no store at all: a launch would quietly create an empty
+			// one. Put the old file back; the rebuild stays beside it.
+			try {
+				move(kept, store);
+			} catch (IOException back) {
+				e.addSuppressed(back);
+				throw new IOException("Could not install the repaired store, and could not put the original back."
+					+ " The original is at " + kept + " and the rebuild at " + fresh + "; rename one to " + store, e);
+			}
+			throw new IOException("Could not install the repaired store; the original is back in place at " + store
+				+ " and the rebuild is at " + fresh, e);
+		}
 		return new Outcome(store, kept, result.status(), result.destinationValues(), result.problems());
 	}
 

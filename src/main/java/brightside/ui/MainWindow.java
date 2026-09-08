@@ -775,6 +775,11 @@ public final class MainWindow extends JFrame {
 
 	/** Startup failed for a reason the person can act on — show it in their words. */
 	public void startupFailed(String message) {
+		if (CARD_ONBOARD.equals(currentCard)) {
+			// The wizard is still on screen: the chat panel behind it is not.
+			onboarding.showFailure(message);
+			return;
+		}
 		if (CARD_WELCOME.equals(currentCard)) {
 			welcomePanel.setError("Sorry — BrightSide couldn't start up.");
 		}
