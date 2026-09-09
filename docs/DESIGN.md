@@ -53,6 +53,11 @@ settings file. The model is in [IDENTITY.md](IDENTITY.md).
 - **It can grow.** The assistant creates, refines and removes its own skills.
   The power to do so is gated the way a good product gates power: reachable
   on demand, reversible, and never in context until deliberately reached for.
+- **It can work on itself.** Brightside's own source is a Claude Code
+  project out of the box, cloned into Brightside's own directory on first
+  use, so the owner can have the assistant fix and extend Brightside; a
+  change takes effect at the next build and restart, which stay the owner's
+  to do.
 - **It learns from misses.** Concrete skill failures go to a private backlog
   through a narrow operation; ordinary task failures do not.
 - **It asks when it must.** A decision, approval or missing detail goes to the

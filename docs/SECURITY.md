@@ -132,7 +132,7 @@ The data home is the directory holding `config.json`, by default
 | `unlock.passphrase` | **plaintext**, after explicit opt-in | Anyone who reads it can unlock the vault. Exclude from ordinary backups; cleared on recovery |
 | `identity.json` | plaintext name, slug and user DID | **Back it up**: the phrase reproduces the venue, not the user suffix |
 | `config.json`, `model.txt`, `prefs.properties` | plaintext, no secrets | Back up when customised |
-| `skills/`, `files/` | plaintext, the owner's own | Outside the encrypted store; back up if they matter. Treat third-party skills as executable authority |
+| `skills/`, `files/`, `code/` | plaintext, the owner's own | Outside the encrypted store; back up if they matter. Treat third-party skills as executable authority; `code/brightside` is a checkout Claude Code works in without asking (auto mode), as your OS user ([CONFIGURATION.md](CONFIGURATION.md#claude-code)) |
 | `logs/` | plaintext, rotated | Not needed; may contain operational detail |
 
 Sensitive files are set to mode `0600` where the filesystem supports it; on

@@ -122,6 +122,15 @@ class BrightsideAdapterTest {
 	}
 
 	@Test
+	void contextKnowsTheDate() {
+		StringBuilder text = new StringBuilder();
+		BrightsideAdapter.appendClock(text);
+		String today = java.time.LocalDate.now().toString();
+		assertTrue(text.toString().contains("Today is " + today), text.toString());
+		assertTrue(text.toString().contains("epoch milliseconds"), "the unit the lattice uses, so a slip is caught");
+	}
+
+	@Test
 	void contextOperationReturnsLoadableText() throws Exception {
 		Venue client = venue.clientAs(Identity.of("context-owner").userDID(venue.did()));
 		Job job = client.invoke("v/ops/brightside/context", Maps.of(

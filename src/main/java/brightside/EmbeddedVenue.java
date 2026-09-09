@@ -2,6 +2,9 @@ package brightside;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
@@ -22,6 +25,8 @@ import covia.venue.server.VenueServer;
  * runs entirely inside the JVM under the identity the user picked.
  */
 public final class EmbeddedVenue implements AutoCloseable {
+
+	private static final Logger log = LoggerFactory.getLogger(EmbeddedVenue.class);
 
 	private final VenueServer server;
 	private final AtomicBoolean closed = new AtomicBoolean();
@@ -58,6 +63,16 @@ public final class EmbeddedVenue implements AutoCloseable {
 			// the same adapter, on Brightside's own classpath. With no bots it costs
 			// nothing; the owner's bot is created from Settings (see Discord).
 			engine.registerAdapter(new covia.adapter.discord.DiscordAdapter());
+			// Covia's Claude Code module, the same way: the owner declares the
+			// project directories in config.json (see ClaudeCode). A mistake in
+			// that block is not worth a failed launch — it is logged and Claude
+			// Code sits this one out.
+			try {
+				engine.registerAdapter(new covia.adapter.claudecode.ClaudeCodeAdapter());
+			} catch (IllegalArgumentException | IllegalStateException e) {
+				log.warn("Claude Code is not available this launch — check venue.adapters.claudecode in config.json: {}",
+					e.getMessage());
+			}
 		} catch (RuntimeException | Error e) {
 			// The server is up — port bound, store locked — and nobody else holds
 			// it: close it, or a retry would find "a running Brightside" that is

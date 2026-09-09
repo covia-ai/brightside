@@ -99,7 +99,9 @@ public final class AppConfig {
 			// and replaces Brightside's default for that key. Defaults: bound to
 			// 127.0.0.1, encrypted persistent store at ~/.brightside/venue.etch,
 			// anonymous access disabled, users auto-created, MCP endpoint enabled,
-			// plus confined files (writable) and logs (read-only) roots.
+			// plus confined files and code (writable) and logs (read-only) roots.
+			// Claude Code projects go under "adapters": {"claudecode": {"projects":
+			// {...}}} here; Brightside's own source is one by default (docs/CONFIGURATION.md).
 			"venue": {
 				"name": "Brightside",
 				"port": 8085
@@ -202,6 +204,7 @@ public final class AppConfig {
 	/** BrightSide's venue defaults for a given data directory. */
 	public static AMap<AString, ACell> defaultVenue(Path home) {
 		Path files = ensureDirectory(home.resolve("files"));
+		Path code = ensureDirectory(home.resolve(ClaudeCode.CODE_DIR));
 		Path logs = ensureDirectory(home.resolve("logs"));
 		return Maps.of(
 			Fields.NAME, DEFAULT_VENUE_NAME,
@@ -216,12 +219,18 @@ public final class AppConfig {
 			// This is a private personal venue: HTTP and MCP require authentication.
 			Config.AUTH, Maps.of(Config.PUBLIC, Maps.of(Config.ENABLED, false)),
 			Config.ALLOW_PRIVATE_NETWORK, true,
-			// Confined host-file roots: a durable area Brightside may manage and a
-			// server-enforced read-only view of its operational logs.
+			// Confined host-file roots: a durable area Brightside may manage, the
+			// source checkouts the assistant works on (Brightside's own at
+			// code/brightside, see ClaudeCode), and a server-enforced read-only
+			// view of its operational logs.
 			Config.FILE, Maps.of(Config.ROOTS, Maps.of(
 				"files", Maps.of(
 					"path", files.toString(),
 					"description", "Brightside-managed local files"),
+				ClaudeCode.CODE_DIR, Maps.of(
+					"path", code.toString(),
+					"description", "Source checkouts the assistant works on; Brightside's own source at "
+						+ ClaudeCode.PROJECT + " (a Claude Code project)"),
 				"logs", Maps.of(
 					"path", logs.toString(),
 					Config.READ_ONLY, true,

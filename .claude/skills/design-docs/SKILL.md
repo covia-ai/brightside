@@ -21,7 +21,7 @@ guide and points here.
 | `docs/SECURITY.md` | the recovery invariant, key hierarchy, algorithms, file roles, recovery procedure, network exposure, limitations |
 | `docs/ONBOARDING.md` | first run, unlock, recovery from the phrase, settings afterwards |
 | `docs/LAUNCH.md` | startup order, taking over a running instance, tray, exit |
-| `docs/CONFIGURATION.md` | the reference: files under `~/.brightside/`, `config.json`, API keys, Discord, Moltbook, identity, reaching the venue from other tools |
+| `docs/CONFIGURATION.md` | the reference: files under `~/.brightside/`, `config.json`, API keys, Discord, Moltbook, Claude Code, identity, reaching the venue from other tools |
 | `docs/NETWORK.md` | target state once venues meet venues; deliberately ahead of the code |
 
 Covia's own design lives in `../covia/venue/docs/` (skills, agent context,

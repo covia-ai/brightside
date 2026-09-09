@@ -28,6 +28,7 @@ can be told is in one hand-edited file there.
 | `~/.brightside/keys.enc` | Transient: stages an onboarding API key until the first launch moves it into the venue's encrypted secret stores; absent afterwards. |
 | `~/.brightside/unlock.passphrase` | Optional remembered passphrase, stored as plaintext after explicit opt-in; exclude it from ordinary vault backups. |
 | `~/.brightside/files/` | Brightside-managed local files; exposed to the assistant as the confined writable `files` root. |
+| `~/.brightside/code/` | Source checkouts the assistant works on, as the writable `code` root; `code/brightside` is Brightside's own source, a [Claude Code](#claude-code) project by default. |
 | `~/.brightside/logs/` | Plaintext rolling logs; exposed to the assistant as the server-enforced read-only `logs` root. |
 
 To reset Brightside completely, remove the whole data directory while
@@ -44,7 +45,7 @@ take effect on restart.
 
 Running `java -jar target/brightside.jar path/to/config.json` uses a specific
 configuration file instead, and that file's directory becomes the data
-directory — including its `files/` and `logs/` roots — handy for keeping several
+directory — including its `files/`, `code/` and `logs/` roots — handy for keeping several
 independent agents side by side.
 
 ## The file
@@ -223,6 +224,91 @@ itself stays yours on Moltbook.
 A periodic check-in can be set up with the `automation` skill if you want the
 assistant to keep up by itself.
 
+## Claude Code
+
+Your assistant can hand coding work to [Claude Code](https://claude.com/claude-code),
+Anthropic's coding agent, in project directories you name — one task per turn,
+or a conversation it continues across turns. Covia's `covia-claude-code`
+adapter runs inside Brightside's venue (registered in-process, like Discord)
+and starts the `claude` command installed on this computer as your own OS
+user, so it uses whatever sign-in Claude Code already has here and needs no key
+from Brightside.
+
+One project exists without any configuration: **`brightside`**, Brightside's
+own source, at `~/.brightside/code/brightside`. Brightside creates the
+directory empty; the assistant clones the repository into it when you first
+ask it to work on Brightside, and from then on can fix and extend the app —
+building needs Java 21 and Maven on your computer, and the change takes
+effect when you run the new build. In that project Claude Code works in its
+`auto` permission mode with the everyday developer tools allowed outright —
+its own file, search and sub-agent tools, and the shell commands of
+building, testing, package managers, git and looking around, across the
+common languages; the list is `ClaudeCode.DEVELOPER_TOOLS`. Headless, nobody
+can answer a prompt, so those go through without one, and Claude Code's own
+safety checks judge anything else: moving data out, deleting, the unusual.
+The rules address Claude Code's Bash tool; its PowerShell tool on Windows
+takes no per-command rules in the current CLI, so PowerShell commands are
+judged the same way (Claude Code reaches for Bash first). Git in that project
+runs with terminal and credential-manager prompts disabled, so an operation
+that needs a credential fails at once rather than hanging the turn: sign in
+once at a terminal of your own and the credential manager keeps it. The `code/`
+directory is also a file root, so the assistant can read a checkout
+directly.
+
+Naming any other directory Claude Code may work in is your decision, made in
+`config.json` under the venue's adapter block:
+
+```json5
+"venue": {
+	"adapters": {
+		"claudecode": {
+			"projects": {
+				// a name → the directory, or {path, description, options}
+				"notes": "C:/Users/me/notes",
+				"site": {
+					"path": "C:/Users/me/site",
+					"description": "My website",
+					"options": {
+						"permissionMode": "acceptEdits",
+						"allowedTools": ["Bash(npm:*)", "Bash(git:*)"]
+					}
+				}
+			}
+		}
+	}
+}
+```
+
+A project you declare as `brightside` replaces the default — the way to point
+the assistant at a developer's own checkout. Restart, and the assistant's
+`coding` skill lists the projects and reveals its children for working in
+them — `claude-code`, `git`, and `self-improvement` for Brightside's own
+source ([SKILLS.md](SKILLS.md)).
+
+Claude Code runs headless here, so it cannot ask for permission the way it
+does in a terminal: whatever a project's options do not allow is refused and
+reported back as a denial. With no options it can read and answer but not
+edit or run anything that changes the directory. `acceptEdits` lets it edit
+files; `allowedTools` names the commands it may run (`Bash(npm:*)` is npm,
+`Bash(git:*)` is git); `auto` puts Claude Code's own safety checks in
+charge of whatever the allow list does not cover — headless, that means a
+refusal, not a prompt, so pair it with an allow list as Brightside's own
+project does; `bypassPermissions` removes every check, and is available only
+to a project that declares it. A question it cannot settle itself it asks by
+ending its turn with, and the assistant answers on the next turn of the same
+session.
+
+| What | Where |
+|---|---|
+| Whose a project is | yours, unless it names another `user` (a DID). The adapter's own default is the venue operator, whose agents are not yours; Brightside makes every project without a `user` the owner's — and adds the `brightside` project — when your identity binds to the venue at launch |
+| The conversations | Claude Code's own transcripts, so a session outlives its process and a restart; the adapter keeps a small pool of live processes and continues a session with `--resume` |
+| Everything else the adapter accepts | `command` (when `claude` is not on the PATH, or an argv array), `defaults` and per-project `options` (model, permission mode, allowed tools, turn and budget limits…), `maxSessions`, `idleSeconds` — as the module documents them in the Covia repository |
+
+A mistake in the block — a directory that does not exist, an unknown setting —
+leaves Claude Code out for that launch and says why in the log; the rest of
+Brightside is unaffected. The other direction, Claude Code using your venue as
+a tool, is under [Reaching the venue from other tools](#reaching-the-venue-from-other-tools).
+
 ## Your identity
 
 At first launch Brightside asks *"What should I call you?"*. That name is all
@@ -282,9 +368,19 @@ needs a proof — so authenticate *as* the user rather than across users.
 
 ### From Claude Code
 
-A project-scoped MCP server named `brightside` in a `.mcp.json` at the
-repository root gives Claude Code the running venue's MCP endpoint. The file is
-git-ignored because it carries a bearer token. Create it as:
+(This is Claude Code reaching *your venue*; the assistant handing work *to*
+Claude Code is [above](#claude-code).)
+
+Claude Code reaches the running venue's MCP endpoint through an MCP server
+named `brightside`. The private way, kept in your own `~/.claude.json` and
+never in the repository, is one command with the token:
+
+```
+claude mcp add --transport http --scope local brightside http://127.0.0.1:8085/mcp   --header "Authorization: Bearer <token>"
+```
+
+The shareable shape is a project-scoped `.mcp.json` at the repository root,
+git-ignored here because it carries the token:
 
 ```json
 {

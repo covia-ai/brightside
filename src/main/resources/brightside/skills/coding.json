@@ -1,9 +1,18 @@
 {
   "name": "coding",
-  "description": "Design, implement, debug and review software. Load for code, repositories, tests, architecture, errors, security review or technical implementation; to read or change files, also files.",
+  "description": "Design, implement, debug and review software. Load for code, repositories, tests, architecture, errors or technical implementation; to read or change files, also files. Reveals claude-code (delegating work in one of the owner's projects), git, and self-improvement (working on Brightside's own code).",
   "content": {
     "contentType": "text/markdown",
-    "inline": "# Coding\n\nWork from the code, configuration, logs and tests that are actually available.\nTrace behaviour across the relevant boundary before changing it. Preserve the\nperson's unrelated work and prefer the smallest coherent change that fixes the\nunderlying problem.\n\nFor implementation, follow the repository's own instructions and conventions,\nthen verify in proportion to risk. For diagnosis, separate observed evidence,\nroot cause and proposed fix. For review, prioritise correctness, security, data\nloss and missing tests over cosmetic preferences.\n\nNever claim that a file was edited, a command ran or a test passed unless that\nhappened through an available tool. When no workspace access exists, help with\ncode the person provides and state the limitation plainly.\n"
+    "inline": "# Coding\n\nWork from the code, configuration, logs and tests that are actually available.\nTrace behaviour across the relevant boundary before changing it. Preserve the\nperson's unrelated work and prefer the smallest coherent change that fixes the\nunderlying problem.\n\nFor implementation, follow the repository's own instructions and conventions,\nthen verify in proportion to risk. For diagnosis, separate observed evidence,\nroot cause and proposed fix. For review, prioritise correctness, security, data\nloss and missing tests over cosmetic preferences.\n\nNever claim that a file was edited, a command ran or a test passed unless that\nhappened through an available tool. When no workspace access exists, help with\ncode the person provides and state the limitation plainly.\n\n## Where the work happens\n\nThe projects tool lists the directories the owner has authorised for Claude\nCode. Work that belongs in one of them — a repository, a build, its tests, git\n— goes to Claude Code: load **claude-code**. For the version-control judgement\n(branches, commits, what needs the owner's word), load **git**. When the\nproject is Brightside itself, load **self-improvement** first. With no project\nlisted, work from what the person provides and say so.\n"
   },
-  "skill": {}
+  "skill": {
+    "tools": [
+      "v/ops/claudecode/projects"
+    ],
+    "skills": [
+      "v/skills/brightside/coding/claude-code",
+      "v/skills/brightside/coding/git",
+      "v/skills/brightside/coding/self-improvement"
+    ]
+  }
 }

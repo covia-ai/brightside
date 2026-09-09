@@ -1,0 +1,17 @@
+{
+  "name": "git",
+  "description": "Version-control judgement for work in a repository, and the checkouts themselves: cloning into Brightside's code root, reading a checkout directly, and what needs the owner's word before it happens. Load before asking Claude Code to clone, commit, push, merge or rewrite history.",
+  "content": {
+    "contentType": "text/markdown",
+    "inline": "# Git\n\nGit work happens inside a project, through Claude Code; this is the judgement\nyou bring to it, and where the repositories live.\n\n## Checkouts\n\n- The `code` file root is where repositories are checked out: one directory\n  per repository, each a Claude Code project the owner has declared.\n  Brightside's own source is expected at `code/brightside` — a project by\n  default, empty until cloned.\n- To clone into an empty project, have Claude Code run `git clone <url> .`\n  there (a project allowing git commands can). Clone only repositories the\n  owner has asked for; a project that already holds a checkout is updated\n  with `git pull`, never re-cloned.\n- Anything that talks to a remote — clone of a private repository, fetch,\n  push — needs a credential, and headless Claude Code cannot type one: it\n  fails at once, saying so. The owner signs in once at a terminal of their\n  own (the credential manager remembers it); tell them that is the step, and\n  never try to supply or embed a credential yourself.\n- A checkout is also files: the file tools read it directly — the roots tool\n  names the root, list and tree navigate it, read shows a file — so you can\n  look at a rulebook, a diff's target or a test without a Claude Code turn.\n  Changes to the code go through Claude Code, which builds and tests them.\n\n## Judgement\n\n- The repository's own rules come first: its README, AGENTS.md or\n  CONTRIBUTING say which branch is worked on, how commits are written and who\n  commits as whom. Have Claude Code read them before the first change.\n- Commit as the repository's configured git identity, never as an invented\n  name, and keep any attribution lines the repository asks for.\n- A commit is one coherent change with a message that says what and why.\n  Unrelated changes already in the working tree are left alone and never\n  swept into a commit; say when the tree holds work you did not make.\n- Review before committing: ask for the diff and the test outcome, and read\n  both.\n- Local and reversible needs no permission: cloning into its own project,\n  branches, commits, stashes, merges into a working branch. Outward-facing or\n  hard to undo does: pushing, opening pull requests, tagging releases,\n  force-pushing, rewriting or deleting history, resetting away work,\n  switching the branch the owner is on. Ask first, every time, and name\n  exactly what will happen.\n- Never rewrite history that has been shared, and never skip the repository's\n  hooks or checks to get a commit through: a failing hook is a problem to fix.\n"
+  },
+  "skill": {
+    "tools": [
+      "v/ops/file/roots",
+      "v/ops/file/list",
+      "v/ops/file/tree",
+      "v/ops/file/stat",
+      "v/ops/file/read"
+    ]
+  }
+}

@@ -56,7 +56,9 @@ the same name, and Brightside's shadow the venue's.
 - **Context** its memory at `n/memory`, rendered every turn through the
   read-only recall operation, and one non-skill load, `brightside-context`,
   which the read-only `brightside:context` operation assembles: the owner's
-  name and DID, where model processing happens, and the product invariants.
+  name and DID, where model processing happens, today's date with the epoch
+  millisecond it was assembled at (a model's own "now" is its training
+  cut-off), and the product invariants.
 
 The configured system prompt owns the assistant's name and role. Runtime facts
 come from that context load. Working methods and everything optional stay in
@@ -123,15 +125,31 @@ reveals. Descriptions live in the skill files; this is the shape.
 - `research` — evidence-led research with the web tools → Covia's `http` for
   credentialed APIs. The untrusted-content boundary is Brightside's judgement
   and lives here.
-- `writing`, `planning`, `coding` — working methods; no tools.
+- `writing`, `planning` — working methods; no tools.
+- `coding` — working method, with the listing of the owner's Claude Code
+  projects → `claude-code` (delegating a task in a project and continuing its
+  sessions, with the run, sessions and stop tools; shadows the module's own
+  `claudecode` skill with Brightside's judgement), `git` (the checkouts in the
+  `code` root — cloning, reading one directly with the file reads — and the
+  version-control judgement: what is local and reversible, what needs the
+  owner's word), `self-improvement` (working on Brightside's own code through
+  Claude Code — the checkout, the rulebook, build, test, restart — with the
+  info tool). Brightside's own source is a project by default; the rest are
+  the owner's to declare ([CONFIGURATION.md](CONFIGURATION.md#claude-code)).
 - `moltbook` — taking part on Moltbook with its operations → `moltbook-setup`.
-- `introduction` — greeting guidance, loaded rather than pinned.
+- `introduction` — greeting guidance and how it presents what it can do, from its skills index; loaded rather than pinned.
 
 The venue's `v/skills/root` entry points (`agents`, `grid`, `auth`,
 `connections`, `venue`, `discovery`, `covia`, `workspace`) sit beside these in
 the index and open their own families.
 
 ## Growing, importing and feedback
+
+- The assistant can work on Brightside itself. Its source is a Claude Code
+  project by default (`code/brightside`, cloned on first use), and `coding` →
+  `self-improvement` is the path: agree the change, hand it to Claude Code one
+  bounded task at a time, verify by the tests, and report; the change takes
+  effect at the next build and restart, which is the owner's to do.
 
 - The assistant writes its own skills to `w/skills/<name>`. `skill-authoring`
   brings the lattice write tool for that purpose and a Brightside deletion

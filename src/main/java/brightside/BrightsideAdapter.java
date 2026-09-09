@@ -197,6 +197,7 @@ public class BrightsideAdapter extends AAdapter {
 				text.append('\n');
 			}
 			appendProcessingContext(text, modelOperation);
+			appendClock(text);
 			text.append("- Conversation history, memory and skills are stored in the owner's local encrypted Brightside vault. Do not imply that model processing is local unless the configured model route is local.\n")
 				.append("- Follow the configured assistant name, role and working style. Keep Covia and venue plumbing out of everyday conversation unless the owner asks how Brightside works.\n")
 				.append("- When the owner wants something you have no tool for, load the skill whose [Skills] line covers that task, then any child it points to for the specific job.\n")
@@ -207,6 +208,21 @@ public class BrightsideAdapter extends AAdapter {
 		} catch (Exception e) {
 			return CompletableFuture.failedFuture(e);
 		}
+	}
+
+	/**
+	 * The date, as the assistant would otherwise have to guess it: a model's
+	 * sense of "now" is its training cut-off, and an instant in the lattice is
+	 * epoch milliseconds, where a year's slip is invisible. Assembled when the
+	 * context is built, so it dates the session rather than the turn.
+	 */
+	static void appendClock(StringBuilder text) {
+		java.time.ZonedDateTime now = java.time.ZonedDateTime.now();
+		text.append("- Today is ").append(now.toLocalDate())
+			.append(" (").append(now.getDayOfWeek().getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.UK))
+			.append("), time zone ").append(now.getZone().getId())
+			.append(". Lattice instants are epoch milliseconds; as this context was assembled it was ")
+			.append(now.toInstant().toEpochMilli()).append(".\n");
 	}
 
 	private static void appendProcessingContext(StringBuilder text, AString modelOperation) {

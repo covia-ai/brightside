@@ -33,6 +33,9 @@ class AppConfigTest {
 		assertEquals(AppConfig.DEFAULT_VENUE_NAME, c.venueConfig().get(Fields.NAME).toString());
 		assertEquals(home.resolve("venue.etch").toString(), c.venueConfig().get(Config.STORE).toString());
 		assertEquals("127.0.0.1", c.venueConfig().get(Config.BIND_ADDRESS).toString());
+		assertEquals(home.resolve("code").toAbsolutePath().normalize().toString(),
+			convex.core.lang.RT.getIn(c.venueConfig(), Config.FILE, Config.ROOTS, "code", "path").toString(),
+			"the code root, where checkouts live");
 		Config venue = new Config(c.venueConfig());
 		assertFalse(venue.isPublicAccess(), "anonymous venue access is disabled");
 		assertTrue(venue.isMCPAuthRequired(), "MCP requires a bearer-authenticated caller");

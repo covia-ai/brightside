@@ -70,8 +70,9 @@ brightside/
                          report-skill-feedback, shutdown, the Odin bridges
   BrightsideSkillsAdapter  installs the shipped skills under v/skills/brightside
   Odin                   the operator's administrative agent
-  Moltbook, MoltbookAdapter, Discord   integrations: the account or bot, and
-                         the venue operations the assistant uses them through
+  Moltbook, MoltbookAdapter, Discord, ClaudeCode   integrations: the account,
+                         bot or projects, and the venue operations the
+                         assistant uses them through
   SessionHistory, ConversationWatcher  the transcript projection and change watcher
   AgentContext, AgentInfo, SkillIndex, Inbox   the read models behind the screens
   chat/ChatSession       agent configuration and the chat itself

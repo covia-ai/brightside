@@ -30,8 +30,9 @@ import covia.venue.RequestContext;
  *
  * <p>Skills, under {@code v/skills/brightside/…}:</p>
  * <ul>
- *   <li><b>introduction</b> — greeting guidance, loaded on demand rather than
- *       occupying every turn.</li>
+ *   <li><b>introduction</b> — greeting guidance, and how it presents what it
+ *       can do from its skills index; loaded on demand rather than occupying
+ *       every turn.</li>
  *   <li><b>conversations</b> — how it talks with the user and reviews past
  *       conversations; grants the past-session tools ({@code agent:sessions},
  *       {@code agent:session-read}, {@code agent:compact-session}).</li>
@@ -76,8 +77,16 @@ import covia.venue.RequestContext;
  *       resource as the harness child, so the index shows it once). The
  *       on-chain children grant {@code convex:transact} too; the knowledge
  *       children grant nothing.</li>
- *   <li><b>writing</b>, <b>planning</b> and <b>coding</b> — everyday working
- *       methods, loaded only when the task calls for them.</li>
+ *   <li><b>writing</b> and <b>planning</b> — everyday working methods,
+ *       loaded only when the task calls for them.</li>
+ *   <li><b>coding</b> — the working method, with the listing of the owner's
+ *       Claude Code projects ({@link ClaudeCode}); reveals <b>claude-code</b>
+ *       (delegating a task in a project and continuing its sessions, with the
+ *       run, sessions and stop tools — Brightside's judgement over the same
+ *       operations the module's own {@code claudecode} skill grants),
+ *       <b>git</b> (version-control judgement; no tools) and
+ *       <b>self-improvement</b> (working on Brightside's own code through
+ *       Claude Code, with the info tool).</li>
  *   <li><b>research</b> — evidence-led research with the web tools; reveals
  *       Covia's own {@code http} skill for credentialed APIs and keeps the
  *       untrusted-content boundary in its own body.</li>
@@ -176,8 +185,14 @@ public class BrightsideSkillsAdapter extends AAdapter {
 	public static final String PLANNING = SKILLSET + "/planning";
 	/** On demand: evidence-led research with the web tools; reveals Covia's {@code http} skill. */
 	public static final String RESEARCH = SKILLSET + "/research";
-	/** On demand: evidence-led software design, implementation and review. */
+	/** On demand: evidence-led software design, implementation and review, with the Claude Code projects listing; reveals the children below. */
 	public static final String CODING = SKILLSET + "/coding";
+	/** Child: delegating a task to Claude Code in one of the owner's projects and continuing its sessions (run, sessions, stop). */
+	public static final String CODING_CLAUDE_CODE = CODING + "/claude-code";
+	/** Child: version-control judgement — branches, commits, what needs the owner's word (no tools). */
+	public static final String CODING_GIT = CODING + "/git";
+	/** Child: working on Brightside's own code through Claude Code — the rulebook, build, test, restart (info tool). */
+	public static final String CODING_SELF_IMPROVEMENT = CODING + "/self-improvement";
 	/** On demand: Moltbook, the social network for AI agents, through {@link MoltbookAdapter}'s operations. */
 	public static final String MOLTBOOK = SKILLSET + "/moltbook";
 	/** Child: registering the owner's account and seeing whether it is claimed — the setup tools, only when needed. */
@@ -192,7 +207,8 @@ public class BrightsideSkillsAdapter extends AAdapter {
 			CONVEX, CONVEX_ACCOUNTS, CONVEX_LISP, CONVEX_SMART_CONTRACTS, CONVEX_TRUST, CONVEX_CNS,
 			CONVEX_COSTS, CONVEX_SECURITY, CONVEX_CPOS, CONVEX_CAD3, CONVEX_PROTONET,
 			CONVEX_LATTICE_CHILD, CONVEX_ECOSYSTEM,
-			WRITING, PLANNING, RESEARCH, CODING, MOLTBOOK, MOLTBOOK_SETUP);
+			WRITING, PLANNING, RESEARCH, CODING, CODING_CLAUDE_CODE, CODING_GIT, CODING_SELF_IMPROVEMENT,
+			MOLTBOOK, MOLTBOOK_SETUP);
 
 	@Override
 	public String getName() {

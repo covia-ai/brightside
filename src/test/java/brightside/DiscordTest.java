@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -71,8 +72,13 @@ class DiscordTest {
 			"v/ops/discord/send", "v/ops/secret/set" }) {
 			assertNotNull(venue.engine().resolvePath(Strings.create(op), ctx), "op present: " + op);
 		}
-		assertNotNull(venue.engine().resolvePath(Strings.create("v/skills/adapters/discord"), ctx),
-			"the module's skill is installed for the assistant to discover");
+		ACell skill = venue.engine().resolvePath(Strings.create("v/skills/adapters/discord"), ctx);
+		assertNotNull(skill, "the module's skill is installed for the assistant to discover");
+		// The venue jar ships a different skills/discord.json (covia-ai/covia#510);
+		// the module's must be the one on the venue, or the assistant is taught
+		// raw REST instead of the adapter's operations.
+		assertTrue(String.valueOf(RT.getIn(skill, "skill", "tools")).contains("v/ops/discord/send"),
+			"the module's own skill, not the venue's generic copy: " + RT.getIn(skill, "skill", "tools"));
 	}
 
 	@Test

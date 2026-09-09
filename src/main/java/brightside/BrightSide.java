@@ -1266,6 +1266,8 @@ public final class BrightSide {
 		Identity bound = id.withVenueDID(v.did());
 		identity = bound;
 		if (id.did() == null) persistIdentity(bound);
+		// The Claude Code projects are the owner's to use, Brightside's own source among them.
+		ClaudeCode.own(v, bound.did(), config.home());
 		return bound;
 	}
 

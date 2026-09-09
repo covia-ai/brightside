@@ -125,6 +125,12 @@ If the build cannot resolve `ai.covia:venue`, that is why.
   and your assistant answers your DMs and mentions, from your phone or any
   server; only the Discord users you list can talk to it
   ([docs/CONFIGURATION.md](docs/CONFIGURATION.md#discord))
+- **Hand coding work to Claude Code** — name project directories in
+  `config.json` and your assistant can run Claude Code there, one task at a
+  time or as a conversation it continues, using the `claude` sign-in already
+  on your computer. Brightside's own source is a project out of the box, so
+  it can improve itself
+  ([docs/CONFIGURATION.md](docs/CONFIGURATION.md#claude-code))
 - **An administrator with judgement** — changes that need operator rights
   (integrations, venue settings, users, access grants, repairs to an assistant)
   go to **Odin**, the venue's own agent; he does them, declines, or asks you in

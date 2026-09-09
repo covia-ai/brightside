@@ -61,3 +61,22 @@ Remote `https://github.com/covia-ai/brightside`. `master` is the default
 branch; `develop` is the working branch — commit there and merge to `master`.
 Commit as the repo's local `user.name` / `user.email`; use `gh` as
 `brittleboye` for issues and PRs.
+
+## When Brightside runs you
+
+If `COVIA_PROJECT` is set, you are being driven by Brightside's own assistant,
+headless, working in its checkout at `~/.brightside/code/brightside` — the
+app improving itself. The everyday developer tools are allowed there
+outright — editing, building, testing, git, looking around — and nobody sees
+a permission prompt, so none will be waited on; your own safety checks judge
+anything else, and a blocked action is reported, never worked around. To ask
+something, end the turn with the question: the assistant answers on the next
+turn of the same session, taking it to the owner when it is theirs to decide.
+The final message is the only thing that comes back, so make it a faithful
+report of what was done, what tests ran, and what remains. Never launch
+Brightside from the checkout
+(`mvn exec:java`, `java -jar`): the instance driving you is running on this
+machine, and a second launch would take it over. Build with `mvn package`
+and say the owner must restart from that build. Commit on `develop` when
+asked; pushing, merging to `master` and releasing need the owner's explicit
+word, relayed in the prompt.

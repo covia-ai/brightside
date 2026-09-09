@@ -53,6 +53,30 @@
 	</properties>
 
 	<dependencies>
+		<!-- The in-process Covia modules come BEFORE the venue on purpose: the
+		     Discord module and the venue both ship a resource at
+		     skills/discord.json (covia-ai/covia#510), and the first on the
+		     classpath wins, in a dev run and in the shaded jar alike. The
+		     module's copy is the one its adapter means to install. -->
+		<!-- Covia's Discord module, registered in-process by EmbeddedVenue rather
+		     than loaded as a module jar. Its Discord client (JDA) comes in
+		     transitively from the module's own pom. -->
+		<dependency>
+			<groupId>ai.covia</groupId>
+			<artifactId>covia-discord</artifactId>
+			<version>${covia.version}</version>
+		</dependency>
+
+		<!-- Covia's Claude Code module, likewise registered in-process: the
+		     claudecode adapter drives the claude CLI already installed on this
+		     machine in the project directories config.json declares. No
+		     third-party dependencies of its own. -->
+		<dependency>
+			<groupId>ai.covia</groupId>
+			<artifactId>covia-claude-code</artifactId>
+			<version>${covia.version}</version>
+		</dependency>
+
 		<!-- The embedded venue: Engine, VenueServer, LocalVenue and every
 		     built-in adapter. Pulls in Convex, Javalin, LangChain4j, MCP, A2A. -->
 		<dependency>
@@ -79,15 +103,6 @@
 			<groupId>com.formdev</groupId>
 			<artifactId>flatlaf-intellij-themes</artifactId>
 			<version>${flatlaf.version}</version>
-		</dependency>
-
-		<!-- Covia's Discord module, registered in-process by EmbeddedVenue rather
-		     than loaded as a module jar. Its Discord client (JDA) comes in
-		     transitively from the module's own pom. -->
-		<dependency>
-			<groupId>ai.covia</groupId>
-			<artifactId>covia-discord</artifactId>
-			<version>${covia.version}</version>
 		</dependency>
 
 		<!-- MigLayout: clean, aligned form layouts for the settings screens. -->
