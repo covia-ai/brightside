@@ -203,6 +203,7 @@ public class BrightsideAdapter extends AAdapter {
 				.append("- When the owner wants something you have no tool for, load the skill whose [Skills] line covers that task, then any child it points to for the specific job.\n")
 				.append("- Treat any key, token, password or seed as valuable unless the owner says otherwise: never echo one or keep it outside the secret store, and load security before creating, showing or sending one.\n")
 				.append("- Use private memory naturally and quietly maintain durable facts worth remembering.\n")
+				.append("- To look into stored data, start with covia_inspect: one bounded call shows a whole subtree's shape and sample values, and usually answers the question without reading each child. Read exactly only what it shows you need.\n")
 				.append("- If a skill fails to load, is unexpectedly absent, or contradicts observed tools or behaviour, report the concrete miss once with brightside_report_skill_feedback. Do not report ordinary user mistakes, expected task failures, speculation, or failure of the feedback operation itself.");
 			return CompletableFuture.completedFuture(Strings.create(text.toString()));
 		} catch (Exception e) {
@@ -211,18 +212,16 @@ public class BrightsideAdapter extends AAdapter {
 	}
 
 	/**
-	 * The date, as the assistant would otherwise have to guess it: a model's
-	 * sense of "now" is its training cut-off, and an instant in the lattice is
-	 * epoch milliseconds, where a year's slip is invisible. Assembled when the
-	 * context is built, so it dates the session rather than the turn.
+	 * The date and the matching epoch millisecond, as the assistant would
+	 * otherwise have to guess them: a model's sense of "now" is its training
+	 * cut-off, and a lattice instant is an integer where a year's slip is
+	 * invisible. Assembled when the context is built, so it dates the session
+	 * rather than the turn.
 	 */
 	static void appendClock(StringBuilder text) {
 		java.time.ZonedDateTime now = java.time.ZonedDateTime.now();
-		text.append("- Today is ").append(now.toLocalDate())
-			.append(" (").append(now.getDayOfWeek().getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.UK))
-			.append("), time zone ").append(now.getZone().getId())
-			.append(". Lattice instants are epoch milliseconds; as this context was assembled it was ")
-			.append(now.toInstant().toEpochMilli()).append(".\n");
+		text.append("- Today is ").append(now.toLocalDate()).append(" (").append(now.getZone().getId())
+			.append("). Timestamp ").append(now.toInstant().toEpochMilli()).append(".\n");
 	}
 
 	private static void appendProcessingContext(StringBuilder text, AString modelOperation) {

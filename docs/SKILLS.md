@@ -7,14 +7,15 @@ and the skill files under `src/main/resources/brightside/skills/`, and the
 mechanism is Covia's (`../covia/venue/docs/SKILLS.md`). The Skills screen
 shows the library as the assistant can discover it: each skillset it
 searches, the skills in it, and beneath each skill what it reveals. A
-conversation's Skills tab on Sessions lists only the skills loaded there;
+conversation's Skills tab (under Context on Sessions) lists only the skills
+loaded there;
 what each reveals links into the library.
 
 - **Discovery is broad; authority is deliberate.** The assistant can see its
   owner's, Brightside's and the venue's libraries, but starts every turn with
-  only read-only lattice reads, memory, the skill-feedback reporter and the
-  compact control. Every other tool arrives by loading the skill that carries
-  it.
+  only read-only lattice reads (inspect, read, list), memory, the
+  skill-feedback reporter and the compact control. Every other tool arrives by
+  loading the skill that carries it.
 - **Every top-level skill is a useful first load.** The assistant is
   general-purpose, and loading a skill is its first step towards specialising
   for a task. A skill therefore solves the general form of its problem itself
@@ -48,17 +49,19 @@ the same name, and Brightside's shadow the venue's.
 
 - **Skillsets** `w/skills`, `v/skills/brightside`, `v/skills/root`, in that
   order. No skill is pinned.
-- **Tools** the memory tool, the skill-feedback reporter and the harness's
-  `compact` control, plus the default read-only lattice reads. Compaction is
+- **Tools** the bounded `inspect` (Covia's default pack stops at `read` and
+  `list`, and the persona says to inspect first: one call shows a subtree's
+  shape, usually without reading each child), the memory tool, the
+  skill-feedback reporter and the harness's `compact` control, plus the
+  default read-only lattice reads. Compaction is
   how a long conversation stays usable: the assistant writes the summary, the
   exact history is archived beneath it, and the venue rebuilds the session's
   cached prefix around it with the pins, memory and skills index refreshed.
 - **Context** its memory at `n/memory`, rendered every turn through the
   read-only recall operation, and one non-skill load, `brightside-context`,
   which the read-only `brightside:context` operation assembles: the owner's
-  name and DID, where model processing happens, today's date with the epoch
-  millisecond it was assembled at (a model's own "now" is its training
-  cut-off), and the product invariants.
+  name and DID, where model processing happens, today's date and timestamp
+  (a model's own "now" is its training cut-off), and the product invariants.
 
 The configured system prompt owns the assistant's name and role. Runtime facts
 come from that context load. Working methods and everything optional stay in
