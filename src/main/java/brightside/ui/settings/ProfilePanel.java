@@ -38,6 +38,9 @@ public final class ProfilePanel extends SettingsPage {
 
 		String revealPrimarySeed(char[] passphrase) throws Exception;
 
+		/** The passphrase remembered in plaintext on this computer, a fresh copy (null: none); the page wipes it. */
+		char[] rememberedPassphrase();
+
 		/** Switch to acting as the venue operator ({@code true}) or as the named user. */
 		void actAs(boolean operator);
 	}
@@ -241,11 +244,18 @@ public final class ProfilePanel extends SettingsPage {
 		}
 		if (!seedAvailable) return;
 
-		JPasswordField passphrase = new JPasswordField(24);
-		if (!Dialogs.confirmDanger(this, "Enter your Brightside passphrase to reveal the primary seed", passphrase)) return;
-		char[] entered = passphrase.getPassword();
-		passphrase.setText("");
-		if (entered.length == 0) return;
+		// A passphrase remembered in plaintext on this computer passes the gate
+		// unasked: anyone who can read the file already has it.
+		char[] remembered = host.rememberedPassphrase();
+		char[] typed = null;
+		if (remembered == null) {
+			JPasswordField passphrase = new JPasswordField(24);
+			if (!Dialogs.confirmDanger(this, "Enter your Brightside passphrase to reveal the primary seed", passphrase)) return;
+			typed = passphrase.getPassword();
+			passphrase.setText("");
+			if (typed.length == 0) return;
+		}
+		char[] entered = (remembered != null) ? remembered : typed;
 		long version = identityVersion;
 
 		reveal.setEnabled(false);

@@ -23,10 +23,12 @@ import brightside.ui.components.Scrolls;
 
 /**
  * The chat with tabs along its top: <em>Chat</em>, then the read-only views
- * of the conversation on screen — what its model receives, from
- * {@link ContextInspector} — and of the agent it belongs to, from
- * {@link AgentInspector}. On the Sessions screen the tab row shows; on Home
- * the chat stands alone and the row is hidden, so the everyday screen carries
+ * of the conversation on screen — <em>Overview</em> and <em>Context</em>,
+ * what its model receives, from {@link ContextInspector} — and <em>Agent</em>,
+ * what it belongs to, from {@link AgentInspector}. Context carries the pieces
+ * of the assembled context as its own row of tabs ({@link Part}), so the top
+ * row stays four wide. On the Sessions screen the tab row shows; on Home the
+ * chat stands alone and the row is hidden, so the everyday screen carries
  * none of it.
  *
  * <p>The views are read when one is first shown, and read again when the
@@ -50,10 +52,9 @@ public final class SessionViews extends JPanel {
 		void showSkill(String path);
 	}
 
-	/** The tabs, in order: the chat, the conversation's context, its agent. */
+	/** The top row, in order: the chat, the conversation's overview and context, its agent. */
 	public enum View {
-		CHAT("Chat"), OVERVIEW("Overview"), CONTEXT("Context"), CYCLE("Cycle detail"), TOOLS("Tools"),
-		SKILLS("Skills"), LOADED("Loaded"), RAW("Raw"), AGENT("Agent");
+		CHAT("Chat"), OVERVIEW("Overview"), CONTEXT("Context"), AGENT("Agent");
 
 		final String title;
 
@@ -62,21 +63,33 @@ public final class SessionViews extends JPanel {
 		}
 
 		boolean perSession() {
-			return this != CHAT && this != AGENT;
+			return this == OVERVIEW || this == CONTEXT;
 		}
 	}
 
-	private static final List<View> SESSION_VIEWS = List.of(View.OVERVIEW, View.CONTEXT, View.CYCLE,
-		View.TOOLS, View.SKILLS, View.LOADED, View.RAW);
+	/** The Context tab's own row, in order: the pieces of what the model receives. */
+	public enum Part {
+		MESSAGES("Messages"), CYCLE("Cycle detail"), TOOLS("Tools"), SKILLS("Skills"), LOADED("Loaded"), RAW("Raw");
+
+		final String title;
+
+		Part(String title) {
+			this.title = title;
+		}
+	}
+
 	static final String NO_CONVERSATION = "No conversation on screen. Choose one from the list, or send a message.";
 	static final String NO_AGENT = "No agent on screen.";
 	static final String READING = "Reading…";
 
 	private final Host host;
 	private final JTabbedPane tabs = new JTabbedPane();
-	/** Each view's tab content: a slot whose document is replaced on every read. */
+	/** Inside the Context tab: one tab per piece. */
+	private final JTabbedPane parts = new JTabbedPane();
+	/** Each top-row view's tab content: a slot whose document is replaced on every read (Context's holds {@link #parts}). */
 	private final Map<View, JPanel> slots = new EnumMap<>(View.class);
-	private final Map<View, String> titles = new EnumMap<>(View.class);
+	/** Each piece's tab content, likewise. */
+	private final Map<Part, JPanel> partSlots = new EnumMap<>(Part.class);
 	private boolean tabsVisible;
 	/** The tab last chosen on Sessions, restored on return. */
 	private View chosen = View.CHAT;
@@ -99,15 +112,27 @@ public final class SessionViews extends JPanel {
 		tabs.addTab(View.CHAT.title, chat);
 		for (View v : View.values()) {
 			if (v == View.CHAT) continue;
-			JPanel slot = new JPanel(new BorderLayout());
-			slot.setOpaque(false);
-			slots.put(v, slot);
-			titles.put(v, v.title);
+			slots.put(v, slot());
 		}
+		// The pieces: a second, card-style row so it reads as the Context tab's own.
+		parts.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
+		parts.putClientProperty(FlatClientProperties.TABBED_PANE_TAB_TYPE, FlatClientProperties.TABBED_PANE_TAB_TYPE_CARD);
+		for (Part p : Part.values()) {
+			JPanel slot = slot();
+			partSlots.put(p, slot);
+			parts.addTab(p.title, slot);
+		}
+		slots.get(View.CONTEXT).add(parts, BorderLayout.CENTER);
 		noteSession(NO_CONVERSATION);
 		noteAgent(NO_AGENT);
 		tabs.addChangeListener(e -> onSelected());
 		add(tabs, BorderLayout.CENTER);
+	}
+
+	private static JPanel slot() {
+		JPanel slot = new JPanel(new BorderLayout());
+		slot.setOpaque(false);
+		return slot;
 	}
 
 	/** Sessions shows the tab row; Home hides it and shows the chat alone. */
@@ -116,7 +141,7 @@ public final class SessionViews extends JPanel {
 		tabsVisible = visible;
 		if (visible) {
 			for (View v : View.values()) {
-				if (v != View.CHAT) tabs.addTab(titles.get(v), slots.get(v));
+				if (v != View.CHAT) tabs.addTab(v.title, slots.get(v));
 			}
 			select(chosen);
 		} else {
@@ -129,6 +154,12 @@ public final class SessionViews extends JPanel {
 	public void select(View v) {
 		int i = (v == View.CHAT) ? 0 : tabs.indexOfComponent(slots.get(v));
 		if (i >= 0) tabs.setSelectedIndex(i);
+	}
+
+	/** Bring a piece of the context to the front, with the Context tab; on Home only the chat can be. */
+	public void select(Part p) {
+		select(View.CONTEXT);
+		parts.setSelectedComponent(partSlots.get(p));
 	}
 
 	private View current() {
@@ -207,9 +238,13 @@ public final class SessionViews extends JPanel {
 		if (report == null) {
 			noteSession("Brightside couldn't read the context for this conversation.");
 		} else {
+			// The inspector's tabs in order: the overview, then one per piece.
 			List<ContextInspector.Tab> views = ContextInspector.tabs(report, turns, skills, host::showSkill);
-			for (int i = 0; i < SESSION_VIEWS.size(); i++) {
-				fill(SESSION_VIEWS.get(i), views.get(i).title(), views.get(i).view());
+			fill(slots.get(View.OVERVIEW), views.get(0).view());
+			Part[] pieces = Part.values();
+			for (int i = 0; i < pieces.length; i++) {
+				ContextInspector.Tab t = views.get(i + 1);
+				fillPart(pieces[i], t.title(), t.view());
 			}
 		}
 		// Moved on while being read: read again.
@@ -221,27 +256,32 @@ public final class SessionViews extends JPanel {
 		if (!Objects.equals(agentId, this.agentId)) return;
 		agentShown = agentAsked;
 		if (info == null) noteAgent("Brightside couldn't read that agent.");
-		else fill(View.AGENT, View.AGENT.title, AgentInspector.view(info));
+		else fill(slots.get(View.AGENT), AgentInspector.view(info));
 		if (current() == View.AGENT) readAgent();
 	}
 
 	private void noteSession(String text) {
-		for (View v : SESSION_VIEWS) fill(v, v.title, Scrolls.vertical(new Readout().note(text)));
+		fill(slots.get(View.OVERVIEW), Scrolls.vertical(new Readout().note(text)));
+		for (Part p : Part.values()) fillPart(p, p.title, Scrolls.vertical(new Readout().note(text)));
 	}
 
 	private void noteAgent(String text) {
-		fill(View.AGENT, View.AGENT.title, Scrolls.vertical(new Readout().note(text)));
+		fill(slots.get(View.AGENT), Scrolls.vertical(new Readout().note(text)));
 	}
 
-	/** Replace a view's document and its tab's title (kept for when the row is hidden). */
-	private void fill(View v, String title, JComponent content) {
-		JPanel slot = slots.get(v);
+	/** Replace a piece's document and its tab's title (a count where one is telling). */
+	private void fillPart(Part p, String title, JComponent content) {
+		JPanel slot = partSlots.get(p);
+		fill(slot, content);
+		int i = parts.indexOfComponent(slot);
+		if (i >= 0) parts.setTitleAt(i, title);
+	}
+
+	/** Replace a slot's document. */
+	private static void fill(JPanel slot, JComponent content) {
 		slot.removeAll();
 		slot.add(content, BorderLayout.CENTER);
 		slot.revalidate();
 		slot.repaint();
-		titles.put(v, title);
-		int i = tabs.indexOfComponent(slot);
-		if (i >= 0) tabs.setTitleAt(i, title);
 	}
 }

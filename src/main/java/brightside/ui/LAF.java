@@ -30,6 +30,9 @@ import com.formdev.flatlaf.extras.FlatAnimatedLafChange;
 import com.formdev.flatlaf.intellijthemes.FlatAllIJThemes;
 import com.formdev.flatlaf.themes.FlatMacDarkLaf;
 import com.formdev.flatlaf.themes.FlatMacLightLaf;
+import com.formdev.flatlaf.util.ColorFunctions;
+
+import brightside.ui.components.Theme;
 
 /**
  * Look and feel: the themes FlatLaf provides — its own six, the IntelliJ theme
@@ -134,6 +137,7 @@ public final class LAF {
 		if (c == null) c = choice(defaultTheme(mode));
 		setup(c, accentHex);
 		installFont();
+		installDerived();
 		FlatLaf.updateUI();
 	}
 
@@ -147,6 +151,7 @@ public final class LAF {
 		FlatAnimatedLafChange.showSnapshot();
 		setup(c, accentHex);
 		installFont();
+		installDerived();
 		FlatLaf.updateUI();
 		FlatAnimatedLafChange.hideSnapshotWithAnimation();
 	}
@@ -224,6 +229,30 @@ public final class LAF {
 		if (!FlatLaf.setup(laf)) log.warn("FlatLaf could not be installed; using the default look and feel");
 		current = c;
 		accent = chosen;
+	}
+
+	/**
+	 * The shades the buttons take from the accent, computed from the accent the
+	 * installed theme resolved — a properties file cannot work out a contrast —
+	 * and put into the defaults the style classes in {@code FlatLaf.properties}
+	 * refer to. Runs after every theme setup, before the UI updates.
+	 */
+	private static void installDerived() {
+		Color accent = Theme.accent();
+		Color dark = Theme.accentDark();
+		// The accent as text on its own tint over the panel: moved in lightness until it reads there.
+		Color text = Theme.readableOn(accent, Theme.blend(Theme.panel(), accent, 0.22f), Theme.AA_CONTRAST);
+		UIManager.put("Brightside.accent.dark", dark);
+		UIManager.put("Brightside.accent.text", text);
+		// The primary button: white on the dark shade, hover a step lighter, pressed a step darker.
+		UIManager.put("Brightside.primary.background", dark);
+		UIManager.put("Brightside.primary.hoverBackground", ColorFunctions.lighten(dark, 0.06f));
+		UIManager.put("Brightside.primary.pressedBackground", ColorFunctions.darken(dark, 0.06f));
+		// The tinted button: the accent as text on its faint tint, the tint deepening under the pointer.
+		UIManager.put("Brightside.tinted.foreground", text);
+		UIManager.put("Brightside.tinted.background", ColorFunctions.fade(accent, 0.22f));
+		UIManager.put("Brightside.tinted.hoverBackground", ColorFunctions.fade(accent, 0.30f));
+		UIManager.put("Brightside.tinted.pressedBackground", ColorFunctions.fade(accent, 0.38f));
 	}
 
 	/** Bigger, comfortable default size in Lato: FlatLaf derives every other font from it and scales the UI to match. */

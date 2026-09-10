@@ -25,15 +25,16 @@ import brightside.ui.components.Styles;
 /**
  * Read-only views of the exact context an agent sends its model (from
  * {@link AgentContext}), as tabs for a {@link JTabbedPane}: <em>Overview</em>
- * (model, budget, counts), <em>Context</em> (every assembled message, by band
- * — head, live surface, conversation, tool loop, tail), <em>Cycle detail</em>
- * (the stored turns), <em>Tools</em> (every definition the model receives, by
- * where it comes from), <em>Skills</em> (the skills loaded in this
- * conversation, each linking to what it reveals in the library),
- * <em>Loaded</em> (the context entries and their accounting) and <em>Raw</em>
- * (the untouched report). {@link SessionViews} shows them above the chat;
- * every view is the conversation's own situation, and the whole skill
- * library is the Skills screen's.
+ * (model, budget, counts), then the pieces of the context — <em>Messages</em>
+ * (every assembled message, by band: head, live surface, conversation, tool
+ * loop, tail), <em>Cycle detail</em> (the stored turns), <em>Tools</em> (every
+ * definition the model receives, by where it comes from), <em>Skills</em> (the
+ * skills loaded in this conversation, each linking to what it reveals in the
+ * library), <em>Loaded</em> (the context entries and their accounting) and
+ * <em>Raw</em> (the untouched report). {@link SessionViews} shows them above
+ * the chat, the Overview beside the chat and the pieces as one Context tab's
+ * own tabs; every view is the conversation's own situation, and the whole
+ * skill library is the Skills screen's.
  *
  * <p>Each view is a {@link Readout}: one document of sections and entries,
  * long content folded behind a "Show all" link, everything shown selectable
@@ -105,7 +106,7 @@ public final class ContextInspector {
 			if (l.ref() != null) loadRefs.add(l.ref());
 		}
 		tabs.add(new Tab("Overview", Scrolls.vertical(overview(report))));
-		tabs.add(new Tab("Context (" + report.messages().size() + ")", Scrolls.vertical(messages(report))));
+		tabs.add(new Tab("Messages (" + report.messages().size() + ")", Scrolls.vertical(messages(report))));
 		tabs.add(new Tab("Cycle detail (" + turns.size() + ")", Scrolls.vertical(cycle(turns))));
 		tabs.add(new Tab("Tools (" + report.tools().size() + ")", Scrolls.vertical(tools(report))));
 		tabs.add(new Tab("Skills (" + loaded.size() + ")", Scrolls.vertical(skills(loaded, report))));
@@ -119,16 +120,20 @@ public final class ContextInspector {
 
 	/**
 	 * A link reading {@code text} that selects the tab holding {@code pane} —
-	 * whichever tabbed pane the views were placed in, however the pane is
-	 * wrapped — and scrolls to the block anchored {@code id} (null: the top).
+	 * whichever tabbed panes the views were placed in, however deeply nested
+	 * and however the pane is wrapped, each level in turn — and scrolls to
+	 * the block anchored {@code id} (null: the top).
 	 */
 	private Readout.Link to(Readout pane, String id, String text) {
 		return new Readout.Link(text, () -> {
-			JTabbedPane tabbed = (JTabbedPane) SwingUtilities.getAncestorOfClass(JTabbedPane.class, pane);
-			if (tabbed == null) return;
-			Component tab = pane;
-			while (tab.getParent() != null && tab.getParent() != tabbed) tab = tab.getParent();
-			tabbed.setSelectedComponent(tab);
+			Component inner = pane;
+			JTabbedPane tabbed;
+			while ((tabbed = (JTabbedPane) SwingUtilities.getAncestorOfClass(JTabbedPane.class, inner)) != null) {
+				Component tab = inner;
+				while (tab.getParent() != null && tab.getParent() != tabbed) tab = tab.getParent();
+				tabbed.setSelectedComponent(tab);
+				inner = tabbed;
+			}
 			if (id != null) SwingUtilities.invokeLater(() -> pane.scrollTo(id));
 		});
 	}

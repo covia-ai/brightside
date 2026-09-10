@@ -24,7 +24,9 @@ import net.miginfocom.swing.MigLayout;
  * the venue — the values operations resolve as {@code s/<name>} (the Moltbook
  * and Discord keys live here). Names are listed openly; a value is revealed
  * only behind passphrase re-authentication — the same gate as the primary seed
- * — and only for that sitting. Saving under an existing name replaces it.
+ * — and only for that sitting. A passphrase remembered in plaintext on this
+ * computer passes the gate unasked: it proves nothing to ask for what any
+ * reader of the file already has. Saving under an existing name replaces it.
  */
 @SuppressWarnings("serial")
 public final class SecretsPanel extends SettingsPage {
@@ -38,6 +40,9 @@ public final class SecretsPanel extends SettingsPage {
 		boolean deleteSecret(String name);
 
 		String revealSecret(String name, char[] passphrase) throws Exception;
+
+		/** The passphrase remembered in plaintext on this computer, a fresh copy (null: none); the page wipes it. */
+		char[] rememberedPassphrase();
 	}
 
 	private static final String MASK = "••••••••••••";
@@ -59,7 +64,8 @@ public final class SecretsPanel extends SettingsPage {
 	private void build() {
 		addDescription("Your encrypted secrets on the venue. Operations resolve them as s/<name> — the Moltbook "
 			+ "and Discord keys live here — and your assistant's tools use them without ever seeing a value. "
-			+ "Revealing one asks for your Brightside passphrase, like the primary seed.");
+			+ "Revealing one asks for your Brightside passphrase, like the primary seed — unless you chose to store "
+			+ "the passphrase on this computer, when it is used without asking.");
 		rows.setOpaque(false);
 		addSpan(rows, "gapbottom 14");
 		addField("Name",
@@ -104,9 +110,9 @@ public final class SecretsPanel extends SettingsPage {
 		JLabel label = Styles.classes(new JLabel(name), Styles.MONOSPACED);
 		SelectableText value = new SelectableText(MASK).mono().muted();
 		JButton eye = Buttons.icon(Lucide.icon("eye", 16, Theme::muted),
-			"Reveal the value (asks for your passphrase)");
+			"Reveal the value (behind your passphrase)");
 		JButton copy = Buttons.icon(Lucide.icon("copy", 16, Theme::muted),
-			"Copy the value (asks for your passphrase while it is hidden)");
+			"Copy the value (behind your passphrase while it is hidden)");
 		JButton forget = Buttons.small("Forget");
 		forget.setToolTipText("Remove this secret from the store");
 		final String[] revealed = { null };
@@ -154,30 +160,35 @@ public final class SecretsPanel extends SettingsPage {
 	}
 
 	/**
-	 * The passphrase gate shared by reveal and copy: prompts, re-authenticates
-	 * and decrypts off the event thread, and hands the value to {@code use} —
-	 * which decides whether it is shown or only copied. {@code trigger} is
-	 * disabled while the check runs.
+	 * The passphrase gate shared by reveal and copy: prompts — unless the
+	 * passphrase is remembered on this computer — re-authenticates and
+	 * decrypts off the event thread, and hands the value to {@code use}, which
+	 * decides whether it is shown or only copied. {@code trigger} is disabled
+	 * while the check runs.
 	 */
 	private void fetchGated(String name, String verb, JButton trigger, java.util.function.Consumer<String> use) {
-		JPasswordField pass = new JPasswordField(24);
-		if (!Dialogs.confirmDanger(this,
-			"Enter your Brightside passphrase to " + verb + " \"" + name + "\"", pass)) return;
-		char[] entered = pass.getPassword();
-		pass.setText("");
-		if (entered.length == 0) return;
+		char[] entered = host.rememberedPassphrase();
+		if (entered == null) {
+			JPasswordField pass = new JPasswordField(24);
+			if (!Dialogs.confirmDanger(this,
+				"Enter your Brightside passphrase to " + verb + " \"" + name + "\"", pass)) return;
+			entered = pass.getPassword();
+			pass.setText("");
+			if (entered.length == 0) return;
+		}
+		char[] passphrase = entered;
 		long v = version;
 		trigger.setEnabled(false);
 		setNote("Checking your passphrase…", false);
 		new SwingWorker<String, Void>() {
 			@Override
 			protected String doInBackground() throws Exception {
-				return host.revealSecret(name, entered);
+				return host.revealSecret(name, passphrase);
 			}
 
 			@Override
 			protected void done() {
-				java.util.Arrays.fill(entered, '\0');
+				java.util.Arrays.fill(passphrase, '\0');
 				trigger.setEnabled(true);
 				if (version != v) return; // the list was rebuilt meanwhile
 				try {

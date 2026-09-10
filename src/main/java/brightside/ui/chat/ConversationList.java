@@ -1,7 +1,6 @@
 package brightside.ui.chat;
 
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Insets;
@@ -29,6 +28,7 @@ import brightside.ui.components.Lucide;
 import brightside.ui.components.Panels;
 import brightside.ui.components.PressButton;
 import brightside.ui.components.Scrolls;
+import brightside.ui.components.Theme;
 
 /**
  * The conversation switcher: a "New conversation" button above a scrolling list
@@ -77,8 +77,7 @@ public final class ConversationList extends JPanel {
 		setBorder(BorderFactory.createCompoundBorder(
 			Borders.hairlineRight(), BorderFactory.createEmptyBorder(10, 10, 10, 10)));
 
-		JButton newChat = Buttons.primary("New conversation");
-		newChat.setIcon(Lucide.icon("plus", 16, Color.WHITE));
+		JButton newChat = Buttons.tinted("New conversation", Lucide.icon("plus", 16, Theme::accentText));
 		newChat.setFocusable(false);
 		newChat.addActionListener(e -> listener.onNewConversation());
 		JPanel top = new JPanel(new BorderLayout());

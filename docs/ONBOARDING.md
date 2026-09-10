@@ -76,7 +76,8 @@ restores the identity only.
 - **Model** — provider, model and key. The model choice persists in
   `config.json` and applies on the next message; the key goes to the venue's
   secret stores at once and never to `config.json`. Stored values are viewable,
-  passphrase-gated, under *Settings → Secrets*.
+  passphrase-gated, under *Settings → Secrets* (a passphrase remembered on
+  this computer passes the gate unasked).
 - **Identity** — name, DIDs, public key, the seed behind the passphrase, and
   switching to the operator ([IDENTITY.md](IDENTITY.md)).
 - **Advanced** — change passphrase, view the recovery phrase behind the

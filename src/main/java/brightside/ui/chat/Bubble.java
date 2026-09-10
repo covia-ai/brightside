@@ -25,9 +25,10 @@ import brightside.ui.components.Theme;
  * without focus. Its width reflows to a share of the viewport, and a short
  * message gets a short bubble.
  *
- * <p>The user's side is the accent with white text; the assistant's is the
- * theme's surface in the ordinary text colour — both read from the theme when
- * painted, so a theme change carries through.
+ * <p>The user's side is the accent {@linkplain Theme#accentDark darkened until
+ * white text reads on it}; the assistant's is the theme's surface in the
+ * ordinary text colour — both read from the theme when painted, so a theme
+ * change carries through.
  *
  * <p>The bubble is deliberately dumb — selection tracking and the context menu
  * are wired by {@link ChatPanel} onto {@link #textComponent()}, so a bubble can
@@ -53,7 +54,7 @@ final class Bubble extends Card {
 		this.plain = plain;
 		setLayout(new BorderLayout());
 		if (user) {
-			fill(Theme::accent);
+			fill(Theme::accentDark);
 			text.setForeground(Color.WHITE);
 		}
 		text.setBorder(BorderFactory.createEmptyBorder(PAD_V, PAD_H, PAD_V, PAD_H));

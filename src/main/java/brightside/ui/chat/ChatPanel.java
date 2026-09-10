@@ -109,9 +109,12 @@ public final class ChatPanel extends JPanel {
 	private final MessageColumn column = new MessageColumn();
 	private final EmptyChatState emptyState = new EmptyChatState();
 	private final JScrollPane scroll;
-	private static final String COMPOSER_HINT = "Message Brightside…";
+	private static final String STARTING_HINT = "Just a moment while everything starts up…";
+	/** The agent on the line, by name, for the composer's hint and the welcome. */
+	private String agentName = EmptyChatState.DEFAULT_NAME;
+	private boolean startingUp;
 
-	private final TextArea input = new TextArea(1, 20).placeholder(COMPOSER_HINT);
+	private final TextArea input = new TextArea(1, 20).placeholder(composerHint(EmptyChatState.DEFAULT_NAME));
 	private final JScrollPane inputScroll;
 	private final JButton send = Buttons.primary("Send");
 	private final JButton more = Buttons.icon(Lucide.icon("ellipsis", 18, Theme::muted), "Conversation options");
@@ -268,7 +271,16 @@ public final class ChatPanel extends JPanel {
 	 * is added to the transcript that would have to be taken away again.
 	 */
 	public void setStartingUp(boolean starting) {
-		input.placeholder(starting ? "Just a moment while everything starts up…" : COMPOSER_HINT);
+		startingUp = starting;
+		updateHint();
+	}
+
+	private static String composerHint(String agentName) {
+		return "Message " + agentName + "…";
+	}
+
+	private void updateHint() {
+		input.placeholder(startingUp ? STARTING_HINT : composerHint(agentName));
 	}
 
 	/** Each activity label stays readable for at least this long; faster steps are coalesced. */
@@ -884,6 +896,13 @@ public final class ChatPanel extends JPanel {
 
 	private static String escapeHtml(String s) {
 		return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+	}
+
+	/** The agent on the line, by name, for the composer's hint and the welcome before a first turn (null: none yet). */
+	public void setAgentName(String name) {
+		agentName = (name == null || name.isBlank()) ? EmptyChatState.DEFAULT_NAME : name.trim();
+		emptyState.setAgentName(agentName);
+		updateHint();
 	}
 
 	private void showEmptyState() {

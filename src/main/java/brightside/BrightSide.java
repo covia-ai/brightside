@@ -1462,20 +1462,50 @@ public final class BrightSide {
 		createAgent(name, currentModelOp(), prompt);
 	}
 
-	/** Create (and switch to) a new agent with the chosen model and starting prompt. */
+	/**
+	 * Create a new agent with the chosen model and starting prompt, then switch
+	 * to it. The record is written first, through the venue's own
+	 * {@code agent:create} — the operation the assistant's agent tools call —
+	 * with the name as its {@code config.name}, so the agent exists from this
+	 * moment: in the pane's {@code g/} listing, to other venues, and whether or
+	 * not anything is ever said to it. (Binding a chat alone creates nothing;
+	 * {@link ChatSession#ensureAgent} otherwise runs on the first send.) An
+	 * agent of that id already on the venue is opened as it is, its record
+	 * untouched.
+	 */
 	public void createAgent(String rawName, String modelOp, String systemPrompt) {
-		String aid = slug(rawName);
+		String name = (rawName != null) ? rawName.trim() : "";
+		String aid = slug(name);
 		EmbeddedVenue v = venue;
 		Identity id = identity;
 		if (aid.isEmpty() || v == null || id == null || aid.equals(this.agentId)) return;
+		String did = actingDID(id, v);
+		if (v.agentRecord(did, aid) != null) {
+			switchAgent(aid);
+			SwingUtilities.invokeLater(() -> window.showSystemMessage(
+				"An agent called " + displayNameFor(aid) + " already exists — opening it."));
+			return;
+		}
 		AppConfig.Chat base = effectiveChat();
 		String chosenModel = (modelOp == null || modelOp.isBlank()) ? base.llmOperation() : modelOp;
 		String chosenPrompt = (systemPrompt == null || systemPrompt.isBlank())
-			? brightside.model.AgentTemplate.GENERAL.systemPrompt(displayNameFor(aid)) : systemPrompt;
+			? brightside.model.AgentTemplate.GENERAL.systemPrompt(name) : systemPrompt;
 		AppConfig.Chat chosen = new AppConfig.Chat(aid, base.operation(), chosenModel, chosenPrompt);
-		// Applying the supplied configuration is deliberate here. Later switches to
-		// the agent preserve what its record already holds.
-		startChatBackground(v, id, chosen, Bind.AGENT_SWITCH, true);
+		Thread t = new Thread(() -> {
+			try {
+				new ChatSession(v.clientAs(did), chosen, id.name(), true).named(name).ensureAgent();
+			} catch (Exception e) {
+				log.warn("Could not create agent {}: {}", aid, e.toString());
+				SwingUtilities.invokeLater(() -> window.showSystemMessage(
+					"Sorry — I couldn't create " + name + " (" + rootMessage(e) + ")."));
+				return;
+			}
+			log.info("Created agent '{}' ({})", aid, name);
+			// The record holds the chosen configuration now: bind without re-applying it.
+			startChatBackground(v, id, chosen, Bind.AGENT_SWITCH, false);
+		}, "brightside-create-agent");
+		t.setDaemon(true);
+		t.start();
 	}
 
 	/** Show the agent info screen for {@code agentId}. */
@@ -2229,6 +2259,17 @@ public final class BrightSide {
 	/** Whether a passphrase is currently remembered on this computer. */
 	public boolean hasRememberedPassphrase() {
 		return RememberedPassphrase.exists(config.home());
+	}
+
+	/**
+	 * The passphrase remembered in plaintext on this computer, read afresh
+	 * (null: none). A reveal that would ask for the passphrase uses this
+	 * instead: it is already readable to anyone who can read the file, so
+	 * asking would prove nothing. The caller wipes the array — the reveal
+	 * gates do.
+	 */
+	public char[] rememberedPassphrase() {
+		return RememberedPassphrase.load(config.home());
 	}
 
 	/** Delete the remembered passphrase from this computer. */

@@ -10,9 +10,9 @@ import com.formdev.flatlaf.FlatClientProperties;
 
 /**
  * The app's action buttons, by role. Their looks are FlatLaf style classes
- * ({@code Button.primary}, {@code Button.secondary}, {@code Button.link} in
- * {@code brightside/ui/FlatLaf.properties}) and FlatLaf button types, so the
- * theme paints every state. Navigation and list rows are not buttons in this
+ * ({@code Button.primary}, {@code Button.tinted}, {@code Button.secondary},
+ * {@code Button.link} in {@code brightside/ui/FlatLaf.properties}) and FlatLaf
+ * button types, so the theme paints every state. Navigation and list rows are not buttons in this
  * sense — they are {@link PressButton}s.
  */
 public final class Buttons {
@@ -20,9 +20,21 @@ public final class Buttons {
 	private Buttons() {
 	}
 
-	/** The one accent-filled call to action on a screen: Save, Continue, Send. */
+	/** The one call to action on a screen — white on the accent's dark shade: Save, Continue, Send. */
 	public static JButton primary(String text) {
 		return hand(Styles.classes(new JButton(text), Styles.PRIMARY));
+	}
+
+	/**
+	 * The button that heads a list — the accent on its own faint tint, the
+	 * navigation's selected look — with an icon before its text: New
+	 * conversation, New agent. Draw the icon in {@link Theme#accentText} so it
+	 * matches the text.
+	 */
+	public static JButton tinted(String text, Icon icon) {
+		JButton b = hand(Styles.classes(new JButton(text), Styles.TINTED));
+		b.setIcon(icon);
+		return b;
 	}
 
 	/** A quiet action beside the primary one: Back, Cancel, Copy. */

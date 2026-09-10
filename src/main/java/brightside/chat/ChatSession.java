@@ -74,6 +74,13 @@ public final class ChatSession {
 	public static final String VENUE_SKILLSET = "v/skills/root";
 	private static final String MEMORY_OP = "v/ops/memory";
 	/**
+	 * The bounded, hierarchical read: one call renders a subtree's shape and
+	 * sample values within a byte budget, so the assistant sees the structure
+	 * before deciding what, if anything, to read exactly. Covia's default tool
+	 * pack carries only read and list, so it is granted here outright.
+	 */
+	public static final String INSPECT_OP = "v/ops/covia/inspect";
+	/**
 	 * Read-only render of a memory collection. A context entry runs before every
 	 * inference, and Covia only admits an op declared {@code readOnly} there
 	 * (covia#465 asks for a warning instead); {@link #MEMORY_OP} is the
@@ -108,6 +115,8 @@ public final class ChatSession {
 	private AppConfig.Chat config;
 	private final String userName;
 	private final boolean configureExisting;
+	/** The name the agent goes by, for its record's {@code config.name} (null: leave the record's). */
+	private String agentName;
 	private volatile String sessionId;
 	private volatile long sessionGeneration;
 	private boolean pendingResume;
@@ -143,6 +152,16 @@ public final class ChatSession {
 
 	public AppConfig.Chat config() {
 		return config;
+	}
+
+	/**
+	 * The name the agent goes by — what the agents pane, agent info and other
+	 * venues show — written to its record as {@code config.name} by the next
+	 * {@link #ensureAgent}. Null or blank: the record's own name stands, if any.
+	 */
+	public synchronized ChatSession named(String agentName) {
+		this.agentName = (agentName == null || agentName.isBlank()) ? null : agentName.trim();
+		return this;
 	}
 
 	/**
@@ -217,16 +236,17 @@ public final class ChatSession {
 			"llmOperation", config.llmOperation(),
 			"systemPrompt", config.systemPrompt(),
 			// Read-only workspace access (covia read/list) on top of the tools
-			// below — so it can inspect its own namespace out of the box.
+			// below — so it can look into its own namespace out of the box.
 			"defaultTools", true,
-			// The memory tool, a narrow append-only channel for concrete skill
-			// misses, and the harness's compact control so a long conversation can
-			// be summarised in place. None exposes general workspace mutation.
+			// The bounded inspect (the default pack stops at read and list), the
+			// memory tool, a narrow append-only channel for concrete skill misses,
+			// and the harness's compact control so a long conversation can be
+			// summarised in place. None exposes general workspace mutation.
 			// Broader capabilities (writes, HTTP, files, agents, telegram/discord…)
 			// arrive by discovering and loading the skills that grant them — see
 			// skillsets below — so authority stays deliberate rather than always-on.
-			"tools", Vectors.of(Strings.create(MEMORY_OP), Strings.create(SKILL_FEEDBACK_OP),
-				Strings.create(COMPACT_TOOL)),
+			"tools", Vectors.of(Strings.create(INSPECT_OP), Strings.create(MEMORY_OP),
+				Strings.create(SKILL_FEEDBACK_OP), Strings.create(COMPACT_TOOL)),
 			// Pin the assistant's memory (n/memory) into every turn's context,
 			// through the read-only recall op; the memory tool above is for edits.
 			"context", Vectors.of(Maps.of(
@@ -248,6 +268,7 @@ public final class ChatSession {
 				Strings.create(USER_SKILLSET),
 				Strings.create(BrightsideSkillsAdapter.SKILLSET),
 				Strings.create(VENUE_SKILLSET)));
+		if (agentName != null) agentConfig = agentConfig.assoc(Strings.create("name"), Strings.create(agentName));
 		AMap<AString, ACell> input = Maps.of(Fields.AGENT_ID, config.agentId(), Fields.CONFIG, agentConfig);
 		if (status != null) {
 			// agent:update recursively merges nested maps. Replace the loads map in

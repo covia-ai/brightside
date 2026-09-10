@@ -74,7 +74,10 @@ valid twenty-four-word phrase. The BIP39 passphrase is empty, so there is no
 "25th word". The recovery phrase is a bearer-equivalent master secret and
 belongs offline. The raw seed can be revealed under *Settings → Identity*
 behind the vault passphrase; it reproduces the identity and the store key but
-cannot be turned back into the phrase.
+cannot be turned back into the phrase. A passphrase remembered in plaintext
+passes that gate, and the one on *Settings → Secrets*, without being asked
+for: anyone who can read the file already has it, so asking would prove
+nothing.
 
 ## Algorithms and parameters
 
@@ -227,7 +230,9 @@ one trust boundary.
 - The minimum passphrase length is eight characters; Argon2id raises the cost
   of guessing but cannot make a weak passphrase strong.
 - The remembered passphrase is plaintext by the owner's decision and relies
-  only on OS-account and filesystem protection.
+  only on OS-account and filesystem protection. While it is remembered, the
+  reveals it would otherwise gate (the primary seed, a secret's value) open
+  without asking.
 - Etch's index is plaintext and its body cipher is not whole-file AEAD.
 - Envelope writes are in place, not atomic, and recovery removes the staged
   key file before rewriting the identity envelope, which is why an untouched

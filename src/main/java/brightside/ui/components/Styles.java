@@ -32,6 +32,7 @@ public final class Styles {
 	// Buttons.
 	public static final String PRIMARY = "primary";
 	public static final String SECONDARY = "secondary";
+	public static final String TINTED = "tinted";
 	public static final String LINK = "link";
 
 	private Styles() {

@@ -89,6 +89,8 @@ class ChatSessionTest {
 		assertTrue(vectorContains(RT.getIn(info, Fields.CONFIG, "tools"),
 			Strings.create("v/ops/brightside/report-skill-feedback")),
 			"the narrow feedback channel is always available");
+		assertTrue(vectorContains(RT.getIn(info, Fields.CONFIG, "tools"), Strings.create(ChatSession.INSPECT_OP)),
+			"the bounded inspect is always available: the default pack has only read and list");
 		AMap<AString, ACell> loads = configuredLoads(info);
 		for (String skill : BrightsideSkillsAdapter.SHIPPED) {
 			assertFalse(loads.containsKey(Strings.create(skill)),
@@ -101,6 +103,15 @@ class ChatSessionTest {
 		assertEquals(Strings.create(AppConfig.ECHO_LLM_OPERATION),
 			RT.getIn(appContext, "input", "modelOperation"));
 		assertTrue(RT.getIn(appContext, "input", "userName") instanceof convex.core.data.AString);
+	}
+
+	@Test
+	void writesTheAgentsNameToItsRecord() throws Exception {
+		String agentId = "bs-named";
+		new ChatSession(venue, echoChat(agentId)).named("My Helper").ensureAgent();
+
+		assertEquals(Strings.create("My Helper"), RT.getIn(agentInfo(agentId), Fields.CONFIG, "name"));
+		assertTrue(SessionHistory.listSessions(venue, agentId).isEmpty(), "creation opens no conversation");
 	}
 
 	@Test

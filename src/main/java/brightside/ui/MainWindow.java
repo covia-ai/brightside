@@ -328,6 +328,11 @@ public final class MainWindow extends JFrame {
 			}
 
 			@Override
+			public char[] rememberedPassphrase() {
+				return app.rememberedPassphrase();
+			}
+
+			@Override
 			public void actAs(boolean operator) {
 				app.actAs(operator);
 			}
@@ -382,6 +387,11 @@ public final class MainWindow extends JFrame {
 			@Override
 			public String revealSecret(String name, char[] passphrase) throws Exception {
 				return app.revealSecret(name, passphrase);
+			}
+
+			@Override
+			public char[] rememberedPassphrase() {
+				return app.rememberedPassphrase();
 			}
 		});
 		VaultPanel vaultPanel = new VaultPanel(app::forgetRememberedPassphrase);
@@ -500,6 +510,7 @@ public final class MainWindow extends JFrame {
 
 	/** Switched to another agent: rebind the chat to its conversation (no name-change note). */
 	public void showAgentChat(ChatSession session, List<SessionHistory.Item> history, String agentName) {
+		chatPanel.setAgentName(agentName);
 		chatPanel.restore(history);
 		chatPanel.setSession(session);
 		chatPanel.appendSystem(history.isEmpty() ? "New conversation with " + agentName + "."
@@ -560,6 +571,12 @@ public final class MainWindow extends JFrame {
 	/** Replace the agents pane's list, highlighting the current agent; {@code defaultId} is the standard agent. */
 	public void setAgents(List<brightside.model.AgentRef> agents, String selectedId, String defaultId) {
 		agentList.setAgents(agents, selectedId, defaultId);
+		// The welcome greets by the current agent's name, and follows a rename.
+		String name = null;
+		for (brightside.model.AgentRef a : agents) {
+			if (a.id().equals(selectedId)) name = a.name();
+		}
+		chatPanel.setAgentName((name != null && !name.isBlank()) ? name : selectedId);
 		if (java.util.Objects.equals(selectedId, currentAgentId)) views.agentChanged();
 		else views.setAgent(selectedId);
 		currentAgentId = selectedId;
