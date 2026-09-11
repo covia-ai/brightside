@@ -4,16 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
-import java.net.ServerSocket;
-import java.nio.file.Path;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import convex.core.data.ACell;
 import convex.core.data.AMap;
@@ -21,41 +19,29 @@ import convex.core.data.AString;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
 import convex.core.data.prim.CVMBool;
-import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
 import covia.api.Fields;
 import covia.grid.Job;
 import covia.grid.Venue;
-import covia.venue.Config;
 import covia.venue.RequestContext;
 
 /**
  * The Moltbook operations on a real venue, up to the edge of the network:
  * every operation is installed, an account that is not set up is reported as
- * such rather than attempted, and input is refused before any request.
+ * such rather than attempted, and input is refused before any request. Each
+ * test is its own user, so they run side by side.
  */
+@Execution(ExecutionMode.CONCURRENT)
 class MoltbookAdapterTest {
 
-	@TempDir
-	static Path home;
+	@RegisterExtension
+	static final SharedVenue shared = new SharedVenue();
 
 	private static EmbeddedVenue venue;
 
 	@BeforeAll
-	static void boot() throws IOException {
-		int port;
-		try (ServerSocket s = new ServerSocket(0)) {
-			port = s.getLocalPort();
-		}
-		AMap<AString, ACell> config = AppConfig.defaultVenue(home)
-			.assoc(Config.STORE, Strings.create("temp"))
-			.assoc(Fields.PORT, CVMLong.create(port));
-		venue = EmbeddedVenue.launch(config);
-	}
-
-	@AfterAll
-	static void shutdown() {
-		if (venue != null) venue.close();
+	static void boot() {
+		venue = shared.venue();
 	}
 
 	@Test

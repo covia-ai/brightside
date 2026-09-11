@@ -7,38 +7,29 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
-import java.net.ServerSocket;
-import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
-import brightside.AppConfig;
 import brightside.EmbeddedVenue;
 import brightside.Identity;
 import brightside.Inbox;
 import convex.core.data.ACell;
-import convex.core.data.AMap;
 import convex.core.data.AString;
 import convex.core.data.AVector;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
 import convex.core.data.prim.CVMBool;
-import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
-import covia.api.Fields;
 import covia.grid.Job;
 import covia.grid.Venue;
 import covia.grid.hitl.Hitl;
-import covia.venue.Config;
 
 /**
  * Mechanism test for the Inbox: a HITL request lands in the owner's {@code h/}
@@ -49,30 +40,18 @@ class InboxTest {
 
 	private static final long TIMEOUT_SECONDS = 30;
 
-	@TempDir
-	static Path home;
+	@RegisterExtension
+	static final SharedVenue shared = new SharedVenue();
 
 	private static EmbeddedVenue venue;
 	private static Venue client;
 	private static String userDID;
 
 	@BeforeAll
-	static void boot() throws IOException {
-		int port;
-		try (ServerSocket s = new ServerSocket(0)) {
-			port = s.getLocalPort();
-		}
-		AMap<AString, ACell> config = AppConfig.defaultVenue(home)
-			.assoc(Config.STORE, Strings.create("temp"))
-			.assoc(Fields.PORT, CVMLong.create(port));
-		venue = EmbeddedVenue.launch(config);
+	static void boot() {
+		venue = shared.venue();
 		userDID = Identity.of("inbox-test").userDID(venue.did());
 		client = venue.clientAs(userDID);
-	}
-
-	@AfterAll
-	static void shutdown() {
-		if (venue != null) venue.close();
 	}
 
 	@Test

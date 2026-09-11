@@ -15,15 +15,18 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import brightside.AppConfig;
-import brightside.BrightsideAdapter;
 import brightside.BrightsideSkillsAdapter;
+import brightside.EmbeddedVenue;
 import brightside.Identity;
 import brightside.SessionHistory;
+import brightside.SharedVenue;
 import brightside.chat.ChatSession;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
@@ -37,30 +40,29 @@ import convex.core.lang.RT;
 import covia.adapter.TestAdapter;
 import covia.api.Fields;
 import covia.grid.Asset;
-import covia.venue.Config;
+import covia.grid.Venue;
 import covia.venue.Engine;
-import covia.venue.LocalVenue;
 
-/** Chats through the agent framework of a temporary engine, using the echo test LLM. */
+/**
+ * Chats through the agent framework of a real venue, using the echo test LLM.
+ * Every test has an agent of its own, so they run side by side — as one owner's
+ * agents do.
+ */
+@Execution(ExecutionMode.CONCURRENT)
 class ChatSessionTest {
 
+	@RegisterExtension
+	static final SharedVenue shared = new SharedVenue();
+
 	private static Engine engine;
-	private static LocalVenue venue;
+	private static Venue venue;
 
 	@BeforeAll
 	static void boot() {
-		engine = Engine.createTemp(Maps.of(Config.USERS, Maps.of(Config.AUTO_CREATE, true)));
-		Engine.addDemoAssets(engine);
-		engine.registerAdapter(new BrightsideAdapter());
-		engine.registerAdapter(new BrightsideSkillsAdapter());
+		EmbeddedVenue embedded = shared.venue();
+		engine = embedded.engine();
 		// Act as a named local user sub-principal of the venue, as BrightSide does.
-		venue = LocalVenue.create(engine);
-		venue.setUser(Identity.of("tester").userDID(engine.getDIDString().toString()));
-	}
-
-	@AfterAll
-	static void shutdown() {
-		if (engine != null) engine.close();
+		venue = embedded.clientAs(Identity.of("chatter").userDID(embedded.did()));
 	}
 
 	private static AppConfig.Chat echoChat(String agentId) {

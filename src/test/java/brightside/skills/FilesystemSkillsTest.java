@@ -5,56 +5,36 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
-import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
 
-import brightside.AppConfig;
 import brightside.EmbeddedVenue;
 import brightside.Identity;
+import brightside.SharedVenue;
 import brightside.skills.FilesystemSkills;
 import convex.core.data.ACell;
-import convex.core.data.AMap;
-import convex.core.data.AString;
 import convex.core.data.Maps;
-import convex.core.data.Strings;
-import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
-import covia.api.Fields;
 import covia.grid.Job;
 import covia.grid.Venue;
-import covia.venue.Config;
 
 /** Filesystem skill import: parse SKILL.md, and round-trip into the user's w/skills. */
 class FilesystemSkillsTest {
 
-	@TempDir
-	static Path home;
+	@RegisterExtension
+	static final SharedVenue shared = new SharedVenue();
 
 	private static EmbeddedVenue venue;
 
 	@BeforeAll
-	static void boot() throws IOException {
-		int port;
-		try (ServerSocket s = new ServerSocket(0)) {
-			port = s.getLocalPort();
-		}
-		AMap<AString, ACell> config = AppConfig.defaultVenue(home)
-			.assoc(Config.STORE, Strings.create("temp"))
-			.assoc(Fields.PORT, CVMLong.create(port));
-		venue = EmbeddedVenue.launch(config);
-	}
-
-	@AfterAll
-	static void shutdown() {
-		if (venue != null) venue.close();
+	static void boot() {
+		venue = shared.venue();
 	}
 
 	@Test

@@ -1,17 +1,20 @@
 package brightside;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 import javax.swing.SwingUtilities;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import brightside.LatticeWatcher;
 import convex.core.data.ACell;
@@ -20,9 +23,11 @@ import convex.core.data.Maps;
 /**
  * The watcher is a value compare over a supplier: it must fire only when the
  * supplied value differs from the last one shown, never on an equal re-read,
- * and never while inactive. Headless-safe — Swing timers and workers need no
- * display.
+ * and never while inactive. Each check is followed to its end through the
+ * future it returns, so nothing here waits on a clock. Headless-safe — Swing
+ * timers and workers need no display.
  */
+@Execution(ExecutionMode.CONCURRENT)
 class LatticeWatcherTest {
 
 	@Test
@@ -30,33 +35,24 @@ class LatticeWatcherTest {
 		ACell v1 = Maps.of("sessions", 1L);
 		AtomicReference<ACell> current = new AtomicReference<>(v1);
 		AtomicInteger fired = new AtomicInteger();
-		AtomicReference<CountDownLatch> latch = new AtomicReference<>(new CountDownLatch(1));
-		LatticeWatcher w = new LatticeWatcher(current::get, v1, () -> true, record -> {
-			fired.incrementAndGet();
-			latch.get().countDown();
-		});
+		LatticeWatcher w = new LatticeWatcher(current::get, v1, () -> true, record -> fired.incrementAndGet());
 
 		// Same value as the baseline (a structurally equal re-read): no refresh.
 		current.set(Maps.of("sessions", 1L));
-		SwingUtilities.invokeAndWait(w::checkNow);
-		assertFalse(latch.get().await(600, TimeUnit.MILLISECONDS), "equal value must not fire");
-		assertEquals(0, fired.get());
+		check(w);
+		assertEquals(0, fired.get(), "equal value must not fire");
 
 		// A different value: exactly one refresh, and it becomes the new baseline.
 		current.set(Maps.of("sessions", 2L));
-		SwingUtilities.invokeAndWait(w::checkNow);
-		assertTrue(latch.get().await(5, TimeUnit.SECONDS), "changed value fires");
-		assertEquals(1, fired.get());
+		check(w);
+		assertEquals(1, fired.get(), "changed value fires");
 
-		latch.set(new CountDownLatch(1));
-		SwingUtilities.invokeAndWait(w::checkNow);
-		assertFalse(latch.get().await(600, TimeUnit.MILLISECONDS), "unchanged since last fire");
-		assertEquals(1, fired.get());
+		check(w);
+		assertEquals(1, fired.get(), "unchanged since last fire");
 
 		// A failed read (null) is "try again next tick", not a change.
 		current.set(null);
-		SwingUtilities.invokeAndWait(w::checkNow);
-		assertFalse(latch.get().await(600, TimeUnit.MILLISECONDS));
+		check(w);
 		assertEquals(1, fired.get());
 	}
 
@@ -64,8 +60,8 @@ class LatticeWatcherTest {
 	void stopInvalidatesAnInFlightReadAndQueuedChecks() throws Exception {
 		CountDownLatch reading = new CountDownLatch(1);
 		CountDownLatch release = new CountDownLatch(1);
-		CountDownLatch delivered = new CountDownLatch(1);
 		AtomicInteger reads = new AtomicInteger();
+		AtomicInteger delivered = new AtomicInteger();
 		LatticeWatcher watcher = new LatticeWatcher(() -> {
 			reads.incrementAndGet();
 			reading.countDown();
@@ -75,15 +71,16 @@ class LatticeWatcherTest {
 				throw new AssertionError(e);
 			}
 			return Maps.of("changed", true);
-		}, null, () -> true, value -> delivered.countDown());
+		}, null, () -> true, value -> delivered.incrementAndGet());
 		try {
-			SwingUtilities.invokeAndWait(watcher::checkNow);
+			CompletableFuture<Void> inFlight = onEventThread(watcher::checkNow);
 			assertTrue(reading.await(5, TimeUnit.SECONDS));
 			SwingUtilities.invokeAndWait(watcher::stop);
 			release.countDown();
-			SwingUtilities.invokeAndWait(watcher::checkNow);
-			assertFalse(delivered.await(400, TimeUnit.MILLISECONDS));
-			assertEquals(1, reads.get());
+			inFlight.get(5, TimeUnit.SECONDS);
+			check(watcher);
+			assertEquals(0, delivered.get(), "a read overtaken by stop is not delivered");
+			assertEquals(1, reads.get(), "no check runs once stopped");
 		} finally {
 			release.countDown();
 			SwingUtilities.invokeAndWait(watcher::stop);
@@ -94,13 +91,24 @@ class LatticeWatcherTest {
 	void doesNothingWhileInactive() throws Exception {
 		AtomicReference<ACell> current = new AtomicReference<>(Maps.of("a", 1L));
 		AtomicInteger reads = new AtomicInteger();
-		CountDownLatch fired = new CountDownLatch(1);
+		AtomicInteger fired = new AtomicInteger();
 		LatticeWatcher w = new LatticeWatcher(() -> {
 			reads.incrementAndGet();
 			return current.get();
-		}, null, () -> false, record -> fired.countDown());
-		SwingUtilities.invokeAndWait(w::checkNow);
-		assertFalse(fired.await(400, TimeUnit.MILLISECONDS));
+		}, null, () -> false, record -> fired.incrementAndGet());
+		check(w);
+		assertEquals(0, fired.get());
 		assertEquals(0, reads.get(), "no read while the chat isn't showing");
+	}
+
+	/** One check, started on the event thread as the app starts it, followed to its end. */
+	private static void check(LatticeWatcher w) throws Exception {
+		onEventThread(w::checkNow).get(5, TimeUnit.SECONDS);
+	}
+
+	private static CompletableFuture<Void> onEventThread(Supplier<CompletableFuture<Void>> action) throws Exception {
+		AtomicReference<CompletableFuture<Void>> started = new AtomicReference<>();
+		SwingUtilities.invokeAndWait(() -> started.set(action.get()));
+		return started.get();
 	}
 }

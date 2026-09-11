@@ -6,19 +6,14 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
-import java.net.ServerSocket;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
-import brightside.AppConfig;
 import brightside.EmbeddedVenue;
 import brightside.Identity;
 import brightside.Inbox;
@@ -30,14 +25,12 @@ import convex.core.data.AVector;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
 import convex.core.data.prim.CVMBool;
-import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
 import covia.api.Fields;
 import covia.grid.Asset;
 import covia.grid.Job;
 import covia.grid.Venue;
 import covia.grid.hitl.Hitl;
-import covia.venue.Config;
 import covia.venue.RequestContext;
 
 /**
@@ -54,8 +47,8 @@ class OdinTest {
 	/** Completes any task it is given — the venue's own test model. */
 	private static final String TASK_LLM = "v/test/ops/taskllm";
 
-	@TempDir
-	static Path home;
+	@RegisterExtension
+	static final SharedVenue shared = new SharedVenue();
 
 	private static EmbeddedVenue venue;
 	private static String userDID;
@@ -63,22 +56,10 @@ class OdinTest {
 
 	@BeforeAll
 	static void boot() throws Exception {
-		int port;
-		try (ServerSocket s = new ServerSocket(0)) {
-			port = s.getLocalPort();
-		}
-		AMap<AString, ACell> config = AppConfig.defaultVenue(home)
-			.assoc(Config.STORE, Strings.create("temp"))
-			.assoc(Fields.PORT, CVMLong.create(port));
-		venue = EmbeddedVenue.launch(config);
-		userDID = Identity.of("owner").userDID(venue.did());
+		venue = shared.venue();
+		userDID = Identity.of("odin-owner").userDID(venue.did());
 		user = venue.clientAs(userDID);
 		Odin.ensure(venue, TASK_LLM);
-	}
-
-	@AfterAll
-	static void shutdown() {
-		if (venue != null) venue.close();
 	}
 
 	@Test

@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
@@ -16,6 +15,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
 
 import convex.core.data.ACell;
@@ -29,7 +29,6 @@ import convex.core.lang.RT;
 import covia.api.Fields;
 import covia.grid.Job;
 import covia.grid.Venue;
-import covia.venue.Config;
 import covia.venue.RequestContext;
 
 /**
@@ -40,6 +39,9 @@ import covia.venue.RequestContext;
  * for the CLI; the real one runs only with {@code -Dbrightside.tests.claude=true}.
  */
 class ClaudeCodeTest {
+
+	@RegisterExtension
+	static final SharedVenue shared = new SharedVenue();
 
 	@TempDir
 	static Path home;
@@ -52,22 +54,33 @@ class ClaudeCodeTest {
 	@BeforeAll
 	static void boot() throws Exception {
 		project = Files.createDirectories(home.resolve("project"));
-		int port;
-		try (ServerSocket s = new ServerSocket(0)) {
-			port = s.getLocalPort();
-		}
-		AMap<AString, ACell> config = AppConfig.defaultVenue(home)
-			.assoc(Config.STORE, Strings.create("temp"))
-			.assoc(Fields.PORT, CVMLong.create(port))
-			.assoc(Config.ADAPTERS, Maps.of(ClaudeCode.ADAPTER, fakeConfig(Maps.of("scratch", project.toString()))));
-		venue = EmbeddedVenue.launch(config);
-		userDID = Identity.of("owner").userDID(venue.did());
+		venue = shared.venue();
+		// What config.json's adapters.claudecode block would have declared at
+		// launch — the stand-in command, this test's project — applied live.
+		venue.engine().configureAdapter(ClaudeCode.ADAPTER, fakeConfig(Maps.of("scratch", project.toString())));
+		userDID = Identity.of("code-owner").userDID(venue.did());
 		user = venue.clientAs(userDID);
 	}
 
+	/**
+	 * The owner stops what the tests started, through the adapter's own
+	 * operation: with {@code idleSeconds} 0 a session is kept alive until
+	 * stopped, and the shared venue outlives this class. Each process is seen
+	 * out, or the project directory it runs in cannot be deleted on Windows.
+	 */
 	@AfterAll
-	static void shutdown() {
-		if (venue != null) venue.close();
+	static void stopSessions() throws Exception {
+		ACell listed = user.run("v/ops/claudecode/sessions", Maps.empty()).get(30, TimeUnit.SECONDS);
+		if (!(RT.getIn(listed, "sessions") instanceof AVector<?> sessions)) return;
+		for (long i = 0; i < sessions.count(); i++) {
+			ACell session = (ACell) sessions.get(i);
+			ACell id = RT.getIn(session, Fields.SESSION);
+			if (id == null) continue;
+			user.run("v/ops/claudecode/stop", Maps.of(Fields.SESSION, id)).get(30, TimeUnit.SECONDS);
+			if (RT.getIn(session, "pid") instanceof CVMLong pid) {
+				ProcessHandle.of(pid.longValue()).ifPresent(p -> p.onExit().orTimeout(30, TimeUnit.SECONDS).join());
+			}
+		}
 	}
 
 	/** The adapter block with the stand-in as the command and the given projects. */

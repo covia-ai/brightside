@@ -7,17 +7,15 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
-import java.net.ServerSocket;
-import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 
 import convex.core.data.prim.CVMBool;
 
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import brightside.AppConfig;
 import brightside.BrightsideSkillsAdapter;
@@ -31,40 +29,27 @@ import convex.core.data.AVector;
 import convex.core.data.Blob;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
-import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
-import covia.api.Fields;
 import covia.grid.Job;
 import covia.grid.Venue;
-import covia.venue.Config;
 import covia.venue.RequestContext;
 
 /**
- * Boots a real venue via {@link EmbeddedVenue} (which registers both Brightside
- * adapters) and checks the {@code brightside:info} op and the seeded skillset.
+ * On a real venue launched by {@link EmbeddedVenue} (which registers both
+ * Brightside adapters): the {@code brightside:info} op, the seeded skillset,
+ * and Brightside's other operations.
  */
+@Execution(ExecutionMode.CONCURRENT)
 class BrightsideAdapterTest {
 
-	@TempDir
-	static Path home;
+	@RegisterExtension
+	static final SharedVenue shared = new SharedVenue();
 
 	private static EmbeddedVenue venue;
 
 	@BeforeAll
-	static void boot() throws IOException {
-		int port;
-		try (ServerSocket s = new ServerSocket(0)) {
-			port = s.getLocalPort();
-		}
-		AMap<AString, ACell> config = AppConfig.defaultVenue(home)
-			.assoc(Config.STORE, Strings.create("temp"))
-			.assoc(Fields.PORT, CVMLong.create(port));
-		venue = EmbeddedVenue.launch(config);
-	}
-
-	@AfterAll
-	static void shutdown() {
-		if (venue != null) venue.close();
+	static void boot() {
+		venue = shared.venue();
 	}
 
 	@Test

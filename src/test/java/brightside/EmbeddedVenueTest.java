@@ -4,8 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
-import java.net.ServerSocket;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -19,36 +17,22 @@ import brightside.AppConfig;
 import brightside.EmbeddedVenue;
 import brightside.Identity;
 import brightside.chat.ChatSession;
-import convex.core.data.ACell;
-import convex.core.data.AMap;
-import convex.core.data.AString;
-import convex.core.data.Strings;
-import convex.core.data.prim.CVMLong;
-import covia.api.Fields;
-import covia.venue.Config;
 
-/** Boots a real venue server from BrightSide's default config (temp store, free port). */
+/**
+ * Boots a real venue server from BrightSide's default config (temp store,
+ * ephemeral port) — the launch itself, so this venue is the test's own.
+ */
 class EmbeddedVenueTest {
 
 	@TempDir
 	Path home;
 
-	/** A port nothing is listening on right now — the venue defaults a missing port to 8080. */
-	private static int freePort() throws IOException {
-		try (ServerSocket socket = new ServerSocket(0)) {
-			return socket.getLocalPort();
-		}
-	}
-
 	@Test
 	void launchesServesAndCloses() throws Exception {
-		int port = freePort();
-		AMap<AString, ACell> config = AppConfig.defaultVenue(home)
-			.assoc(Config.STORE, Strings.create("temp"))
-			.assoc(Fields.PORT, CVMLong.create(port));
-		EmbeddedVenue v = EmbeddedVenue.launch(config);
+		EmbeddedVenue v = EmbeddedVenue.launch(SharedVenue.config(home));
 		try {
-			assertEquals(port, v.port());
+			int port = v.port();
+			assertTrue(port > 0, "port 0 asks the server to pick one, and it reports the port it picked");
 			assertNotNull(v.did());
 			assertEquals(AppConfig.DEFAULT_VENUE_NAME, v.name());
 			assertEquals("http://127.0.0.1:" + port + "/", v.url());

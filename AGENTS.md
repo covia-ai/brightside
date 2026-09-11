@@ -23,6 +23,18 @@ full technical surface lives under Settings. One Maven module,
   `v/test/ops/llm`, so no API key. Test mechanism (wiring, state, behaviour).
   No tests for the UI or for prose content — those are obvious in use and a
   test would only say the words twice.
+- The suite is fast because it is concurrent: test classes run in parallel in
+  one JVM (`junit-platform.properties`), and a class that only needs a venue
+  takes one from `SharedVenue` (a static `@RegisterExtension`), acting as a
+  user principal of its own so classes never see each other's state. Today
+  that is one venue per class; `-Dbrightside.tests.sharedVenue=true` makes it
+  one per run, which is the intended shape but loses writes under load until
+  covia-ai/covia#521 is fixed. Launch a venue by hand only to test the launch,
+  an encrypted store or a shutdown — from `SharedVenue.config`, on port 0.
+  Never wait on a clock: a test follows an asynchronous step to its end
+  through the future or latch the mechanism gives it, and a negative check
+  ("nothing happened") is made after that, not after a pause. Keep the whole
+  run under ten seconds.
 
 ## Where the detail lives
 

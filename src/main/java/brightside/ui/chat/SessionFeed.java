@@ -2,6 +2,7 @@ package brightside.ui.chat;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -28,6 +29,8 @@ public final class SessionFeed implements AutoCloseable {
 	private final Consumer<Update> changed;
 	private final Timer timer;
 	private SwingWorker<Update, Void> worker;
+	/** Completes on the event thread once no read is in flight and none is pending. */
+	private CompletableFuture<Void> idle = CompletableFuture.completedFuture(null);
 	private ACell lastRecord;
 	private String selectedId;
 	private long generation;
@@ -42,23 +45,32 @@ public final class SessionFeed implements AutoCloseable {
 		timer = new Timer(15_000, e -> refresh());
 	}
 
-	public void select(String sessionId) {
-		if (closed) return;
+	/** Shows a session; the returned future settles as {@link #refresh()} describes. */
+	public CompletableFuture<Void> select(String sessionId) {
+		if (closed) return idle;
 		timer.start();
 		selectedId = sessionId;
 		generation++;
 		lastRecord = null;
-		refresh();
+		return refresh();
 	}
 
-	/** Coalesce event bursts, with a final read after any work already in flight. */
-	public void refresh() {
-		if (closed || !visible.getAsBoolean()) return;
+	/**
+	 * Coalesce event bursts, with a final read after any work already in
+	 * flight. The returned future completes on the event thread once the feed
+	 * is quiet again — every read this and any coalesced calls asked for has
+	 * finished and delivered what it had to — so a caller can follow a refresh
+	 * to its end without guessing at timings.
+	 */
+	public CompletableFuture<Void> refresh() {
+		if (closed || !visible.getAsBoolean()) return idle;
 		if (worker != null) {
 			pending = true;
-			return;
+			return idle;
 		}
 		pending = false;
+		if (idle.isDone()) idle = new CompletableFuture<>();
+		CompletableFuture<Void> settled = idle;
 		long expected = generation;
 		String sid = selectedId;
 		ACell baseline = lastRecord;
@@ -87,10 +99,13 @@ public final class SessionFeed implements AutoCloseable {
 					// A failed read keeps the current view; the next event or tick retries.
 				} finally {
 					if (pending) refresh();
+					// A follow-up read carries the same future on; none, and it is settled.
+					if (worker == null) settled.complete(null);
 				}
 			}
 		};
 		worker.execute();
+		return settled;
 	}
 
 	@Override

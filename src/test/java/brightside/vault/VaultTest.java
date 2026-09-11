@@ -6,12 +6,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
-import java.net.ServerSocket;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import brightside.AppConfig;
 import brightside.EmbeddedVenue;
@@ -27,6 +28,12 @@ import covia.api.Fields;
 import covia.grid.Job;
 import covia.grid.Venue;
 
+/**
+ * Every test has a vault of its own, and the Argon2id derivation behind each
+ * open is deliberately slow, so the tests run side by side. The store tests
+ * launch encrypted venues of their own: the point is the store on disk.
+ */
+@Execution(ExecutionMode.CONCURRENT)
 class VaultTest {
 
 	@Test
@@ -100,12 +107,9 @@ class VaultTest {
 	}
 
 	private static void storeKeyRoundTrip(Path home) throws Exception {
-		int port;
-		try (ServerSocket s = new ServerSocket(0)) {
-			port = s.getLocalPort();
-		}
 		String seed = Mnemonic.toSeedHex(Mnemonic.generate(12));
-		AMap<AString, ACell> base = AppConfig.defaultVenue(home).assoc(Fields.PORT, CVMLong.create(port));
+		// The persistent store under home, on whatever port is free.
+		AMap<AString, ACell> base = AppConfig.defaultVenue(home).assoc(Fields.PORT, CVMLong.create(0));
 
 		// Launch under passphrase A (with this seed), write a marker, close.
 		AMap<AString, ACell> a = Vault.open(home, "passphrase-A".toCharArray()).secure(base, seed);

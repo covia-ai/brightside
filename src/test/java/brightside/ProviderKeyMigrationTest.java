@@ -3,24 +3,16 @@ package brightside;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
-import java.io.IOException;
-import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
 
 import brightside.vault.Vault;
-import convex.core.data.ACell;
-import convex.core.data.AMap;
-import convex.core.data.AString;
 import convex.core.data.Strings;
-import convex.core.data.prim.CVMLong;
-import covia.api.Fields;
-import covia.venue.Config;
 import covia.venue.RequestContext;
 
 /**
@@ -32,26 +24,18 @@ import covia.venue.RequestContext;
  */
 class ProviderKeyMigrationTest {
 
+	@RegisterExtension
+	static final SharedVenue shared = new SharedVenue();
+
+	/** The vault's files; the venue's own home is elsewhere. */
 	@TempDir
 	static Path home;
 
 	private static EmbeddedVenue venue;
 
 	@BeforeAll
-	static void boot() throws IOException {
-		int port;
-		try (ServerSocket s = new ServerSocket(0)) {
-			port = s.getLocalPort();
-		}
-		AMap<AString, ACell> config = AppConfig.defaultVenue(home)
-			.assoc(Config.STORE, Strings.create("temp"))
-			.assoc(Fields.PORT, CVMLong.create(port));
-		venue = EmbeddedVenue.launch(config);
-	}
-
-	@AfterAll
-	static void shutdown() {
-		if (venue != null) venue.close();
+	static void boot() {
+		venue = shared.venue();
 	}
 
 	@Test

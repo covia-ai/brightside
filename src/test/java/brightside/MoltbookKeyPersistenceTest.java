@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.io.IOException;
-import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -74,13 +73,9 @@ class MoltbookKeyPersistenceTest {
 
 	/** Launches the venue the way Brightside does: the store keyed from the seed, the vault from the passphrase. */
 	private static Launched launch(Path home, String passphrase) throws IOException {
-		int port;
-		try (ServerSocket s = new ServerSocket(0)) {
-			port = s.getLocalPort();
-		}
 		Vault vault = Vault.open(home, passphrase.toCharArray());
 		AMap<AString, ACell> config = vault.secure(AppConfig.defaultVenue(home), SEED)
-			.assoc(Fields.PORT, CVMLong.create(port));
+			.assoc(Fields.PORT, CVMLong.create(0));
 		return new Launched(EmbeddedVenue.launch(config));
 	}
 }

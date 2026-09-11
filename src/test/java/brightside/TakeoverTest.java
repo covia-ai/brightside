@@ -6,8 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
-import java.net.ServerSocket;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.file.Files;
@@ -20,8 +18,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
-import brightside.AppConfig;
 import brightside.EmbeddedVenue;
 import brightside.Takeover;
 import convex.core.crypto.AKeyPair;
@@ -29,9 +28,6 @@ import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
 import convex.core.data.Strings;
-import convex.core.data.prim.CVMLong;
-import covia.api.Fields;
-import covia.venue.Config;
 
 /**
  * The takeover handshake against a <em>private</em> venue — Brightside's default,
@@ -40,8 +36,10 @@ import covia.venue.Config;
  * derive its DID, learn what it is from {@code brightside:info}, get its
  * shutdown request accepted, and see it go down; a newcomer with a different
  * seed must be refused. The port going quiet is not the store being free, so
- * the waits on the process and on the store file's lock are checked too.
+ * the waits on the process and on the store file's lock are checked too. This
+ * venue is taken down by the test, so it is the test's own.
  */
+@Execution(ExecutionMode.CONCURRENT)
 class TakeoverTest {
 
 	@TempDir
@@ -56,11 +54,8 @@ class TakeoverTest {
 
 	@Test
 	void takesOverAPrivateVenueWithTheSharedSeed() throws Exception {
-		int port = freePort();
 		String seedHex = AKeyPair.generate().getSeed().toHexString();
-		AMap<AString, ACell> config = AppConfig.defaultVenue(home)
-			.assoc(Config.STORE, Strings.create("temp"))
-			.assoc(Fields.PORT, CVMLong.create(port))
+		AMap<AString, ACell> config = SharedVenue.config(home)
 			.assoc(Strings.create("seed"), Strings.create(seedHex));
 
 		CountDownLatch asked = new CountDownLatch(1);
@@ -70,6 +65,7 @@ class TakeoverTest {
 			running.get().close(); // what BrightSide.exit does: flush and go
 		});
 		running.set(venue);
+		int port = venue.port();
 
 		assertTrue(Takeover.isRunning(port), "a private venue is detected despite answering 401 to strangers");
 		assertEquals(venue.did(), Takeover.venueDIDFor(seedHex),
@@ -103,7 +99,8 @@ class TakeoverTest {
 		Files.write(store, new byte[] { 1, 2, 3 });
 		try (FileChannel channel = FileChannel.open(store, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
 			FileLock lock = channel.lock();
-			assertFalse(Takeover.waitUntilReleased(store, 600), "a locked store is not free");
+			// A lock still held when the time is up is the answer, at once with no time to give.
+			assertFalse(Takeover.waitUntilReleased(store, 0), "a locked store is not free");
 			lock.release();
 		}
 		assertTrue(Takeover.waitUntilReleased(store, 1_000), "a released store is free");
@@ -113,14 +110,8 @@ class TakeoverTest {
 
 	@Test
 	void waitsForTheProcessToExit() {
-		assertFalse(Takeover.waitUntilExited(ProcessHandle.current().pid(), 300), "this process is still here");
+		assertFalse(Takeover.waitUntilExited(ProcessHandle.current().pid(), 0), "this process is still here");
 		assertTrue(Takeover.waitUntilExited(0, 100), "an unknown pid is not waited on");
 		assertTrue(Takeover.waitUntilExited(Long.MAX_VALUE, 100), "a pid that is not alive is not waited on");
-	}
-
-	private static int freePort() throws IOException {
-		try (ServerSocket s = new ServerSocket(0)) {
-			return s.getLocalPort();
-		}
 	}
 }

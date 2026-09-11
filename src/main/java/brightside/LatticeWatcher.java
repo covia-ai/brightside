@@ -1,5 +1,6 @@
 package brightside;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -61,17 +62,23 @@ public final class LatticeWatcher {
 		timer.stop();
 	}
 
-	/** Force an immediate check (e.g. a manual Refresh). */
-	public void checkNow() {
-		tick();
+	/**
+	 * Force an immediate check (e.g. a manual Refresh). The returned future
+	 * completes on the event thread once the check has settled — the value
+	 * delivered, or found unchanged, or the tick skipped — so a caller can
+	 * follow one check to its end without guessing at timings.
+	 */
+	public CompletableFuture<Void> checkNow() {
+		return tick();
 	}
 
-	private void tick() {
-		if (stopped || checking) return;
-		if (active != null && !active.getAsBoolean()) return;
+	private CompletableFuture<Void> tick() {
+		if (stopped || checking) return CompletableFuture.completedFuture(null);
+		if (active != null && !active.getAsBoolean()) return CompletableFuture.completedFuture(null);
 		checking = true;
 		final ACell baseline = lastValue;
 		final long expected = generation;
+		final CompletableFuture<Void> settled = new CompletableFuture<>();
 		new SwingWorker<ACell, Void>() {
 			@Override
 			protected ACell doInBackground() {
@@ -83,8 +90,8 @@ public final class LatticeWatcher {
 			@Override
 			protected void done() {
 				checking = false;
-				if (stopped || generation != expected) return;
 				try {
+					if (stopped || generation != expected) return;
 					ACell value = get();
 					if (value != null) {
 						lastValue = value;
@@ -92,9 +99,12 @@ public final class LatticeWatcher {
 					}
 				} catch (Exception ignored) {
 					// a failed read just means "try again next tick"
+				} finally {
+					settled.complete(null);
 				}
 			}
 		}.execute();
+		return settled;
 	}
 
 	private static boolean equalValue(ACell a, ACell b) {

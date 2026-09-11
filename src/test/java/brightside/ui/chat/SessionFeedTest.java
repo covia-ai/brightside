@@ -7,22 +7,31 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 import javax.swing.SwingUtilities;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import convex.core.data.ACell;
 import convex.core.data.Maps;
 import convex.core.data.Vectors;
 
-/** Selection and asynchronous delivery, without constructing any UI or venue. */
+/**
+ * Selection and asynchronous delivery, without constructing any UI or venue.
+ * Each refresh is followed to its end through the future it returns, so
+ * nothing here waits on a clock.
+ */
+@Execution(ExecutionMode.CONCURRENT)
 class SessionFeedTest {
 
 	private static ACell record(String text) {
@@ -54,16 +63,19 @@ class SessionFeedTest {
 		try {
 			SwingUtilities.invokeAndWait(() -> feed.select("aa"));
 			assertTrue(reading.await(5, TimeUnit.SECONDS));
-			SwingUtilities.invokeAndWait(() -> {
+			CompletableFuture<Void> quiet = onEventThread(() -> {
 				feed.select("bb");
-				for (int i = 0; i < 20; i++) feed.refresh();
+				CompletableFuture<Void> last = null;
+				for (int i = 0; i < 20; i++) last = feed.refresh();
+				return last;
 			});
 			release.countDown();
+			quiet.get(5, TimeUnit.SECONDS);
 			SessionFeed.Update update = next(updates);
 			assertEquals("bb", update.selectedId());
 			assertEquals("bb", update.selected().sessionId());
-			assertEquals(2, reads.get());
-			assertNull(updates.poll(200, TimeUnit.MILLISECONDS));
+			assertEquals(2, reads.get(), "one read for the whole burst, after the one it overtook");
+			assertNull(updates.poll(), "and one delivery");
 		} finally {
 			release.countDown();
 			SwingUtilities.invokeAndWait(feed::close);
@@ -76,17 +88,17 @@ class SessionFeedTest {
 		BlockingQueue<SessionFeed.Update> updates = new LinkedBlockingQueue<>();
 		SessionFeed feed = new SessionFeed(current::get, () -> true, updates::add);
 		try {
-			SwingUtilities.invokeAndWait(() -> feed.select("aa"));
+			settle(() -> feed.select("aa"));
 			assertEquals("aa", next(updates).selectedId());
-			SwingUtilities.invokeAndWait(() -> feed.select(null));
+			settle(() -> feed.select(null));
 			assertNull(next(updates).selected());
 			current.set(record("old turn finished"));
-			SwingUtilities.invokeAndWait(feed::refresh);
+			settle(feed::refresh);
 			SessionFeed.Update update = next(updates);
 			assertNull(update.selectedId());
 			assertNull(update.selected());
 			assertEquals(2, update.sessions().size());
-			SwingUtilities.invokeAndWait(() -> feed.select("removed"));
+			settle(() -> feed.select("removed"));
 			assertNull(next(updates).selected());
 		} finally {
 			SwingUtilities.invokeAndWait(feed::close);
@@ -98,11 +110,11 @@ class SessionFeedTest {
 		BlockingQueue<SessionFeed.Update> updates = new LinkedBlockingQueue<>();
 		SessionFeed feed = new SessionFeed(() -> record("finished"), () -> true, updates::add);
 		try {
-			SwingUtilities.invokeAndWait(() -> feed.select("aa"));
+			settle(() -> feed.select("aa"));
 			next(updates);
-			SwingUtilities.invokeAndWait(feed::refresh);
-			assertNull(updates.poll(200, TimeUnit.MILLISECONDS));
-			SwingUtilities.invokeAndWait(() -> feed.select("aa"));
+			settle(feed::refresh);
+			assertNull(updates.poll(), "an unchanged record is not delivered again");
+			settle(() -> feed.select("aa"));
 			assertEquals("aa", next(updates).selectedId());
 		} finally {
 			SwingUtilities.invokeAndWait(feed::close);
@@ -122,26 +134,39 @@ class SessionFeedTest {
 			return record("late");
 		}, visible::get, updates::add);
 		try {
-			SwingUtilities.invokeAndWait(() -> feed.select("aa"));
-			assertEquals(0, reads.get());
+			settle(() -> feed.select("aa"));
+			assertEquals(0, reads.get(), "hidden: no read");
 			visible.set(true);
-			SwingUtilities.invokeAndWait(feed::refresh);
+			CompletableFuture<Void> inFlight = onEventThread(feed::refresh);
 			assertTrue(reading.await(5, TimeUnit.SECONDS));
 			SwingUtilities.invokeAndWait(feed::close);
 			release.countDown();
-			SwingUtilities.invokeAndWait(feed::refresh);
-			assertNull(updates.poll(400, TimeUnit.MILLISECONDS));
-			assertEquals(1, reads.get());
+			inFlight.get(5, TimeUnit.SECONDS);
+			settle(feed::refresh);
+			assertNull(updates.poll(), "a read overtaken by close is not delivered");
+			assertEquals(1, reads.get(), "no read after close");
 		} finally {
 			release.countDown();
 			SwingUtilities.invokeAndWait(feed::close);
 		}
 	}
 
-	private static SessionFeed.Update next(BlockingQueue<SessionFeed.Update> updates) throws InterruptedException {
-		SessionFeed.Update update = updates.poll(5, TimeUnit.SECONDS);
+	/** The delivery the feed has already made; the caller has settled the refresh that made it. */
+	private static SessionFeed.Update next(BlockingQueue<SessionFeed.Update> updates) {
+		SessionFeed.Update update = updates.poll();
 		assertNotNull(update, "the current selection must be delivered");
 		return update;
+	}
+
+	/** Runs a feed call on the event thread, as the app does, and follows it until the feed is quiet. */
+	private static void settle(Supplier<CompletableFuture<Void>> action) throws Exception {
+		onEventThread(action).get(5, TimeUnit.SECONDS);
+	}
+
+	private static CompletableFuture<Void> onEventThread(Supplier<CompletableFuture<Void>> action) throws Exception {
+		AtomicReference<CompletableFuture<Void>> started = new AtomicReference<>();
+		SwingUtilities.invokeAndWait(() -> started.set(action.get()));
+		return started.get();
 	}
 
 	private static void await(CountDownLatch latch) {

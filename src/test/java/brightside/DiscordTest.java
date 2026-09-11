@@ -6,29 +6,20 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
-import java.net.ServerSocket;
-import java.nio.file.Path;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
-import brightside.AppConfig;
 import brightside.Discord;
 import brightside.EmbeddedVenue;
 import brightside.Identity;
 import convex.core.data.ACell;
-import convex.core.data.AMap;
-import convex.core.data.AString;
 import convex.core.data.Strings;
-import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
-import covia.api.Fields;
 import covia.grid.Venue;
-import covia.venue.Config;
 import covia.venue.RequestContext;
 
 /**
@@ -39,8 +30,8 @@ import covia.venue.RequestContext;
  */
 class DiscordTest {
 
-	@TempDir
-	static Path home;
+	@RegisterExtension
+	static final SharedVenue shared = new SharedVenue();
 
 	private static EmbeddedVenue venue;
 	private static String userDID;
@@ -49,32 +40,21 @@ class DiscordTest {
 	private static ExpectedLogs.Scope requestLogs;
 
 	@BeforeAll
-	static void boot() throws IOException {
-		// The fake token cannot connect. Keep filtering through shutdown: startup runs asynchronously.
+	static void boot() {
+		// The fake token cannot connect. Keep filtering until the bot is removed: startup runs asynchronously.
 		gatewayLogs = ExpectedLogs.expect("covia.adapter.discord.BotRunner", ch.qos.logback.classic.Level.WARN,
 			"Discord bot 'brightside' not started: Discord Gateway connection failed:");
 		requestLogs = ExpectedLogs.expect("net.dv8tion.jda.internal.requests.Requester", ch.qos.logback.classic.Level.ERROR,
 			"There was an I/O error while executing a REST request:");
-		int port;
-		try (ServerSocket s = new ServerSocket(0)) {
-			port = s.getLocalPort();
-		}
-		AMap<AString, ACell> config = AppConfig.defaultVenue(home)
-			.assoc(Config.STORE, Strings.create("temp"))
-			.assoc(Fields.PORT, CVMLong.create(port));
-		venue = EmbeddedVenue.launch(config);
-		userDID = Identity.of("owner").userDID(venue.did());
+		venue = shared.venue();
+		userDID = Identity.of("discord-owner").userDID(venue.did());
 		user = venue.clientAs(userDID);
 	}
 
 	@AfterAll
 	static void shutdown() {
-		try {
-			if (venue != null) venue.close();
-		} finally {
-			if (requestLogs != null) requestLogs.close();
-			if (gatewayLogs != null) gatewayLogs.close();
-		}
+		if (requestLogs != null) requestLogs.close();
+		if (gatewayLogs != null) gatewayLogs.close();
 	}
 
 	@Test

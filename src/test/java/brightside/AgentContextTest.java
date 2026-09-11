@@ -6,15 +6,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
-import java.net.ServerSocket;
-import java.nio.file.Path;
 import java.util.List;
 
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import brightside.AgentContext;
 import brightside.AppConfig;
@@ -22,42 +20,24 @@ import brightside.EmbeddedVenue;
 import brightside.Identity;
 import brightside.SessionHistory;
 import brightside.chat.ChatSession;
-import convex.core.data.ACell;
-import convex.core.data.AMap;
-import convex.core.data.AString;
 import convex.core.data.Maps;
-import convex.core.data.Strings;
-import convex.core.data.prim.CVMLong;
-import covia.api.Fields;
 import covia.grid.Venue;
-import covia.venue.Config;
 
 /**
  * The inspector's data: {@code v/ops/agent/context} assembled for a real
  * session on a real venue, as the agent's owner.
  */
+@Execution(ExecutionMode.CONCURRENT)
 class AgentContextTest {
 
-	@TempDir
-	static Path home;
+	@RegisterExtension
+	static final SharedVenue shared = new SharedVenue();
 
 	private static EmbeddedVenue venue;
 
 	@BeforeAll
-	static void boot() throws IOException {
-		int port;
-		try (ServerSocket s = new ServerSocket(0)) {
-			port = s.getLocalPort();
-		}
-		AMap<AString, ACell> config = AppConfig.defaultVenue(home)
-			.assoc(Config.STORE, Strings.create("temp"))
-			.assoc(Fields.PORT, CVMLong.create(port));
-		venue = EmbeddedVenue.launch(config);
-	}
-
-	@AfterAll
-	static void shutdown() {
-		if (venue != null) venue.close();
+	static void boot() {
+		venue = shared.venue();
 	}
 
 	@Test
