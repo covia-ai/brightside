@@ -62,6 +62,23 @@ class AppConfigTest {
 	}
 
 	@Test
+	void authOptionsPreservePrivateDefaults() {
+		for (String auth : new String[] {"{}", "{tokenExpiry:3600}", "{public:{caps:[]}}"}) {
+			Config venue = new Config(AppConfig.parse("{venue:{auth:" + auth + "}}", home).venueConfig());
+			assertFalse(venue.isPublicAccess(), auth);
+			assertTrue(venue.isMCPAuthRequired(), auth);
+		}
+		Config venue = new Config(AppConfig.parse("{venue:{auth:{tokenExpiry:3600}}}", home).venueConfig());
+		assertEquals(3600, venue.getTokenExpiry());
+	}
+
+	@Test
+	void anonymousAccessStillRequiresAnExplicitOptIn() {
+		Config venue = new Config(AppConfig.parse("{venue:{auth:{public:{enabled:true}}}}", home).venueConfig());
+		assertTrue(venue.isPublicAccess());
+	}
+
+	@Test
 	void templateMatchesTheDefaults() {
 		AppConfig fromTemplate = AppConfig.parse(AppConfig.DEFAULT_TEMPLATE, home);
 		AppConfig fromEmpty = AppConfig.parse("{}", home);

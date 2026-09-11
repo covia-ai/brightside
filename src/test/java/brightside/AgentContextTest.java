@@ -172,6 +172,8 @@ class AgentContextTest {
 	@Test
 	void nullForAMissingAgent() {
 		Venue client = venue.clientAs(Identity.of("nobody").userDID(venue.did()));
-		assertNull(AgentContext.load(client, "no-such-agent", null));
+		try (var logs = ExpectedLogs.warn(AgentContext.class, "Could not assemble agent context for no-such-agent:")) {
+			assertNull(AgentContext.load(client, "no-such-agent", null));
+		}
 	}
 }

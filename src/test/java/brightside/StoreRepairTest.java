@@ -51,14 +51,12 @@ class StoreRepairTest {
 
 	@Test
 	void repairsAStoreLeftOpenByACrashAndKeepsTheOldFile() throws Exception {
-		// A real venue.etch never lives in a @TempDir: its mapping outlives close on Windows.
-		Path dir = Files.createDirectories(Path.of("target", "store-repair-test", Long.toHexString(System.nanoTime())));
-		Path store = dir.resolve("venue.etch");
-		byte[] key = new byte[32];
-		new SecureRandom().nextBytes(key);
-		String keyHex = HexFormat.of().formatHex(key);
-		AMap<AString, ACell> venueConfig = venueConfig(store, keyHex);
-		try {
+		try (StoreTestDirectory directory = new StoreTestDirectory()) {
+			Path store = directory.path().resolve("venue.etch");
+			byte[] key = new byte[32];
+			new SecureRandom().nextBytes(key);
+			String keyHex = HexFormat.of().formatHex(key);
+			AMap<AString, ACell> venueConfig = venueConfig(store, keyHex);
 			crash(store, keyHex);
 
 			// Etch refuses the file, in the words the launch looks for.
@@ -81,8 +79,6 @@ class StoreRepairTest {
 			try (EtchStore again = EtchStore.create(store.toFile(), new Config(venueConfig).getEtchConfig())) {
 				assertEquals(Strings.create("saved"), again.refForHash(again.getRootHash()).getValue());
 			}
-		} finally {
-			deleteQuietly(dir);
 		}
 	}
 
@@ -94,19 +90,5 @@ class StoreRepairTest {
 		assertTrue(p.waitFor(60, TimeUnit.SECONDS), "the crashing writer finished");
 		assertEquals(0, p.exitValue(), "the writer halted as intended");
 		assertTrue(Files.size(store) > 0, "the crash left a store behind");
-	}
-
-	private static void deleteQuietly(Path dir) {
-		try (var files = Files.walk(dir)) {
-			files.sorted(java.util.Comparator.reverseOrder()).forEach(p -> {
-				try {
-					Files.deleteIfExists(p);
-				} catch (IOException ignored) {
-					// A mapping may still pin a file until collected; the next build clears target/.
-				}
-			});
-		} catch (IOException ignored) {
-			// Best effort only.
-		}
 	}
 }

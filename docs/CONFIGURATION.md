@@ -96,9 +96,11 @@ would rather restore a backup by hand. How the repair works is in
 
 Accepts **any key the Covia venue runtime understands** — `mcp`, `a2a`,
 `adapters`, `modules`, `auth`, `store`, `secrets`, and so on. The map is merged
-over Brightside's defaults key-for-key: each key you set replaces Brightside's
-default for that key, and the rest are left alone. New venue options therefore
-need no Brightside change.
+over Brightside's defaults recursively: nested maps keep omitted defaults,
+while explicit scalar values and lists replace them. For example, changing
+`auth.tokenExpiry` preserves `auth.public.enabled: false`; enabling anonymous
+access requires setting `auth.public.enabled: true`. New venue options need
+no Brightside change.
 
 Brightside's defaults:
 

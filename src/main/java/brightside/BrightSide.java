@@ -13,10 +13,10 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
-import javax.swing.SwingWorker;
 
 import convex.core.data.ACell;
 import convex.core.data.AMap;
@@ -78,22 +78,19 @@ public final class BrightSide {
 	private final Prefs prefs;
 	private volatile EmbeddedVenue venue;
 	private volatile ChatSession chat;
-	private volatile ConversationWatcher watcher; // event thread
-	private volatile AutoCloseable agentEventsSub; // covia's live agent tap for the bound agent
-	private volatile ConversationWatcher inboxWatcher; // event thread; the owner's h/ inbox
+	private volatile LatticeWatcher inboxWatcher; // event thread; the owner's h/ inbox
 	private final java.util.Set<String> notifiedRequests = java.util.concurrent.ConcurrentHashMap.newKeySet();
 	private volatile List<Inbox.Request> inboxRequests = List.of(); // the owner's and the venue's, as shown
 	private volatile Identity identity;
 	private volatile covia.grid.Venue client; // in-process client for the acting user
 	private volatile String userDID; // the acting user's DID (for in-process lattice reads)
 	private volatile String agentId;
-	private volatile String viewedSessionId; // the conversation currently on screen
-	private volatile List<SessionHistory.Session> sessions = List.of(); // switcher list, newest first
 	private MainWindow window; // event thread only
 	private UnlockDialog unlockDialog; // event thread only; non-null exactly while locked
 	private TrayManager tray; // event thread only
 	private final AtomicBoolean exiting = new AtomicBoolean();
 	private final AtomicBoolean chatStarted = new AtomicBoolean();
+	private final AtomicLong chatBindings = new AtomicLong();
 	/** The owner already agreed, at startup, to take over the instance found running. */
 	private volatile boolean takeoverApproved;
 	/** A venue launch in progress, for {@link #closeVenue} to wait on; null when none is. */
@@ -110,6 +107,16 @@ public final class BrightSide {
 	/** How a chat (re)bind should be presented: first launch, a name change, an agent switch, or a change of acting principal. */
 	private enum Bind {
 		FIRST, NAME_CHANGE, AGENT_SWITCH, PRINCIPAL_SWITCH
+	}
+
+	/** Identity and request order captured before a background bind starts. */
+	private record ChatTarget(long generation, String did, String sessionId, boolean operator) {
+	}
+
+	private ChatTarget chatTarget(EmbeddedVenue venue, Identity identity) {
+		ChatSession current = chat;
+		return new ChatTarget(chatBindings.incrementAndGet(), actingDID(identity, venue),
+			current == null ? null : current.sessionId(), actingAsOperator);
 	}
 
 	/**
@@ -522,25 +529,19 @@ public final class BrightSide {
 			SwingUtilities.invokeLater(() -> window.showSystemMessage("This install has no passphrase to lock behind."));
 			return;
 		}
-		ConversationWatcher oldWatcher = watcher;
-		ConversationWatcher oldInbox = inboxWatcher;
-		watcher = null;
+		chatBindings.incrementAndGet();
+		LatticeWatcher oldInbox = inboxWatcher;
 		inboxWatcher = null;
 		notifiedRequests.clear();
 		chat = null;
 		client = null;
 		userDID = null;
 		agentId = null;
-		viewedSessionId = null;
-		sessions = List.of();
 		identity = null;
 		vault = null;
 		actingAsOperator = false;
 		chatStarted.set(false);
 		SwingUtilities.invokeLater(() -> {
-			if (oldWatcher != null) oldWatcher.stop();
-			closeQuietly(agentEventsSub);
-			agentEventsSub = null;
 			if (oldInbox != null) oldInbox.stop();
 			window.userLoggedOut();
 			window.setVisible(false);
@@ -1319,9 +1320,10 @@ public final class BrightSide {
 
 	private void startChatBackground(EmbeddedVenue v, Identity id, AppConfig.Chat chatConfig, Bind bind,
 			boolean configureExisting) {
+		ChatTarget target = chatTarget(v, id);
 		Thread t = new Thread(() -> {
 			try {
-				startChat(v, id, chatConfig, bind, configureExisting);
+				startChat(v, id, chatConfig, bind, configureExisting, target);
 			} catch (Throwable e) {
 				// Off the event thread and after the reveal: without this the
 				// window would say "starting up" for ever, and the trace would
@@ -1336,22 +1338,21 @@ public final class BrightSide {
 
 	/** Binds a chat session to {@code id}'s principal and prepares its conversation view. */
 	private void startChat(EmbeddedVenue v, Identity id, AppConfig.Chat chatConfig, Bind bind) {
-		startChat(v, id, chatConfig, bind, true);
+		startChat(v, id, chatConfig, bind, true, chatTarget(v, id));
 	}
 
 	private void startChat(EmbeddedVenue v, Identity id, AppConfig.Chat chatConfig, Bind bind,
-			boolean configureExisting) {
-		String did = actingDID(id, v);
+			boolean configureExisting, ChatTarget target) {
+		String did = target.did();
 		covia.grid.Venue userClient = v.clientAs(did);
 		ChatSession session = new ChatSession(userClient, chatConfig, id.name(), configureExisting);
-		chat = session;
 
 		// The agent is not created or reconfigured here: ChatSession.ensureAgent
 		// runs on the first send, so binding the chat submits no jobs — and Home
 		// leaves ChatSession.sessionId null until the user actually sends their
 		// first message. Odin is the exception when the operator turns to him:
 		// he is configured by his own ensure, so the session must find him there.
-		if (actingAsOperator && Odin.AGENT_ID.equals(chatConfig.agentId())) {
+		if (target.operator() && Odin.AGENT_ID.equals(chatConfig.agentId())) {
 			try {
 				Odin.ensure(v, chatConfig.llmOperation());
 			} catch (Exception e) {
@@ -1370,9 +1371,6 @@ public final class BrightSide {
 			}
 		}
 		String aid = chatConfig.agentId();
-		this.client = userClient;
-		this.agentId = aid;
-		this.userDID = did;
 
 		// The venue is in-process: read the agent record straight from the lattice
 		// (no job) and project it, rather than submitting a covia:read.
@@ -1382,7 +1380,7 @@ public final class BrightSide {
 		// conversations wait in Sessions (DESIGN.md §5). A name change keeps the
 		// conversation on screen, if any; a switch of agent or principal opens
 		// that agent's latest, so "Now chatting with X" has X's context behind it.
-		String viewed = viewedSessionId;
+		String viewed = target.sessionId();
 		SessionHistory.Snapshot history = switch (bind) {
 			case FIRST -> null;
 			case NAME_CHANGE -> (viewed != null) ? SessionHistory.snapshotOf(record, viewed) : null;
@@ -1390,10 +1388,9 @@ public final class BrightSide {
 		};
 		if (history != null) session.resume(history.sessionId());
 		List<SessionHistory.Item> turns = (history != null) ? history.items() : List.of();
-		viewedSessionId = (history != null) ? history.sessionId() : null;
 		List<SessionHistory.Session> sessionList = (record != null) ? SessionHistory.sessionsOf(record) : List.of();
-		sessions = sessionList;
-		List<brightside.model.AgentRef> agentRefs = listAgents(v, did, aid);
+		List<AgentRef> agentRefs = listAgents(v, did, aid,
+			target.operator() ? Odin.AGENT_ID : config.chat().agentId());
 		// The inbox is per user, not per agent: (re)bind it with the user. It
 		// shows the venue's own requests too — the app is the operator.
 		convex.core.data.ACell inboxValue = (bind == Bind.AGENT_SWITCH) ? null : inboxes(v, did);
@@ -1402,6 +1399,11 @@ public final class BrightSide {
 			id.label(), aid, turns.size(), sessionList.size());
 
 		SwingUtilities.invokeLater(() -> {
+			if (exiting.get() || chatBindings.get() != target.generation()) return;
+			chat = session;
+			client = userClient;
+			agentId = aid;
+			userDID = did;
 			switch (bind) {
 				case FIRST -> window.showChat(v, session, id, turns);
 				case NAME_CHANGE -> window.userChanged(session, id, turns);
@@ -1416,30 +1418,10 @@ public final class BrightSide {
 					window.refreshSettings();
 				}
 			}
+			window.bindSessions(v, did, session, sessionList);
 			window.setAgents(agentRefs, aid, defaultAgentId());
-			window.setConversations(sessionList, viewedSessionId);
 			if (bind != Bind.AGENT_SWITCH) bindInbox(v, did, inboxValue, inbox);
 			if (tray != null) tray.setTooltip(APP_NAME + " — " + id.name() + (actingAsOperator ? " (" + id.operatorName() + ")" : ""));
-			// Watch this agent's value: covia's in-process agent event tap kicks
-			// an immediate check on every run-loop event (the compare absorbs
-			// duplicates), and a slow poll remains as the fallback for
-			// out-of-band changes. In-process reads — no jobs.
-			ConversationWatcher w = watcher;
-			if (w != null) w.stop();
-			closeQuietly(agentEventsSub);
-			ConversationWatcher fresh = new ConversationWatcher(() -> v.agentRecord(did, aid), record,
-				() -> window.isChatShowing(),
-				this::onAgentChanged, ConversationWatcher.FALLBACK_INTERVAL_MS);
-			watcher = fresh;
-			fresh.start();
-			agentEventsSub = v.subscribeAgent(did, aid, event -> {
-				SwingUtilities.invokeLater(fresh::checkNow);
-				if (!concernsChat(event)) return;
-				// The tool's display name is resolved here, on the venue's thread
-				// (an in-process read), so the event thread only paints.
-				String label = liveToolLabel(v, did, event);
-				SwingUtilities.invokeLater(() -> window.showActivity(event, label));
-			});
 		});
 	}
 
@@ -1451,7 +1433,7 @@ public final class BrightSide {
 	public void switchAgent(String agentId) {
 		EmbeddedVenue v = venue;
 		Identity id = identity;
-		if (v == null || id == null || agentId == null || agentId.equals(this.agentId)) return;
+		if (v == null || id == null || agentId == null) return;
 		startChatBackground(v, id, chatConfigFor(agentId), Bind.AGENT_SWITCH);
 	}
 
@@ -1509,7 +1491,7 @@ public final class BrightSide {
 	}
 
 	/** Show the agent info screen for {@code agentId}. */
-	public void showAgentInfo(String agentId) {
+	public void showAgentInfo(String agentId, int version) {
 		Venue c = client;
 		EmbeddedVenue v = venue;
 		Identity id = identity;
@@ -1519,7 +1501,7 @@ public final class BrightSide {
 		Thread t = new Thread(() -> {
 			// Null when it could not be read: the Agent view says so.
 			AgentInfo.Summary info = AgentInfo.load(c, v.agentRecord(did, agentId), agentId, did, id.name(), standard);
-			SwingUtilities.invokeLater(() -> window.showAgentInfo(agentId, info));
+			SwingUtilities.invokeLater(() -> window.showAgentInfo(agentId, version, info));
 		}, "brightside-agent-info");
 		t.setDaemon(true);
 		t.start();
@@ -1576,13 +1558,13 @@ public final class BrightSide {
 	 * only ones that arrive while running get a tray balloon.
 	 */
 	private void bindInbox(EmbeddedVenue v, String did, convex.core.data.ACell value, List<Inbox.Request> requests) {
-		ConversationWatcher old = inboxWatcher;
+		LatticeWatcher old = inboxWatcher;
 		if (old != null) old.stop();
 		notifiedRequests.clear();
 		for (Inbox.Request r : requests) if (r.open()) notifiedRequests.add(r.id());
 		inboxRequests = requests;
 		window.setInbox(requests);
-		inboxWatcher = new ConversationWatcher(() -> inboxes(v, did), value, () -> window.isShowing(), this::onInboxChanged);
+		inboxWatcher = new LatticeWatcher(() -> inboxes(v, did), value, () -> window.isShowing(), this::onInboxChanged);
 		inboxWatcher.start();
 	}
 
@@ -1648,7 +1630,7 @@ public final class BrightSide {
 			String n = note;
 			SwingUtilities.invokeLater(() -> {
 				window.showInboxNotice(n);
-				ConversationWatcher w = inboxWatcher;
+				LatticeWatcher w = inboxWatcher;
 				if (w != null) w.checkNow();
 			});
 		}, "brightside-hitl-respond");
@@ -1698,14 +1680,17 @@ public final class BrightSide {
 	 * including the default and current.
 	 */
 	private List<AgentRef> listAgents(EmbeddedVenue v, String did, String currentAid) {
+		return listAgents(v, did, currentAid, defaultAgentId());
+	}
+
+	private List<AgentRef> listAgents(EmbeddedVenue v, String did, String currentAid, String def) {
 		java.util.LinkedHashMap<String, AgentRef> map = new java.util.LinkedHashMap<>();
-		String def = defaultAgentId();
-		map.put(def, new AgentRef(def, displayNameFor(def)));
+		map.put(def, new AgentRef(def, displayNameFor(v, did, def)));
 		if (currentAid != null) {
-			map.putIfAbsent(currentAid, new AgentRef(currentAid, displayNameFor(currentAid)));
+			map.putIfAbsent(currentAid, new AgentRef(currentAid, displayNameFor(v, did, currentAid)));
 		}
 		for (String aid : v.agents(did)) {
-			map.putIfAbsent(aid, new AgentRef(aid, displayNameFor(aid)));
+			map.putIfAbsent(aid, new AgentRef(aid, displayNameFor(v, did, aid)));
 		}
 		return stableAgentOrder(new ArrayList<>(map.values()), def);
 	}
@@ -1721,8 +1706,10 @@ public final class BrightSide {
 
 	/** An agent's display name: an explicit {@code config.name} in its record, else the id exactly as written. */
 	private String displayNameFor(String agentId) {
-		EmbeddedVenue v = venue;
-		String did = userDID;
+		return displayNameFor(venue, userDID, agentId);
+	}
+
+	private static String displayNameFor(EmbeddedVenue v, String did, String agentId) {
 		if (v != null && did != null && agentId != null) {
 			convex.core.data.ACell record = v.agentRecord(did, agentId);
 			AString name = (record == null) ? null
@@ -1739,126 +1726,6 @@ public final class BrightSide {
 	}
 
 	/**
-	 * The agent record changed (a new turn here or an out-of-band update):
-	 * refresh the switcher list and re-render the conversation currently on
-	 * screen — the one the user picked, not necessarily the newest. Called on
-	 * the event thread; the cell projection runs off it.
-	 */
-	/** Humanised tool labels by tool name, resolved once from the op catalogue. */
-	private final Map<String, String> toolLabels = new java.util.concurrent.ConcurrentHashMap<>();
-
-	/**
-	 * Whether a live agent event belongs to the conversation on screen. Events
-	 * for another session (a Discord turn on the same agent, say) are not
-	 * shown; before the venue has accepted the first message there is no
-	 * session id yet and every event is the chat's.
-	 */
-	private boolean concernsChat(covia.venue.AgentEvents.Event event) {
-		ChatSession c = chat;
-		String sid = (c != null) ? c.sessionId() : null;
-		return sid == null || event.concerns(Strings.create(sid));
-	}
-
-	/**
-	 * The display name of the tool a {@code tool:start} event names, else null:
-	 * the label the venue put on the event when it has one beyond the raw name
-	 * (covia#463), else the op asset's {@code name} from the catalogue. Called
-	 * on the venue's emitting thread — in-process reads only, never blocking.
-	 */
-	private String liveToolLabel(EmbeddedVenue v, String did, covia.venue.AgentEvents.Event event) {
-		if (!covia.venue.AgentEvents.TOOL_START.equals(event.type())) return null;
-		AString name = convex.core.lang.RT.ensureString(
-			convex.core.lang.RT.getIn(event.data(), "name"));
-		if (name == null) return null;
-		AString label = convex.core.lang.RT.ensureString(
-			convex.core.lang.RT.getIn(event.data(), "activityLabel"));
-		if (label != null && !label.isEmpty() && !label.equals(name)) return label.toString();
-		return toolLabel(v, did, name.toString());
-	}
-
-	/**
-	 * The tool's display name: its op asset's {@code name} when one resolves,
-	 * else the tool name with the underscores spaced. Cached per tool.
-	 */
-	private String toolLabel(EmbeddedVenue v, String did, String toolName) {
-		return toolLabels.computeIfAbsent(toolName, t -> {
-			for (String path : toolPathCandidates(t)) {
-				ACell asset = v.resolve(did, path);
-				AString n = (asset == null) ? null
-					: convex.core.lang.RT.ensureString(convex.core.lang.RT.getIn(asset, "name"));
-				if (n != null && !n.isEmpty()) return n.toString();
-			}
-			return t.replace('_', ' ');
-		});
-	}
-
-	/**
-	 * Where a provider tool name probably lives in the catalogue:
-	 * {@code moltbook_read_post} → {@code v/ops/moltbook/read-post}, then
-	 * {@code v/ops/moltbook/read/post}. Package-visible for the mapping test.
-	 */
-	static List<String> toolPathCandidates(String toolName) {
-		List<String> out = new ArrayList<>();
-		int us = toolName.indexOf('_');
-		if (us > 0) {
-			out.add("v/ops/" + toolName.substring(0, us) + "/" + toolName.substring(us + 1).replace('_', '-'));
-		}
-		out.add("v/ops/" + toolName.replace('_', '/'));
-		return out;
-	}
-
-	private static void closeQuietly(AutoCloseable c) {
-		if (c != null) {
-			try {
-				c.close();
-			} catch (Exception ignored) {
-				// unsubscribing at teardown is best-effort
-			}
-		}
-	}
-
-	private void onAgentChanged(convex.core.data.ACell record) {
-		EmbeddedVenue v = venue;
-		String did = userDID;
-		String aid = agentId;
-		new SwingWorker<Void, Void>() {
-			private List<SessionHistory.Session> list;
-			private SessionHistory.Snapshot snap;
-			private String vsid;
-			private boolean sessionActive;
-			private List<AgentRef> agents;
-
-			@Override
-			protected Void doInBackground() {
-				list = SessionHistory.sessionsOf(record);
-				// The send-completion reconciliation normally pins a newly minted id;
-				// this is also a safe fallback for changes made by another client.
-				vsid = (viewedSessionId != null) ? viewedSessionId
-					: (chat != null ? chat.sessionId() : null);
-				snap = (vsid != null) ? SessionHistory.snapshotOf(record, vsid) : null;
-				sessionActive = SessionHistory.isSessionActive(record, vsid);
-				// A turn can create, rename or delete agents (the assistant's agent
-				// tools): rebuild the pane's list from g/ while off the event thread.
-				agents = (v != null && did != null) ? listAgents(v, did, aid) : null;
-				return null;
-			}
-
-			@Override
-			protected void done() {
-				sessions = list;
-				if (vsid != null) {
-					viewedSessionId = vsid;
-					if (snap != null) window.refreshConversation(snap.items(), sessionActive);
-				}
-				window.setConversations(list, viewedSessionId);
-				if (agents != null && java.util.Objects.equals(agentId, aid)) {
-					window.setAgents(agents, aid, defaultAgentId());
-				}
-			}
-		}.execute();
-	}
-
-	/**
 	 * Re-reads the agents pane from {@code g/}. Agents can appear out of band —
 	 * created by the assistant in a turn, by Odin, or by a background task — so
 	 * the sessions screen refreshes on entry rather than trusting the last bind.
@@ -1867,129 +1734,20 @@ public final class BrightSide {
 		EmbeddedVenue v = venue;
 		String did = userDID;
 		String aid = agentId;
+		ChatSession expected = chat;
 		if (v == null || did == null) return;
 		Thread t = new Thread(() -> {
 			List<AgentRef> refs = listAgents(v, did, aid);
 			SwingUtilities.invokeLater(() -> {
-				if (java.util.Objects.equals(agentId, aid)) window.setAgents(refs, aid, defaultAgentId());
+				if (chat == expected) window.setAgents(refs, aid, defaultAgentId());
 			});
 		}, "brightside-agents-refresh");
 		t.setDaemon(true);
 		t.start();
 	}
 
-	/**
-	 * Reconciles a successful local send directly from its returned session id.
-	 * This is deliberately event-driven: the watcher may have observed the record
-	 * before {@link ChatSession} received the id, so polling alone would make
-	 * selection of the first session timing-dependent.
-	 */
-	public void conversationCommitted(String sessionId) {
-		EmbeddedVenue v = venue;
-		ChatSession expected = chat;
-		String aid = agentId;
-		String did = userDID;
-		if (v == null || expected == null || aid == null || did == null || sessionId == null
-				|| !sessionId.equals(expected.sessionId())) return;
-
-		viewedSessionId = sessionId;
-		Thread t = new Thread(() -> {
-			try {
-				ACell record = v.agentRecord(did, aid);
-				SessionHistory.Snapshot snap = SessionHistory.snapshotOf(record, sessionId);
-				List<SessionHistory.Session> list = SessionHistory.sessionsOf(record);
-				boolean sessionActive = SessionHistory.isSessionActive(record, sessionId);
-				SwingUtilities.invokeLater(() -> {
-					if (chat != expected || !java.util.Objects.equals(agentId, aid)
-							|| !sessionId.equals(expected.sessionId())) return;
-					viewedSessionId = sessionId;
-					sessions = list;
-					if (snap != null) window.refreshConversation(snap.items(), sessionActive);
-					window.setConversations(list, sessionId);
-				});
-			} catch (Exception e) {
-				log.warn("Could not reconcile committed conversation {}: {}", sessionId, e.toString());
-			}
-		}, "brightside-chat-committed");
-		t.setDaemon(true);
-		t.start();
-	}
-
-	/** Switch the chat to a past conversation, reopening its transcript and continuing it. */
-	public void openSession(String sessionId) {
-		EmbeddedVenue v = venue;
-		ChatSession s = chat;
-		String aid = agentId, did = userDID;
-		if (v == null || s == null || aid == null || did == null || sessionId == null) return;
-		if (sessionId.equals(viewedSessionId)) return;
-		Thread t = new Thread(() -> {
-			ACell record = v.agentRecord(did, aid);
-			SessionHistory.Snapshot snap = SessionHistory.snapshotOf(record, sessionId);
-			if (snap == null) return;
-			s.resume(snap.sessionId());
-			List<SessionHistory.Session> list = SessionHistory.sessionsOf(record);
-			SwingUtilities.invokeLater(() -> {
-				viewedSessionId = snap.sessionId();
-				sessions = list;
-				window.showConversation(snap.items());
-				window.setConversations(list, viewedSessionId);
-			});
-		}, "brightside-open-session");
-		t.setDaemon(true);
-		t.start();
-	}
-
-	/** Set or clear a conversation's title (empty/blank clears it back to auto). */
-	public void renameSession(String sessionId, String title) {
-		Venue c = client;
-		String aid = agentId;
-		if (c == null || aid == null || sessionId == null) return;
-		Thread t = new Thread(() -> {
-			try {
-				AMap<AString, ACell> input = Maps.of("agentId", aid, "sessionId", sessionId);
-				if (title != null && !title.isBlank()) {
-					input = input.assoc(Strings.create("title"), Strings.create(title.trim()));
-				}
-				invokeOp(c, "v/ops/agent/rename-session", input);
-			} catch (Exception e) {
-				log.warn("Could not rename session {}: {}", sessionId, e.toString());
-				SwingUtilities.invokeLater(() -> window.showSystemMessage("Sorry — I couldn't rename that conversation."));
-				return;
-			}
-			List<SessionHistory.Session> list = SessionHistory.sessionsOf(venue.agentRecord(userDID, aid));
-			SwingUtilities.invokeLater(() -> {
-				sessions = list;
-				window.setConversations(list, viewedSessionId);
-			});
-		}, "brightside-rename-session");
-		t.setDaemon(true);
-		t.start();
-	}
-
-	/** Copy a past conversation's transcript to the clipboard as plain text. */
-	public void copyTranscript(String sessionId) {
-		EmbeddedVenue v = venue;
-		String aid = agentId, did = userDID;
-		if (v == null || aid == null || did == null || sessionId == null) return;
-		Thread t = new Thread(() -> {
-			SessionHistory.Snapshot snap = SessionHistory.snapshotOf(v.agentRecord(did, aid), sessionId);
-			if (snap == null) {
-				SwingUtilities.invokeLater(() -> window.showSystemMessage("Sorry — I couldn't read that conversation."));
-				return;
-			}
-			String text = SessionHistory.plainText(snap.items());
-			SwingUtilities.invokeLater(() -> {
-				java.awt.Toolkit.getDefaultToolkit().getSystemClipboard()
-					.setContents(new java.awt.datatransfer.StringSelection(text), null);
-				window.showSystemMessage("Copied that conversation to the clipboard.");
-			});
-		}, "brightside-copy-transcript");
-		t.setDaemon(true);
-		t.start();
-	}
-
 	/** Show the full context the assistant's model receives for a conversation. */
-	public void showSessionInfo(String sessionId) {
+	public void showSessionInfo(String sessionId, int version) {
 		covia.grid.Venue c = client;
 		EmbeddedVenue v = venue;
 		String aid = agentId, did = userDID;
@@ -2011,39 +1769,8 @@ public final class BrightSide {
 			}
 			List<SkillIndex.Skill> skills = SkillIndex.of(v, did, record).stream()
 				.filter(s -> loaded.contains(s.path())).toList();
-			SwingUtilities.invokeLater(() -> window.showContextInfo(sessionId, report, turns, skills));
+			SwingUtilities.invokeLater(() -> window.showContextInfo(sessionId, version, report, turns, skills));
 		}, "brightside-session-info");
-		t.setDaemon(true);
-		t.start();
-	}
-
-	/** Delete a conversation. If it was the one on screen, drop back to a new chat. */
-	public void deleteSession(String sessionId) {
-		Venue c = client;
-		String aid = agentId;
-		ChatSession s = chat;
-		if (c == null || aid == null || sessionId == null) return;
-		Thread t = new Thread(() -> {
-			try {
-				invokeOp(c, "v/ops/agent/delete-session", Maps.of("agentId", aid, "sessionId", sessionId));
-			} catch (Exception e) {
-				log.warn("Could not delete session {}: {}", sessionId, e.toString());
-				SwingUtilities.invokeLater(() -> window.showSystemMessage("Sorry — I couldn't delete that conversation."));
-				return;
-			}
-			boolean wasViewed = sessionId.equals(viewedSessionId);
-			List<SessionHistory.Session> list = SessionHistory.sessionsOf(venue.agentRecord(userDID, aid));
-			SwingUtilities.invokeLater(() -> {
-				sessions = list;
-				if (wasViewed) {
-					if (s != null) s.reset();
-					viewedSessionId = null;
-					window.clearChat();
-					window.showSystemMessage("Conversation deleted.");
-				}
-				window.setConversations(list, viewedSessionId);
-			});
-		}, "brightside-delete-session");
 		t.setDaemon(true);
 		t.start();
 	}
@@ -2193,9 +1920,8 @@ public final class BrightSide {
 
 	/** Force an immediate lattice value compare and refresh the transcript if it changed. */
 	public void refreshNow() {
-		ConversationWatcher w = watcher;
-		if (w != null) w.checkNow();
-		ConversationWatcher i = inboxWatcher;
+		window.refreshSessions();
+		LatticeWatcher i = inboxWatcher;
 		if (i != null) i.checkNow();
 		if (window.isSkillsShowing()) refreshSkills();
 	}
@@ -2222,20 +1948,6 @@ public final class BrightSide {
 		}, "brightside-skills-refresh");
 		t.setDaemon(true);
 		t.start();
-	}
-
-	public void newConversation() {
-		ChatSession c = chat;
-		if (c == null) return;
-		// A fresh session is minted on the next message; the previous one stays
-		// in the venue's history but is no longer the one shown. It joins the
-		// switcher once its first message lands (the watcher picks it up).
-		c.reset();
-		viewedSessionId = null;
-		SwingUtilities.invokeLater(() -> {
-			window.clearChat();
-			window.setConversations(sessions, null);
-		});
 	}
 
 	/** Opens General settings (once the venue is up). */
@@ -2333,12 +2045,11 @@ public final class BrightSide {
 	/** Stops the venue (flushing its state) and ends the process. */
 	public void exit() {
 		if (!exiting.compareAndSet(false, true)) return;
+		chatBindings.incrementAndGet();
 		log.info("Exit requested");
 		SwingUtilities.invokeLater(() -> {
-			ConversationWatcher w = watcher;
-			if (w != null) w.stop();
-			closeQuietly(agentEventsSub);
-			ConversationWatcher i = inboxWatcher;
+			if (window != null) window.closeSessions();
+			LatticeWatcher i = inboxWatcher;
 			if (i != null) i.stop();
 			if (window != null) window.setVisible(false);
 			if (unlockDialog != null) unlockDialog.dispose();

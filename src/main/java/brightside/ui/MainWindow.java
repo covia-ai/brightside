@@ -91,7 +91,6 @@ public final class MainWindow extends JFrame {
 	public MainWindow(BrightSide app) {
 		super(BrightSide.APP_NAME);
 		this.app = app;
-		chatPanel.setConversationCommittedListener(app::conversationCommitted);
 		setIconImages(Icons.appIcons());
 		setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
 		installShortcuts();
@@ -113,22 +112,22 @@ public final class MainWindow extends JFrame {
 		conversations = new ConversationList(new ConversationList.Listener() {
 			@Override
 			public void onNewConversation() {
-				app.newConversation();
+				views.newConversation();
 			}
 
 			@Override
 			public void onSelectSession(String sessionId) {
-				app.openSession(sessionId);
+				views.openSession(sessionId);
 			}
 
 			@Override
 			public void onRenameSession(String sessionId, String newTitle) {
-				app.renameSession(sessionId, newTitle);
+				views.renameSession(sessionId, newTitle);
 			}
 
 			@Override
 			public void onCopyTranscript(String sessionId) {
-				app.copyTranscript(sessionId);
+				views.copyTranscript(sessionId);
 			}
 
 			@Override
@@ -138,7 +137,7 @@ public final class MainWindow extends JFrame {
 
 			@Override
 			public void onDeleteSession(String sessionId) {
-				app.deleteSession(sessionId);
+				views.deleteSession(sessionId);
 			}
 		});
 
@@ -146,7 +145,7 @@ public final class MainWindow extends JFrame {
 		chatPanel.setHost(new ChatPanel.Host() {
 			@Override
 			public void newConversation() {
-				app.newConversation();
+				views.newConversation();
 			}
 
 			@Override
@@ -193,13 +192,23 @@ public final class MainWindow extends JFrame {
 		// and its agent. Their reads are the app's, off the event thread.
 		views = new SessionViews(chatPanel, new SessionViews.Host() {
 			@Override
-			public void loadSession(String sessionId) {
-				app.showSessionInfo(sessionId);
+			public void loadSession(String sessionId, int version) {
+				app.showSessionInfo(sessionId, version);
 			}
 
 			@Override
-			public void loadAgent(String agentId) {
-				app.showAgentInfo(agentId);
+			public void loadAgent(String agentId, int version) {
+				app.showAgentInfo(agentId, version);
+			}
+
+			@Override
+			public void sessionsChanged(List<SessionHistory.Session> sessions, String selectedId) {
+				conversations.setSessions(sessions, selectedId);
+			}
+
+			@Override
+			public void agentsChanged() {
+				app.refreshAgents();
 			}
 
 			@Override
@@ -490,7 +499,7 @@ public final class MainWindow extends JFrame {
 
 	private void showNewChat() {
 		selectTab(NavBar.Tab.HOME);
-		app.newConversation();
+		views.newConversation();
 	}
 
 	// ------------------------------------------------------------------
@@ -528,20 +537,14 @@ public final class MainWindow extends JFrame {
 		show(CARD_CHAT);
 	}
 
-	/** Clear the transcript and composer for a clean new chat. */
-	public void clearChat() {
-		chatPanel.startNewConversation();
-	}
-
 	/** Clears every current-user UI binding while the venue keeps running. */
 	public void userLoggedOut() {
+		views.close();
 		identity = null;
 		chatPanel.clearSession();
 		conversations.setSessions(List.of(), null);
 		agentList.setAgents(List.of(), null, null);
 		currentAgentId = null;
-		views.setSession(null);
-		views.setAgent(null);
 		setInbox(List.of());
 		settingsScreen.profile().clearSensitive();
 		settingsScreen.integrations().clearSensitive();
@@ -550,22 +553,18 @@ public final class MainWindow extends JFrame {
 		settingsScreen.general().refresh(app.hasTray(), app.keepInTray(), app.minimiseToTray(), false, venue != null);
 	}
 
-	/** Update the transcript to the venue's live conversation (only re-renders if changed). */
-	public void refreshConversation(List<SessionHistory.Item> turns) {
-		refreshConversation(turns, false);
+	/** The session view owns selection, live reads and subscriptions. */
+	public void bindSessions(EmbeddedVenue venue, String owner, ChatSession session,
+			List<SessionHistory.Session> sessions) {
+		views.bind(venue, owner, session, sessions);
 	}
 
-	/** Update once the selected session's pending/in-cycle work has settled. */
-	public void refreshConversation(List<SessionHistory.Item> turns, boolean sessionActive) {
-		chatPanel.refreshTo(turns, sessionActive);
-		// The context views follow the settled conversation, not its work in flight.
-		if (!sessionActive) views.sessionChanged();
+	public void refreshSessions() {
+		views.refresh();
 	}
 
-	/** Replace the switcher's list of past conversations, highlighting the open one. */
-	public void setConversations(List<SessionHistory.Session> sessions, String selectedId) {
-		conversations.setSessions(sessions, selectedId);
-		views.setSession(selectedId);
+	public void closeSessions() {
+		views.close();
 	}
 
 	/** Replace the agents pane's list, highlighting the current agent; {@code defaultId} is the standard agent. */
@@ -589,9 +588,8 @@ public final class MainWindow extends JFrame {
 	private void showSessionView(String sessionId, SessionViews.View view) {
 		selectTab(NavBar.Tab.SESSIONS);
 		if (sessionId != null) {
-			app.openSession(sessionId);
+			views.openSession(sessionId);
 			conversations.reveal(sessionId);
-			views.setSession(sessionId);
 		}
 		views.select(view);
 	}
@@ -602,20 +600,6 @@ public final class MainWindow extends JFrame {
 		if (agentId != null && !agentId.equals(currentAgentId)) app.switchAgent(agentId);
 		views.setAgent(agentId);
 		views.select(SessionViews.View.AGENT);
-	}
-
-	/** Show a chosen past conversation's transcript (a definite switch, not a poll). */
-	public void showConversation(List<SessionHistory.Item> turns) {
-		chatPanel.restore(turns);
-	}
-
-	/**
-	 * One live agent event for the turn in flight: the pending-reply bubble's
-	 * status and the growing steps chip. {@code toolLabel} is the display name
-	 * of the tool a {@code tool:start} names, or null.
-	 */
-	public void showActivity(covia.venue.AgentEvents.Event event, String toolLabel) {
-		chatPanel.showActivity(event, toolLabel);
 	}
 
 	/** Switch the bottom-nav content between the chat screens and settings. */
@@ -722,14 +706,14 @@ public final class MainWindow extends JFrame {
 	}
 
 	/** What the model receives for a conversation, as read ({@code report} null: it could not be), for the Sessions tabs. */
-	public void showContextInfo(String sessionId, brightside.AgentContext.Report report,
+	public void showContextInfo(String sessionId, int version, brightside.AgentContext.Report report,
 			List<SessionHistory.RawTurn> turns, List<brightside.SkillIndex.Skill> skills) {
-		views.showSession(sessionId, report, turns, skills);
+		views.showSession(sessionId, version, report, turns, skills);
 	}
 
 	/** An agent as read ({@code info} null: it could not be), for the Agent tab on Sessions. */
-	public void showAgentInfo(String agentId, brightside.AgentInfo.Summary info) {
-		views.showAgent(agentId, info);
+	public void showAgentInfo(String agentId, int version, brightside.AgentInfo.Summary info) {
+		views.showAgent(agentId, version, info);
 	}
 
 	/** Replace the Skills screen's tree: {@code agentName}'s skillsets (the roots, in search order) over what they reach. */
@@ -756,11 +740,6 @@ public final class MainWindow extends JFrame {
 	/** Switch to the Inbox tab. */
 	public void showInbox() {
 		selectTab(NavBar.Tab.INBOX);
-	}
-
-	/** True while the chat is on screen — the watcher only polls then. */
-	public boolean isChatShowing() {
-		return isShowing() && CARD_CHAT.equals(currentCard);
 	}
 
 	/** Show the name screen so the person can change how they're addressed. */

@@ -2,16 +2,17 @@
 
 Brightside is one JVM process holding a Swing desktop app and a complete Covia
 venue: single Maven module `ai.covia:brightside`, main class
-`brightside.BrightSide`. No daemon, no socket to secure, no serialisation
-between the UI and the agent's state.
+`brightside.BrightSide`. The desktop application is a client of the Embedded
+Venue API within that process, with direct access to venue state and services.
 
-- **The UI is a client, not an insider.** The window acts as the owner's named
-  principal and drives the agent through the ordinary agent operations. What it
-  shows is what any other client of the venue would see; there is no private
-  model path.
-- **Reads are free; actions are not.** State is read in-process with no job,
-  computed reads run read-only operations transiently, and only actions leave a
-  durable job.
+- **The Embedded Venue API is the application API.** Brightside deliberately
+  couples to the venue's Java APIs, immutable lattice values, services and live
+  events. The remote HTTP, MCP and A2A APIs serve external clients; they do not
+  define or limit the desktop application's integration.
+- **The venue owns application state and behaviour.** Views read state directly
+  and perform actions through the appropriate embedded APIs. Chat uses the
+  venue's agent framework under the acting principal. View selection and
+  presentation belong to the UI.
 - **Configuration is data.** The owner's `venue` map is merged over defaults
   and handed to the venue, so new venue options need no Brightside change.
 - **One UI kit, themed by FlatLaf.** Every screen is composed from
@@ -26,94 +27,45 @@ the file and API keys in [CONFIGURATION.md](CONFIGURATION.md).
 ## The shape of it
 
 ```
-Swing UI ──► LocalVenue client (as u:<name>) ──► embedded Covia venue
-                                                   engine
-                                                   adapters
-                                                   agent framework
-                                                   lattice state → venue.etch
-                                                   HTTP / MCP / A2A on 127.0.0.1
+Brightside application ──► Embedded Venue API (in-process Java)
+                            ├─ state reads and live subscriptions
+                            ├─ engine, adapters and venue services
+                            └─ LocalVenue operations as the acting principal
+                                         │
+                                 embedded Covia venue
+                                 lattice state → venue.etch
+                                         │
+External clients ──► HTTP / MCP / A2A on 127.0.0.1
 ```
 
-## Reads and actions
+## Reads
 
-Three tiers, and the rule for choosing between them:
+Read application state through the Embedded Venue API. Direct lattice reads
+and subscriptions use the venue's in-process data structures and events,
+without serialisation or durable jobs. Computed reads can use the venue's
+read-only operations transiently. A remote-client abstraction is unnecessary
+for these local interactions.
 
-- **State reads** — a lattice path, as the user: straight from the in-process
-  engine, no job (`EmbeddedVenue.resolve`, `agentRecord`). Lattice values are
-  immutable and content-addressed, so change detection is an equality check of
-  the last value shown against the current one. That is why the conversation
-  watcher can poll every couple of seconds silently and near-free.
-- **Computed reads** — adapter logic with no side effects: what an agent is,
-  what its model would see, a bot's status. `Venue.run` on an operation
-  declared `readOnly`: a transient job, so the contract, authority and
-  admission still apply but nothing is persisted. Opening a screen leaves no
-  record.
-- **Actions** — chat, create, update, rename, delete, respond, write:
-  `Venue.invoke`, a durable job with a receipt, cancellation and history.
+## Actions
 
-Reaching further into the engine's Java API than resolving a path is
-deliberately not done, even though the venue is in-process: it would bypass
-the capability checks that make the UI a client, and couple Brightside to
-internals that change far more often than the operation contracts. An
-operation that is a read but is not declared `readOnly` is fixed upstream, not
-worked around.
-
-## Orientation map
-
-```
-brightside/
-  BrightSide             entry point and application controller
-  AppConfig, Identity    ~/.brightside/config.json (JSON5); name, slug and pinned user DID
-  EmbeddedVenue          the venue in-process: launch, per-user clients, path reads
-  Takeover               detect a running instance and ask it to step aside
-  BrightsideAdapter      Brightside's own operations: context, info, delete-skill,
-                         report-skill-feedback, shutdown, the Odin bridges
-  BrightsideSkillsAdapter  installs the shipped skills under v/skills/brightside
-  Odin                   the operator's administrative agent
-  Moltbook, MoltbookAdapter, Discord, ClaudeCode   integrations: the account,
-                         bot or projects, and the venue operations the
-                         assistant uses them through
-  SessionHistory, ConversationWatcher  the transcript projection and change watcher
-  AgentContext, AgentInfo, SkillIndex, Inbox   the read models behind the screens
-  chat/ChatSession       agent configuration and the chat itself
-  model/Providers        model providers and their secret names
-  skills/FilesystemSkills   imports SKILL.md folders into w/skills
-  vault/                 passphrase key, seed-derived store key, BIP39 phrase
-  markdown/              Markdown → StyledDocument; depends only on commonmark
-  ui/                    LAF and MainWindow; components/ (the kit), settings/,
-                         onboarding/, chat/, inspect/, skills/, inbox/
-
-resources/
-  brightside/skills/*.json       the shipped skills
-  brightside/ui/*.properties     FlatLaf defaults and style classes
-  adapters/brightside/*.json     Brightside's operation assets
-  fonts/, icons/                 Lato, Inconsolata, Lucide, the Brightside mark
-```
-
-Tests boot temporary venues headless and test mechanism, never prose.
+Make application state changes through the appropriate embedded venue APIs,
+using their validation, permissions and persistence semantics. Use operations
+where the venue models an action as an operation, and direct service APIs where
+those are the idiomatic interface. The lattice remains authoritative; the UI
+projects its state rather than maintaining a separate application model.
 
 ## Key decisions
 
 **Threading.** Swing on the event thread only. Venue launch and close, agent
 calls and desktop integration run on background threads.
 
-**The chat session absorbs the agent framework's quirks.** Configuration is
-re-applied on the next send rather than at launch, so a launch submits no
-jobs; a failed transition leaves the agent suspended, so it is resumed after
-re-applying; only the venue's "unknown session" error starts a fresh session,
-so a model or key failure never mints an orphan conversation; follow-ups sent
-while a reply is in flight are delivered to the same session.
+**The chat session reflects the agent framework.** The session view represents
+Covia agent state and allows user interactions through the embedded APIs.
+Its close coupling to the framework is intentional: the venue owns execution,
+history and memory, while the view owns selection, rendering and subscriptions.
 
 **A reply has no deadline.** A turn takes as long as its model and tool calls
-take, and the venue bounds each of those itself. After a while the thinking
-bubble offers a stop control; confirming it cancels the chat job, which
-releases the composer but does not interrupt the agent, so whatever it still
-finishes lands in the conversation.
-
-**Transcript items.** `SessionHistory` projects a conversation into messages
-(user and final assistant text) and activity (the tool calls of a turn).
-Messages render as bubbles, activity as a collapsed chip that opens into
-per-tool rows. New message kinds are new item types with their own rows.
+take, and the venue bounds each of those itself.
 
 **The assistant writes Markdown.** Assistant bubbles render through
 `brightside.markdown`: commonmark-java's AST becomes a styled document, with
@@ -123,27 +75,14 @@ typed.
 
 **In-flight activity shows facts only.** The thinking bubble presents what
 Brightside has been told: preparing, running, elapsed time, and tool calls as
-the venue reports them. It never derives progress from the clock or exposes
-hidden model reasoning.
+the venue reports them.
 
 **Conversations are switchable, and a change never yanks you elsewhere.** The
-agent record holds many sessions; a background update re-renders the one on
-screen. A launch lands on a clean Home: nothing resumes until the first
-message mints a session, and past conversations wait in Sessions. The menu
-beside Send acts on the conversation in progress — a new one, compaction,
-copy, its context, or a jump to it in Sessions. On Sessions, tabs above the
-chat show what the model receives for the conversation on screen — an
-Overview, and under Context the pieces: messages, cycle detail, tools,
-skills, loaded entries, the raw report — and what its agent is, read when
-shown and again when the conversation moves on; Home shows the chat alone.
-
-**Compaction is the assistant's.** The summary a compaction keeps is what
-every later turn knows of the conversation, so it must be the assistant's own:
-the menu's Compact sends it a request to use its compact control, never a
-summary written behind its back. The venue archives the exact turns under the
-summary. The transcript is the conversation, not the assistant's context: the
-archived stretch folds into a quiet marker that opens to the summary, and the
-assistant carries on from it rather than reporting on the compaction.
+session view owns the selected conversation, live subscription and refreshes.
+`SessionFeed` reads and projects lattice state off the event thread; changing
+the selection invalidates pending results, and leaving a binding closes its
+feed and subscription. `BrightSide` owns application lifecycle and principal
+binding, not conversation watching. The agent record remains authoritative.
 
 **The tray is best-effort.** Without a tray the window still behaves sensibly,
 and a tray failure never takes the app down.

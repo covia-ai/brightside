@@ -13,7 +13,7 @@ import javax.swing.SwingUtilities;
 
 import org.junit.jupiter.api.Test;
 
-import brightside.ConversationWatcher;
+import brightside.LatticeWatcher;
 import convex.core.data.ACell;
 import convex.core.data.Maps;
 
@@ -23,7 +23,7 @@ import convex.core.data.Maps;
  * and never while inactive. Headless-safe — Swing timers and workers need no
  * display.
  */
-class ConversationWatcherTest {
+class LatticeWatcherTest {
 
 	@Test
 	void firesOnlyWhenTheValueChanges() throws Exception {
@@ -31,7 +31,7 @@ class ConversationWatcherTest {
 		AtomicReference<ACell> current = new AtomicReference<>(v1);
 		AtomicInteger fired = new AtomicInteger();
 		AtomicReference<CountDownLatch> latch = new AtomicReference<>(new CountDownLatch(1));
-		ConversationWatcher w = new ConversationWatcher(current::get, v1, () -> true, record -> {
+		LatticeWatcher w = new LatticeWatcher(current::get, v1, () -> true, record -> {
 			fired.incrementAndGet();
 			latch.get().countDown();
 		});
@@ -61,11 +61,41 @@ class ConversationWatcherTest {
 	}
 
 	@Test
+	void stopInvalidatesAnInFlightReadAndQueuedChecks() throws Exception {
+		CountDownLatch reading = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		CountDownLatch delivered = new CountDownLatch(1);
+		AtomicInteger reads = new AtomicInteger();
+		LatticeWatcher watcher = new LatticeWatcher(() -> {
+			reads.incrementAndGet();
+			reading.countDown();
+			try {
+				assertTrue(release.await(5, TimeUnit.SECONDS));
+			} catch (InterruptedException e) {
+				throw new AssertionError(e);
+			}
+			return Maps.of("changed", true);
+		}, null, () -> true, value -> delivered.countDown());
+		try {
+			SwingUtilities.invokeAndWait(watcher::checkNow);
+			assertTrue(reading.await(5, TimeUnit.SECONDS));
+			SwingUtilities.invokeAndWait(watcher::stop);
+			release.countDown();
+			SwingUtilities.invokeAndWait(watcher::checkNow);
+			assertFalse(delivered.await(400, TimeUnit.MILLISECONDS));
+			assertEquals(1, reads.get());
+		} finally {
+			release.countDown();
+			SwingUtilities.invokeAndWait(watcher::stop);
+		}
+	}
+
+	@Test
 	void doesNothingWhileInactive() throws Exception {
 		AtomicReference<ACell> current = new AtomicReference<>(Maps.of("a", 1L));
 		AtomicInteger reads = new AtomicInteger();
 		CountDownLatch fired = new CountDownLatch(1);
-		ConversationWatcher w = new ConversationWatcher(() -> {
+		LatticeWatcher w = new LatticeWatcher(() -> {
 			reads.incrementAndGet();
 			return current.get();
 		}, null, () -> false, record -> fired.countDown());

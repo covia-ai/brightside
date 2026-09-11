@@ -9,7 +9,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 import convex.core.data.ACell;
 import convex.core.data.AMap;
@@ -35,13 +34,16 @@ class MoltbookKeyPersistenceTest {
 	/** Any 32 bytes are an Ed25519 seed; this one stands in for the owner's. */
 	private static final String SEED = "7f".repeat(32);
 
-	@TempDir
-	static Path home;
-
 	@Test
 	void theKeyAndRecordSurviveAForgottenPassphrase() throws Exception {
+		try (StoreTestDirectory directory = new StoreTestDirectory()) {
+			keyAndRecordRoundTrip(directory.path());
+		}
+	}
+
+	private static void keyAndRecordRoundTrip(Path home) throws Exception {
 		String userDID;
-		try (Launched first = launch("the first passphrase")) {
+		try (Launched first = launch(home, "the first passphrase")) {
 			userDID = Identity.of("owner").userDID(first.venue().did());
 			Venue user = first.venue().clientAs(userDID);
 			Moltbook.storeKey(user, "moltbook_persisted");
@@ -51,7 +53,7 @@ class MoltbookKeyPersistenceTest {
 		// Recovery: keys.enc goes, the seed is re-encrypted under a new passphrase,
 		// and the venue is launched from the same seed and store.
 		Files.deleteIfExists(home.resolve(Vault.KEYS_FILE));
-		try (Launched second = launch("a different passphrase")) {
+		try (Launched second = launch(home, "a different passphrase")) {
 			assertEquals(userDID, Identity.of("owner").userDID(second.venue().did()),
 				"the same seed gives the same venue and user");
 			String key = second.venue().engine().resolveSecret(MoltbookAdapter.SECRET_REF,
@@ -71,7 +73,7 @@ class MoltbookKeyPersistenceTest {
 	}
 
 	/** Launches the venue the way Brightside does: the store keyed from the seed, the vault from the passphrase. */
-	private static Launched launch(String passphrase) throws IOException {
+	private static Launched launch(Path home, String passphrase) throws IOException {
 		int port;
 		try (ServerSocket s = new ServerSocket(0)) {
 			port = s.getLocalPort();

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+	<appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+		<filter class="brightside.ExpectedLogs" />
+		<target>System.err</target>
+		<encoder>
+			<pattern>%level %logger{40} - %msg%n</pattern>
+		</encoder>
+	</appender>
+	<root level="WARN">
+		<appender-ref ref="CONSOLE" />
+	</root>
+</configuration>

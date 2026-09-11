@@ -410,6 +410,11 @@ public final class ChatPanel extends JPanel {
 		scrollToBottom();
 	}
 
+	/** Initial history may arrive after the owner has already sent another message. */
+	public void restoreSelected(List<SessionHistory.Item> items) {
+		if (!busy) restore(items);
+	}
+
 	private Component rowFor(SessionHistory.Item it) {
 		if (it instanceof SessionHistory.Message m) {
 			return bubbleRow(m.text(), "user".equals(m.role()), (m.origin() != null) ? "via " + m.origin() : null);

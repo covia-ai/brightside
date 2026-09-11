@@ -10,24 +10,18 @@ import javax.swing.Timer;
 import convex.core.data.ACell;
 
 /**
- * Watches the venue's agent value and refreshes the UI when it changes.
+ * Watches a lattice value, for application-wide state such as the owner's inbox.
  *
- * <p>Change detection is a plain lattice value compare: each tick re-reads the
- * agent value (via {@code readValue}, which reads the in-process lattice
- * directly — no job) and compares it with {@code .equals} to the last one shown.
- * Since lattice values are immutable and content-addressed, an unchanged
- * conversation yields an equal value (cheap), and any change — a new turn, an
- * edit from another client, an out-of-band agent update — yields a different one,
- * so the UI can refresh. Polling pauses while the window isn't showing.
+ * <p>Immutable values are compared in-process without submitting a job.
+ * Polling pauses while the window is hidden; stopping also invalidates reads
+ * that are still in flight.
  *
  * <p>Runs on the Swing timer/event thread; the read itself is off the event
  * thread. Ticks never overlap.
  */
-public final class ConversationWatcher {
+public final class LatticeWatcher {
 
 	private static final int INTERVAL_MS = 2500;
-	/** The slow fallback interval when covia's agent event tap provides the kicks. */
-	public static final int FALLBACK_INTERVAL_MS = 15_000;
 
 	private final Supplier<ACell> readValue;
 	private final BooleanSupplier active;
@@ -36,37 +30,34 @@ public final class ConversationWatcher {
 
 	private ACell lastValue;
 	private boolean checking;
+	private boolean stopped;
+	private long generation;
 
 	/**
-	 * @param readValue    supplies the current agent value (an in-process lattice
+	 * @param readValue    supplies the current lattice value (an in-process lattice
 	 *                     read, not a job)
-	 * @param initialValue the agent value already shown (baseline for comparison), or null
+	 * @param initialValue the lattice value already shown (baseline for comparison), or null
 	 * @param active       polls only while this returns true (e.g. window showing)
-	 * @param onChanged    called on the event thread with the new agent record when
-	 *                     the value changes; the caller projects the switcher list
-	 *                     and the currently-viewed session from it
+	 * @param onChanged    called on the event thread when the value changes
 	 */
-	public ConversationWatcher(Supplier<ACell> readValue, ACell initialValue,
+	public LatticeWatcher(Supplier<ACell> readValue, ACell initialValue,
 			BooleanSupplier active, Consumer<ACell> onChanged) {
-		this(readValue, initialValue, active, onChanged, INTERVAL_MS);
-	}
-
-	/** As above with a chosen poll interval — {@link #FALLBACK_INTERVAL_MS} when events do the kicking. */
-	public ConversationWatcher(Supplier<ACell> readValue, ACell initialValue,
-			BooleanSupplier active, Consumer<ACell> onChanged, int intervalMs) {
 		this.readValue = readValue;
 		this.lastValue = initialValue;
 		this.active = active;
 		this.onChanged = onChanged;
-		this.timer = new Timer(intervalMs, e -> tick());
+		this.timer = new Timer(INTERVAL_MS, e -> tick());
 		this.timer.setRepeats(true);
 	}
 
 	public void start() {
+		stopped = false;
 		timer.start();
 	}
 
 	public void stop() {
+		stopped = true;
+		generation++;
 		timer.stop();
 	}
 
@@ -76,10 +67,11 @@ public final class ConversationWatcher {
 	}
 
 	private void tick() {
-		if (checking) return;
+		if (stopped || checking) return;
 		if (active != null && !active.getAsBoolean()) return;
 		checking = true;
 		final ACell baseline = lastValue;
+		final long expected = generation;
 		new SwingWorker<ACell, Void>() {
 			@Override
 			protected ACell doInBackground() {
@@ -91,6 +83,7 @@ public final class ConversationWatcher {
 			@Override
 			protected void done() {
 				checking = false;
+				if (stopped || generation != expected) return;
 				try {
 					ACell value = get();
 					if (value != null) {

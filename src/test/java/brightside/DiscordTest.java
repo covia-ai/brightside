@@ -45,9 +45,16 @@ class DiscordTest {
 	private static EmbeddedVenue venue;
 	private static String userDID;
 	private static Venue user;
+	private static ExpectedLogs.Scope gatewayLogs;
+	private static ExpectedLogs.Scope requestLogs;
 
 	@BeforeAll
 	static void boot() throws IOException {
+		// The fake token cannot connect. Keep filtering through shutdown: startup runs asynchronously.
+		gatewayLogs = ExpectedLogs.expect("covia.adapter.discord.BotRunner", ch.qos.logback.classic.Level.WARN,
+			"Discord bot 'brightside' not started: Discord Gateway connection failed:");
+		requestLogs = ExpectedLogs.expect("net.dv8tion.jda.internal.requests.Requester", ch.qos.logback.classic.Level.ERROR,
+			"There was an I/O error while executing a REST request:");
 		int port;
 		try (ServerSocket s = new ServerSocket(0)) {
 			port = s.getLocalPort();
@@ -62,7 +69,12 @@ class DiscordTest {
 
 	@AfterAll
 	static void shutdown() {
-		if (venue != null) venue.close();
+		try {
+			if (venue != null) venue.close();
+		} finally {
+			if (requestLogs != null) requestLogs.close();
+			if (gatewayLogs != null) gatewayLogs.close();
+		}
 	}
 
 	@Test

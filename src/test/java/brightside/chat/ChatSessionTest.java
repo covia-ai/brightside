@@ -338,8 +338,11 @@ class ChatSessionTest {
 	void resumeFallsBackWhenSessionIsUnknown() throws Exception {
 		ChatSession s = new ChatSession(venue, echoChat("bs-resume-bad"));
 		s.resume("00000000000000000000000000000000"); // never minted
-		ChatSession.Reply reply = s.send("hello");
-		assertNotNull(reply.sessionId(), "falls back to a fresh session instead of failing");
+		try (var logs = brightside.ExpectedLogs.warn(ChatSession.class,
+			"Could not continue the previous conversation (Unknown sessionId: 00000000000000000000000000000000")) {
+			ChatSession.Reply reply = s.send("hello");
+			assertNotNull(reply.sessionId(), "falls back to a fresh session instead of failing");
+		}
 	}
 
 	@Test

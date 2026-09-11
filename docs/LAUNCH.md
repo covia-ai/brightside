@@ -103,7 +103,8 @@ incumbent to step aside, and it works from an IDE launch with no jar.
 
 ## Exit and flush
 
-`exit()` stops the watcher, hides the window, removes the tray icon and closes
+`exit()` closes the session view's feed and subscription, stops the inbox
+watcher, hides the window, removes the tray icon and closes
 the `VenueServer` on a background thread before `System.exit`. A launch still
 in progress is waited for first (bounded), so a quit from the unlock dialog
 mid-boot still ends with a cleanly closed store. A Convex `Shutdown` hook at

@@ -158,8 +158,8 @@ If the build cannot resolve `ai.covia:venue`, that is why.
 ┌──────────────────────────────────────────────┐
 │  Brightside (one JVM process)                │
 │                                              │
-│   Swing UI  ──►  LocalVenue client           │
-│                     │  as u:<your name>      │
+│   Swing UI  ──►  Embedded Venue API          │
+│                     │  in-process Java      │
 │                     ▼                        │
 │   ┌────────────────────────────────────────┐ │
 │   │  Embedded Covia venue                  │ │
@@ -173,9 +173,11 @@ If the build cannot resolve `ai.covia:venue`, that is why.
               your LLM provider
 ```
 
-The chat window is a *client* of the venue, not a privileged insider: it acts as
-your named principal and goes through the same agent operations any other client
-would. Anything the window can do, an MCP client on your machine can do too.
+Brightside uses the **Embedded Venue API** directly within the same JVM. It
+reads lattice state, subscribes to live events and uses the venue's services
+and operations, with chat acting as your named principal. This close
+integration is intentional. HTTP, MCP and A2A provide separate access for
+external tools.
 
 Namespaces do the separating: `v/skills/brightside/…` holds the skills
 Brightside ships, `w/skills` is where your agent writes its own, and `n/` is
@@ -292,6 +294,13 @@ mvn exec:java # run from the build
   branch. Branch from `develop` and PR into it.
 - Tests run headless and must never put a window or a tray icon on anyone's
   desktop. The chat tests use `v/test/ops/llm`, so they need no API key.
+- Test logging shows warnings and errors only, in Eclipse and Maven, using
+  `src/test/resources/logback-test.xml`. Expected failure cases use
+  `ExpectedLogs` scopes to hide specific diagnostics; the known unencrypted
+  test-store warning is filtered across the suite. Persistent Etch tests use
+  `StoreTestDirectory`: Windows can retain Java 21 memory mappings after a
+  store closes, so any files still pinned are left under `target/test-stores/`
+  for `mvn clean`. Other test files use JUnit's normal temporary directories.
 - British English in comments, UI text and docs. Tabs for indentation in Java
   and XML, matching Covia.
 - [AGENTS.md](AGENTS.md) is the short guide for anyone — human or AI — working

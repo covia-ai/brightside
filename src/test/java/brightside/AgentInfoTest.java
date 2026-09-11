@@ -112,7 +112,9 @@ class AgentInfoTest {
 		BrightSide.deleteAgent(client, agentId);
 
 		assertNull(venue.agentRecord(userDID, agentId), "the record is removed, not merely terminated");
-		assertNull(AgentInfo.load(client, null, agentId, userDID, "Info Test", false));
+		try (var logs = ExpectedLogs.warn(AgentInfo.class, "Could not read agent info for Bob:")) {
+			assertNull(AgentInfo.load(client, null, agentId, userDID, "Info Test", false));
+		}
 		assertFalse(listedAgents().contains(agentId));
 	}
 

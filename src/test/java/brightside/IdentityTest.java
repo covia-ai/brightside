@@ -143,7 +143,10 @@ class IdentityTest {
 	@Test
 	void loadReturnsNullOnGarbage() throws IOException {
 		java.nio.file.Files.writeString(home.resolve(Identity.FILE_NAME), "not json at all {");
-		assertNull(Identity.load(home));
+		try (var logs = ExpectedLogs.warn(Identity.class,
+			"Could not read " + home.resolve(Identity.FILE_NAME) + " — will ask for a name again:")) {
+			assertNull(Identity.load(home));
+		}
 	}
 
 	@Test
@@ -151,6 +154,9 @@ class IdentityTest {
 		java.nio.file.Files.writeString(home.resolve(Identity.FILE_NAME), """
 			{"name":"Mike", "slug":"mike", "did":"did:key:z6MkMike:u:someone-else"}
 			""");
-		assertNull(Identity.load(home));
+		try (var logs = ExpectedLogs.warn(Identity.class,
+			"Could not read " + home.resolve(Identity.FILE_NAME) + " — saved DID does not match the user slug")) {
+			assertNull(Identity.load(home));
+		}
 	}
 }

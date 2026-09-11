@@ -55,9 +55,9 @@ class InProcessReadsTest {
 	void toolNamesResolveToCatalogueLabels() {
 		String did = Identity.of("labeller").userDID(venue.did());
 		assertEquals(List.of("v/ops/moltbook/read-post", "v/ops/moltbook/read/post"),
-			BrightSide.toolPathCandidates("moltbook_read_post"));
+			brightside.ui.chat.ActivityLabels.toolPathCandidates("moltbook_read_post"));
 		// The first candidate that resolves carries the human name the bubble shows.
-		ACell asset = venue.resolve(did, BrightSide.toolPathCandidates("moltbook_home").get(0));
+		ACell asset = venue.resolve(did, brightside.ui.chat.ActivityLabels.toolPathCandidates("moltbook_home").get(0));
 		assertEquals(Strings.create("Moltbook home"), RT.getIn(asset, "name"));
 	}
 

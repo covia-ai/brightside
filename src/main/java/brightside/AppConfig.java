@@ -29,7 +29,7 @@ import covia.venue.Config;
  *       in; the mode and themes chosen in Settings → Theme are kept in
  *       {@code prefs.properties} and take precedence</li>
  *   <li>{@code venue} — a Covia venue config map. Keys given here replace
- *       BrightSide's defaults key-for-key (a shallow merge), so any venue
+ *       BrightSide's defaults recursively, so any venue
  *       option the Covia runtime understands can be set without BrightSide
  *       knowing about it.</li>
  *   <li>{@code chat} — the agent the chat window talks to.</li>
@@ -251,14 +251,18 @@ public final class AppConfig {
 		}
 	}
 
-	/** Shallow merge: every key in {@code over} replaces the same key in {@code base}. */
+	/** Merge nested maps; explicit scalar and collection values replace defaults. */
 	static AMap<AString, ACell> merge(AMap<AString, ACell> base, AMap<AString, ACell> over) {
 		if (over == null) return base;
 		AMap<AString, ACell> result = base;
 		long n = over.count();
 		for (long i = 0; i < n; i++) {
 			MapEntry<AString, ACell> e = over.entryAt(i);
-			result = result.assoc(e.getKey(), e.getValue());
+			ACell value = e.getValue();
+			AMap<AString, ACell> nested = RT.ensureMap(base.get(e.getKey()));
+			AMap<AString, ACell> override = RT.ensureMap(value);
+			if (nested != null && override != null) value = merge(nested, override);
+			result = result.assoc(e.getKey(), value);
 		}
 		return result;
 	}
