@@ -23,6 +23,7 @@ guide and points here.
 | `docs/LAUNCH.md` | startup order, taking over a running instance, tray, exit |
 | `docs/CONFIGURATION.md` | the reference: files under `~/.brightside/`, `config.json`, API keys, Discord, Moltbook, Claude Code, identity, reaching the venue from other tools |
 | `docs/NETWORK.md` | target state once venues meet venues; deliberately ahead of the code |
+| `docs/ADVANCED_MEMORY.md` | proposals for tiered, provenance-gated memory with consolidation, recall and intents; nothing in it is built |
 
 Covia's own design lives in `../covia/venue/docs/` (skills, agent context,
 adapters, UCAN) and is not repeated here.

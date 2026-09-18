@@ -56,6 +56,7 @@ rules for changing them.
 | First run, unlock, recovery, settings | `docs/ONBOARDING.md` |
 | `config.json`, files, API keys, integrations, reaching the venue from other tools | `docs/CONFIGURATION.md` |
 | Federation roadmap | `docs/NETWORK.md` |
+| Memory proposals for consideration | `docs/ADVANCED_MEMORY.md` |
 | The shipped skills and Brightside's operations, in code | `BrightsideSkillsAdapter`, `BrightsideAdapter` |
 | Covia's own conventions, vocabulary and design | `../covia/AGENTS.md`, `../covia/venue/docs/` |
 
