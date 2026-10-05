@@ -68,10 +68,10 @@ history and memory, while the view owns selection, rendering and subscriptions.
 take, and the venue bounds each of those itself.
 
 **The assistant writes Markdown.** Assistant bubbles render through
-`brightside.markdown`: commonmark-java's AST becomes a styled document, with
-the look supplied from the current theme. The package depends on commonmark
-and the JDK only, so it can be lifted out. The owner's own words stay as
-typed.
+Covia Workbench's `covia.gui.markdown`: commonmark-java's AST becomes a styled
+document. Brightside supplies its theme, bubble appearance and link actions;
+the shared Swing components install no application styling. The owner's own
+words stay as typed.
 
 **In-flight activity shows facts only.** The thinking bubble presents what
 Brightside has been told: preparing, running, elapsed time, and tool calls as

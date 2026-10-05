@@ -3,13 +3,13 @@ package brightside.ui.chat;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.FontMetrics;
-import java.awt.Insets;
 
 import javax.swing.BorderFactory;
+import javax.swing.JScrollPane;
 import javax.swing.text.JTextComponent;
 
-import brightside.markdown.MarkdownPane;
+import covia.gui.components.TextComponents;
+import covia.gui.markdown.MarkdownPane;
 import brightside.ui.components.Card;
 import brightside.ui.components.Links;
 import brightside.ui.components.MarkdownStyles;
@@ -44,27 +44,35 @@ final class Bubble extends Card {
 	private static final int WRAP_SLACK = 6;
 
 	private final JTextComponent text;
-	/** The text as a plain area, when it is one; a Markdown pane measures itself. */
-	private final SelectableText plain;
+	private final JScrollPane markdownScroll;
 	private int maxWidth = 460;
 
-	private Bubble(JTextComponent text, SelectableText plain, boolean user) {
+	private Bubble(JTextComponent text, boolean user) {
 		super(ARC);
 		this.text = text;
-		this.plain = plain;
 		setLayout(new BorderLayout());
 		if (user) {
 			fill(Theme::accentDark);
 			text.setForeground(Color.WHITE);
 		}
 		text.setBorder(BorderFactory.createEmptyBorder(PAD_V, PAD_H, PAD_V, PAD_H));
-		add(text, BorderLayout.CENTER);
+		if (text instanceof MarkdownPane) {
+			markdownScroll = new JScrollPane(text, JScrollPane.VERTICAL_SCROLLBAR_NEVER, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+			markdownScroll.setBorder(BorderFactory.createEmptyBorder());
+			markdownScroll.setOpaque(false);
+			markdownScroll.getViewport().setOpaque(false);
+			markdownScroll.getHorizontalScrollBar().setUnitIncrement(16);
+			add(markdownScroll, BorderLayout.CENTER);
+		} else {
+			markdownScroll = null;
+			add(text, BorderLayout.CENTER);
+		}
 	}
 
 	/** The text exactly as given: the user's own words. */
 	static Bubble plain(String text, boolean user) {
 		SelectableText ta = new SelectableText(text).unfocusable().size(1f);
-		return new Bubble(ta, ta, user);
+		return new Bubble(ta, user);
 	}
 
 	/** Markdown rendered in the theme's type — the assistant's side; links open in the browser. */
@@ -72,7 +80,8 @@ final class Bubble extends Card {
 		MarkdownPane pane = new MarkdownPane(MarkdownStyles::current, markdown)
 			.unfocusable()
 			.onLink(Links::open);
-		return new Bubble(pane, null, false);
+		pane.setOpaque(false);
+		return new Bubble(pane, false);
 	}
 
 	/** The bubble's text component — for wiring selection tracking and a context menu. */
@@ -89,29 +98,17 @@ final class Bubble extends Card {
 	@Override
 	public Dimension getPreferredSize() {
 		int maxTextWidth = Math.max(40, maxWidth - 2 * PAD_H);
-		int textWidth = Math.min(naturalTextWidth() + WRAP_SLACK, maxTextWidth);
+		var insets = text.getInsets();
+		int naturalWidth = TextComponents.naturalWidth(text) - insets.left - insets.right;
+		int textWidth = Math.min(naturalWidth + WRAP_SLACK, maxTextWidth);
 		// The text component's border already supplies PAD_H/PAD_V. Size it to
 		// the complete bubble width and return its complete preferred height;
 		// adding the padding again leaves a conspicuous blank band at the bottom.
 		int bubbleWidth = textWidth + 2 * PAD_H;
-		text.setSize(bubbleWidth, Short.MAX_VALUE);
-		return new Dimension(bubbleWidth, text.getPreferredSize().height);
-	}
-
-	/** The width the text would take unwrapped, so a short message gets a short bubble. */
-	private int naturalTextWidth() {
-		if (plain != null) {
-			FontMetrics fm = plain.getFontMetrics(plain.getFont());
-			int longest = 0;
-			for (String line : plain.getText().split("\n", -1)) {
-				longest = Math.max(longest, fm.stringWidth(line));
-			}
-			return longest;
-		}
-		// A styled view's preferred span is its unwrapped width, whatever size
-		// it was last laid out at.
-		Insets in = text.getInsets();
-		return Math.max(0, text.getPreferredSize().width - in.left - in.right);
+		int viewWidth = markdownScroll == null ? bubbleWidth : Math.max(bubbleWidth, text.getMinimumSize().width);
+		int height = TextComponents.sizeForWidth(text, viewWidth).height;
+		if (markdownScroll != null && viewWidth > bubbleWidth) height += markdownScroll.getHorizontalScrollBar().getPreferredSize().height;
+		return new Dimension(bubbleWidth, height);
 	}
 
 	@Override

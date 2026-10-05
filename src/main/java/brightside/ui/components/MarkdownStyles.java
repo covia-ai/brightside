@@ -6,7 +6,7 @@ import javax.swing.UIManager;
 
 import com.formdev.flatlaf.util.UIScale;
 
-import brightside.markdown.MarkdownStyle;
+import covia.gui.markdown.MarkdownStyle;
 
 /**
  * Rendered Markdown in the current theme: the theme's own faces and colours,
