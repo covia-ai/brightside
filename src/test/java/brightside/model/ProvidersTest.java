@@ -13,9 +13,9 @@ class ProvidersTest {
 
 	@Test
 	void mapsModelOpsAndProviders() {
-		assertEquals("v/models/anthropic/claude-sonnet-5",
-			Providers.modelOp("anthropic", "claude-sonnet-5"));
-		assertEquals("anthropic", Providers.providerOf("v/models/anthropic/claude-sonnet-5"));
+		assertEquals("v/models/anthropic/claude-sonnet-5-5",
+			Providers.modelOp("anthropic", "claude-sonnet-5-5"));
+		assertEquals("anthropic", Providers.providerOf("v/models/anthropic/claude-sonnet-5-5"));
 		assertEquals("openrouter", Providers.providerOf("v/models/openrouter/anthropic/claude-sonnet-5"));
 		assertNull(Providers.providerOf("not a model path"));
 	}
@@ -25,7 +25,7 @@ class ProvidersTest {
 		Providers.Provider anthropic = Providers.byId("anthropic");
 		assertEquals("ANTHROPIC_API_KEY", anthropic.secretName());
 		assertTrue(anthropic.needsApiKey());
-		assertEquals("claude-opus-5", anthropic.defaultModelId(), "Opus 5 is the default (strong tool use)");
+		assertEquals("claude-opus-5-5", anthropic.defaultModelId(), "Opus 5.5 is the default (strong tool use)");
 
 		Providers.Provider ollama = Providers.byId("ollama");
 		assertFalse(ollama.needsApiKey(), "local provider needs no key");

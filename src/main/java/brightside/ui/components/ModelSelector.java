@@ -39,7 +39,7 @@ public final class ModelSelector extends JPanel {
 		providerChanged();
 	}
 
-	/** Select an operation path such as {@code v/models/anthropic/claude-sonnet-5}. */
+	/** Select an operation path such as {@code v/models/anthropic/claude-sonnet-5-5}. */
 	public void selectModelOp(String modelOp) {
 		syncing = true;
 		String providerId = Providers.providerOf(modelOp);

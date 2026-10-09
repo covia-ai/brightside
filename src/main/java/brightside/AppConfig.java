@@ -57,7 +57,7 @@ public final class AppConfig {
 	/** Plain persona chat transition — the recommended choice for a chat agent. */
 	public static final String DEFAULT_OPERATION = "v/ops/llmagent/chat";
 	/** The venue's own default model operation (see AbstractLLMAdapter). */
-	public static final String DEFAULT_LLM_OPERATION = "v/models/anthropic/claude-sonnet-5";
+	public static final String DEFAULT_LLM_OPERATION = "v/models/anthropic/claude-sonnet-5-5";
 	/** Test LLM that echoes the last user message — an offline chat backend. */
 	public static final String ECHO_LLM_OPERATION = "v/test/ops/llm";
 	public static final String DEFAULT_SYSTEM_PROMPT =
@@ -120,7 +120,7 @@ public final class AppConfig {
 				// (onboarding or Settings → Model) is kept in model.txt
 				// beside this file and takes precedence over this key.
 				// Use "v/test/ops/llm" for an offline echo bot.
-				"llmOperation": "v/models/anthropic/claude-sonnet-5"
+				"llmOperation": "v/models/anthropic/claude-sonnet-5-5"
 				// How the assistant should behave. Leave it out to use Brightside's
 				// default persona (a warm, private personal assistant):
 				// ,"systemPrompt": "You are Brightside, ..."

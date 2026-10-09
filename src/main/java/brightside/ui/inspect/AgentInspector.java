@@ -56,7 +56,7 @@ public final class AgentInspector {
 		if (a.context().isEmpty() && a.pins().isEmpty()) d.note("Nothing pinned.");
 
 		d.section("Always-on tools").tip("Tools the agent has without loading anything.");
-		if (a.defaultTools()) d.prose("Read-only workspace access (covia read/list)");
+		if (a.defaultTools()) d.prose("Read-only workspace access (covia read/list/inspect)");
 		for (String t : a.tools()) d.prose(t);
 		if (!a.defaultTools() && a.tools().isEmpty()) d.note("None.");
 		d.section("Skill libraries").tip("The skillsets the agent searches for skills, in order; the first skill "
