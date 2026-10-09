@@ -16,7 +16,8 @@ full technical surface lives under Settings. One Maven module,
 ## Build and test
 
 - Java 21+, Maven 3.7+. `covia.version` in `pom.xml` names the Covia line; a
-  SNAPSHOT needs `../convex` then `../covia` installed with `mvn install`.
+  SNAPSHOT needs `../covia` installed with `mvn install` (and `../convex`
+  before it only if Covia's `convex.version` is itself a SNAPSHOT).
 - `mvn package` → `target/brightside.jar`; `mvn test`; `mvn exec:java`.
 - Tests boot real venues headless (`-Djava.awt.headless=true`) and must never
   put a window or a tray icon on a desktop. Chat tests use the echo LLM

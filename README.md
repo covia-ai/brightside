@@ -89,15 +89,16 @@ end to end.
 <summary><b>Building against a local Covia checkout</b></summary>
 
 `covia.version` in `pom.xml` names the Covia line. A release resolves from
-Maven Central; a SNAPSHOT needs local checkouts installed — Covia depends on
-Convex, so Convex first:
+Maven Central; a SNAPSHOT needs the Covia checkout installed locally:
 
 ```bash
-cd ../convex && mvn clean install -DskipTests
-cd ../covia  && mvn clean install -DskipTests
+cd ../covia && mvn clean install -DskipTests
 ```
 
-If the build cannot resolve `ai.covia:venue`, that is why.
+Convex comes in through Covia as a Maven Central release, so `../convex`
+needs installing first (`mvn clean install -DskipTests` there too) only while
+Covia's own `convex.version` is a SNAPSHOT. If the build cannot resolve
+`ai.covia:venue`, that is why.
 </details>
 
 ## Highlights
@@ -223,7 +224,7 @@ comments — and **every key in it is optional**:
   "venue": { "name": "Brightside Venue", "port": 8085 },
   "chat": {
     "agentId": "Brightside",
-    "llmOperation": "v/models/anthropic/claude-sonnet-5"
+    "llmOperation": "v/models/anthropic/claude-sonnet-5-5"
   }
 }
 ```
@@ -235,7 +236,7 @@ agent config, where state and keys live and how to reset them — is in
 ## FAQ
 
 **Which models can I use?** Any model operation the embedded venue exposes.
-The default is Anthropic's Claude via `v/models/anthropic/claude-sonnet-5`;
+The default is Anthropic's Claude via `v/models/anthropic/claude-sonnet-5-5`;
 change `chat.llmOperation` to point at another. The venue's adapters are what
 determine the menu, not Brightside.
 
