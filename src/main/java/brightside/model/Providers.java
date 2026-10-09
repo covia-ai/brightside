@@ -33,7 +33,14 @@ public final class Providers {
 			List.of(new Model("claude-opus-5-5", "Claude Opus 5.5"),
 				new Model("claude-sonnet-5-5", "Claude Sonnet 5.5"),
 				new Model("claude-fable-5-1", "Claude Fable 5.1"),
-				new Model("claude-haiku-5-5", "Claude Haiku 5.5"))),
+				new Model("claude-haiku-5-5", "Claude Haiku 5.5"),
+				// The previous line stays listed, as in Covia's catalogue, so an
+				// install that chose one of these still sees its choice in Settings
+				// rather than the first entry (ModelSelector keeps unlisted ids
+				// nowhere).
+				new Model("claude-opus-5", "Claude Opus 5 (previous)"),
+				new Model("claude-sonnet-5", "Claude Sonnet 5 (previous)"),
+				new Model("claude-haiku-4-5-20251001", "Claude Haiku 4.5 (previous)"))),
 		new Provider("openai", "OpenAI", "OPENAI_API_KEY", "https://platform.openai.com/api-keys",
 			List.of(new Model("gpt-5.6-terra", "GPT-5.6"),
 				new Model("gpt-5.4-mini", "GPT-5.4 mini"))),
