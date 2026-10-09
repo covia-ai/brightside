@@ -31,9 +31,14 @@ how it stops. Code: `BrightSide`, `Takeover`, `EmbeddedVenue`, `TrayManager`.
    progress ("Starting the venue…"); the main window appears only once the
    venue is actually ready, so it never shows without live data behind it.
 4. `EmbeddedVenue.launch` starts the `VenueServer` on loopback with public
-   access disabled and registers `BrightsideAdapter` and
-   `BrightsideSkillsAdapter`; a failure after the server is up closes it again,
-   so nothing is left holding the port or the store. `onVenueReady` binds the
+   access disabled, registering `BrightsideAdapter`, `BrightsideSkillsAdapter`,
+   Moltbook, Discord and Claude Code in Covia's pre-start hook: after the
+   built-in adapters are installed and configured secrets provisioned, before
+   durable jobs are recovered and adapter workers start, so a job a crash left
+   on one of Brightside's operations is recovered by its owner and the Discord
+   bots re-arm with everything else. A failure in the hook closes the
+   half-assembled server, so nothing is left holding the port or the store.
+   `onVenueReady` binds the
    identity to the venue and moves any provider keys still in the vault into
    the encrypted secret stores, still behind the dialog so a failure returns
    to it. Only then is the window revealed, and the chat starts as

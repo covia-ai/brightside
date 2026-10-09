@@ -1,5 +1,7 @@
 package brightside;
 
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
@@ -49,12 +51,18 @@ public final class EmbeddedVenue implements AutoCloseable {
 	 * {@code brightside:shutdown} operation so an operator (or a newly launched
 	 * instance taking over) can stop this process cleanly over the venue's own
 	 * HTTP surface. Pass null off the desktop (e.g. tests).
+	 *
+	 * <p>Brightside's adapters are registered in Covia's pre-start hook: after
+	 * the built-in adapters are installed and configured secrets provisioned,
+	 * before durable jobs are recovered and adapter workers activated. So a job
+	 * a crash left on one of Brightside's own operations is recovered by the
+	 * adapter that owns it, and the Discord bots re-arm when every other worker
+	 * starts. A failure in the hook closes the half-assembled server before the
+	 * exception reaches us, so nothing is left holding the port or the store.
 	 */
 	public static EmbeddedVenue launch(AMap<AString, ACell> config, Runnable onShutdown) {
-		VenueServer server = VenueServer.launch(config);
-		try {
+		VenueServer server = VenueServer.launch(config, List.of(), engine -> {
 			// Brightside's venue adapters: operations, and the default skill library.
-			Engine engine = server.getEngine();
 			engine.registerAdapter(new BrightsideAdapter(onShutdown));
 			engine.registerAdapter(new BrightsideSkillsAdapter());
 			// Moltbook as typed operations; idle until the owner connects an account.
@@ -73,17 +81,9 @@ public final class EmbeddedVenue implements AutoCloseable {
 				log.warn("Claude Code is not available this launch — check venue.adapters.claudecode in config.json: {}",
 					e.getMessage());
 			}
-		} catch (RuntimeException | Error e) {
-			// The server is up — port bound, store locked — and nobody else holds
-			// it: close it, or a retry would find "a running Brightside" that is
-			// this very process.
-			try {
-				server.close();
-			} catch (RuntimeException c) {
-				e.addSuppressed(c);
-			}
-			throw e;
-		}
+			// Registration is synchronous: nothing asynchronous for the venue to await.
+			return CompletableFuture.completedFuture(null);
+		});
 		return new EmbeddedVenue(server);
 	}
 
