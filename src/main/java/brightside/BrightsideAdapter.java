@@ -526,7 +526,7 @@ public class BrightsideAdapter extends AAdapter {
 	/** The store this venue runs on, as configured: a path, or {@code temp}. */
 	private String storeName() {
 		try {
-			return new covia.venue.Config(engine.getConfig()).getStore();
+			return engine.config().getStore();
 		} catch (RuntimeException e) {
 			return null;
 		}

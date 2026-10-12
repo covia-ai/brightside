@@ -21,7 +21,9 @@ import convex.core.data.Vectors;
 import convex.core.data.prim.CVMBool;
 import convex.core.lang.RT;
 import convex.core.util.JSON;
+import covia.adapter.AgentAdapter;
 import covia.api.Fields;
+import covia.exception.JobFailedException;
 import covia.grid.Job;
 import covia.grid.Status;
 import covia.grid.Venue;
@@ -512,15 +514,14 @@ public final class ChatSession {
 	}
 
 	/**
-	 * Whether {@code e} is the venue rejecting an unknown session id. The agent
-	 * framework fails the chat job with "Unknown session: …" / "Unknown
-	 * sessionId: …" (see Covia's {@code AgentAdapter}); anything else is a
-	 * different failure and the session id stays.
+	 * Recognises the agent adapter's optional unknown-session code. Missing or
+	 * unfamiliar codes are ordinary failures; their wording must not cause us
+	 * to replace the saved session.
 	 */
 	static boolean isUnknownSession(Throwable e) {
 		for (Throwable t = e; t != null; t = t.getCause()) {
-			String m = t.getMessage();
-			if (m != null && m.toLowerCase().contains("unknown session")) return true;
+			if (t instanceof JobFailedException failure
+					&& AgentAdapter.UNKNOWN_SESSION_CODE.equals(failure.getErrorCode())) return true;
 			if (t.getCause() == t) break;
 		}
 		return false;

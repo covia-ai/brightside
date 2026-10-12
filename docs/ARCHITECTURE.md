@@ -64,6 +64,12 @@ Covia agent state and allows user interactions through the embedded APIs.
 Its close coupling to the framework is intentional: the venue owns execution,
 history and memory, while the view owns selection, rendering and subscriptions.
 
+**Session recovery requires a recognised condition.** When resuming a saved
+conversation, Brightside starts a fresh one only for the agent adapter's
+optional unknown-session code. Missing or unfamiliar codes leave the saved
+conversation in place and surface the failure; message wording never decides
+recovery. The code contract belongs to [Covia Jobs](https://github.com/covia-ai/covia/blob/develop/venue/docs/JOBS.md).
+
 **A reply has no deadline.** A turn takes as long as its model and tool calls
 take, and the venue bounds each of those itself.
 

@@ -37,9 +37,13 @@ import convex.core.data.Maps;
 import convex.core.data.Strings;
 import convex.core.data.prim.CVMBool;
 import convex.core.lang.RT;
+import covia.adapter.AgentAdapter;
 import covia.adapter.TestAdapter;
 import covia.api.Fields;
+import covia.exception.JobFailedException;
 import covia.grid.Asset;
+import covia.grid.Job;
+import covia.grid.Status;
 import covia.grid.Venue;
 import covia.venue.Engine;
 
@@ -349,9 +353,14 @@ class ChatSessionTest {
 
 	@Test
 	void onlyAnUnknownSessionTriggersTheFallback() throws Exception {
-		assertTrue(ChatSession.isUnknownSession(new RuntimeException("Unknown sessionId: abc — omit sessionId")));
-		assertTrue(ChatSession.isUnknownSession(new java.util.concurrent.ExecutionException(
-			new IllegalStateException("Unknown session: abc"))));
+		Job missing = Job.create(Maps.of(Fields.STATUS, Status.STARTED));
+		missing.fail(AgentAdapter.UNKNOWN_SESSION_CODE, "This conversation has expired");
+		assertTrue(ChatSession.isUnknownSession(new JobFailedException(missing)));
+		assertTrue(ChatSession.isUnknownSession(new ExecutionException(new JobFailedException(missing))));
+		assertFalse(ChatSession.isUnknownSession(new JobFailedException("Unknown sessionId: abc")));
+		Job other = Job.create(Maps.of(Fields.STATUS, Status.STARTED));
+		other.fail("other:unknown-session", "Unknown session: abc");
+		assertFalse(ChatSession.isUnknownSession(new JobFailedException(other)));
 		assertFalse(ChatSession.isUnknownSession(new RuntimeException("Secret ANTHROPIC_API_KEY not found")));
 		assertFalse(ChatSession.isUnknownSession(new java.util.concurrent.TimeoutException("No reply")));
 	}
