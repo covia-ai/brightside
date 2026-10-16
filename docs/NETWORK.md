@@ -274,7 +274,8 @@ opens on a wallet it does not need has already broken principle 1.
 One exception exists today, deliberately: a **Peers** tab previews the shape
 of all four as a solar map, with your venue at the centre, your devices,
 people, services and known peers on orbits outwards, and each peer's agents as
-moons. Every peer on it is a sample, it is labelled as a preview, and it reads
+moons; zoomed out, other venues are star systems of their own, linked to yours
+when you know them. Every peer and venue on it is a sample, it is labelled as a preview, and it reads
 and sends nothing (`ui/peers`). It goes, or becomes real, when federation
 does.
 

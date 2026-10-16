@@ -40,12 +40,14 @@ public final class PeersScreen extends JPanel {
 	private final SolarMap map;
 	private final JPanel side = new JPanel(new BorderLayout());
 	private final JButton pause = Buttons.icon(null, null);
+	private final JLabel view = Labels.small(" ", Styles.MUTED);
 
 	public PeersScreen() {
 		super(new BorderLayout());
-		map = new SolarMap(SamplePeers.ALL, this::show);
+		map = new SolarMap(SamplePeers.ALL, SamplePeers.SYSTEMS, this::show, this::syncView);
 
-		JPanel header = new JPanel(new MigLayout("insets 14 22 12 16, fillx", "[]10[]push[]4[]", ""));
+		JPanel header = new JPanel(new MigLayout("insets 14 22 12 16, fillx",
+			"[]10[]push[]14[]2[]2[]2[]10[]", ""));
 		header.setBorder(Borders.hairline(false, false, true, false));
 		header.add(Styles.style(new JLabel("Peers"), "font: bold +4"));
 		header.add(chip("Preview · sample peers",
@@ -55,10 +57,13 @@ public final class PeersScreen extends JPanel {
 			syncPause();
 		});
 		syncPause();
-		JButton recentre = Buttons.icon(Lucide.icon("orbit", 16, Theme::muted), "Recentre the map (or double-click it)");
-		recentre.addActionListener(e -> map.resetView());
+		header.add(view);
+		header.add(button("zoom-out", "Zoom out (or scroll)", () -> map.zoomStep(false)));
+		header.add(button("zoom-in", "Zoom in (or scroll)", () -> map.zoomStep(true)));
+		header.add(button("locate-fixed", "Your system (or double-click the map)", map::home));
+		header.add(button("telescope", "The whole universe of venues", map::universe));
 		header.add(pause);
-		header.add(recentre);
+		syncView();
 
 		side.setOpaque(false);
 		side.setPreferredSize(new Dimension(310, 0));
@@ -79,13 +84,24 @@ public final class PeersScreen extends JPanel {
 		pause.setToolTipText(p ? "Set the map turning again" : "Hold the map still");
 	}
 
-	/** The side card: an overview with nothing chosen, else the chosen peer. */
-	private void show(SamplePeers.Peer p) {
+	private void syncView() {
+		view.setText(map.viewName() + " · " + Math.round(map.zoom() * 100) + "%");
+	}
+
+	private static JButton button(String icon, String tooltip, Runnable action) {
+		JButton b = Buttons.icon(Lucide.icon(icon, 16, Theme::muted), tooltip);
+		b.addActionListener(e -> action.run());
+		return b;
+	}
+
+	/** The side card: an overview with nothing chosen, else the chosen peer or venue. */
+	private void show(Object chosen) {
 		side.removeAll();
 		JPanel content = new JPanel(new MigLayout("insets 18 18 18 22, fillx, wrap 1, gapy 6", "[grow,fill]", ""));
 		content.setOpaque(false);
-		if (p == null) overview(content);
-		else peer(content, p);
+		if (chosen instanceof SamplePeers.Peer p) peer(content, p);
+		else if (chosen instanceof SamplePeers.StarSystem s) system(content, s);
+		else overview(content);
 		side.add(Scrolls.vertical(content), BorderLayout.CENTER);
 		side.revalidate();
 		side.repaint();
@@ -112,9 +128,47 @@ public final class PeersScreen extends JPanel {
 		c.add(legendRow(new SunIcon(), "You, at the centre", null));
 		c.add(legendRow(lamp(new Color(0xA9AFBC)), "Moons are a peer's agents", null));
 		c.add(legendRow(new RingedIcon(), "Rings mark a service", null));
+		c.add(legendRow(lamp(new Color(0xF6B26B)), "Stars far out are other venues", null));
 
-		c.add(new SelectableText("Click a planet to see it. Scroll to zoom, drag to pan, double-click to recentre.")
-			.small().muted(), "gaptop 16, wmin 0");
+		c.add(new SelectableText("Click a planet or a star to see it. Scroll to zoom, drag to pan, double-click "
+			+ "to come home.").small().muted(), "gaptop 16, wmin 0");
+	}
+
+	/** A venue seen from far out. */
+	private void system(JPanel c, SamplePeers.StarSystem s) {
+		JPanel title = new JPanel(new MigLayout("insets 0, gap 12", "[][grow,fill]", "[][]"));
+		title.setOpaque(false);
+		title.add(new JLabel(new PlanetIcon(s.sun(), 40, false)), "spany 2");
+		title.add(Styles.style(new JLabel(s.known() ? s.name() : "Unknown venue"), "font: bold +3"), "wrap, wmin 0");
+		title.add(Labels.small(s.known() ? "Venue" : "Not in your directory", Styles.MUTED));
+		c.add(title, "gapbottom 8");
+		c.add(fact("Status", new JLabel(s.linked() ? s.status().label : "Not connected",
+			lamp(SolarMap.lamp(s.linked() ? s.status() : SamplePeers.Status.KNOWN)), SwingConstants.LEADING)));
+		if (s.about() != null) c.add(fact("About", new SelectableText(s.about())));
+		if (s.known()) {
+			c.add(fact("Peers", Labels.text(String.valueOf(s.planets()))));
+			c.add(fact("Agents", Labels.text(String.valueOf(s.agents()))));
+		} else {
+			c.add(new SelectableText("A venue on the network you have no introduction to. Nothing is known about it "
+				+ "until someone you trust vouches for it.").small().muted(), "gaptop 6, wmin 0");
+		}
+		SamplePeers.Peer here = SamplePeers.ALL.stream().filter(p -> p.name().equals(s.peer())).findFirst().orElse(null);
+		JPanel actions = new JPanel(new MigLayout("insets 0, gap 8", "", ""));
+		actions.setOpaque(false);
+		if (here != null) {
+			JButton show = Buttons.secondary("On your map");
+			show.setToolTipText("Go home and pick out " + here.name() + ", where this venue sits among your peers");
+			show.addActionListener(e -> {
+				map.home();
+				map.select(here);
+			});
+			actions.add(show);
+		}
+		JButton introduce = Buttons.plain(s.linked() ? "Manage access…" : "Ask for an introduction…");
+		introduce.setEnabled(false);
+		introduce.setToolTipText("Arrives with federation; this is a preview");
+		actions.add(introduce);
+		c.add(actions, "gaptop 18");
 	}
 
 	private static void peer(JPanel c, SamplePeers.Peer p) {
