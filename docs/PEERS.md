@@ -107,7 +107,7 @@ the operator keeps a separate arrangement.
    to orbit, the hashed defaults, resizing and the stored form.
 2. **Local services live.** The services orbit shows the real connections
    listed above, with real status.
-3. **A P2P node in the venue (Covia).** Discovery and connection, under the
+3. **A P2P node in the venue** ([covia#587](https://github.com/covia-ai/covia/issues/587)). Discovery and connection, under the
    venue's identity, off by default and joined from Settings, with a
    read-only peers operation and change events. Brightside reads it through
    the embedded API, as it reads everything else.
