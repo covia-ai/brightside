@@ -12,7 +12,9 @@ import com.formdev.flatlaf.FlatClientProperties;
 
 import brightside.Discord;
 import brightside.ui.components.Buttons;
+import brightside.ui.components.Disclosure;
 import brightside.ui.components.Documents;
+import brightside.ui.components.Labels;
 import brightside.ui.components.SelectableText;
 import brightside.ui.components.Styles;
 
@@ -76,14 +78,17 @@ public final class DiscordPanel extends SettingsPage {
 			+ "Send Messages, open the generated link and add the bot to your server — or just message it directly.\n"
 			+ "4. Paste the token here, list who may talk to it, and save.");
 
-		addDescription("Your assistant on Discord. Message it directly from your phone or any server it is in; in a "
-			+ "server it answers when mentioned. Only the Discord users you list can talk to it — anyone else who "
-			+ "messages it is told their user id, which is what you paste below.");
 		addField("Status", status);
 		addField("Bot token", tokenField);
-		addField("Allowed users", allowField);
+		addField("Allowed users", "Only these Discord users may talk to your assistant. Anyone else who messages the "
+			+ "bot is told their user id, so DM it to find yours. Direct messages always reach it; in a server it "
+			+ "answers when mentioned.", allowField);
 		addSpanLeft(remove);
-		addSpan(steps, "gaptop 14");
+		// Needed once, when making the bot: folded away until asked for.
+		steps.setBorder(javax.swing.BorderFactory.createEmptyBorder(6, 22, 0, 0));
+		Disclosure setup = new Disclosure(Labels.muted("Setting up a Discord bot"), steps, 12).compact();
+		setup.setExpanded(false);
+		addSpan(setup, "gaptop 14");
 	}
 
 	/** Reflect the bot (null when none) and an optional one-line note; re-baselines the form. */

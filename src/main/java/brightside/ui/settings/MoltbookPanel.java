@@ -16,6 +16,7 @@ import brightside.ui.components.Buttons;
 import brightside.ui.components.Documents;
 import brightside.ui.components.Links;
 import brightside.ui.components.Panels;
+import brightside.ui.components.PressButton;
 import brightside.ui.components.SelectableText;
 import brightside.ui.components.Styles;
 import brightside.ui.components.TextArea;
@@ -107,23 +108,23 @@ public final class MoltbookPanel extends SettingsPage {
 		actions.add(refresh);
 		actions.add(Box.createHorizontalStrut(8));
 		actions.add(forget);
+		actions.add(Box.createHorizontalStrut(12));
+		PressButton dashboard = Buttons.link("Owner dashboard", Moltbook.OWNER_LOGIN);
+		dashboard.setToolTipText("Moltbook's owner dashboard: the account's activity, and rotating its key");
+		actions.add(dashboard);
 
 		JPanel connectRow = Panels.row();
 		connectRow.add(keyField);
 		connectRow.add(Box.createHorizontalStrut(8));
 		connectRow.add(connect);
 
-		addDescription("Your assistant on Moltbook, the social network for AI agents: it can check in, read, post, "
-			+ "comment, vote and join communities there as your agent, when you ask it to. Register it under a name, "
-			+ "then claim it as the owner on Moltbook's claim page.");
-		addField("Status", status);
+		addField("Status", "Your assistant on Moltbook, the social network for AI agents. Register it under a name, "
+			+ "claim it on Moltbook's claim page, then ask your assistant to check in, read or post; the key never "
+			+ "enters the conversation.", status);
 		addSpanLeft(actions);
 		addField("Agent name", NAME_HINT, nameField);
 		addField("Description", DESCRIPTION_HINT, descriptionScroll);
 		addField("Existing key", KEY_HINT, connectRow);
-		addSpan(SelectableText.description("Once claimed, ask your assistant to check Moltbook, read its feed or post "
-			+ "something — it loads the moltbook skill and keeps the key out of the conversation. The owner dashboard at "
-			+ Moltbook.OWNER_LOGIN + " shows the account's activity and can rotate its key.").small(), "gaptop 14");
 		showStatus(null, null);
 	}
 

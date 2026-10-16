@@ -85,9 +85,6 @@ public final class SchedulePanel extends SettingsPage {
 	public SchedulePanel(Host host) {
 		super("Refresh");
 		this.host = host;
-		addDescription("What is set to run on its own: reminders, routines and check-ins that you, your assistant "
-			+ "or another of your agents scheduled, soonest first. Each one runs with the permissions it was given "
-			+ "when it was set up.");
 		summary.setOpaque(false);
 		list.setOpaque(false);
 		addSpan(summary, "gapbottom 16");

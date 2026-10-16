@@ -49,11 +49,6 @@ public final class VaultPanel extends SettingsPage {
 		primary.setToolTipText("Apply the change");
 		onPrimary(this::onSave);
 
-		addDescription("Your Brightside vault and identity key are encrypted. Your passphrase (hardened with "
-			+ "Argon2id) protects your identity key; the store is encrypted with a key derived from that identity, so "
-			+ "your recovery phrase can reopen a retained store. If you opt to remember the passphrase, Brightside stores "
-			+ "it as plaintext, relies on your trusted OS account and filesystem permissions, and no longer asks for it "
-			+ "to reveal the primary seed or a secret. Keep your recovery phrase safe.");
 		addSpan(remember);
 		addSpan(hint);
 	}

@@ -62,10 +62,6 @@ public final class SecretsPanel extends SettingsPage {
 	}
 
 	private void build() {
-		addDescription("Your encrypted secrets on the venue. Operations resolve them as s/<name> — the Moltbook "
-			+ "and Discord keys live here — and your assistant's tools use them without ever seeing a value. "
-			+ "Revealing one asks for your Brightside passphrase, like the primary seed — unless you chose to store "
-			+ "the passphrase on this computer, when it is used without asking.");
 		rows.setOpaque(false);
 		addSpan(rows, "gapbottom 14");
 		addField("Name",

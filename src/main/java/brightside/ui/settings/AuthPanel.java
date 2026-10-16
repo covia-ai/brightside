@@ -81,10 +81,8 @@ public final class AuthPanel extends SettingsPage {
 		primary.setToolTipText("Mint a new access token with the chosen expiry");
 		onPrimary(this::onGenerate);
 
-		addDescription("A bearer token for this venue's local API (Authorization: Bearer …). Choose the user "
-			+ "identity for private Brightside data, or the venue operator only for administration. Treat either "
-			+ "like a password; it is not stored on disk.");
-		addField("Authenticate as", subject);
+		addField("Authenticate as", "A bearer token for this venue's local API (Authorization: Bearer …). The user "
+			+ "reaches your own Brightside data; the venue operator is for administration only.", subject);
 		addField("Expires in", expiry);
 		addSpan(tokenScroll, "h 96!, gaptop 6");
 		addSpanLeft(copy);
@@ -105,8 +103,8 @@ public final class AuthPanel extends SettingsPage {
 		token.setText(jwt);
 		token.setCaretPosition(0);
 		copy.setEnabled(true);
-		setNote("Valid for " + sel.label() + (asOperator ? " with venue-operator authority." : " as the user."),
-			asOperator);
+		setNote("Valid for " + sel.label() + (asOperator ? " with venue-operator authority" : " as the user")
+			+ ". Treat it like a password; it isn't stored.", asOperator);
 	}
 
 	private void onCopy() {

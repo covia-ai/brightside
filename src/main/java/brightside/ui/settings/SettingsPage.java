@@ -12,7 +12,6 @@ import brightside.ui.components.Buttons;
 import brightside.ui.components.HintLabel;
 import brightside.ui.components.Labels;
 import brightside.ui.components.Scrolls;
-import brightside.ui.components.SelectableText;
 import brightside.ui.components.Styles;
 import net.miginfocom.swing.MigLayout;
 
@@ -20,8 +19,10 @@ import net.miginfocom.swing.MigLayout;
  * Common structure shared by every settings page: a scrolling two-column form on
  * top and a fixed action bar at the bottom (a status note and one primary button)
  * that stays put while the form scrolls. Subclasses populate the form with
- * {@link #addDescription}, {@link #addField} and {@link #addSpan}, drive the single
- * {@link #primary} action, and report status with {@link #setNote}.
+ * {@link #addField} and {@link #addSpan}, drive the single {@link #primary}
+ * action, and report status with {@link #setNote}. A page has no opening
+ * paragraph: each explanation lives at the control it explains, as a hint, a
+ * tooltip, or a note only where a consequence must be seen before acting.
  */
 @SuppressWarnings("serial")
 abstract class SettingsPage extends JPanel {
@@ -36,11 +37,6 @@ abstract class SettingsPage extends JPanel {
 		primary = Buttons.primary(primaryLabel);
 		add(Scrolls.vertical(form), BorderLayout.CENTER);
 		add(actionBar(note, primary), BorderLayout.SOUTH);
-	}
-
-	/** A full-width, wrapping description at the top of the page. */
-	protected final void addDescription(String text) {
-		form.add(SelectableText.description(text), "span 2, growx, wmin 0, gapbottom 14");
 	}
 
 	/** A label + field on one row (field grows, capped so it doesn't sprawl). */

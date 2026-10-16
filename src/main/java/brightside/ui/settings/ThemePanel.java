@@ -37,7 +37,6 @@ import brightside.ui.components.Buttons;
 import brightside.ui.components.Labels;
 import brightside.ui.components.Panels;
 import brightside.ui.components.PressButton;
-import brightside.ui.components.SelectableText;
 import brightside.ui.components.Styles;
 import brightside.ui.components.Theme;
 import net.miginfocom.swing.MigLayout;
@@ -104,10 +103,7 @@ public final class ThemePanel extends JPanel {
 		super(new BorderLayout());
 		this.host = host;
 		JPanel form = new JPanel(new MigLayout("insets 24 28 20 28, fill, wrap 1", "[grow,fill]",
-			"[]12[]4[]12[grow,fill]14[]6[]4[]14[]"));
-
-		form.add(SelectableText.description("How Brightside looks. Changes apply straight away and are "
-			+ "remembered on this computer."), "growx, wmin 0");
+			"[]12[grow,fill]14[]6[]4[]14[]"));
 
 		// The switch. Each mode keeps its own theme from the list below.
 		ButtonGroup modes = new ButtonGroup();
@@ -123,7 +119,6 @@ public final class ThemePanel extends JPanel {
 		switcher.add(light);
 		form.add(switcher);
 
-		form.add(Labels.small("The theme for this mode: any that FlatLaf provides."), "growx, wmin 0");
 		list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		list.setCellRenderer(new Row());
 		list.setVisibleRowCount(8);
@@ -156,11 +151,10 @@ public final class ThemePanel extends JPanel {
 		JPanel own = new JPanel(new MigLayout("insets 0, fillx", "[grow]12[]", ""));
 		own.setOpaque(false);
 		own.setBorder(Borders.hairlineTop());
-		own.add(SelectableText.description("Your own themes: drop a FlatLaf or IntelliJ .theme.json into the "
-			+ "themes folder and restart Brightside; it appears under its mode.").small(), "growx, wmin 0, gaptop 12");
 		JButton open = Buttons.secondary("Open themes folder");
+		open.setToolTipText("Drop a FlatLaf or IntelliJ .theme.json here and restart; it appears under its mode");
 		open.addActionListener(e -> host.openThemesFolder());
-		own.add(open, "aligny top, gaptop 8");
+		own.add(open, "gaptop 12");
 		form.add(own, "growx, wmin 0");
 
 		add(form, BorderLayout.CENTER);
@@ -202,9 +196,8 @@ public final class ThemePanel extends JPanel {
 			custom.setEnabled(core);
 			// A colour from the chooser shows on the Custom button instead.
 			custom.setIcon(core && match == null ? new Dot(Color.decode(currentAccent), () -> true, () -> true) : null);
-			accentNote.setText(core
-				? "The accent colours selection, focus and the main buttons."
-				: "This theme sets its own colours; the accent applies to FlatLaf's own themes.");
+			// Says why the swatches are disabled; nothing to say when they work.
+			accentNote.setText(core ? " " : "This theme sets its own colours; the accent applies to FlatLaf's own themes.");
 		} finally {
 			syncing = false;
 		}

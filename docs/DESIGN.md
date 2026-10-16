@@ -33,6 +33,14 @@ settings file and the logs live under **Settings**, and the raw model context
 under **Sessions**, where a curious or technical person can pull back the
 curtain and the everyday person never has to.
 
+Settings pages are for someone who already knows what they want, so they show
+controls, not essays. A page has no opening paragraph. Each explanation lives
+at the control it explains: in the control's own words, in a hint or tooltip,
+or as a short visible note only where a consequence must be seen before
+acting. A step needed only once, such as creating a Discord bot, folds away.
+The why behind security choices belongs in [SECURITY.md](SECURITY.md), not on
+the page.
+
 ## 3. Identity
 
 The person picks a **name**. Internally it becomes a principal on their own

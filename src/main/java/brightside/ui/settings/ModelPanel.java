@@ -13,8 +13,9 @@ import brightside.ui.components.Styles;
 
 /**
  * The <b>Model</b> settings page: pick the provider and model, and replace the API
- * key. Model changes apply live; a new key is stored encrypted and applies at the
- * next start. The <b>Save</b> action stays disabled until something changes.
+ * key. Both apply live: a new key is stored encrypted in the venue's secret
+ * stores, which model calls read each time. The <b>Save</b> action stays
+ * disabled until something changes.
  */
 @SuppressWarnings("serial")
 public final class ModelPanel extends SettingsPage {
@@ -42,7 +43,7 @@ public final class ModelPanel extends SettingsPage {
 	}
 
 	private void build() {
-		keyField.setToolTipText("The provider's API key — stored encrypted; a new key applies at the next start");
+		keyField.setToolTipText("The provider's API key, stored encrypted on the venue and used from the next message");
 		Styles.classes(keyField, Styles.MONOSPACED);
 		modelSelector.addSelectionListener(this::onModelSelection);
 		keyField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Paste a new key to replace it (leave blank to keep)");
@@ -52,8 +53,6 @@ public final class ModelPanel extends SettingsPage {
 		primary.setToolTipText("Apply the selected model and store any new key");
 		onPrimary(this::onSave);
 
-		addDescription("Choose the model your assistant thinks with. Model changes apply immediately; a new API key "
-			+ "is stored encrypted and applies at the next start.");
 		addSpan(modelSelector);
 		addField("API key", keyField);
 	}
