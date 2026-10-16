@@ -116,6 +116,25 @@ public class BrightsideAdapter extends AAdapter {
 		this.onShutdown = onShutdown;
 	}
 
+	/** Where a person's Peers map settings sit in this adapter's workspace, below their DID. */
+	static final String MAP_SETTINGS = "peers-map";
+
+	/**
+	 * A person's Peers map settings, as stored ({@link brightside.peers.MapSettings#toCell}),
+	 * or null. They live in this adapter's venue-private workspace rather than
+	 * the person's own namespace: they are how this installation draws the
+	 * map, not data anyone else is meant to read, and the desktop app reads and
+	 * writes them in-process, so arranging the map leaves no job records.
+	 */
+	public ACell mapSettings(AString userDID) {
+		return adapterWorkspace().read(adapterWorkspace().userPath(userDID, MAP_SETTINGS));
+	}
+
+	/** Stores a person's Peers map settings, replacing any. */
+	public void saveMapSettings(AString userDID, ACell settings) {
+		adapterWorkspace().write(adapterWorkspace().userPath(userDID, MAP_SETTINGS), settings);
+	}
+
 	@Override
 	public String getName() {
 		return "brightside";

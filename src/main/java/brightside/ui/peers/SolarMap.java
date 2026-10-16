@@ -32,119 +32,107 @@ import java.util.Random;
 import java.util.function.Consumer;
 
 import javax.swing.JComponent;
+import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
 import com.formdev.flatlaf.util.UIScale;
 
+import brightside.peers.MapSettings;
+import brightside.peers.Node;
+import brightside.peers.PeerGraph;
 import brightside.ui.components.Theme;
 
 /**
- * The Peers map, from your own system out to the universe of venues. Your
- * venue is a sun; the peers it knows are planets on orbits by closeness
- * (your devices innermost, then people you trust, services you use, and peers
- * known but not connected), each peer's agents its moons. Zoom out and other
- * venues appear as star systems of their own, the ones you know linked to
- * yours.
+ * The Peers map: peer data ({@link PeerGraph}) drawn as you see fit
+ * ({@link MapSettings}), the two joined only by DID. Your venue is a sun; a
+ * node whose relation has an orbit is a planet on it; a node belonging to a
+ * planet is its moon; anything else is a star system far out, linked to you
+ * when the relation says so.
  *
- * <p>Everything sits on one tilted plane in world units, where your outermost
- * orbit is about 1, so a single zoom covers a planet's moons and the whole
- * universe. What is drawn follows what there is room for: ring names, then
- * planet names and moons, then a system's planets, fade out as they shrink,
- * and come back as you zoom in. Whatever is under the pointer is always
- * named.
+ * <p>Everything sits on one tilted plane in world units, where the outermost
+ * default orbit is about 1, so a single zoom runs from a planet's moons to the
+ * whole universe. Details fade as they shrink — ring names, then planet names,
+ * moons and lamps, then a system's planets — and whatever is under the pointer
+ * is always named.
  *
- * <p>Hover to see, click to choose (the listener hears a {@link SamplePeers.Peer},
- * a {@link SamplePeers.StarSystem}, or null), wheel to zoom about the pointer,
- * drag to pan, double-click to come home. It animates only while showing and
- * not paused. The map is always a night sky, whichever theme is in use.
+ * <p>Hover to see, click to choose, drag a body to move it, drag an orbit's
+ * line to resize it, wheel to zoom about the pointer, drag the sky to pan,
+ * double-click to come home. Each of these that changes how the map is drawn
+ * hands the new settings to {@code onSettings}; none touches the peer data.
+ * The map's clock is the wall clock, so placements hold across launches.
  */
 @SuppressWarnings("serial")
 final class SolarMap extends JComponent {
 
 	/** The vertical squash of the plane: how far it is tilted towards you. */
 	private static final double TILT = 0.58;
-	/** Your orbits, in world units, innermost first. */
-	private static final double[] RINGS = { 0.34, 0.54, 0.74, 0.94 };
 	/** A planet of size 1, and your sun, in world units. */
 	private static final double PLANET = 0.042, SUN = 0.088;
+	/** Seconds per turn on an orbit of radius {@link #KEPLER_RADIUS}; further out is slower, by Kepler's law. */
+	private static final double KEPLER = 80, KEPLER_RADIUS = 0.34;
 	/** Zoom limits: from the whole universe and some, to a planet's moons. */
 	static final double MIN_ZOOM = 0.035, MAX_ZOOM = 3.2;
-	/** How much of the universe a "whole universe" view takes in, in world units. */
+	/** How much of the universe the "whole universe" view takes in, in world units. */
 	private static final double UNIVERSE = 17.5;
+	/** How near an orbit's line the pointer must be to take hold of it, in pixels. */
+	private static final float ORBIT_GRIP = 6f;
 	private static final Color SPACE_CENTRE = new Color(0x161C33);
 	private static final Color SPACE_EDGE = new Color(0x06080E);
-	static final Color ONLINE = new Color(0x4ADE80);
+	static final Color CONNECTED = new Color(0x4ADE80);
 	static final Color IDLE = new Color(0xFBBF24);
 	static final Color OFFLINE = new Color(0x6B7280);
+	/** Planet and star colours, chosen by DID. */
+	private static final Color[] PALETTE = { new Color(0x5EC8F2), new Color(0x7FE0C4), new Color(0xF2A65E),
+		new Color(0xE58BB4), new Color(0xB79CF2), new Color(0xE8C66A), new Color(0x6FA8F7), new Color(0xA8B48A),
+		new Color(0xF29F8E), new Color(0x8FD3A6) };
 
-	private final List<SamplePeers.Peer> peers;
-	private final List<SamplePeers.StarSystem> systems;
-	private final Consumer<Object> onSelect;
+	private final Consumer<String> onSelect;
 	private final Runnable onView;
+	private final Consumer<MapSettings> onSettings;
 	private final Timer timer;
 	private final Timer glide;
 	private final float[][] stars;
 	private final List<Placed> placed = new ArrayList<>();
-	private double t;
-	private long lastTick;
+
+	private PeerGraph graph = PeerGraph.EMPTY;
+	private MapSettings settings = MapSettings.DEFAULT;
+	private List<Node> planets = List.of();
+	private List<Node> systems = List.of();
+	private Map<String, List<Node>> moons = Map.of();
+	/** Where each distant venue is drawn: as placed, else spread out from where its DID puts it. */
+	private Map<String, Point2D.Double> spots = Map.of();
+	/** Labels already drawn this frame, so a lesser one never lands on top of them. */
+	private final List<Rectangle2D> labelled = new ArrayList<>();
+
+	/** Seconds on the map's clock: the wall clock, less any time spent paused. */
+	private double t = clock();
+	private double pausedFor;
 	private boolean paused;
 	private double zoom = 1, panX, panY;
 	private double toZoom = 1, toPanX, toPanY;
-	private Object hover, selected;
+	private String hover, selected;
 	private Point dragFrom;
-	/** Where each peer orbits now, and where each system sits: the sample's, until someone moves it. */
-	private final Map<SamplePeers.Peer, Orbit> orbits = new LinkedHashMap<>();
-	private final Map<SamplePeers.StarSystem, Point2D.Double> spots = new LinkedHashMap<>();
-	/** The body being dragged, if any; where it is in the world; and where on it the pointer took hold. */
-	private Object dragging;
+	/** What is being carried: a body's DID, or an orbit's index; where it is; and where on it the pointer took hold. */
+	private String dragging;
+	private int resizing = -1;
 	private Point2D.Double dragAt;
 	private double grabX, grabY;
 
-	/** Something drawn this frame, for hit-testing: a peer or a system, its centre and radius on screen. */
-	private record Placed(Object item, double x, double y, double r) {
+	/** Something drawn this frame, for hit-testing: a node, whether as a star, its centre and radius on screen. */
+	private record Placed(Node node, boolean star, double x, double y, double r) {
 	}
 
 	/**
-	 * A peer's orbit: its radius in world units, its angle at time zero in
-	 * radians, and seconds per turn. A moved planet keeps Kepler's law, so
-	 * further out is slower.
+	 * @param onSelect   hears the DID of the body chosen, or null
+	 * @param onView     told whenever the zoom changes, so the header can name the view
+	 * @param onSettings handed the new settings whenever the arrangement or the view changes
 	 */
-	private static final class Orbit {
-		double radius, phase, period;
-
-		Orbit(double radius, double phase, double period) {
-			this.radius = radius;
-			this.phase = phase;
-			this.period = period;
-		}
-
-		double angle(double t) {
-			return phase + t * 2 * Math.PI / period;
-		}
-
-		/** Puts the planet at {@code (wx, wz)} now, orbiting at that distance from then on. */
-		void moveTo(double wx, double wz, double t) {
-			radius = Math.max(MIN_ORBIT, Math.min(MAX_ORBIT, Math.hypot(wx, wz)));
-			period = KEPLER * Math.pow(radius / RINGS[0], 1.5);
-			phase = Math.atan2(wz, wx) - t * 2 * Math.PI / period;
-		}
-	}
-
-	/** How close in and far out a planet may be dropped, in world units. */
-	private static final double MIN_ORBIT = 0.2, MAX_ORBIT = 1.8;
-	/** Seconds per turn on the innermost orbit, the scale for Kepler's law. */
-	private static final double KEPLER = 80;
-
-	/** @param onView told whenever the zoom changes, so the header can name the view */
-	SolarMap(List<SamplePeers.Peer> peers, List<SamplePeers.StarSystem> systems, Consumer<Object> onSelect,
-			Runnable onView) {
-		this.peers = peers;
-		this.systems = systems;
+	SolarMap(Consumer<String> onSelect, Runnable onView, Consumer<MapSettings> onSettings) {
 		this.onSelect = onSelect;
 		this.onView = onView;
+		this.onSettings = onSettings;
 		setOpaque(true);
 		setToolTipText("");
-		resetLayout();
 
 		// A fixed sky: positions in [0,1), size, twinkle offset and speed.
 		Random r = new Random(7);
@@ -163,25 +151,29 @@ final class SolarMap extends JComponent {
 		MouseAdapter mouse = new MouseAdapter() {
 			@Override
 			public void mouseMoved(MouseEvent e) {
-				Object h = hit(e.getPoint());
-				if (h != hover) {
+				String h = didOf(hit(e.getPoint()));
+				int ring = (h == null) ? orbitNear(e.getPoint()) : -1;
+				if (h == null ? hover != null : !h.equals(hover)) {
 					hover = h;
-					setCursor(Cursor.getPredefinedCursor(h != null ? Cursor.HAND_CURSOR : Cursor.DEFAULT_CURSOR));
 					repaint();
 				}
+				setCursor(Cursor.getPredefinedCursor(h != null ? Cursor.HAND_CURSOR
+					: ring >= 0 ? Cursor.E_RESIZE_CURSOR : Cursor.DEFAULT_CURSOR));
 			}
 
 			@Override
 			public void mousePressed(MouseEvent e) {
 				dragFrom = e.getPoint();
-				// Pressing on a body picks it up; anywhere else pans the view.
-				Object body = javax.swing.SwingUtilities.isLeftMouseButton(e) ? hit(e.getPoint()) : null;
-				Point2D.Double at = (body != null) ? screenOf(body) : null;
-				if (at != null) {
-					dragging = body;
-					grabX = at.x - e.getX();
-					grabY = at.y - e.getY();
+				if (!SwingUtilities.isLeftMouseButton(e)) return;
+				// A body is picked up; an orbit's line is taken hold of; anywhere else pans.
+				Placed body = hit(e.getPoint());
+				if (body != null) {
+					dragging = body.node().did();
+					grabX = body.x() - e.getX();
+					grabY = body.y() - e.getY();
+					return;
 				}
+				resizing = orbitNear(e.getPoint());
 			}
 
 			@Override
@@ -190,22 +182,25 @@ final class SolarMap extends JComponent {
 				glide.stop();
 				if (dragging != null) {
 					dragAt = world(e.getX() + grabX, e.getY() + grabY);
-					if (dragging != selected) select(dragging);
-					setCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
-					repaint();
-					return;
+					if (!dragging.equals(selected)) select(dragging);
+				} else if (resizing >= 0) {
+					Point2D.Double w = world(e.getX(), e.getY());
+					settings = settings.withOrbitRadius(resizing, Math.hypot(w.x, w.y));
+				} else {
+					panX += e.getX() - dragFrom.x;
+					panY += e.getY() - dragFrom.y;
+					dragFrom = e.getPoint();
 				}
-				panX += e.getX() - dragFrom.x;
-				panY += e.getY() - dragFrom.y;
-				dragFrom = e.getPoint();
-				setCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
+				setCursor(Cursor.getPredefinedCursor(resizing >= 0 ? Cursor.E_RESIZE_CURSOR : Cursor.MOVE_CURSOR));
 				repaint();
 			}
 
 			@Override
 			public void mouseReleased(MouseEvent e) {
 				if (dragging != null && dragAt != null) drop(dragging, dragAt);
+				else if (resizing >= 0) changed();
 				dragging = null;
+				resizing = -1;
 				dragAt = null;
 				dragFrom = null;
 				setCursor(Cursor.getDefaultCursor());
@@ -218,7 +213,7 @@ final class SolarMap extends JComponent {
 					home();
 					return;
 				}
-				select(hit(e.getPoint()));
+				select(didOf(hit(e.getPoint())));
 			}
 
 			@Override
@@ -238,18 +233,183 @@ final class SolarMap extends JComponent {
 	}
 
 	// ------------------------------------------------------------------
+	// Data and settings
+	// ------------------------------------------------------------------
+
+	/**
+	 * Draws {@code graph} as {@code settings} say. The first call also opens on
+	 * the stored view; later ones keep the view, the selection and anything
+	 * being carried, so a fresh snapshot from the source never jolts the map.
+	 */
+	void setData(PeerGraph graph, MapSettings settings, boolean firstTime) {
+		this.graph = graph;
+		this.settings = settings;
+		List<Node> ps = new ArrayList<>(), ss = new ArrayList<>();
+		Map<String, List<Node>> ms = new LinkedHashMap<>();
+		for (Node n : graph.nodes()) if (settings.orbitOf(n) >= 0) ps.add(n);
+		for (Node n : graph.nodes()) {
+			if (settings.orbitOf(n) >= 0) continue;
+			Node owner = graph.owner(n);
+			if (owner != null && settings.orbitOf(owner) >= 0) ms.computeIfAbsent(owner.did(), k -> new ArrayList<>()).add(n);
+			else if (n.belongsTo() == null || owner == null) ss.add(n);
+		}
+		planets = ps;
+		systems = ss;
+		moons = ms;
+		spots = spread(ss, settings);
+		if (selected != null && graph.get(selected) == null) select(null);
+		if (firstTime) {
+			zoom = toZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, settings.view().zoom()));
+			panX = panY = toPanX = toPanY = 0;
+			setPaused(settings.view().paused());
+			onView.run();
+		}
+		repaint();
+	}
+
+	/** Smallest distance kept between two distant venues nobody has placed, in world units. */
+	private static final double SPACING = 3.2;
+
+	/**
+	 * Distant venues, kept apart: each starts where its DID or its placement puts
+	 * it, then those nobody placed are pushed off one another, always the same
+	 * way. A view concern only; the settings keep just what was placed.
+	 */
+	private static Map<String, Point2D.Double> spread(List<Node> systems, MapSettings settings) {
+		Map<String, Point2D.Double> at = new LinkedHashMap<>();
+		List<Node> order = new ArrayList<>(systems);
+		order.sort(Comparator.comparing(Node::did));
+		for (Node n : order) {
+			MapSettings.At a = settings.venue(n);
+			at.put(n.did(), new Point2D.Double(a.x(), a.z()));
+		}
+		for (int round = 0; round < 80; round++) {
+			boolean moved = false;
+			for (int i = 0; i < order.size(); i++) {
+				for (int j = i + 1; j < order.size(); j++) {
+					Node a = order.get(i), b = order.get(j);
+					boolean fixedA = settings.placements().containsKey(a.did()), fixedB = settings.placements().containsKey(b.did());
+					if (fixedA && fixedB) continue;
+					Point2D.Double pa = at.get(a.did()), pb = at.get(b.did());
+					double dx = pb.x - pa.x, dz = pb.y - pa.y, d = Math.hypot(dx, dz);
+					if (d >= SPACING) continue;
+					if (d < 1e-6) {
+						dx = 1;
+						dz = 0;
+						d = 1;
+					}
+					double push = (SPACING - d) / (fixedA || fixedB ? 1 : 2);
+					double ux = dx / d, uz = dz / d;
+					if (!fixedA) pa.setLocation(pa.x - ux * push, pa.y - uz * push);
+					if (!fixedB) pb.setLocation(pb.x + ux * push, pb.y + uz * push);
+					moved = true;
+				}
+			}
+			if (!moved) break;
+		}
+		return at;
+	}
+
+	MapSettings settings() {
+		return settings;
+	}
+
+	/** How {@code did} is drawn: a star far out, else a planet or moon. */
+	boolean isStar(String did) {
+		Node n = graph.get(did);
+		return n != null && systems.contains(n);
+	}
+
+	/** The planets that stand for a distant venue on your own orbits: those that belong to it. */
+	List<Node> planetsOf(String did) {
+		List<Node> out = new ArrayList<>();
+		for (Node p : planets) if (did.equals(p.belongsTo())) out.add(p);
+		return out;
+	}
+
+	List<Node> moonsOf(String did) {
+		return moons.getOrDefault(did, List.of());
+	}
+
+	private void changed() {
+		onSettings.accept(settings);
+		onView.run();
+	}
+
+	/** Every body back where its DID puts it, and the default orbits. */
+	void resetLayout() {
+		settings = settings.reset();
+		changed();
+		repaint();
+	}
+
+	boolean rearranged() {
+		return settings.rearranged();
+	}
+
+	private void drop(String did, Point2D.Double at) {
+		Node n = graph.get(did);
+		if (n == null) return;
+		if (isStar(did)) {
+			settings = settings.withPlacement(did, new MapSettings.At(at.x, at.y));
+		} else {
+			double r = clampRadius(Math.hypot(at.x, at.y));
+			// The angle at time zero, wrapped into one turn so the stored value stays readable.
+			double phase = Math.IEEEremainder(Math.atan2(at.y, at.x) - t * 2 * Math.PI / period(r), 2 * Math.PI);
+			settings = settings.withPlacement(did, new MapSettings.OnOrbit(r, phase));
+		}
+		changed();
+	}
+
+	private static double clampRadius(double r) {
+		return Math.max(MapSettings.MIN_RADIUS, Math.min(MapSettings.MAX_RADIUS, r));
+	}
+
+	private static double period(double radius) {
+		return KEPLER * Math.pow(radius / KEPLER_RADIUS, 1.5);
+	}
+
+	/** A node's colour, the same on every launch: chosen by its DID. */
+	static Color hue(String did) {
+		return PALETTE[(int) (MapSettings.hash(did, 4) * PALETTE.length)];
+	}
+
+	static Color lamp(String status) {
+		if (Node.CONNECTED.equals(status)) return CONNECTED;
+		if (Node.IDLE.equals(status)) return IDLE;
+		return OFFLINE;
+	}
+
+	/** Services wear rings. */
+	static boolean ringed(Node n) {
+		return n.is(Node.SERVICE);
+	}
+
+	// ------------------------------------------------------------------
 	// View
 	// ------------------------------------------------------------------
 
-	void select(Object item) {
-		selected = item;
-		onSelect.accept(item);
+	void select(String did) {
+		selected = did;
+		onSelect.accept(did);
 		repaint();
 	}
 
 	void setPaused(boolean paused) {
+		if (paused == this.paused) {
+			syncTimer();
+			return;
+		}
 		this.paused = paused;
+		if (!paused) pausedFor = clock() - t; // carry on from where it stopped
 		syncTimer();
+	}
+
+	/** Pauses or unpauses as the person asks, and remembers it. */
+	void togglePaused() {
+		setPaused(!paused);
+		settings = settings.withView(new MapSettings.View(zoom, paused));
+		onSettings.accept(settings);
 	}
 
 	boolean isPaused() {
@@ -268,7 +428,7 @@ final class SolarMap extends JComponent {
 		panX += (x - cx) * (1 - z / zoom);
 		panY += (y - cy) * (1 - z / zoom);
 		zoom = z;
-		onView.run();
+		viewChanged();
 		repaint();
 	}
 
@@ -277,58 +437,6 @@ final class SolarMap extends JComponent {
 		double f = in ? 1.6 : 1 / 1.6;
 		double z = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom * f));
 		glideTo(z, panX * z / zoom, panY * z / zoom);
-	}
-
-	/** Every planet back on its sample orbit and every venue back in its place. */
-	void resetLayout() {
-		orbits.clear();
-		for (SamplePeers.Peer p : peers) {
-			orbits.put(p, new Orbit(RINGS[p.ring() - 1], Math.toRadians(p.phase()), p.period()));
-		}
-		spots.clear();
-		for (SamplePeers.StarSystem s : systems) spots.put(s, new Point2D.Double(s.x(), s.z()));
-		repaint();
-	}
-
-	/** Whether anything has been moved from where the sample put it. */
-	boolean rearranged() {
-		for (SamplePeers.Peer p : peers) {
-			Orbit o = orbits.get(p);
-			if (o.radius != RINGS[p.ring() - 1] || o.period != p.period() || o.phase != Math.toRadians(p.phase())) return true;
-		}
-		for (SamplePeers.StarSystem s : systems) {
-			Point2D.Double at = spots.get(s);
-			if (at.x != s.x() || at.y != s.z()) return true;
-		}
-		return false;
-	}
-
-	/** The point on the tilted plane under a screen position. */
-	private Point2D.Double world(double x, double y) {
-		double s = scale();
-		return new Point2D.Double((x - getWidth() / 2.0 - panX) / s, (y - getHeight() / 2.0 - panY) / (s * TILT));
-	}
-
-	/** Where a planet or venue is on screen now. */
-	private Point2D.Double screenOf(Object body) {
-		for (Placed p : placed) if (p.item() == body) return new Point2D.Double(p.x(), p.y());
-		return null;
-	}
-
-	/** Leaves a dragged body where it was let go: a planet orbiting at that distance, a venue there. */
-	private void drop(Object body, Point2D.Double at) {
-		if (body instanceof SamplePeers.Peer p) orbits.get(p).moveTo(at.x, at.y, t);
-		else if (body instanceof SamplePeers.StarSystem s) spots.put(s, at);
-		onView.run();
-	}
-
-	/** The orbit a planet is nearest, 1 innermost, for lighting it up. */
-	private static int nearestRing(double radius) {
-		int best = 1;
-		for (int i = 1; i < RINGS.length; i++) {
-			if (Math.abs(RINGS[i] - radius) < Math.abs(RINGS[best - 1] - radius)) best = i + 1;
-		}
-		return best;
 	}
 
 	/** Back to your own system, filling the map. */
@@ -341,6 +449,12 @@ final class SolarMap extends JComponent {
 		glideTo(1 / UNIVERSE, 0, 0);
 	}
 
+	private void viewChanged() {
+		settings = settings.withView(new MapSettings.View(zoom, paused));
+		onSettings.accept(settings);
+		onView.run();
+	}
+
 	private void glideTo(double z, double px, double py) {
 		toZoom = z;
 		toPanX = px;
@@ -349,7 +463,7 @@ final class SolarMap extends JComponent {
 			zoom = z;
 			panX = px;
 			panY = py;
-			onView.run();
+			viewChanged();
 			repaint();
 			return;
 		}
@@ -362,13 +476,16 @@ final class SolarMap extends JComponent {
 		zoom = Math.exp(lz + (lt - lz) * 0.18);
 		panX += (toPanX - panX) * 0.18;
 		panY += (toPanY - panY) * 0.18;
-		if (Math.abs(lt - lz) < 0.002 && Math.abs(toPanX - panX) < 0.5 && Math.abs(toPanY - panY) < 0.5) {
+		boolean done = Math.abs(lt - lz) < 0.002 && Math.abs(toPanX - panX) < 0.5 && Math.abs(toPanY - panY) < 0.5;
+		if (done) {
 			zoom = toZoom;
 			panX = toPanX;
 			panY = toPanY;
 			glide.stop();
+			viewChanged();
+		} else {
+			onView.run();
 		}
-		onView.run();
 		repaint();
 	}
 
@@ -380,40 +497,69 @@ final class SolarMap extends JComponent {
 	}
 
 	private void syncTimer() {
-		if (isShowing() && !paused) {
-			lastTick = System.nanoTime();
-			timer.start();
-		} else {
-			timer.stop();
-		}
+		if (isShowing() && !paused) timer.start();
+		else timer.stop();
+	}
+
+	private static double clock() {
+		return System.currentTimeMillis() / 1000.0;
 	}
 
 	private void tick() {
-		long now = System.nanoTime();
-		t += (now - lastTick) / 1e9;
-		lastTick = now;
+		t = clock() - pausedFor;
 		repaint();
 	}
 
 	@Override
 	public String getToolTipText(MouseEvent e) {
-		Object o = hit(e.getPoint());
-		if (o instanceof SamplePeers.Peer p) {
-			return p.name() + " · " + p.status().label + (p.moons().isEmpty() ? "" : " · " + plural(p.moons().size(), "agent"));
+		Placed p = hit(e.getPoint());
+		if (p == null) {
+			int ring = orbitNear(e.getPoint());
+			return (ring >= 0) ? settings.orbits().get(ring).name() + " · drag to resize" : null;
 		}
-		if (o instanceof SamplePeers.StarSystem s) {
-			return s.known() ? s.name() + " · " + plural(s.planets(), "peer") : "A venue you don't know";
+		Node n = p.node();
+		if (p.star()) {
+			return (n.name() != null) ? n.name() + " · " + statusLabel(n) : "A venue you don't know";
+		}
+		int m = moonsOf(n.did()).size();
+		return n.label() + " · " + statusLabel(n) + (m == 0 ? "" : " · " + plural(m, "agent"));
+	}
+
+	static String statusLabel(Node n) {
+		String s = n.status();
+		if (Node.CONNECTED.equals(s)) return "Connected";
+		if (Node.IDLE.equals(s)) return "Idle";
+		if (Node.OFFLINE.equals(s)) return "Offline";
+		if (Node.NOT_CONNECTED.equals(s) || s == null) return "Not connected";
+		return s.substring(0, 1).toUpperCase() + s.substring(1).replace('-', ' ');
+	}
+
+	private Placed hit(Point at) {
+		for (int i = placed.size() - 1; i >= 0; i--) { // front-most first
+			Placed p = placed.get(i);
+			double slop = Math.max(p.r() * 1.25, UIScale.scale(9));
+			if (at.distance(p.x(), p.y()) <= slop) return p;
 		}
 		return null;
 	}
 
-	private Object hit(Point at) {
-		for (int i = placed.size() - 1; i >= 0; i--) { // front-most first
-			Placed p = placed.get(i);
-			double slop = Math.max(p.r() * 1.25, UIScale.scale(9));
-			if (at.distance(p.x(), p.y()) <= slop) return p.item();
+	private static String didOf(Placed p) {
+		return (p == null) ? null : p.node().did();
+	}
+
+	/** The orbit whose line is under the pointer, or -1. */
+	private int orbitNear(Point at) {
+		double s = scale();
+		if (s * MapSettings.ORBIT_GAP < UIScale.scale(ORBIT_GRIP) * 2.5) return -1; // too far out to tell them apart
+		Point2D.Double w = world(at.x, at.y);
+		double rho = Math.hypot(w.x, w.y);
+		List<MapSettings.Orbit> os = settings.orbits();
+		for (int i = 0; i < os.size(); i++) {
+			// Distance on screen across the line, allowing for the tilt.
+			double across = Math.abs(rho - os.get(i).radius()) * s * Math.max(TILT, Math.abs(w.x) / Math.max(rho, 1e-9));
+			if (across <= UIScale.scale(ORBIT_GRIP)) return i;
 		}
-		return null;
+		return -1;
 	}
 
 	// ------------------------------------------------------------------
@@ -430,6 +576,12 @@ final class SolarMap extends JComponent {
 	private Point2D.Double screen(double wx, double wz) {
 		double s = scale();
 		return new Point2D.Double(getWidth() / 2.0 + panX + wx * s, getHeight() / 2.0 + panY + wz * s * TILT);
+	}
+
+	/** The point on the tilted plane under a screen position. */
+	private Point2D.Double world(double x, double y) {
+		double s = scale();
+		return new Point2D.Double((x - getWidth() / 2.0 - panX) / s, (y - getHeight() / 2.0 - panY) / (s * TILT));
 	}
 
 	/** 0 below {@code from} pixels, 1 above {@code to}, smooth between: how much of a detail to show. */
@@ -453,10 +605,14 @@ final class SolarMap extends JComponent {
 			Point2D.Double you = screen(0, 0);
 			// Far out, the links to the venues you know come into view.
 			float links = 1 - fadeIn(s, 90, 220);
-			if (links > 0) for (SamplePeers.StarSystem sys : systems) paintSystemLink(g, you, sys, links);
-			for (SamplePeers.StarSystem sys : systems) paintSystem(g, sys, s);
+			if (links > 0) for (Node sys : systems) paintSystemLink(g, you, sys, links);
+			for (Node sys : systems) paintSystem(g, sys, s);
 			paintYourSystem(g, you, s);
-			for (Placed p : placed) paintLabel(g, p, s);
+			// Labels last, most wanted first, so a lesser one never covers a greater.
+			labelled.clear();
+			List<Placed> byWant = new ArrayList<>(placed);
+			byWant.sort(Comparator.comparingInt(this::want).reversed());
+			for (Placed p : byWant) paintLabel(g, p, s);
 		} finally {
 			g.dispose();
 		}
@@ -494,79 +650,94 @@ final class SolarMap extends JComponent {
 	private void paintYourSystem(Graphics2D g, Point2D.Double you, double s) {
 		double cx = you.x, cy = you.y;
 		float orbitAlpha = 0.25f + 0.75f * fadeIn(s, 30, 140);
-		for (int i = 0; i < RINGS.length; i++) paintOrbit(g, cx, cy, s * RINGS[i], i, orbitAlpha, fadeIn(s, 170, 240));
+		float names = fadeIn(s, 170, 240);
+		List<MapSettings.Orbit> os = settings.orbits();
+		for (int i = 0; i < os.size(); i++) paintOrbit(g, cx, cy, s * os.get(i).radius(), i, orbitAlpha, names);
 
 		// While a planet is carried, the orbit it would take if let go.
-		if (dragging instanceof SamplePeers.Peer && dragAt != null) {
-			double ro = Math.max(MIN_ORBIT, Math.min(MAX_ORBIT, Math.hypot(dragAt.x, dragAt.y))) * s;
+		if (dragging != null && dragAt != null && !isStar(dragging)) {
+			double ro = clampRadius(Math.hypot(dragAt.x, dragAt.y)) * s;
 			float dash = UIScale.scale(5f);
 			g.setStroke(new BasicStroke(UIScale.scale(1.4f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 1f,
 				new float[] { dash, dash }, (float) (2 * dash - (t * 12) % (2 * dash))));
-			// (The phase must not be negative: this marches the dashes the other way.)
 			g.setColor(fade(Theme.accent(), 0.7f));
 			g.draw(new Ellipse2D.Double(cx - ro, cy - ro * TILT, 2 * ro, 2 * ro * TILT));
 		}
 
 		double unit = Math.max(UIScale.scale(1.6f), s * PLANET);
 		List<Object[]> at = new ArrayList<>();
-		for (SamplePeers.Peer p : peers) {
-			Orbit orbit = orbits.get(p);
+		for (Node p : planets) {
 			double wx, wz;
-			if (p == dragging && dragAt != null) {
-				// Carried: under the pointer, clamped to how far out a planet may go.
-				double d = Math.hypot(dragAt.x, dragAt.y), k = Math.max(MIN_ORBIT, Math.min(MAX_ORBIT, d)) / Math.max(d, 1e-9);
+			if (p.did().equals(dragging) && dragAt != null) {
+				// Carried: under the pointer, kept within how far out a planet may go.
+				double d = Math.hypot(dragAt.x, dragAt.y), k = clampRadius(d) / Math.max(d, 1e-9);
 				wx = dragAt.x * k;
 				wz = dragAt.y * k;
 			} else {
-				double a = orbit.angle(t);
-				wx = Math.cos(a) * orbit.radius;
-				wz = Math.sin(a) * orbit.radius;
+				MapSettings.OnOrbit o = settings.planet(p);
+				double a = o.phase() + t * 2 * Math.PI / period(o.radius());
+				wx = Math.cos(a) * o.radius();
+				wz = Math.sin(a) * o.radius();
 			}
 			double depth = Math.max(-1, Math.min(1, wz / Math.max(Math.hypot(wx, wz), 1e-9))); // -1 far, +1 near
 			Point2D.Double xy = screen(wx, wz);
-			double r = unit * p.size() * (0.82 + 0.2 * (depth + 1) / 2);
+			double r = unit * size(p) * (0.82 + 0.2 * (depth + 1) / 2);
 			at.add(new Object[] { p, xy.x, xy.y, r, depth });
 		}
 		at.sort(Comparator.comparingDouble(o -> (double) o[4]));
 
-		for (Object[] o : at) paintLink(g, cx, cy, (SamplePeers.Peer) o[0], (double) o[1], (double) o[2], s);
+		for (Object[] o : at) paintLink(g, cx, cy, (Node) o[0], (double) o[1], (double) o[2], s);
 		boolean sunDrawn = false;
 		for (Object[] o : at) {
 			if (!sunDrawn && (double) o[4] >= 0) {
 				paintSun(g, cx, cy, s);
 				sunDrawn = true;
 			}
-			SamplePeers.Peer p = (SamplePeers.Peer) o[0];
+			Node p = (Node) o[0];
 			double x = (double) o[1], y = (double) o[2], r = (double) o[3];
 			paintPlanet(g, p, x, y, r, cx, cy);
-			placed.add(new Placed(p, x, y, r));
+			placed.add(new Placed(p, false, x, y, r));
 		}
 		if (!sunDrawn) paintSun(g, cx, cy, s);
 	}
 
+	/** A planet's size: by what it is, a little bigger for each of its agents. */
+	private double size(Node p) {
+		double base = p.is(Node.DEVICE) ? 0.78 : p.is(Node.SERVICE) ? 1.15 : 1.0;
+		return base + 0.06 * Math.min(4, moonsOf(p.did()).size());
+	}
+
 	private void paintOrbit(Graphics2D g, double cx, double cy, double r, int ring, float alpha, float names) {
-		boolean lit = ringOf(hover) == ring + 1 || ringOf(selected) == ring + 1;
+		boolean lit = ring == resizing || orbitOfDid(hover) == ring || orbitOfDid(selected) == ring;
+		boolean last = ring == settings.orbits().size() - 1;
 		float dash = UIScale.scale(3f);
-		g.setStroke(new BasicStroke(UIScale.scale(lit ? 1.4f : 1f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 1f,
-			ring == RINGS.length - 1 ? new float[] { dash, dash * 2 } : null, (float) (t * 4)));
-		g.setColor(new Color(1f, 1f, 1f, alpha * (lit ? 0.32f : 0.11f)));
+		g.setStroke(new BasicStroke(UIScale.scale(ring == resizing ? 1.8f : lit ? 1.4f : 1f), BasicStroke.CAP_ROUND,
+			BasicStroke.JOIN_ROUND, 1f, last ? new float[] { dash, dash * 2 } : null, (float) (t * 4 % (dash * 3))));
+		g.setColor(new Color(1f, 1f, 1f, alpha * (ring == resizing ? 0.5f : lit ? 0.32f : 0.11f)));
 		g.draw(new Ellipse2D.Double(cx - r, cy - r * TILT, 2 * r, 2 * r * TILT));
-		if (names <= 0) return;
-		// The ring's name, centred below its near edge, where orbits are furthest apart.
+		float shown = (ring == resizing) ? 1 : names;
+		if (shown <= 0) return;
+		// The orbit's name, centred below its near edge, where orbits are furthest apart.
 		g.setFont(getFont().deriveFont(Font.BOLD, UIScale.scale(9.5f)));
-		String name = SamplePeers.RINGS.get(ring).toUpperCase();
+		String name = settings.orbits().get(ring).name().toUpperCase();
 		float tracking = UIScale.scale(1.2f);
 		FontMetrics fm = g.getFontMetrics();
 		float width = fm.stringWidth(name) + tracking * (name.length() - 1);
-		g.setColor(new Color(1f, 1f, 1f, names * (lit ? 0.7f : 0.32f)));
+		g.setColor(new Color(1f, 1f, 1f, shown * (lit ? 0.7f : 0.32f)));
 		drawTracked(g, name, (float) (cx - width / 2), (float) (cy + r * TILT + UIScale.scale(13)), tracking);
 	}
 
-	/** The named orbit a planet is on or nearest, carried or not; 0 for anything else. */
-	private int ringOf(Object o) {
-		if (!(o instanceof SamplePeers.Peer p)) return 0;
-		if (p == dragging && dragAt != null) return nearestRing(Math.hypot(dragAt.x, dragAt.y));
-		return nearestRing(orbits.get(p).radius);
+	/** The orbit a planet is on or nearest, carried or not; -1 for anything else. */
+	private int orbitOfDid(String did) {
+		Node n = graph.get(did);
+		if (n == null || isStar(did) || !planets.contains(n)) return -1;
+		double r = (did.equals(dragging) && dragAt != null) ? Math.hypot(dragAt.x, dragAt.y) : settings.planet(n).radius();
+		int best = 0;
+		List<MapSettings.Orbit> os = settings.orbits();
+		for (int i = 1; i < os.size(); i++) {
+			if (Math.abs(os.get(i).radius() - r) < Math.abs(os.get(best).radius() - r)) best = i;
+		}
+		return best;
 	}
 
 	private void paintSun(Graphics2D g, double cx, double cy, double s) {
@@ -598,17 +769,17 @@ final class SolarMap extends JComponent {
 	}
 
 	/** A faint line from you to a connected peer, with packets travelling it. */
-	private void paintLink(Graphics2D g, double cx, double cy, SamplePeers.Peer p, double x, double y, double s) {
-		if (p.status() == SamplePeers.Status.KNOWN || p.status() == SamplePeers.Status.OFFLINE) return;
+	private void paintLink(Graphics2D g, double cx, double cy, Node p, double x, double y, double s) {
+		boolean live = Node.CONNECTED.equals(p.status());
+		if (!live && !Node.IDLE.equals(p.status())) return;
 		float a = fadeIn(s, 60, 140);
 		if (a <= 0) return;
-		boolean live = p.status() == SamplePeers.Status.ONLINE;
-		boolean focus = p == hover || p == selected;
+		boolean focus = p.did().equals(hover) || p.did().equals(selected);
+		Color hue = hue(p.did());
 		g.setStroke(new BasicStroke(UIScale.scale(focus ? 1.3f : 0.9f)));
-		g.setColor(fade(p.hue(), a * (focus ? 0.45f : live ? 0.16f : 0.08f)));
+		g.setColor(fade(hue, a * (focus ? 0.45f : live ? 0.16f : 0.08f)));
 		g.draw(new Line2D.Double(cx, cy, x, y));
-		if (!live) return;
-		packets(g, cx, cy, x, y, p.hue(), 0.18 + 0.05 * p.ring(), p.phase() / 360.0, a);
+		if (live) packets(g, cx, cy, x, y, hue, 0.2 + 0.15 * settings.planet(p).radius(), MapSettings.hash(p.did(), 5), a);
 	}
 
 	private void packets(Graphics2D g, double x0, double y0, double x1, double y1, Color hue, double speed,
@@ -624,13 +795,14 @@ final class SolarMap extends JComponent {
 		}
 	}
 
-	private void paintPlanet(Graphics2D g, SamplePeers.Peer p, double x, double y, double r, double cx, double cy) {
-		boolean known = p.status() == SamplePeers.Status.KNOWN;
-		boolean offline = p.status() == SamplePeers.Status.OFFLINE;
-		Color hue = (offline || known) ? Theme.blend(p.hue(), new Color(0x8A93A6), 0.6f) : p.hue();
+	private void paintPlanet(Graphics2D g, Node p, double x, double y, double r, double cx, double cy) {
+		boolean distant = !Node.CONNECTED.equals(p.status()) && !Node.IDLE.equals(p.status());
+		boolean ghost = Node.NOT_CONNECTED.equals(p.status());
+		Color hue = distant ? Theme.blend(hue(p.did()), new Color(0x8A93A6), 0.6f) : hue(p.did());
 		Composite was = g.getComposite();
-		if (known) g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.55f));
-		boolean focus = p == hover || p == selected;
+		if (ghost) g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.55f));
+		boolean focus = p.did().equals(hover) || p.did().equals(selected);
+		boolean chosen = p.did().equals(selected);
 
 		// Too small to model: a lit dot that still glows when pointed at.
 		if (r < UIScale.scale(3.5f)) {
@@ -641,7 +813,7 @@ final class SolarMap extends JComponent {
 			g.setColor(Theme.blend(hue, Color.WHITE, 0.3f));
 			g.fill(new Ellipse2D.Double(x - r, y - r, 2 * r, 2 * r));
 			g.setComposite(was);
-			if (p == selected) ring(g, x, y, Math.max(r * 2.2, UIScale.scale(7f)));
+			if (chosen) ring(g, x, y, Math.max(r * 2.2, UIScale.scale(7f)));
 			return;
 		}
 
@@ -652,11 +824,13 @@ final class SolarMap extends JComponent {
 
 		// Moons only once there is room for them; behind the planet first.
 		float moonsShown = fadeIn(r, UIScale.scale(5f), UIScale.scale(8f));
-		List<double[]> moons = moonsShown > 0 ? moons(p, x, y, r) : List.of();
-		for (double[] m : moons) if (m[3] < 0) paintMoon(g, p, m, moonsShown);
+		List<double[]> ms = moonsShown > 0 ? moonPositions(p, x, y, r) : List.of();
+		List<Node> its = moonsOf(p.did());
+		for (double[] m : ms) if (m[3] < 0) paintMoon(g, its.get((int) m[4]), m, moonsShown);
 
 		Ellipse2D body = new Ellipse2D.Double(x - r, y - r, 2 * r, 2 * r);
-		if (p.ringed()) paintRings(g, x, y, r, hue, true);
+		boolean rings = ringed(p);
+		if (rings) paintRings(g, x, y, r, hue, true);
 
 		// Lit from the sun: the bright side faces your venue.
 		double dx = cx - x, dy = cy - y, d = Math.max(1, Math.hypot(dx, dy));
@@ -670,11 +844,11 @@ final class SolarMap extends JComponent {
 		g.setColor(fade(Theme.blend(hue, Color.WHITE, 0.6f), 0.35f));
 		g.draw(body);
 
-		if (p.ringed()) paintRings(g, x, y, r, hue, false);
-		for (double[] m : moons) if (m[3] >= 0) paintMoon(g, p, m, moonsShown);
+		if (rings) paintRings(g, x, y, r, hue, false);
+		for (double[] m : ms) if (m[3] >= 0) paintMoon(g, its.get((int) m[4]), m, moonsShown);
 		g.setComposite(was);
 
-		if (p == selected) ring(g, x, y, r * (1.55 + 0.08 * Math.sin(t * 3)));
+		if (chosen) ring(g, x, y, r * (1.55 + 0.08 * Math.sin(t * 3)));
 
 		// Status, as a lamp on the planet's shoulder, once there is room for it.
 		if (r >= UIScale.scale(6f)) {
@@ -693,14 +867,6 @@ final class SolarMap extends JComponent {
 		g.draw(new Ellipse2D.Double(x - r, y - r, 2 * r, 2 * r));
 	}
 
-	static Color lamp(SamplePeers.Status s) {
-		return switch (s) {
-			case ONLINE -> ONLINE;
-			case IDLE -> IDLE;
-			default -> OFFLINE;
-		};
-	}
-
 	/** A tilted ring system: the far half behind the planet, the near half in front. */
 	private static void paintRings(Graphics2D g, double x, double y, double r, Color hue, boolean back) {
 		double rw = r * 2.15, rh = r * 0.62;
@@ -716,11 +882,12 @@ final class SolarMap extends JComponent {
 	}
 
 	/** Each moon now: {x, y, radius, depth, index}. */
-	private List<double[]> moons(SamplePeers.Peer p, double x, double y, double r) {
+	private List<double[]> moonPositions(Node p, double x, double y, double r) {
 		List<double[]> out = new ArrayList<>();
-		for (int i = 0; i < p.moons().size(); i++) {
+		List<Node> its = moonsOf(p.did());
+		for (int i = 0; i < its.size(); i++) {
 			double orbit = r * (1.9 + i * 0.62);
-			double a = t * 2 * Math.PI / (7 + i * 4) + i * 2.1 + p.phase();
+			double a = t * 2 * Math.PI / (7 + i * 4) + 2 * Math.PI * MapSettings.hash(its.get(i).did(), 6);
 			double depth = Math.sin(a);
 			out.add(new double[] { x + Math.cos(a) * orbit, y + depth * orbit * TILT, Math.max(UIScale.scale(2.4f), r * 0.32),
 				depth, i });
@@ -728,10 +895,9 @@ final class SolarMap extends JComponent {
 		return out;
 	}
 
-	private static void paintMoon(Graphics2D g, SamplePeers.Peer p, double[] m, float alpha) {
-		SamplePeers.Moon moon = p.moons().get((int) m[4]);
-		Color c = moon.status() == SamplePeers.Status.ONLINE ? new Color(0xE6E9F0)
-			: moon.status() == SamplePeers.Status.IDLE ? new Color(0xB9BECB) : new Color(0x6B7280);
+	private static void paintMoon(Graphics2D g, Node moon, double[] m, float alpha) {
+		Color c = Node.CONNECTED.equals(moon.status()) ? new Color(0xE6E9F0)
+			: Node.IDLE.equals(moon.status()) ? new Color(0xB9BECB) : new Color(0x6B7280);
 		double r = m[2];
 		g.setPaint(new RadialGradientPaint(new Point2D.Double(m[0] - r * 0.3, m[1] - r * 0.3), (float) (r * 1.4),
 			new float[] { 0f, 1f }, new Color[] { fade(c, alpha), fade(Theme.blend(c, Color.BLACK, 0.6f), alpha) }));
@@ -742,51 +908,87 @@ final class SolarMap extends JComponent {
 	// Other systems
 	// ------------------------------------------------------------------
 
-	/** Where a venue is on screen: under the pointer while carried, else where it was left. */
-	private Point2D.Double screenOfSystem(SamplePeers.StarSystem sys) {
-		Point2D.Double at = (sys == dragging && dragAt != null) ? dragAt : spots.get(sys);
+	/** Where a distant venue is on screen: under the pointer while carried, else where it was left. */
+	private Point2D.Double screenOfSystem(Node sys) {
+		if (sys.did().equals(dragging) && dragAt != null) return screen(dragAt.x, dragAt.y);
+		if (settings.placements().get(sys.did()) instanceof MapSettings.At a) return screen(a.x(), a.z());
+		Point2D.Double at = spots.get(sys.did());
+		if (at == null) {
+			MapSettings.At a = settings.venue(sys);
+			return screen(a.x(), a.z());
+		}
 		return screen(at.x, at.y);
 	}
 
-	private void paintSystemLink(Graphics2D g, Point2D.Double you, SamplePeers.StarSystem sys, float alpha) {
-		if (!sys.linked()) return;
-		Point2D.Double c = screenOfSystem(sys);
-		boolean focus = sys == hover || sys == selected;
-		float dash = UIScale.scale(4f);
-		g.setStroke(new BasicStroke(UIScale.scale(focus ? 1.4f : 1f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 1f,
-			sys.status() == SamplePeers.Status.ONLINE ? null : new float[] { dash, dash }, 0));
-		g.setColor(fade(sys.sun(), alpha * (focus ? 0.6f : 0.28f)));
-		g.draw(new Line2D.Double(you.x, you.y, c.x, c.y));
-		if (sys.status() == SamplePeers.Status.ONLINE) {
-			packets(g, you.x, you.y, c.x, c.y, sys.sun(), 0.12, sys.x() * 0.13, alpha);
+	/** How many peers and agents a venue reports, or has in the graph. */
+	private int count(Node sys, String fact, String kind) {
+		for (Node.Fact f : sys.facts()) {
+			if (f.label().equals(fact)) {
+				try {
+					return Integer.parseInt(f.value().trim());
+				} catch (NumberFormatException e) {
+					break;
+				}
+			}
 		}
+		int n = 0;
+		for (Node part : graph.partsOf(sys.did())) if (kind == null || part.is(kind)) n++;
+		return n;
 	}
 
-	private void paintSystem(Graphics2D g, SamplePeers.StarSystem sys, double s) {
+	int peersOf(Node sys) {
+		return count(sys, "Peers", null);
+	}
+
+	int agentsOf(Node sys) {
+		return count(sys, "Agents", Node.AGENT);
+	}
+
+	private void paintSystemLink(Graphics2D g, Point2D.Double you, Node sys, float alpha) {
+		if (!Node.LINKED.equals(sys.relation())) return;
 		Point2D.Double c = screenOfSystem(sys);
-		double rad = sys.radius() * s; // the system's size on screen
+		boolean focus = sys.did().equals(hover) || sys.did().equals(selected);
+		boolean live = Node.CONNECTED.equals(sys.status());
+		Color hue = hue(sys.did());
+		float dash = UIScale.scale(4f);
+		g.setStroke(new BasicStroke(UIScale.scale(focus ? 1.4f : 1f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 1f,
+			live ? null : new float[] { dash, dash }, 0));
+		g.setColor(fade(hue, alpha * (focus ? 0.6f : 0.28f)));
+		g.draw(new Line2D.Double(you.x, you.y, c.x, c.y));
+		if (live) packets(g, you.x, you.y, c.x, c.y, hue, 0.12, MapSettings.hash(sys.did(), 5), alpha);
+	}
+
+	/** A distant venue's size in world units: bigger for more peers. */
+	private double radiusOf(Node sys) {
+		return 0.38 + 0.07 * Math.min(10, peersOf(sys));
+	}
+
+	private void paintSystem(Graphics2D g, Node sys, double s) {
+		Point2D.Double c = screenOfSystem(sys);
+		double rad = radiusOf(sys) * s; // the system's size on screen
 		double margin = Math.max(rad, UIScale.scale(20f)) * 2;
 		if (c.x < -margin || c.y < -margin || c.x > getWidth() + margin || c.y > getHeight() + margin) {
 			return; // off screen: nothing to draw or hit
 		}
-		boolean focus = sys == hover || sys == selected;
-		float dim = sys.known() ? 1f : 0.6f;
-		Color sun = sys.status() == SamplePeers.Status.OFFLINE ? Theme.blend(sys.sun(), new Color(0x8A93A6), 0.6f) : sys.sun();
+		boolean focus = sys.did().equals(hover) || sys.did().equals(selected);
+		boolean known = sys.name() != null;
+		float dim = known ? 1f : 0.6f;
+		Color base = hue(sys.did());
+		Color sun = Node.OFFLINE.equals(sys.status()) ? Theme.blend(base, new Color(0x8A93A6), 0.6f) : base;
 
 		// Orbits and planets once the system is big enough to have any.
 		float detail = fadeIn(rad, UIScale.scale(16f), UIScale.scale(40f));
+		int planetCount = Math.max(2, peersOf(sys));
 		if (detail > 0) {
-			for (int k = 0; k < sys.planets(); k++) {
-				double ro = rad * (0.28 + 0.72 * (k + 1) / sys.planets());
+			for (int k = 0; k < planetCount; k++) {
+				double ro = rad * (0.28 + 0.72 * (k + 1) / planetCount);
 				g.setStroke(new BasicStroke(UIScale.scale(0.8f)));
 				g.setColor(new Color(1f, 1f, 1f, 0.07f * detail * dim));
 				g.draw(new Ellipse2D.Double(c.x - ro, c.y - ro * TILT, 2 * ro, 2 * ro * TILT));
-				double a = t * 2 * Math.PI / (40 + k * 23) + k * 1.7 + sys.x();
+				double a = t * 2 * Math.PI / (40 + k * 23) + k * 1.7 + 6.28 * MapSettings.hash(sys.did(), 7);
 				double px = c.x + Math.cos(a) * ro, py = c.y + Math.sin(a) * ro * TILT;
 				double pr = Math.max(UIScale.scale(1.4f), rad * 0.035);
-				float h = (float) (((sys.x() * 0.07 + k * 0.13) % 1.0 + 1) % 1.0);
-				Color hue = Color.getHSBColor(h, 0.45f, 0.95f);
-				g.setColor(fade(hue, 0.85f * detail * dim));
+				g.setColor(fade(PALETTE[(int) ((MapSettings.hash(sys.did(), 8 + k)) * PALETTE.length)], 0.85f * detail * dim));
 				g.fill(new Ellipse2D.Double(px - pr, py - pr, 2 * pr, 2 * pr));
 			}
 		}
@@ -800,8 +1002,8 @@ final class SolarMap extends JComponent {
 		g.fill(new Ellipse2D.Double(c.x - corona, c.y - corona, 2 * corona, 2 * corona));
 		g.setColor(fade(Theme.blend(sun, Color.WHITE, 0.4f), dim));
 		g.fill(new Ellipse2D.Double(c.x - r, c.y - r, 2 * r, 2 * r));
-		if (sys == selected) ring(g, c.x, c.y, Math.max(r * 2.4, UIScale.scale(9f)));
-		placed.add(new Placed(sys, c.x, c.y, Math.max(r * 1.6, rad * 0.25)));
+		if (sys.did().equals(selected)) ring(g, c.x, c.y, Math.max(r * 2.4, UIScale.scale(9f)));
+		placed.add(new Placed(sys, true, c.x, c.y, Math.max(r * 1.6, rad * 0.25)));
 	}
 
 	// ------------------------------------------------------------------
@@ -810,36 +1012,52 @@ final class SolarMap extends JComponent {
 
 	/**
 	 * Names, drawn last so nothing covers them: a planet's once it is big
-	 * enough to read beside, a known system's once there is room among its
+	 * enough to read beside, a known venue's once there is room among its
 	 * neighbours, and whatever is pointed at or chosen, whatever the zoom.
 	 */
 	private void paintLabel(Graphics2D g, Placed pl, double s) {
-		boolean focus = pl.item() == hover || pl.item() == selected;
+		Node n = pl.node();
+		boolean focus = n.did().equals(hover) || n.did().equals(selected);
 		String name, sub = null;
 		float alpha;
 		double y;
-		if (pl.item() instanceof SamplePeers.Peer p) {
+		if (!pl.star()) {
 			alpha = focus ? 1 : fadeIn(pl.r(), UIScale.scale(5f), UIScale.scale(8f));
-			name = p.name();
-			if (focus) sub = p.status().label;
-			y = pl.y() + pl.r() + UIScale.scale(15) + (pl.r() >= UIScale.scale(5f) && !p.moons().isEmpty() ? pl.r() * 0.5 : 0);
-			if (p.status() == SamplePeers.Status.KNOWN && !focus) alpha *= 0.6f;
-		} else if (pl.item() instanceof SamplePeers.StarSystem sys) {
-			double rad = sys.radius() * s;
-			alpha = focus ? 1 : sys.known() ? fadeIn(s, 12, 26) : 0;
-			name = sys.known() ? sys.name() : "Unknown venue";
-			if (focus) sub = sys.known() ? plural(sys.planets(), "peer") + " · " + plural(sys.agents(), "agent") : null;
-			y = pl.y() + Math.max(UIScale.scale(10f), Math.min(rad * TILT, UIScale.scale(60f))) + UIScale.scale(14);
+			name = n.label();
+			if (focus) sub = statusLabel(n);
+			boolean hasMoons = !moonsOf(n.did()).isEmpty();
+			y = pl.y() + pl.r() + UIScale.scale(15) + (pl.r() >= UIScale.scale(5f) && hasMoons ? pl.r() * 0.5 : 0);
+			if (Node.NOT_CONNECTED.equals(n.status()) && !focus) alpha *= 0.6f;
 		} else {
-			return;
+			double rad = radiusOf(n) * s;
+			boolean known = n.name() != null;
+			alpha = focus ? 1 : known ? fadeIn(s, 12, 26) : 0;
+			name = known ? n.name() : "Unknown venue";
+			if (focus && known) sub = plural(peersOf(n), "peer") + " · " + plural(agentsOf(n), "agent");
+			y = pl.y() + Math.max(UIScale.scale(10f), Math.min(rad * TILT, UIScale.scale(60f))) + UIScale.scale(14);
 		}
 		if (alpha <= 0.02f) return;
 		g.setFont(getFont().deriveFont(focus ? Font.BOLD : Font.PLAIN, UIScale.scale(focus ? 12f : 11f)));
+		// Room for it? A lesser label that would overlap one already drawn waits until pointed at.
+		FontMetrics fm = g.getFontMetrics();
+		double w = fm.stringWidth(name) + UIScale.scale(6f), h = fm.getHeight() + (sub != null ? UIScale.scale(13f) : 0);
+		Rectangle2D box = new Rectangle2D.Double(pl.x() - w / 2, y - fm.getAscent(), w, h);
+		if (!focus) for (Rectangle2D other : labelled) if (other.intersects(box)) return;
+		labelled.add(box);
 		centred(g, name, pl.x(), y, new Color(1f, 1f, 1f, Math.min(1f, 0.85f * alpha + (focus ? 0.13f : 0))));
 		if (sub != null) {
 			g.setFont(getFont().deriveFont(UIScale.scale(10f)));
 			centred(g, sub, pl.x(), y + UIScale.scale(13), new Color(1f, 1f, 1f, 0.55f));
 		}
+	}
+
+	/** How much a label is wanted: what is pointed at or chosen, then planets, then venues you are linked to, then the rest. */
+	private int want(Placed p) {
+		String did = p.node().did();
+		if (did.equals(hover) || did.equals(selected)) return 4;
+		if (!p.star()) return 3;
+		if (Node.LINKED.equals(p.node().relation())) return 2;
+		return (p.node().name() != null) ? 1 : 0;
 	}
 
 	private static void centred(Graphics2D g, String text, double x, double y, Color colour) {
@@ -863,7 +1081,7 @@ final class SolarMap extends JComponent {
 		return new Color(c.getRed(), c.getGreen(), c.getBlue(), Math.max(0, Math.min(255, Math.round(alpha * 255))));
 	}
 
-	private static String plural(int n, String unit) {
+	static String plural(int n, String unit) {
 		return n + " " + unit + (n == 1 ? "" : "s");
 	}
 }

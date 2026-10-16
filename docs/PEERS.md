@@ -2,8 +2,9 @@
 
 How the Peers tab gets from sample data to the real network: what Brightside
 holds about other nodes, where that comes from, and how the map's own settings
-are kept apart from it. It is deliberately ahead of the code. Today the tab is
-a preview on samples (`ui/peers`). The networked product it serves is in
+are kept apart from it. The model is `brightside.peers`; the map and its
+screen are `ui/peers`, drawing a sample source today. Past the first step the
+doc is ahead of the code. The networked product it serves is in
 [NETWORK.md](NETWORK.md).
 
 - **Two structures, never mixed.** *Peer data* is what is known about other
@@ -33,14 +34,19 @@ much:
 | Identity | The node's DID. The one stable key; everything else hangs off it. |
 | Name | A real, human name for the node, as it gives it or as you know it. |
 | Kind | Venue, agent, device or service; open-ended, an unknown kind is shown plainly. |
-| Relation | How it relates to you: yourself, someone you trust, something you use, known but not connected, unknown. |
+| Relation | How it relates to you: yourself, someone you trust, something you use, known but not connected; and, for venues drawn far out, linked to you, listed in a directory, or unknown. |
 | Status | Connected, idle, offline, or not connected. |
-| Belongs to | For an agent, the DID of its venue; that is what makes it a moon. |
+| Belongs to | The DID of the node this one is part of. An agent belonging to a planet is its moon; a planet belonging to a distant venue is that venue's place among your peers. |
 | Facts | An ordered set of labelled values for the card: address, reach, how you met, what they may do, what is shared. |
 
-Facts are a map, not fields, so a new kind of record needs no change to the
-structure: the card shows what it is given. Peer data is read-only to the
-map. Dragging, zooming or resizing an orbit never writes to it.
+Facts are an open list, not fields, so a new kind of record needs no change
+to the structure: the card shows a plain fact as a row and a list fact, such
+as what a node may do, as a section. Peer data is read-only to the map.
+Dragging, zooming or resizing an orbit never writes to it.
+
+A node whose relation has an orbit is a planet. A node without one is a moon
+if it belongs to a planet, and otherwise a star system far out, linked to you
+when its relation is "linked".
 
 ## Where peer data comes from
 
@@ -68,38 +74,37 @@ unlabelled far out.
 Map settings are how this installation draws the peer data. They live in a
 structure of their own:
 
-- **Orbits:** each one's name, the relations it holds, and its radius. Moving
-  "People you trust" further out, or adding an orbit, is a settings change.
-- **Placements**, keyed by DID: a planet's orbit radius and phase where it was
-  dragged, or a distant venue's position. A node with no placement is placed
+- **Orbits:** each one's name, the relations it holds, and its radius.
+  Dragging an orbit's line resizes it, kept between its neighbours; adding an
+  orbit, or moving a relation to another, is a settings change too.
+- **Placements**, keyed by DID: a planet's orbit radius and angle where it was
+  dropped, or a distant venue's position. A node with no placement is placed
   from a hash of its DID, so the same node lands in the same place on every
-  launch without anything being stored.
-- **View:** the zoom and pan to open on, and whether the map is paused.
-- **A version**, so the structure can evolve.
+  launch without anything being stored; unplaced venues are then pushed apart
+  as they are drawn, so none sit on top of another.
+- **View:** the zoom to open on, and whether the map is paused.
+- **A version**, so the structure can evolve. Anything stored that does not
+  make sense, from another version or none, falls back to the defaults.
 
 Settings never hold a node's name, status or facts. A placement for a DID the
-source no longer reports is ignored and can be pruned; resetting the layout
-clears placements and nothing else.
+source no longer reports is pruned when the tab opens; resetting clears
+placements and orbit sizes and nothing else. The map's clock is the wall
+clock, so planets keep moving while Brightside is closed and placements hold
+across launches.
 
-**Where they live.** They are local to this installation and never
-replicated: they describe one screen's view, not shared state. Placements
-name the DIDs you know, which is private, so they should not sit on disk in
-plaintext. The recommendation is a local, non-replicated record in the
-encrypted venue store, written through a Brightside operation and saved after a
-drag ends rather than during it. A plaintext file beside `prefs.properties`
-would be simpler but would need a row in [SECURITY.md](SECURITY.md)'s file
-table.
-
-To verify when it is built: whether that write can run without leaving a job
-record each time, using the `RecordedJobs` test helper. Settings should not
-fill the owner's job history.
+**Where they live.** In Brightside's own adapter workspace on the venue, under
+the acting person's DID: venue-private, encrypted with the store, and outside
+the person's own namespace, so no other principal reads them through it. The
+app reads and writes them in-process, a moment after a change settles, so
+arranging the map leaves no job records (`MapSettingsStoreTest`). Acting as
+the operator keeps a separate arrangement.
 
 ## Steps
 
-1. **A model behind the map.** The map reads peer data from a source and map
-   settings from their own store, joined by DID. The samples become one
-   source. The function from relation to orbit, and the placement default
-   from a DID's hash, are the mechanism to test.
+1. **A model behind the map** (in place). The map reads peer data from a
+   source and map settings from their own store, joined by DID; the samples
+   are one source (`SamplePeerSource`). `MapSettingsTest` covers the relation
+   to orbit, the hashed defaults, resizing and the stored form.
 2. **Local services live.** The services orbit shows the real connections
    listed above, with real status.
 3. **A P2P node in the venue (Covia).** Discovery and connection, under the

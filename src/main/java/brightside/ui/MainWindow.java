@@ -85,6 +85,7 @@ public final class MainWindow extends JFrame {
 	private final ChatPanel chatPanel = new ChatPanel();
 	private final ConversationList conversations;
 	private NavBar.Tab activeTab = NavBar.Tab.HOME;
+	private brightside.ui.peers.PeersScreen peersScreen;
 
 	private EmbeddedVenue venue; // set once ready
 	private Identity identity;
@@ -452,7 +453,9 @@ public final class MainWindow extends JFrame {
 		mainDeck.add(skillsScreen, MAIN_SKILLS);
 
 		// A preview of the networked product: sample peers only, nothing on the wire.
-		mainDeck.add(new brightside.ui.peers.PeersScreen(), MAIN_PEERS);
+		// How the map is drawn is the acting person's own, kept apart from the data.
+		peersScreen = new brightside.ui.peers.PeersScreen(new brightside.peers.SamplePeerSource(), app::peersMapSettings);
+		mainDeck.add(peersScreen, MAIN_PEERS);
 
 		navBar = new NavBar(this::selectTab);
 
@@ -649,7 +652,11 @@ public final class MainWindow extends JFrame {
 				// agents, another client): re-read on entry.
 				app.refreshAgents();
 			}
-			case PEERS -> mainCards.show(mainDeck, MAIN_PEERS);
+			case PEERS -> {
+				// The acting person may have changed, or saved elsewhere: read their settings afresh.
+				peersScreen.reload();
+				mainCards.show(mainDeck, MAIN_PEERS);
+			}
 			case INBOX -> mainCards.show(mainDeck, MAIN_INBOX);
 			case SKILLS -> {
 				mainCards.show(mainDeck, MAIN_SKILLS);

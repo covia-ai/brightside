@@ -815,6 +815,20 @@ public final class BrightSide {
 		t.start();
 	}
 
+	/**
+	 * The acting person's Peers map settings: kept by Brightside's adapter on
+	 * the venue for whoever is acting (the owner, or the operator), or held in
+	 * memory until the venue is up.
+	 */
+	public brightside.peers.MapSettingsStore peersMapSettings() {
+		EmbeddedVenue v = venue;
+		Identity id = identity;
+		if (v == null) return brightside.peers.MapSettingsStore.memory();
+		String did = userDID;
+		if (did == null && id != null) did = id.userDID(v.did());
+		return (did == null) ? brightside.peers.MapSettingsStore.memory() : v.mapSettings(did);
+	}
+
 	/** The acting principal's client for the schedule: the bound chat principal, else the owner. */
 	private Venue scheduleClient() {
 		Venue acting = client;

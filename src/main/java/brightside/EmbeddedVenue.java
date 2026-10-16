@@ -151,6 +151,33 @@ public final class EmbeddedVenue implements AutoCloseable {
 		}
 	}
 
+	/**
+	 * {@code userDID}'s Peers map settings, kept by Brightside's own adapter;
+	 * an empty in-memory store if that adapter isn't registered.
+	 */
+	public brightside.peers.MapSettingsStore mapSettings(String userDID) {
+		if (!(engine().getAdapter("brightside") instanceof BrightsideAdapter adapter)) {
+			return brightside.peers.MapSettingsStore.memory();
+		}
+		AString did = Strings.create(userDID);
+		return new brightside.peers.MapSettingsStore() {
+			@Override
+			public brightside.peers.MapSettings load() {
+				try {
+					return brightside.peers.MapSettings.fromCell(adapter.mapSettings(did));
+				} catch (RuntimeException e) {
+					log.warn("Could not read the Peers map settings: {}", e.toString());
+					return brightside.peers.MapSettings.DEFAULT;
+				}
+			}
+
+			@Override
+			public void save(brightside.peers.MapSettings settings) {
+				adapter.saveMapSettings(did, settings.toCell());
+			}
+		};
+	}
+
 	/** The AES key for {@link #secrets}: derived from the venue key pair, as the secret adapter derives it. */
 	public byte[] secretKey() {
 		return covia.venue.SecretStore.deriveKey(engine().getKeyPair());
