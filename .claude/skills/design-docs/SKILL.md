@@ -1,3 +1,4 @@
+| `docs/PEERS.md` | the Peers map: peer data versus map settings, where nodes come from, the steps from preview to live nodes; ahead of the code |
 ---
 name: design-docs
 description: Brightside's design documents under docs/ — which one answers what, and the rules for writing or changing one. Use when reading, editing or adding documentation in this repository, or when a code change makes a doc wrong.

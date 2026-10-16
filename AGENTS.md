@@ -1,3 +1,4 @@
+| The Peers map: peer data, map settings, the path to live nodes | `docs/PEERS.md` |
 # AGENTS.md — Brightside
 
 Instructions for AI coding agents in this repository. The workspace rules in
