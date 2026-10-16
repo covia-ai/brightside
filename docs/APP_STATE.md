@@ -1,16 +1,18 @@
 # Brightside's own state as a lattice application — proposal
 
 A proposal, for discussion before it is built: Brightside keeps everything of
-its own that no other region owns in one lattice region, `:brightside`,
+its own that no other region owns in one lattice region, `[:app :brightside]`,
 managed by a Brightside lattice application and its domain components. Covia
 keeps conversations, agents, skills and secrets in its regions, P2P keeps
 nodes and identities in its, DLFS keeps files in its; this region holds the
 rest. The component model is Convex's (`convex-core/docs/LATTICE_APPLICATIONS.md`
 in the Convex repository); the peer map that motivated it is [PEERS.md](PEERS.md).
 
-- **One region, owned per person.** `:brightside` sits beside `:grid`,
-  `:p2p` and `:fs` in the venue's root, keyed by the person's DID and signed by
-  the venue on their behalf, as the venue signs for its users today.
+- **One region, owned per person.** Non-core applications don't get a
+  top-level region of their own: they live under `:app`, keyed by application
+  name, beside the core regions (`:grid`, `:p2p`, `:fs`). Brightside's is
+  `[:app :brightside]`, keyed by the person's DID and signed by the venue on
+  their behalf, as the venue signs for its users today.
 - **Typed components, not blobs.** A `BrightsideApplication` hosts a
   component per person, and that hands out smaller ones (profile, model,
   peers map, integrations, devices) with domain methods. Nothing writes a
@@ -56,7 +58,8 @@ source of truth.
 ## Shape
 
 ```
-:brightside → OwnerLattice, keyed by the person's DID, venue-signed
+:app → KeyedLattice, application name → that application's lattice
+  :brightside → OwnerLattice, keyed by the person's DID, venue-signed
     :profile       → KeyedLattice of LWW fields
     :model         → LWW
     :look          → KeyedLattice of LWW fields
@@ -68,6 +71,12 @@ source of truth.
     :devices       → MapLattice, device id → KeyedLattice of LWW fields
     :version       → MaxLattice
 ```
+
+`:app` composes like the root does, one level down: a node registers the
+applications it hosts, and the keyed merge ignores an application it does not
+know arriving from a peer while retaining one it already holds. So a venue
+without Brightside carries nothing of it, and adding an application never
+needs a new top-level region.
 
 Every last-writer-wins leaf carries its own timestamp, written by a stamped
 cursor at that leaf, so merging two devices' values settles each leaf on its
@@ -106,10 +115,18 @@ cache and a recovery aid until the region is trusted, and is retired after.
 
 ## What this asks of Covia and Convex
 
-- **An embedder region in the venue's root.** Covia composes its root lattice
-  itself today; an embedder needs to add a region with its own lattice before
-  launch, and get a cursor or host for it. The start-up hook is the natural
-  place.
+- **An `:app` region, and a way into it.** The root needs an `:app` region
+  that hosts applications by name. CAD045 ("Registration") currently has each
+  application register its own top-level keyword, as `:social` does; it needs
+  to say instead that non-core applications go under `:app`, with the core
+  regions kept to the root. Covia then has to let an embedder register its
+  application under `:app` before launch and get a cursor or host for it; the
+  start-up hook is the natural place.
+- **Owners that are DIDs.** CAD045's owner lattice partitions by owner
+  public key, and the people on a venue have none: the venue signs for them.
+  Convex's application guide allows an indirect owner, a DID resolved by the
+  installed owner verifier, so the venue's verifier has to resolve its own
+  users' DIDs to the venue key for this region.
 - **The component model as it settles.** Components, stamped and signed
   cursors and publication are being reworked on Convex's lattice-application
   branch; this is best built on the release that carries it, and prototyped
@@ -123,15 +140,14 @@ cache and a recovery aid until the region is trusted, and is retired after.
    components, on a `RootComponent` over a memory store, with tests of merge
    (two values edited apart, merged, each change kept), signing and the
    domain methods. Needs nothing from Covia.
-2. **Ask Covia** for embedder regions in the root.
+2. **Agree `:app`** in CAD045, and ask Covia to let an embedder register
+   under it.
 3. **Host it in the venue** and move the peers map onto it.
 4. **Migrate** the rest, one part at a time.
 5. **Sync between your devices** once P2P is in the venue ([covia#587](https://github.com/covia-ai/covia/issues/587)).
 
 ## Open decisions
 
-- One `:brightside` region, or a generic `:apps` region keyed by application
-  name, which other embedders could share.
 - Whether `:look` belongs to the person, with devices overriding, or to each
   device alone.
 - How long `identity.json` stays once the region holds the profile.
