@@ -1,4 +1,3 @@
-| `docs/PEERS.md` | the Peers map: peer data versus map settings, where nodes come from, the steps from preview to live nodes; ahead of the code |
 ---
 name: design-docs
 description: Brightside's design documents under docs/ — which one answers what, and the rules for writing or changing one. Use when reading, editing or adding documentation in this repository, or when a code change makes a doc wrong.
@@ -24,6 +23,7 @@ guide and points here.
 | `docs/LAUNCH.md` | startup order, taking over a running instance, tray, exit |
 | `docs/CONFIGURATION.md` | the reference: files under `~/.brightside/`, `config.json`, API keys, Discord, Moltbook, Claude Code, identity, reaching the venue from other tools |
 | `docs/NETWORK.md` | target state once venues meet venues; deliberately ahead of the code |
+| `docs/PEERS.md` | the Peers map: peer data versus map settings, where nodes come from, the steps from preview to live nodes; ahead of the code |
 | `docs/ADVANCED_MEMORY.md` | proposals for tiered, provenance-gated memory with consolidation, recall and intents; nothing in it is built |
 
 Covia's own design lives in `../covia/venue/docs/` (skills, agent context,
