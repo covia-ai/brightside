@@ -37,6 +37,7 @@ import convex.core.data.Maps;
 import convex.core.data.Strings;
 import convex.core.data.prim.CVMBool;
 import convex.core.lang.RT;
+import covia.adapter.AgentAdapter;
 import covia.adapter.TestAdapter;
 import covia.api.Fields;
 import covia.exception.JobFailedException;
@@ -340,34 +341,28 @@ class ChatSessionTest {
 	}
 
 	@Test
-	void anUncodedUnknownSessionKeepsItsPlaceAndFails() throws Exception {
-		// Covia 0.9.10 reports a missing session without an error code, so the
-		// failure is shown and the saved id stays: wording never decides
-		// recovery. The release carrying the code turns this into a fresh start.
-		String saved = "00000000000000000000000000000000"; // never minted
+	void resumeFallsBackWhenSessionIsUnknown() throws Exception {
 		ChatSession s = new ChatSession(venue, echoChat("bs-resume-bad"));
-		s.resume(saved);
-		assertThrows(Exception.class, () -> s.send("hello"));
-		assertEquals(saved, s.sessionId(), "the saved conversation is not replaced");
+		s.resume("00000000000000000000000000000000"); // never minted
+		try (var logs = brightside.ExpectedLogs.warn(ChatSession.class,
+			"Could not continue the previous conversation (Unknown sessionId: 00000000000000000000000000000000")) {
+			ChatSession.Reply reply = s.send("hello");
+			assertNotNull(reply.sessionId(), "falls back to a fresh session instead of failing");
+		}
 	}
 
 	@Test
 	void onlyAnUnknownSessionTriggersTheFallback() throws Exception {
-		Job missing = failed(ChatSession.UNKNOWN_SESSION_CODE, "This conversation has expired");
+		Job missing = Job.create(Maps.of(Fields.STATUS, Status.STARTED));
+		missing.fail(AgentAdapter.UNKNOWN_SESSION_CODE, "This conversation has expired");
 		assertTrue(ChatSession.isUnknownSession(new JobFailedException(missing)));
 		assertTrue(ChatSession.isUnknownSession(new ExecutionException(new JobFailedException(missing))));
 		assertFalse(ChatSession.isUnknownSession(new JobFailedException("Unknown sessionId: abc")));
-		assertFalse(ChatSession.isUnknownSession(new JobFailedException(failed(null, "Unknown session: abc"))));
-		assertFalse(ChatSession.isUnknownSession(new JobFailedException(failed("other:unknown-session", "Unknown session: abc"))));
+		Job other = Job.create(Maps.of(Fields.STATUS, Status.STARTED));
+		other.fail("other:unknown-session", "Unknown session: abc");
+		assertFalse(ChatSession.isUnknownSession(new JobFailedException(other)));
 		assertFalse(ChatSession.isUnknownSession(new RuntimeException("Secret ANTHROPIC_API_KEY not found")));
 		assertFalse(ChatSession.isUnknownSession(new java.util.concurrent.TimeoutException("No reply")));
-	}
-
-	/** A failed job record, as the venue reports it, with an optional adapter code. */
-	private static Job failed(String code, String message) {
-		AMap<AString, ACell> record = Maps.of(Fields.STATUS, Status.FAILED, Fields.ERROR, message);
-		if (code != null) record = record.assoc(Strings.create("errorCode"), Strings.create(code));
-		return Job.create(record);
 	}
 
 	@Test

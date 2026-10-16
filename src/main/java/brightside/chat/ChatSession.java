@@ -21,6 +21,7 @@ import convex.core.data.Vectors;
 import convex.core.data.prim.CVMBool;
 import convex.core.lang.RT;
 import convex.core.util.JSON;
+import covia.adapter.AgentAdapter;
 import covia.api.Fields;
 import covia.exception.JobFailedException;
 import covia.grid.Job;
@@ -512,27 +513,15 @@ public final class ChatSession {
 		return new Delivery(deliveredSid.toString());
 	}
 
-	/** The agent adapter's optional code for a supplied session that does not exist. */
-	static final String UNKNOWN_SESSION_CODE = "agent:unknown-session";
-	/** The failed job record's optional adapter-specific code. */
-	private static final AString K_ERROR_CODE = Strings.intern("errorCode");
-
 	/**
 	 * Recognises the agent adapter's optional unknown-session code. Missing or
 	 * unfamiliar codes are ordinary failures; their wording must not cause us
 	 * to replace the saved session.
-	 *
-	 * <p>The code is read from the failed job's record rather than through
-	 * Covia's accessor and constant, which arrive after the 0.9.10 release
-	 * Brightside builds against. That release sets no code, so a resumed
-	 * session that has gone keeps its place and the failure is shown; the
-	 * fresh-conversation fallback starts working on the release that does.
 	 */
 	static boolean isUnknownSession(Throwable e) {
 		for (Throwable t = e; t != null; t = t.getCause()) {
-			if (t instanceof JobFailedException failure && failure.getJob() != null
-					&& Strings.create(UNKNOWN_SESSION_CODE).equals(
-						RT.getIn(failure.getJob().getData(), K_ERROR_CODE))) return true;
+			if (t instanceof JobFailedException failure
+					&& AgentAdapter.UNKNOWN_SESSION_CODE.equals(failure.getErrorCode())) return true;
 			if (t.getCause() == t) break;
 		}
 		return false;
