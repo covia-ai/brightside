@@ -24,6 +24,7 @@ guide and points here.
 | `docs/CONFIGURATION.md` | the reference: files under `~/.brightside/`, `config.json`, API keys, Discord, Moltbook, Claude Code, identity, reaching the venue from other tools |
 | `docs/NETWORK.md` | target state once venues meet venues; deliberately ahead of the code |
 | `docs/PEERS.md` | the Peers map: peer data versus map settings, where nodes come from, the steps from preview to live nodes; ahead of the code |
+| `docs/APP_STATE.md` | proposal: Brightside's own state as a `:brightside` lattice region with domain components; what moves in, what stays out; nothing in it is built |
 | `docs/ADVANCED_MEMORY.md` | proposals for tiered, provenance-gated memory with consolidation, recall and intents; nothing in it is built |
 
 Covia's own design lives in `../covia/venue/docs/` (skills, agent context,
