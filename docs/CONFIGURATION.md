@@ -412,12 +412,18 @@ expires; for a different port, edit the URL.
 ## Schedule
 
 *Settings → Schedule* lists what is set to run on its own: the reminders,
-routines and check-ins your assistant or any of your agents scheduled through
-the venue's scheduler (the `automation` skill), soonest first. Each row shows
-the operation, when it runs next, how often it repeats, and when it last ran;
-for a tracked run it also shows how that run went, with any error on hover.
-The page is read-only, and reading it leaves no job record. To change or stop
-something, ask your assistant. Acting as the venue operator shows the venue's
+routines and check-ins that you, your assistant or any of your agents
+scheduled through the venue's scheduler (the `automation` skill), soonest
+first. A summary at the top says what is next, how many events repeat, and
+whether any tracked run failed or is waiting for you. Each event's card shows
+when it runs next, counting down while the page is open, how often it
+repeats, and how its last run went. Click a card to open its details: the
+operation, exact times, whether runs are kept in your job history, the last
+job and any error, each copyable.
+
+*Run now* fires an event straight away; a repeating one stays on its schedule.
+*Cancel* stops it for good. Both ask first, and each leaves a job record;
+looking at the page does not. Acting as the venue operator shows the venue's
 own schedule instead.
 
 ## Secrets

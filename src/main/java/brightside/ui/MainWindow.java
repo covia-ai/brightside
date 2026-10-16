@@ -404,7 +404,22 @@ public final class MainWindow extends JFrame {
 				return app.rememberedPassphrase();
 			}
 		});
-		SchedulePanel schedulePanel = new SchedulePanel(app::refreshSchedule);
+		SchedulePanel schedulePanel = new SchedulePanel(new SchedulePanel.Host() {
+			@Override
+			public void refresh() {
+				app.refreshSchedule();
+			}
+
+			@Override
+			public void runNow(brightside.Schedule.Event event, SchedulePanel.Result done) {
+				app.runScheduled(event, done);
+			}
+
+			@Override
+			public void cancel(brightside.Schedule.Event event, SchedulePanel.Result done) {
+				app.cancelScheduled(event, done);
+			}
+		});
 		VaultPanel vaultPanel = new VaultPanel(app::forgetRememberedPassphrase);
 		AuthPanel authPanel = new AuthPanel(app::mintAccessToken);
 		settingsScreen = new SettingsScreen(generalPanel, themePanel, modelPanel, profilePanel, integrationsPanel,

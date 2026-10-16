@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -77,6 +78,43 @@ class ScheduleTest {
 
 		String other = Identity.of("schedule-other").userDID(venue.did());
 		assertTrue(Schedule.list(venue.clientAs(other)).isEmpty(), "another user's events are not shown");
+	}
+
+	@Test
+	void runNowAndCancelActOnlyOnTheOwnersEvents() throws Exception {
+		EmbeddedVenue venue = shared.venue();
+		String did = Identity.of("schedule-actions").userDID(venue.did());
+		Venue client = venue.clientAs(did);
+		String once = handle(run(client, "v/ops/scheduler/schedule", Maps.of(
+			"operation", OP, "input", Maps.of("path", "w"), "after", HOUR)));
+		String every = handle(run(client, "v/ops/scheduler/schedule", Maps.of(
+			"operation", OP, "input", Maps.of("path", "w"), "after", HOUR,
+			"repeat", Maps.of("every", HOUR), "track", true)));
+		assertEquals(2, Schedule.list(client).size());
+
+		// Someone else can neither fire nor cancel them.
+		Venue stranger = venue.clientAs(Identity.of("schedule-stranger").userDID(venue.did()));
+		assertThrows(Exception.class, () -> Schedule.runNow(stranger, once, 10_000));
+		assertThrows(Exception.class, () -> Schedule.cancel(stranger, every));
+		assertEquals(2, Schedule.list(client).size());
+
+		// Running a one-shot event now consumes it, and is recorded as an action.
+		long before = RecordedJobs.of(venue, did);
+		assertNotNull(Schedule.runNow(client, once, 30_000), "the run finished and returned its result");
+		assertTrue(RecordedJobs.of(venue, did) > before, "running now leaves a job record");
+		List<Schedule.Event> left = Schedule.list(client);
+		assertEquals(1, left.size());
+		assertTrue(left.get(0).recurring());
+
+		// Cancelling removes it; a second cancel finds nothing.
+		assertTrue(Schedule.cancel(client, left.get(0).handle()));
+		assertTrue(Schedule.list(client).isEmpty());
+		assertFalse(Schedule.cancel(client, left.get(0).handle()));
+	}
+
+	private static String handle(ACell scheduled) {
+		ACell h = RT.getIn(scheduled, "handle");
+		return (h instanceof convex.core.data.Blob b) ? b.toHexString() : String.valueOf(h);
 	}
 
 	private static ACell run(Venue client, String op, ACell input) throws Exception {

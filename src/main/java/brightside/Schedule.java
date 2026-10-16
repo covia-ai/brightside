@@ -4,7 +4,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import convex.core.data.ACell;
 import convex.core.data.AMap;
@@ -17,6 +19,7 @@ import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
 import covia.api.Fields;
 import covia.grid.Asset;
+import covia.grid.Job;
 import covia.grid.Venue;
 
 /**
@@ -26,14 +29,16 @@ import covia.grid.Venue;
  * operation's display name and, for a tracked recurring event, the outcome of
  * its most recent run.
  *
- * <p>Every read is a read: {@code scheduler:list} is declared readOnly, and
- * the operation and job lookups are plain queries, so looking at the schedule
- * leaves no job record.
+ * <p>Looking is a read: {@code scheduler:list} is declared readOnly, and the
+ * operation and job lookups are plain queries, so it leaves no job record.
+ * {@link #runNow} and {@link #cancel} are actions and leave one each.
  */
 public final class Schedule {
 
 	private static final long TIMEOUT_SECONDS = 30;
 	static final String OP_LIST = "v/ops/scheduler/list";
+	static final String OP_TRIGGER = "v/ops/scheduler/trigger";
+	static final String OP_CANCEL = "v/ops/scheduler/cancel";
 
 	/**
 	 * One pending event. Times are epoch millis; {@code everyMillis} is 0 for a
@@ -81,6 +86,32 @@ public final class Schedule {
 				num(RT.getIn(e, "lastFired")), lastJob, status, error, CVMBool.TRUE.equals(RT.getIn(e, "track"))));
 		}
 		return list;
+	}
+
+	/**
+	 * Fires {@code handle} now, ahead of its time, and waits up to
+	 * {@code waitMillis} for the run to finish. A recurring event stays
+	 * scheduled at its unchanged next time; a one-shot one is consumed. An
+	 * action, so it leaves a job record. Returns the run's result when it
+	 * finished in time, or null while it is still running; throws when the
+	 * event is gone or the run failed.
+	 */
+	public static ACell runNow(Venue client, String handle, long waitMillis) throws Exception {
+		Job job = client.invoke(OP_TRIGGER, Maps.of("handle", handle)).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		try {
+			return job.future().get(waitMillis, TimeUnit.MILLISECONDS);
+		} catch (TimeoutException e) {
+			return null;
+		} catch (ExecutionException e) {
+			throw (e.getCause() instanceof Exception cause) ? cause : e;
+		}
+	}
+
+	/** Cancels {@code handle}; false if it was already gone. An action, so it leaves a job record. */
+	public static boolean cancel(Venue client, String handle) throws Exception {
+		Job job = client.invoke(OP_CANCEL, Maps.of("handle", handle)).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		ACell out = job.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		return CVMBool.TRUE.equals(RT.getIn(out, "cancelled"));
 	}
 
 	/** The operation's display name from its metadata, or the last segment of its reference. */

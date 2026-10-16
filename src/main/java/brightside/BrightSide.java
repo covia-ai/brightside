@@ -39,6 +39,7 @@ import brightside.ui.TrayManager;
 import brightside.ui.onboarding.OnboardingWizard;
 import brightside.ui.onboarding.UnlockDialog;
 import brightside.ui.onboarding.UnlockPanel;
+import brightside.ui.settings.SchedulePanel;
 import brightside.vault.Vault;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.joran.JoranConfigurator;
@@ -735,15 +736,11 @@ public final class BrightSide {
 	 * empty schedule.
 	 */
 	public void refreshSchedule() {
-		EmbeddedVenue v = venue;
-		Identity id = identity;
-		Venue acting = client;
-		if (acting == null && v != null && id != null) acting = ownerClient(v, id);
-		if (acting == null) {
+		Venue reader = scheduleClient();
+		if (reader == null) {
 			SwingUtilities.invokeLater(() -> window.showSchedule(List.of(), "Brightside is still starting up."));
 			return;
 		}
-		Venue reader = acting;
 		Thread t = new Thread(() -> {
 			List<Schedule.Event> events = null;
 			String error = null;
@@ -759,6 +756,63 @@ public final class BrightSide {
 		}, "brightside-schedule");
 		t.setDaemon(true);
 		t.start();
+	}
+
+	/**
+	 * Runs a scheduled event now, as the acting principal, off the event
+	 * thread. Waits a little for the run so the note can say how it went; a
+	 * longer run carries on and its outcome shows on the next refresh.
+	 */
+	public void runScheduled(Schedule.Event event, SchedulePanel.Result done) {
+		scheduleAction("brightside-schedule-run", done, reader -> {
+			ACell result = Schedule.runNow(reader, event.handle(), 10_000);
+			return (result != null) ? "Ran " + event.label() + "."
+				: event.label() + " is running; its outcome shows when it finishes.";
+		}, "Couldn't run " + event.label() + ": ");
+	}
+
+	/** Cancels a scheduled event as the acting principal, off the event thread. */
+	public void cancelScheduled(Schedule.Event event, SchedulePanel.Result done) {
+		scheduleAction("brightside-schedule-cancel", done, reader -> Schedule.cancel(reader, event.handle())
+			? "Cancelled " + event.label() + "." : event.label() + " had already gone.",
+			"Couldn't cancel " + event.label() + ": ");
+	}
+
+	private interface ScheduleAction {
+		String run(Venue reader) throws Exception;
+	}
+
+	private void scheduleAction(String thread, SchedulePanel.Result done, ScheduleAction action, String failure) {
+		Venue reader = scheduleClient();
+		if (reader == null) {
+			done.done("Brightside is still starting up.", true);
+			return;
+		}
+		Thread t = new Thread(() -> {
+			String note;
+			boolean error = false;
+			try {
+				note = action.run(reader);
+			} catch (Exception e) {
+				log.warn("Scheduled event action failed: {}", e.toString());
+				note = failure + rootMessage(e);
+				error = true;
+			}
+			String n = note;
+			boolean err = error;
+			SwingUtilities.invokeLater(() -> done.done(n, err));
+		}, thread);
+		t.setDaemon(true);
+		t.start();
+	}
+
+	/** The acting principal's client for the schedule: the bound chat principal, else the owner. */
+	private Venue scheduleClient() {
+		Venue acting = client;
+		EmbeddedVenue v = venue;
+		Identity id = identity;
+		if (acting == null && v != null && id != null) acting = ownerClient(v, id);
+		return acting;
 	}
 
 	/** Reads the owner's Discord bot off the event thread and shows it in Settings → Integrations. */
