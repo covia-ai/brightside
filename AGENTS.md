@@ -76,7 +76,8 @@ for venue concepts: venue, engine, adapter, operation, agent, session, job.
 Remote `https://github.com/covia-ai/brightside`. `master` is the default
 branch; `develop` is the working branch — commit there and merge to `master`.
 Commit as the repo's local `user.name` / `user.email`; use `gh` as
-`brittleboye` for issues and PRs.
+`brittleboye` for issues and PRs. Commit after each meaningful, tested chunk
+of work, without waiting to be asked.
 
 ## When Brightside runs you
 
@@ -93,6 +94,6 @@ report of what was done, what tests ran, and what remains. Never launch
 Brightside from the checkout
 (`mvn exec:java`, `java -jar`): the instance driving you is running on this
 machine, and a second launch would take it over. Build with `mvn package`
-and say the owner must restart from that build. Commit on `develop` when
-asked; pushing, merging to `master` and releasing need the owner's explicit
-word, relayed in the prompt.
+and say the owner must restart from that build. Commit on `develop` after
+each meaningful, tested chunk of work; pushing, merging to `master` and
+releasing need the owner's explicit word, relayed in the prompt.
