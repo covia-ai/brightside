@@ -61,6 +61,7 @@ public final class MainWindow extends JFrame {
 	private static final String MAIN_SETTINGS = "settings";
 	private static final String MAIN_INBOX = "inbox";
 	private static final String MAIN_SKILLS = "skills";
+	private static final String MAIN_PEERS = "peers";
 
 	private final BrightSide app;
 	private final CardLayout cards = new CardLayout();
@@ -450,6 +451,9 @@ public final class MainWindow extends JFrame {
 		skillsScreen = new brightside.ui.skills.SkillsScreen();
 		mainDeck.add(skillsScreen, MAIN_SKILLS);
 
+		// A preview of the networked product: sample peers only, nothing on the wire.
+		mainDeck.add(new brightside.ui.peers.PeersScreen(), MAIN_PEERS);
+
 		navBar = new NavBar(this::selectTab);
 
 		JPanel chatCard = new JPanel(new BorderLayout());
@@ -645,6 +649,7 @@ public final class MainWindow extends JFrame {
 				// agents, another client): re-read on entry.
 				app.refreshAgents();
 			}
+			case PEERS -> mainCards.show(mainDeck, MAIN_PEERS);
 			case INBOX -> mainCards.show(mainDeck, MAIN_INBOX);
 			case SKILLS -> {
 				mainCards.show(mainDeck, MAIN_SKILLS);

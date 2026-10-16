@@ -42,7 +42,7 @@ import brightside.ui.components.Theme;
 public final class NavBar extends JPanel {
 
 	public enum Tab {
-		HOME, SESSIONS, SKILLS, INBOX, SETTINGS
+		HOME, SESSIONS, SKILLS, PEERS, INBOX, SETTINGS
 	}
 
 	public interface Listener {
@@ -68,6 +68,7 @@ public final class NavBar extends JPanel {
 		addItem(row, Tab.HOME, "Home");
 		addItem(row, Tab.SESSIONS, "Sessions");
 		addItem(row, Tab.SKILLS, "Skills");
+		addItem(row, Tab.PEERS, "Peers");
 		addItem(row, Tab.INBOX, "Inbox");
 		addItem(row, Tab.SETTINGS, "Settings");
 		add(row);
@@ -119,6 +120,7 @@ public final class NavBar extends JPanel {
 				case HOME -> "Your conversation";
 				case SESSIONS -> "Chat with the agents and conversations panel";
 				case SKILLS -> "The skills your assistant can discover, and what each reveals";
+				case PEERS -> "The people, devices and services your Brightside knows";
 				case INBOX -> "Requests from your agents waiting for your decision";
 				case SETTINGS -> "Identity, theme, model, vault and auth settings";
 			});
@@ -181,6 +183,7 @@ public final class NavBar extends JPanel {
 			case HOME -> "house";
 			case SESSIONS -> "messages-square";
 			case SKILLS -> "book-open";
+			case PEERS -> "orbit";
 			case INBOX -> "inbox";
 			case SETTINGS -> "settings";
 		};
