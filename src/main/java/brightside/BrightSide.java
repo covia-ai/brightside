@@ -771,6 +771,15 @@ public final class BrightSide {
 		}, "Couldn't run " + event.label() + ": ");
 	}
 
+	/** Schedules a new event as the acting principal, off the event thread. */
+	public void scheduleNew(String operation, ACell input, long afterMillis, long everyMillis, boolean track,
+			SchedulePanel.Result done) {
+		scheduleAction("brightside-schedule-new", done, reader -> {
+			Schedule.schedule(reader, operation, input, afterMillis, everyMillis, track);
+			return "Scheduled " + Schedule.label(reader, operation) + ".";
+		}, "Couldn't schedule it: ");
+	}
+
 	/** Cancels a scheduled event as the acting principal, off the event thread. */
 	public void cancelScheduled(Schedule.Event event, SchedulePanel.Result done) {
 		scheduleAction("brightside-schedule-cancel", done, reader -> Schedule.cancel(reader, event.handle())

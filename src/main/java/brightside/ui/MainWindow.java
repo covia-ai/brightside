@@ -419,6 +419,12 @@ public final class MainWindow extends JFrame {
 			public void cancel(brightside.Schedule.Event event, SchedulePanel.Result done) {
 				app.cancelScheduled(event, done);
 			}
+
+			@Override
+			public void schedule(String operation, convex.core.data.ACell input, long afterMillis, long everyMillis,
+					boolean track, SchedulePanel.Result done) {
+				app.scheduleNew(operation, input, afterMillis, everyMillis, track, done);
+			}
 		});
 		VaultPanel vaultPanel = new VaultPanel(app::forgetRememberedPassphrase);
 		AuthPanel authPanel = new AuthPanel(app::mintAccessToken);

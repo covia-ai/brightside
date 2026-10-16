@@ -112,6 +112,37 @@ class ScheduleTest {
 		assertFalse(Schedule.cancel(client, left.get(0).handle()));
 	}
 
+	@Test
+	void schedulesFromTheDialogAndRefusesWhatWouldFailLater() throws Exception {
+		EmbeddedVenue venue = shared.venue();
+		String did = Identity.of("schedule-new").userDID(venue.did());
+		Venue client = venue.clientAs(did);
+
+		long before = RecordedJobs.of(venue, did);
+		String handle = Schedule.schedule(client, OP, Schedule.parseInput("{path: 'w'}"), HOUR, 15 * 60_000L, true);
+		assertNotNull(handle);
+		assertTrue(RecordedJobs.of(venue, did) > before, "scheduling is an action and leaves a job record");
+		List<Schedule.Event> events = Schedule.list(client);
+		assertEquals(1, events.size());
+		assertEquals(15 * 60_000L, events.get(0).everyMillis());
+		assertTrue(events.get(0).tracked());
+		assertNotNull(Schedule.runNow(client, events.get(0).handle(), 30_000), "the scheduled input is the one run");
+
+		String once = Schedule.schedule(client, OP, null, HOUR, 0, false);
+		assertNotNull(once);
+		assertEquals(2, Schedule.list(client).size());
+
+		assertThrows(IllegalArgumentException.class, () -> Schedule.schedule(client, "v/ops/no/such-op", null, HOUR, 0, false),
+			"an operation that doesn't resolve is refused now, not when it fires");
+		assertThrows(IllegalArgumentException.class, () -> Schedule.schedule(client, OP, null, HOUR, 500, false));
+		assertEquals(2, Schedule.list(client).size(), "nothing refused was scheduled");
+
+		assertNull(Schedule.parseInput("  "));
+		assertEquals(Maps.of("path", "w"), Schedule.parseInput("{\"path\": \"w\"}"));
+		assertThrows(IllegalArgumentException.class, () -> Schedule.parseInput("[1, 2]"), "only an object");
+		assertThrows(IllegalArgumentException.class, () -> Schedule.parseInput("{path:"), "malformed");
+	}
+
 	private static String handle(ACell scheduled) {
 		ACell h = RT.getIn(scheduled, "handle");
 		return (h instanceof convex.core.data.Blob b) ? b.toHexString() : String.valueOf(h);

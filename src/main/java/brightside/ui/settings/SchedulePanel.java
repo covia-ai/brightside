@@ -15,11 +15,21 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
+import javax.swing.JScrollPane;
+import javax.swing.JSpinner;
+import javax.swing.JTextField;
+import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingConstants;
 import javax.swing.Timer;
+
+import com.formdev.flatlaf.FlatClientProperties;
 
 import brightside.Schedule;
 import brightside.ui.components.Buttons;
@@ -30,7 +40,9 @@ import brightside.ui.components.Labels;
 import brightside.ui.components.Lucide;
 import brightside.ui.components.SelectableText;
 import brightside.ui.components.Styles;
+import brightside.ui.components.TextArea;
 import brightside.ui.components.Theme;
+import convex.core.data.ACell;
 import net.miginfocom.swing.MigLayout;
 
 /**
@@ -56,6 +68,13 @@ public final class SchedulePanel extends SettingsPage {
 
 		/** Cancel the event; {@code done} gets a note and whether it is an error. */
 		void cancel(Schedule.Event event, Result done);
+
+		/**
+		 * Schedule {@code operation} with an already-checked {@code input} (null:
+		 * none) to run first in {@code afterMillis}, then every
+		 * {@code everyMillis} (0: once); {@code done} as above.
+		 */
+		void schedule(String operation, ACell input, long afterMillis, long everyMillis, boolean track, Result done);
 	}
 
 	/** How an action went: a note for the action bar, and whether it is an error. */
@@ -76,6 +95,9 @@ public final class SchedulePanel extends SettingsPage {
 	private final List<Row> rows = new ArrayList<>();
 	/** Handles whose details are open, kept across refreshes. */
 	private final Set<String> expanded = new HashSet<>();
+	private final JLabel count = Labels.small(" ", Styles.MUTED);
+	private final JButton refreshButton = Buttons.icon(Lucide.icon("refresh-cw", 16, Theme::muted),
+		"Read the schedule again");
 	private List<Schedule.Event> events = List.of();
 	private boolean refreshPending;
 	/** How the last Run now or Cancel went, kept over the refresh it triggers. */
@@ -83,15 +105,21 @@ public final class SchedulePanel extends SettingsPage {
 	private boolean actionError;
 
 	public SchedulePanel(Host host) {
-		super("Refresh");
+		super("New…");
 		this.host = host;
 		summary.setOpaque(false);
 		list.setOpaque(false);
+		refreshButton.addActionListener(e -> requestRefresh());
+		JPanel top = new JPanel(new MigLayout("insets 0, fillx", "[grow][]", ""));
+		top.setOpaque(false);
+		top.add(count, "growx");
+		top.add(refreshButton);
+		addSpan(top, "gapbottom 6");
 		addSpan(summary, "gapbottom 16");
 		addSpan(list);
-		primary.setIcon(Lucide.icon("refresh-cw", 14, () -> primary.getForeground()));
-		primary.setToolTipText("Read the schedule again");
-		onPrimary(this::requestRefresh);
+		primary.setIcon(Lucide.icon("plus", 14, () -> primary.getForeground()));
+		primary.setToolTipText("Schedule an operation to run later, once or repeatedly");
+		onPrimary(() -> newEvent(Draft.EMPTY, null));
 
 		// Countdowns move on their own while the page is showing, and an event
 		// that has come due is read again so it moves to its next slot.
@@ -110,19 +138,19 @@ public final class SchedulePanel extends SettingsPage {
 	 */
 	public void show(List<Schedule.Event> events, String error) {
 		refreshPending = false;
-		primary.setEnabled(true);
+		refreshButton.setEnabled(true);
 		this.events = (events == null) ? List.of() : List.copyOf(events);
 		rows.clear();
 		summary.removeAll();
 		list.removeAll();
 		if (error != null) {
 			list.add(emptyState("circle-alert", Theme::error, "Couldn't read the schedule",
-				"Try Refresh. If it keeps failing, the log has the details."));
+				"Try again with the refresh button. If it keeps failing, the log has the details."));
 			setNote(error, true);
 		} else if (this.events.isEmpty()) {
 			list.add(emptyState("calendar-clock", Theme::accentText, "Nothing is scheduled",
-				"Ask your assistant to remind you of something, or to check in on something regularly, "
-					+ "and it appears here."));
+				"Ask your assistant to remind you of something or to check in regularly, or schedule an "
+					+ "operation yourself with New."));
 			clearNote();
 		} else {
 			long now = System.currentTimeMillis();
@@ -136,6 +164,8 @@ public final class SchedulePanel extends SettingsPage {
 			tick(now);
 			clearNote();
 		}
+		count.setText(this.events.isEmpty() || error != null ? " "
+			: this.events.size() == 1 ? "1 scheduled" : this.events.size() + " scheduled");
 		if (error == null && actionNote != null) setNote(actionNote, actionError);
 		actionNote = null;
 		revalidate();
@@ -157,7 +187,7 @@ public final class SchedulePanel extends SettingsPage {
 	private void requestRefresh() {
 		if (refreshPending) return;
 		refreshPending = true;
-		primary.setEnabled(false);
+		refreshButton.setEnabled(false);
 		setNote("Reading the schedule…", false);
 		host.refresh();
 	}
@@ -286,7 +316,8 @@ public final class SchedulePanel extends SettingsPage {
 			card.add(details, "span, growx, wmin 0, gaptop 12");
 			setExpanded(expanded.contains(e.handle()));
 
-			// A hover outline, and a click anywhere outside the buttons folds the details.
+			// A hover outline; a click anywhere outside the buttons folds the details,
+			// and a right-click opens the card's menu.
 			MouseAdapter hover = new MouseAdapter() {
 				@Override
 				public void mouseEntered(MouseEvent m) {
@@ -301,12 +332,25 @@ public final class SchedulePanel extends SettingsPage {
 				}
 
 				@Override
+				public void mousePressed(MouseEvent m) {
+					if (m.isPopupTrigger()) popup(m);
+				}
+
+				@Override
+				public void mouseReleased(MouseEvent m) {
+					if (m.isPopupTrigger()) popup(m);
+				}
+
+				@Override
 				public void mouseClicked(MouseEvent m) {
-					toggle();
+					if (javax.swing.SwingUtilities.isLeftMouseButton(m)) toggle();
+				}
+
+				private void popup(MouseEvent m) {
+					menu().show(m.getComponent(), m.getX(), m.getY());
 				}
 			};
-			card.addMouseListener(hover);
-			for (java.awt.Component c : new java.awt.Component[] { what, when, last }) c.addMouseListener(hover);
+			listen(card, hover);
 			card.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
 		}
 
@@ -360,6 +404,23 @@ public final class SchedulePanel extends SettingsPage {
 			requestRefresh();
 		}
 
+		/** The card's right-click menu: everything its buttons do, and the values worth copying. */
+		JPopupMenu menu() {
+			JPopupMenu m = new JPopupMenu();
+			item(m, "Run now", "play", this::onRun).setEnabled(run.isEnabled());
+			item(m, details.isVisible() ? "Hide details" : "Show details", null, this::toggle);
+			item(m, "New from this…", "plus", () -> newEvent(Draft.like(event), null))
+				.setToolTipText("A new event with this one's operation and timing; its input isn't listed, so add it");
+			m.addSeparator();
+			if (event.operation() != null) item(m, "Copy operation", "copy", () -> Clipboard.copy(event.operation()));
+			item(m, "Copy handle", null, () -> Clipboard.copy(event.handle()));
+			if (event.lastJob() != null) item(m, "Copy last job id", null, () -> Clipboard.copy(event.lastJob()));
+			if (event.lastError() != null) item(m, "Copy error", null, () -> Clipboard.copy(event.lastError()));
+			m.addSeparator();
+			item(m, "Cancel…", "trash-2", this::onCancel).setEnabled(cancel.isEnabled());
+			return m;
+		}
+
 		void busy(boolean on, String note) {
 			run.setEnabled(!on);
 			cancel.setEnabled(!on);
@@ -368,8 +429,179 @@ public final class SchedulePanel extends SettingsPage {
 		}
 	}
 
+	private static JMenuItem item(JPopupMenu m, String text, String icon, Runnable action) {
+		JMenuItem i = new JMenuItem(text, icon == null ? null : Lucide.icon(icon, 14, Theme::muted));
+		i.addActionListener(e -> action.run());
+		m.add(i);
+		return i;
+	}
+
+	/**
+	 * Hands {@code listener} to {@code c} and everything inside it except
+	 * buttons, which act for themselves, and the details, whose text is for
+	 * selecting — so a click or right-click anywhere else on a card reaches it.
+	 */
+	private static void listen(java.awt.Component c, MouseAdapter listener) {
+		if (c instanceof javax.swing.AbstractButton || "details".equals(c.getName())) return;
+		c.addMouseListener(listener);
+		if (c instanceof java.awt.Container k) {
+			for (java.awt.Component child : k.getComponents()) listen(child, listener);
+		}
+	}
+
+	// ------------------------------------------------------------------
+	// New event
+	// ------------------------------------------------------------------
+
+	private enum Unit {
+		MINUTES("minutes", MINUTE), HOURS("hours", HOUR), DAYS("days", DAY);
+
+		final String label;
+		final long millis;
+
+		Unit(String label, long millis) {
+			this.label = label;
+			this.millis = millis;
+		}
+
+		@Override
+		public String toString() {
+			return label;
+		}
+
+		/** The largest unit that divides {@code ms} exactly, with the amount in it. */
+		static Object[] of(long ms) {
+			for (Unit u : new Unit[] { DAYS, HOURS, MINUTES }) {
+				if (ms >= u.millis && ms % u.millis == 0) return new Object[] { (int) (ms / u.millis), u };
+			}
+			return new Object[] { (int) Math.max(1, ms / MINUTE), MINUTES };
+		}
+	}
+
+	/** What the New dialog holds, so it can reopen as it was after a refusal. */
+	private record Draft(String operation, String input, int firstAmount, Unit firstUnit, boolean repeat,
+			int everyAmount, Unit everyUnit, boolean track) {
+
+		static final Draft EMPTY = new Draft("", "", 1, Unit.HOURS, false, 1, Unit.DAYS, true);
+
+		/** A new event shaped like {@code e}: its operation, repeat and tracking; the input is not listed. */
+		static Draft like(Schedule.Event e) {
+			Object[] every = Unit.of(e.recurring() ? e.everyMillis() : DAY);
+			Object[] first = Unit.of(e.recurring() ? e.everyMillis() : HOUR);
+			return new Draft(e.operation() != null ? e.operation() : "", "", (Integer) first[0], (Unit) first[1],
+				e.recurring(), (Integer) every[0], (Unit) every[1], e.tracked());
+		}
+	}
+
+	/** Opens the New dialog on {@code draft}, with {@code error} from a previous attempt shown above it. */
+	private void newEvent(Draft draft, String error) {
+		NewForm f = new NewForm(draft, error);
+		if (!Dialogs.form(this, "Schedule an operation", f.panel)) return;
+		Draft typed = f.read();
+		if (typed.operation().isEmpty()) {
+			newEvent(typed, "Choose an operation to run.");
+			return;
+		}
+		ACell parsed;
+		try {
+			parsed = Schedule.parseInput(typed.input());
+		} catch (IllegalArgumentException x) {
+			newEvent(typed, x.getMessage());
+			return;
+		}
+		long after = typed.firstAmount() * typed.firstUnit().millis;
+		long every = typed.repeat() ? typed.everyAmount() * typed.everyUnit().millis : 0;
+		primary.setEnabled(false);
+		setNote("Scheduling " + typed.operation() + "…", false);
+		host.schedule(typed.operation(), parsed, after, every, typed.track(), (note, failed) -> {
+			primary.setEnabled(true);
+			if (failed) {
+				clearNote();
+				newEvent(typed, note);
+				return;
+			}
+			actionNote = note;
+			actionError = false;
+			requestRefresh();
+		});
+	}
+
+	/** The New dialog's form, filled from a {@link Draft} and read back into one. */
+	static final class NewForm {
+		final JPanel panel = new JPanel(new MigLayout("insets 4 0 0 0, wrap 2, gapy 8", "[]14[grow,fill]", ""));
+		private final JTextField operation;
+		private final TextArea input = new TextArea(5, 30).placeholder("{ … }  optional, JSON5");
+		private final JSpinner firstAmount;
+		private final JComboBox<Unit> firstUnit = new JComboBox<>(Unit.values());
+		private final JCheckBox repeat;
+		private final JSpinner everyAmount;
+		private final JComboBox<Unit> everyUnit = new JComboBox<>(Unit.values());
+		private final JCheckBox track;
+
+		NewForm(Draft draft, String error) {
+			operation = new JTextField(draft.operation(), 30);
+			operation.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "v/ops/…");
+			operation.setToolTipText("The operation to run, by reference: v/ops/agent/trigger, v/ops/http/get, …");
+			Styles.classes(operation, Styles.MONOSPACED);
+			input.setText(draft.input());
+			Styles.classes(input, Styles.MONOSPACED);
+			input.setToolTipText("What the operation is given each time it runs, as a JSON object");
+			JScrollPane inputScroll = new JScrollPane(input);
+
+			firstAmount = spinner(draft.firstAmount());
+			firstUnit.setSelectedItem(draft.firstUnit());
+			repeat = new JCheckBox("Every", draft.repeat());
+			repeat.setOpaque(false);
+			everyAmount = spinner(draft.everyAmount());
+			everyUnit.setSelectedItem(draft.everyUnit());
+			Runnable sync = () -> {
+				everyAmount.setEnabled(repeat.isSelected());
+				everyUnit.setEnabled(repeat.isSelected());
+			};
+			repeat.addActionListener(e -> sync.run());
+			sync.run();
+			track = new JCheckBox("Keep each run in my job history", draft.track());
+			track.setOpaque(false);
+			track.setToolTipText("Kept runs show how they went here; untracked ones leave no record");
+
+			if (error != null) {
+				panel.add(new SelectableText(error).tone(Styles.ERROR), "span 2, growx, wmin 0, wmax 460, gapbottom 4");
+			}
+			panel.add(Labels.muted("Operation"));
+			panel.add(operation, "growx");
+			panel.add(Labels.muted("Input"), "aligny top, gaptop 4");
+			panel.add(inputScroll, "growx, h 96!");
+			panel.add(Labels.muted("First run"));
+			panel.add(row(Labels.text("In"), firstAmount, firstUnit));
+			panel.add(Labels.muted("Repeats"));
+			panel.add(row(repeat, everyAmount, everyUnit));
+			panel.add(new JLabel());
+			panel.add(track);
+		}
+
+		Draft read() {
+			return new Draft(operation.getText().trim(), input.getText(), (Integer) firstAmount.getValue(),
+				(Unit) firstUnit.getSelectedItem(), repeat.isSelected(), (Integer) everyAmount.getValue(),
+				(Unit) everyUnit.getSelectedItem(), track.isSelected());
+		}
+	}
+
+	private static JSpinner spinner(int value) {
+		JSpinner s = new JSpinner(new SpinnerNumberModel(Math.max(1, value), 1, 9999, 1));
+		s.setPreferredSize(new Dimension(76, s.getPreferredSize().height));
+		return s;
+	}
+
+	private static JPanel row(JComponent... parts) {
+		JPanel p = new JPanel(new MigLayout("insets 0, gap 8", "", ""));
+		p.setOpaque(false);
+		for (JComponent c : parts) p.add(c);
+		return p;
+	}
+
 	private JPanel details(Schedule.Event e) {
 		JPanel d = new JPanel(new MigLayout("insets 12 52 2 0, fillx, wrap 2, gapy 6", "[]16[grow,fill]", ""));
+		d.setName("details");
 		d.setOpaque(false);
 		d.setBorder(brightside.ui.components.Borders.hairlineTop());
 		detail(d, "Operation", e.operation(), true);

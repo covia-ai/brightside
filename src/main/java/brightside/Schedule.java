@@ -14,9 +14,11 @@ import convex.core.data.AString;
 import convex.core.data.AVector;
 import convex.core.data.Blob;
 import convex.core.data.Maps;
+import convex.core.data.Strings;
 import convex.core.data.prim.CVMBool;
 import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
+import convex.core.util.JSON;
 import covia.api.Fields;
 import covia.grid.Asset;
 import covia.grid.Job;
@@ -31,7 +33,8 @@ import covia.grid.Venue;
  *
  * <p>Looking is a read: {@code scheduler:list} is declared readOnly, and the
  * operation and job lookups are plain queries, so it leaves no job record.
- * {@link #runNow} and {@link #cancel} are actions and leave one each.
+ * {@link #schedule}, {@link #runNow} and {@link #cancel} are actions and
+ * leave one each.
  */
 public final class Schedule {
 
@@ -39,6 +42,9 @@ public final class Schedule {
 	static final String OP_LIST = "v/ops/scheduler/list";
 	static final String OP_TRIGGER = "v/ops/scheduler/trigger";
 	static final String OP_CANCEL = "v/ops/scheduler/cancel";
+	static final String OP_SCHEDULE = "v/ops/scheduler/schedule";
+	/** The scheduler's shortest repeat interval. */
+	static final long MIN_EVERY_MILLIS = 1000;
 
 	/**
 	 * One pending event. Times are epoch millis; {@code everyMillis} is 0 for a
@@ -105,6 +111,53 @@ public final class Schedule {
 		} catch (ExecutionException e) {
 			throw (e.getCause() instanceof Exception cause) ? cause : e;
 		}
+	}
+
+	/**
+	 * Schedules {@code operation} with {@code input} to run first in
+	 * {@code afterMillis}, then every {@code everyMillis} (0: once), as
+	 * {@code client}'s principal and with its authority. {@code track} keeps
+	 * each run in the principal's job history. Refuses an operation that does
+	 * not resolve here, rather than leaving an event that fails when it fires.
+	 * An action, so it leaves a job record. Returns the new event's handle.
+	 */
+	public static String schedule(Venue client, String operation, ACell input, long afterMillis, long everyMillis,
+			boolean track) throws Exception {
+		if (operation == null || operation.isBlank()) throw new IllegalArgumentException("Choose an operation to run");
+		String op = operation.trim();
+		Asset asset;
+		try {
+			asset = client.getAsset(op);
+		} catch (Exception e) {
+			asset = null;
+		}
+		if (asset == null) throw new IllegalArgumentException("No operation " + op + " on this venue");
+		if (afterMillis < 0) throw new IllegalArgumentException("The first run can't be in the past");
+		if (everyMillis != 0 && everyMillis < MIN_EVERY_MILLIS) {
+			throw new IllegalArgumentException("A repeat must be at least a second apart");
+		}
+		AMap<AString, ACell> request = Maps.of("operation", op, "after", afterMillis, "track", track);
+		if (input != null) request = request.assoc(Strings.create("input"), input);
+		if (everyMillis > 0) request = request.assoc(Strings.create("repeat"), Maps.of("every", everyMillis));
+		Job job = client.invoke(OP_SCHEDULE, request).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		ACell out = job.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		return hex(RT.getIn(out, "handle"));
+	}
+
+	/**
+	 * The operation input typed into the New dialog: a JSON5 object, or
+	 * nothing for none. Throws with a message for the dialog otherwise.
+	 */
+	public static AMap<AString, ACell> parseInput(String json5) {
+		if (json5 == null || json5.isBlank()) return null;
+		ACell parsed;
+		try {
+			parsed = JSON.parseJSON5(json5);
+		} catch (Exception e) {
+			throw new IllegalArgumentException("The input isn't valid JSON: " + e.getMessage());
+		}
+		if (!(parsed instanceof AMap<?, ?>)) throw new IllegalArgumentException("The input must be a JSON object, {…}");
+		return RT.ensureMap(parsed);
 	}
 
 	/** Cancels {@code handle}; false if it was already gone. An action, so it leaves a job record. */

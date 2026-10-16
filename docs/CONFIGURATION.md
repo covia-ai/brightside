@@ -421,10 +421,20 @@ repeats, and how its last run went. Click a card to open its details: the
 operation, exact times, whether runs are kept in your job history, the last
 job and any error, each copyable.
 
-*Run now* fires an event straight away; a repeating one stays on its schedule.
-*Cancel* stops it for good. Both ask first, and each leaves a job record;
-looking at the page does not. Acting as the venue operator shows the venue's
-own schedule instead.
+*New…* schedules any operation by reference, with a JSON5 input, a first run
+and an optional repeat; an operation that doesn't resolve is refused there
+rather than failing when it fires. *Run now* fires an event straight away; a
+repeating one stays on its schedule. *Cancel* stops it for good, and asks
+first. Right-click a card for these and more: *New from this…* starts a new
+event with the same operation and timing, and the operation, handle, last
+job and error can each be copied. The scheduler does not list an event's
+input yet ([covia#583](https://github.com/covia-ai/covia/issues/583)), so
+*New from this…* leaves it for you to add, and an event can't be edited in
+place: cancel it and schedule again.
+
+Scheduling, running and cancelling each leave a job record; looking at the
+page does not. Acting as the venue operator shows and manages the venue's own
+schedule instead.
 
 ## Secrets
 
