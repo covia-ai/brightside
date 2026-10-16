@@ -41,13 +41,15 @@ public final class PeersScreen extends JPanel {
 	private final JPanel side = new JPanel(new BorderLayout());
 	private final JButton pause = Buttons.icon(null, null);
 	private final JLabel view = Labels.small(" ", Styles.MUTED);
+	private final JButton reset = Buttons.icon(Lucide.icon("rotate-ccw", 16, Theme::muted),
+		"Put every planet and venue back where it started");
 
 	public PeersScreen() {
 		super(new BorderLayout());
 		map = new SolarMap(SamplePeers.ALL, SamplePeers.SYSTEMS, this::show, this::syncView);
 
 		JPanel header = new JPanel(new MigLayout("insets 14 22 12 16, fillx",
-			"[]10[]push[]14[]2[]2[]2[]10[]", ""));
+			"[]10[]push[]14[]2[]2[]2[]10[]2[]", ""));
 		header.setBorder(Borders.hairline(false, false, true, false));
 		header.add(Styles.style(new JLabel("Peers"), "font: bold +4"));
 		header.add(chip("Preview · sample peers",
@@ -63,6 +65,11 @@ public final class PeersScreen extends JPanel {
 		header.add(button("locate-fixed", "Your system (or double-click the map)", map::home));
 		header.add(button("telescope", "The whole universe of venues", map::universe));
 		header.add(pause);
+		reset.addActionListener(e -> {
+			map.resetLayout();
+			syncView();
+		});
+		header.add(reset);
 		syncView();
 
 		side.setOpaque(false);
@@ -86,6 +93,7 @@ public final class PeersScreen extends JPanel {
 
 	private void syncView() {
 		view.setText(map.viewName() + " · " + Math.round(map.zoom() * 100) + "%");
+		reset.setEnabled(map.rearranged());
 	}
 
 	private static JButton button(String icon, String tooltip, Runnable action) {
@@ -130,8 +138,8 @@ public final class PeersScreen extends JPanel {
 		c.add(legendRow(new RingedIcon(), "Rings mark a service", null));
 		c.add(legendRow(lamp(new Color(0xF6B26B)), "Stars far out are other venues", null));
 
-		c.add(new SelectableText("Click a planet or a star to see it. Scroll to zoom, drag to pan, double-click "
-			+ "to come home.").small().muted(), "gaptop 16, wmin 0");
+		c.add(new SelectableText("Click a planet or a star to see it, or drag it somewhere new. Scroll to zoom, drag "
+			+ "the sky to pan, double-click to come home.").small().muted(), "gaptop 16, wmin 0");
 	}
 
 	/** A venue seen from far out. */

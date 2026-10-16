@@ -25,7 +25,9 @@ import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.function.Consumer;
 
@@ -90,10 +92,48 @@ final class SolarMap extends JComponent {
 	private double toZoom = 1, toPanX, toPanY;
 	private Object hover, selected;
 	private Point dragFrom;
+	/** Where each peer orbits now, and where each system sits: the sample's, until someone moves it. */
+	private final Map<SamplePeers.Peer, Orbit> orbits = new LinkedHashMap<>();
+	private final Map<SamplePeers.StarSystem, Point2D.Double> spots = new LinkedHashMap<>();
+	/** The body being dragged, if any; where it is in the world; and where on it the pointer took hold. */
+	private Object dragging;
+	private Point2D.Double dragAt;
+	private double grabX, grabY;
 
 	/** Something drawn this frame, for hit-testing: a peer or a system, its centre and radius on screen. */
 	private record Placed(Object item, double x, double y, double r) {
 	}
+
+	/**
+	 * A peer's orbit: its radius in world units, its angle at time zero in
+	 * radians, and seconds per turn. A moved planet keeps Kepler's law, so
+	 * further out is slower.
+	 */
+	private static final class Orbit {
+		double radius, phase, period;
+
+		Orbit(double radius, double phase, double period) {
+			this.radius = radius;
+			this.phase = phase;
+			this.period = period;
+		}
+
+		double angle(double t) {
+			return phase + t * 2 * Math.PI / period;
+		}
+
+		/** Puts the planet at {@code (wx, wz)} now, orbiting at that distance from then on. */
+		void moveTo(double wx, double wz, double t) {
+			radius = Math.max(MIN_ORBIT, Math.min(MAX_ORBIT, Math.hypot(wx, wz)));
+			period = KEPLER * Math.pow(radius / RINGS[0], 1.5);
+			phase = Math.atan2(wz, wx) - t * 2 * Math.PI / period;
+		}
+	}
+
+	/** How close in and far out a planet may be dropped, in world units. */
+	private static final double MIN_ORBIT = 0.2, MAX_ORBIT = 1.8;
+	/** Seconds per turn on the innermost orbit, the scale for Kepler's law. */
+	private static final double KEPLER = 80;
 
 	/** @param onView told whenever the zoom changes, so the header can name the view */
 	SolarMap(List<SamplePeers.Peer> peers, List<SamplePeers.StarSystem> systems, Consumer<Object> onSelect,
@@ -104,6 +144,7 @@ final class SolarMap extends JComponent {
 		this.onView = onView;
 		setOpaque(true);
 		setToolTipText("");
+		resetLayout();
 
 		// A fixed sky: positions in [0,1), size, twinkle offset and speed.
 		Random r = new Random(7);
@@ -133,12 +174,27 @@ final class SolarMap extends JComponent {
 			@Override
 			public void mousePressed(MouseEvent e) {
 				dragFrom = e.getPoint();
+				// Pressing on a body picks it up; anywhere else pans the view.
+				Object body = javax.swing.SwingUtilities.isLeftMouseButton(e) ? hit(e.getPoint()) : null;
+				Point2D.Double at = (body != null) ? screenOf(body) : null;
+				if (at != null) {
+					dragging = body;
+					grabX = at.x - e.getX();
+					grabY = at.y - e.getY();
+				}
 			}
 
 			@Override
 			public void mouseDragged(MouseEvent e) {
 				if (dragFrom == null) return;
 				glide.stop();
+				if (dragging != null) {
+					dragAt = world(e.getX() + grabX, e.getY() + grabY);
+					if (dragging != selected) select(dragging);
+					setCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
+					repaint();
+					return;
+				}
 				panX += e.getX() - dragFrom.x;
 				panY += e.getY() - dragFrom.y;
 				dragFrom = e.getPoint();
@@ -148,8 +204,12 @@ final class SolarMap extends JComponent {
 
 			@Override
 			public void mouseReleased(MouseEvent e) {
+				if (dragging != null && dragAt != null) drop(dragging, dragAt);
+				dragging = null;
+				dragAt = null;
 				dragFrom = null;
 				setCursor(Cursor.getDefaultCursor());
+				repaint();
 			}
 
 			@Override
@@ -217,6 +277,58 @@ final class SolarMap extends JComponent {
 		double f = in ? 1.6 : 1 / 1.6;
 		double z = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom * f));
 		glideTo(z, panX * z / zoom, panY * z / zoom);
+	}
+
+	/** Every planet back on its sample orbit and every venue back in its place. */
+	void resetLayout() {
+		orbits.clear();
+		for (SamplePeers.Peer p : peers) {
+			orbits.put(p, new Orbit(RINGS[p.ring() - 1], Math.toRadians(p.phase()), p.period()));
+		}
+		spots.clear();
+		for (SamplePeers.StarSystem s : systems) spots.put(s, new Point2D.Double(s.x(), s.z()));
+		repaint();
+	}
+
+	/** Whether anything has been moved from where the sample put it. */
+	boolean rearranged() {
+		for (SamplePeers.Peer p : peers) {
+			Orbit o = orbits.get(p);
+			if (o.radius != RINGS[p.ring() - 1] || o.period != p.period() || o.phase != Math.toRadians(p.phase())) return true;
+		}
+		for (SamplePeers.StarSystem s : systems) {
+			Point2D.Double at = spots.get(s);
+			if (at.x != s.x() || at.y != s.z()) return true;
+		}
+		return false;
+	}
+
+	/** The point on the tilted plane under a screen position. */
+	private Point2D.Double world(double x, double y) {
+		double s = scale();
+		return new Point2D.Double((x - getWidth() / 2.0 - panX) / s, (y - getHeight() / 2.0 - panY) / (s * TILT));
+	}
+
+	/** Where a planet or venue is on screen now. */
+	private Point2D.Double screenOf(Object body) {
+		for (Placed p : placed) if (p.item() == body) return new Point2D.Double(p.x(), p.y());
+		return null;
+	}
+
+	/** Leaves a dragged body where it was let go: a planet orbiting at that distance, a venue there. */
+	private void drop(Object body, Point2D.Double at) {
+		if (body instanceof SamplePeers.Peer p) orbits.get(p).moveTo(at.x, at.y, t);
+		else if (body instanceof SamplePeers.StarSystem s) spots.put(s, at);
+		onView.run();
+	}
+
+	/** The orbit a planet is nearest, 1 innermost, for lighting it up. */
+	private static int nearestRing(double radius) {
+		int best = 1;
+		for (int i = 1; i < RINGS.length; i++) {
+			if (Math.abs(RINGS[i] - radius) < Math.abs(RINGS[best - 1] - radius)) best = i + 1;
+		}
+		return best;
 	}
 
 	/** Back to your own system, filling the map. */
@@ -381,16 +493,37 @@ final class SolarMap extends JComponent {
 
 	private void paintYourSystem(Graphics2D g, Point2D.Double you, double s) {
 		double cx = you.x, cy = you.y;
-		float orbits = 0.25f + 0.75f * fadeIn(s, 30, 140);
-		for (int i = 0; i < RINGS.length; i++) paintOrbit(g, cx, cy, s * RINGS[i], i, orbits, fadeIn(s, 170, 240));
+		float orbitAlpha = 0.25f + 0.75f * fadeIn(s, 30, 140);
+		for (int i = 0; i < RINGS.length; i++) paintOrbit(g, cx, cy, s * RINGS[i], i, orbitAlpha, fadeIn(s, 170, 240));
+
+		// While a planet is carried, the orbit it would take if let go.
+		if (dragging instanceof SamplePeers.Peer && dragAt != null) {
+			double ro = Math.max(MIN_ORBIT, Math.min(MAX_ORBIT, Math.hypot(dragAt.x, dragAt.y))) * s;
+			float dash = UIScale.scale(5f);
+			g.setStroke(new BasicStroke(UIScale.scale(1.4f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 1f,
+				new float[] { dash, dash }, (float) (2 * dash - (t * 12) % (2 * dash))));
+			// (The phase must not be negative: this marches the dashes the other way.)
+			g.setColor(fade(Theme.accent(), 0.7f));
+			g.draw(new Ellipse2D.Double(cx - ro, cy - ro * TILT, 2 * ro, 2 * ro * TILT));
+		}
 
 		double unit = Math.max(UIScale.scale(1.6f), s * PLANET);
 		List<Object[]> at = new ArrayList<>();
 		for (SamplePeers.Peer p : peers) {
-			double a = Math.toRadians(p.phase()) + t * 2 * Math.PI / p.period();
-			double ro = RINGS[p.ring() - 1];
-			double depth = Math.sin(a); // -1 far, +1 near
-			Point2D.Double xy = screen(Math.cos(a) * ro, depth * ro);
+			Orbit orbit = orbits.get(p);
+			double wx, wz;
+			if (p == dragging && dragAt != null) {
+				// Carried: under the pointer, clamped to how far out a planet may go.
+				double d = Math.hypot(dragAt.x, dragAt.y), k = Math.max(MIN_ORBIT, Math.min(MAX_ORBIT, d)) / Math.max(d, 1e-9);
+				wx = dragAt.x * k;
+				wz = dragAt.y * k;
+			} else {
+				double a = orbit.angle(t);
+				wx = Math.cos(a) * orbit.radius;
+				wz = Math.sin(a) * orbit.radius;
+			}
+			double depth = Math.max(-1, Math.min(1, wz / Math.max(Math.hypot(wx, wz), 1e-9))); // -1 far, +1 near
+			Point2D.Double xy = screen(wx, wz);
 			double r = unit * p.size() * (0.82 + 0.2 * (depth + 1) / 2);
 			at.add(new Object[] { p, xy.x, xy.y, r, depth });
 		}
@@ -429,8 +562,11 @@ final class SolarMap extends JComponent {
 		drawTracked(g, name, (float) (cx - width / 2), (float) (cy + r * TILT + UIScale.scale(13)), tracking);
 	}
 
-	private static int ringOf(Object o) {
-		return (o instanceof SamplePeers.Peer p) ? p.ring() : 0;
+	/** The named orbit a planet is on or nearest, carried or not; 0 for anything else. */
+	private int ringOf(Object o) {
+		if (!(o instanceof SamplePeers.Peer p)) return 0;
+		if (p == dragging && dragAt != null) return nearestRing(Math.hypot(dragAt.x, dragAt.y));
+		return nearestRing(orbits.get(p).radius);
 	}
 
 	private void paintSun(Graphics2D g, double cx, double cy, double s) {
@@ -606,9 +742,15 @@ final class SolarMap extends JComponent {
 	// Other systems
 	// ------------------------------------------------------------------
 
+	/** Where a venue is on screen: under the pointer while carried, else where it was left. */
+	private Point2D.Double screenOfSystem(SamplePeers.StarSystem sys) {
+		Point2D.Double at = (sys == dragging && dragAt != null) ? dragAt : spots.get(sys);
+		return screen(at.x, at.y);
+	}
+
 	private void paintSystemLink(Graphics2D g, Point2D.Double you, SamplePeers.StarSystem sys, float alpha) {
 		if (!sys.linked()) return;
-		Point2D.Double c = screen(sys.x(), sys.z());
+		Point2D.Double c = screenOfSystem(sys);
 		boolean focus = sys == hover || sys == selected;
 		float dash = UIScale.scale(4f);
 		g.setStroke(new BasicStroke(UIScale.scale(focus ? 1.4f : 1f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 1f,
@@ -621,7 +763,7 @@ final class SolarMap extends JComponent {
 	}
 
 	private void paintSystem(Graphics2D g, SamplePeers.StarSystem sys, double s) {
-		Point2D.Double c = screen(sys.x(), sys.z());
+		Point2D.Double c = screenOfSystem(sys);
 		double rad = sys.radius() * s; // the system's size on screen
 		double margin = Math.max(rad, UIScale.scale(20f)) * 2;
 		if (c.x < -margin || c.y < -margin || c.x > getWidth() + margin || c.y > getHeight() + margin) {
