@@ -37,6 +37,7 @@ import brightside.ui.settings.IntegrationsPanel;
 import brightside.ui.settings.ModelPanel;
 import brightside.ui.settings.MoltbookPanel;
 import brightside.ui.settings.ProfilePanel;
+import brightside.ui.settings.SchedulePanel;
 import brightside.ui.settings.SecretsPanel;
 import brightside.ui.settings.SettingsScreen;
 import brightside.ui.settings.ThemePanel;
@@ -403,10 +404,11 @@ public final class MainWindow extends JFrame {
 				return app.rememberedPassphrase();
 			}
 		});
+		SchedulePanel schedulePanel = new SchedulePanel(app::refreshSchedule);
 		VaultPanel vaultPanel = new VaultPanel(app::forgetRememberedPassphrase);
 		AuthPanel authPanel = new AuthPanel(app::mintAccessToken);
 		settingsScreen = new SettingsScreen(generalPanel, themePanel, modelPanel, profilePanel, integrationsPanel,
-			secretsPanel, vaultPanel, authPanel);
+			schedulePanel, secretsPanel, vaultPanel, authPanel);
 
 		mainDeck = new JPanel(mainCards);
 		mainDeck.add(split, MAIN_CHAT);
@@ -548,6 +550,7 @@ public final class MainWindow extends JFrame {
 		setInbox(List.of());
 		settingsScreen.profile().clearSensitive();
 		settingsScreen.integrations().clearSensitive();
+		settingsScreen.schedule().clear();
 		settingsScreen.secrets().clearSensitive();
 		settingsScreen.auth().clearSensitive();
 		settingsScreen.general().refresh(app.hasTray(), app.keepInTray(), app.minimiseToTray(), false, venue != null);
@@ -664,6 +667,7 @@ public final class MainWindow extends JFrame {
 			app.actingAsOperator(), app.operatorName());
 		app.refreshDiscordStatus(); // answers through showDiscordStatus, off the event thread
 		app.refreshMoltbookStatus(); // likewise, through showMoltbookStatus
+		app.refreshSchedule(); // answers through showSchedule, off the event thread
 		settingsScreen.secrets().refresh(app.listSecretNames());
 		settingsScreen.vault().refresh(app.hasRememberedPassphrase());
 	}
@@ -698,6 +702,11 @@ public final class MainWindow extends JFrame {
 	/** The owner's Discord bot as the venue reports it (null: none), with an optional note for Settings → Integrations. */
 	public void showDiscordStatus(brightside.Discord.Bot bot, String note) {
 		settingsScreen.integrations().discord().showStatus(bot, note);
+	}
+
+	/** The acting principal's scheduled operations, soonest first, or the error that stopped the read, for Settings → Schedule. */
+	public void showSchedule(java.util.List<brightside.Schedule.Event> events, String error) {
+		settingsScreen.schedule().show(events, error);
 	}
 
 	/** The owner's Moltbook account as Brightside reads it (null: none), with an optional note for Settings → Integrations. */

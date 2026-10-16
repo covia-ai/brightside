@@ -409,6 +409,17 @@ venue's own namespace and its administration, but not your private data: even
 the operator needs your user's authority for that. Mint a new token when it
 expires; for a different port, edit the URL.
 
+## Schedule
+
+*Settings → Schedule* lists what is set to run on its own: the reminders,
+routines and check-ins your assistant or any of your agents scheduled through
+the venue's scheduler (the `automation` skill), soonest first. Each row shows
+the operation, when it runs next, how often it repeats, and when it last ran;
+for a tracked run it also shows how that run went, with any error on hover.
+The page is read-only, and reading it leaves no job record. To change or stop
+something, ask your assistant. Acting as the venue operator shows the venue's
+own schedule instead.
+
 ## Secrets
 
 *Settings → Secrets* lists the acting user's encrypted secret store on the

@@ -728,6 +728,39 @@ public final class BrightSide {
 		return v.clientAs(id.userDID(v.did()));
 	}
 
+	/**
+	 * Reads the acting principal's scheduled operations off the event thread
+	 * and shows them in Settings → Schedule: the owner's, or the venue's own
+	 * while acting as the operator. A failed read is shown as one, never as an
+	 * empty schedule.
+	 */
+	public void refreshSchedule() {
+		EmbeddedVenue v = venue;
+		Identity id = identity;
+		Venue acting = client;
+		if (acting == null && v != null && id != null) acting = ownerClient(v, id);
+		if (acting == null) {
+			SwingUtilities.invokeLater(() -> window.showSchedule(List.of(), "Brightside is still starting up."));
+			return;
+		}
+		Venue reader = acting;
+		Thread t = new Thread(() -> {
+			List<Schedule.Event> events = null;
+			String error = null;
+			try {
+				events = Schedule.list(reader);
+			} catch (Exception e) {
+				log.warn("Could not read the schedule: {}", e.toString());
+				error = rootMessage(e);
+			}
+			List<Schedule.Event> shown = events;
+			String note = error;
+			SwingUtilities.invokeLater(() -> window.showSchedule(shown, note));
+		}, "brightside-schedule");
+		t.setDaemon(true);
+		t.start();
+	}
+
 	/** Reads the owner's Discord bot off the event thread and shows it in Settings → Integrations. */
 	public void refreshDiscordStatus() {
 		EmbeddedVenue v = venue;
