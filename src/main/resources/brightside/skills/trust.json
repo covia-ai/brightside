@@ -8,7 +8,7 @@
   "skill": {
     "tools": [
       "v/ops/convex/query",
-      "v/ops/convex/transact"
+      "v/ops/brightside/ask-njord"
     ]
   }
 }

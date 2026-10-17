@@ -125,7 +125,9 @@ reveals. Descriptions live in the skill files; this is the shape.
 - `convex` — the Convex network with the free query tool → `accounts`,
   `convex-lisp`, `smart-contracts` (→ `trust`), `cns`, `costs`,
   `convex-security`, `cpos-consensus`, `cad3-data`, `protonet`, `ecosystem`,
-  `convex-lattice`.
+  `convex-lattice`. The assistant never signs: the on-chain children bring
+  the request to Njord, who keeps the keys and makes every transaction
+  ([GODS.md](GODS.md)).
 - `research` — evidence-led research with the web tools → Covia's `http` for
   credentialed APIs. The untrusted-content boundary is Brightside's judgement
   and lives here.

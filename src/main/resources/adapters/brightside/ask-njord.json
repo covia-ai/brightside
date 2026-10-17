@@ -1,0 +1,32 @@
+{
+	"name": "Ask Njord",
+	"description": "Ask Njord, this Brightside's treasurer, to make a payment, transfer or any Convex transaction: he holds the signing keys, and every transaction that spends the owner's funds goes through him. He pays only what is well evidenced and consistent with what the owner wants, may ask the owner through their Inbox first, and declines the rest; he sees who is asking. Best-effort synchronous: waits up to `timeout` milliseconds (default 30000) for his outcome and returns it; otherwise returns a snapshot {id, status: STARTED, address, sessionId} — poll grid_job_result(id=<that id>, timeout=<ms>) for the outcome, which may take as long as the owner takes to answer him. Set timeout=0 for pure async.",
+	"operation": {
+		"adapter": "brightside:ask-njord",
+		"toolName": "ask_njord",
+		"internal": false,
+		"input": {
+			"type": "object",
+			"properties": {
+				"request": {
+					"type": "string",
+					"description": "What to pay or transact: recipient or actor, amount in CVM or the exact Convex Lisp source, the network, and what it is for, in the owner's words where possible. Self-contained — Njord sees only this. Up to 4000 characters."
+				},
+				"context": {
+					"type": "string",
+					"description": "The evidence: what the owner said and when, the invoice, agreement or prior conversation it rests on, what you checked (balances, addresses). Up to 8000 characters."
+				},
+				"timeout": {
+					"type": "integer",
+					"description": "Milliseconds to wait for Njord's outcome. Default 30000; 0 returns a snapshot at once; at most 300000."
+				}
+			},
+			"required": ["request"]
+		},
+		"output": {
+			"type": "object",
+			"description": "Njord's outcome — paid and how, declined and why, or waiting on the owner — or a {id, status: STARTED, address, sessionId} snapshot to poll.",
+			"additionalProperties": true
+		}
+	}
+}

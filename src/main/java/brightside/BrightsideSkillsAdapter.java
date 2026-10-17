@@ -76,8 +76,9 @@ import covia.venue.RequestContext;
  *       <b>cpos-consensus</b>, <b>cad3-data</b>, <b>protonet</b>,
  *       <b>ecosystem</b> and the shared <b>convex-lattice</b> child (the same
  *       resource as the harness child, so the index shows it once). The
- *       on-chain children grant {@code convex:transact} too; the knowledge
- *       children grant nothing.</li>
+ *       on-chain children grant {@code brightside:ask-njord} too, since every
+ *       transaction goes through {@link Njord}; the knowledge children grant
+ *       nothing.</li>
  *   <li><b>writing</b> and <b>planning</b> — everyday working methods,
  *       loaded only when the task calls for them.</li>
  *   <li><b>coding</b> — the working method, with the listing of the owner's
@@ -156,19 +157,19 @@ public class BrightsideSkillsAdapter extends AAdapter {
 	public static final String SECURITY = SKILLSET + "/security";
 	/** On demand: the Convex network, with the free query tool — routes to topic children. */
 	public static final String CONVEX = SKILLSET + "/convex";
-	/** Accounts, balances, transfers, creating an account (query + transact). */
+	/** Accounts, balances, transfers, creating an account (query + ask Njord). */
 	public static final String CONVEX_ACCOUNTS = CONVEX + "/accounts";
-	/** The language: syntax, values, core forms, query versus transaction, error codes (query + transact). */
+	/** The language: syntax, values, core forms, query versus transaction, error codes (query + ask Njord). */
 	public static final String CONVEX_LISP = CONVEX + "/convex-lisp";
-	/** Actors: deploy, call, upgrade, tokens (query + transact); reveals {@link #CONVEX_TRUST}. */
+	/** Actors: deploy, call, upgrade, tokens (query + ask Njord); reveals {@link #CONVEX_TRUST}. */
 	public static final String CONVEX_SMART_CONTRACTS = CONVEX + "/smart-contracts";
-	/** Trust monitors — the authorisation model — as a child of smart contracts (query + transact). */
+	/** Trust monitors — the authorisation model — as a child of smart contracts (query + ask Njord). */
 	public static final String CONVEX_TRUST = CONVEX_SMART_CONTRACTS + "/trust";
-	/** Name resolution and registration (query + transact). */
+	/** Name resolution and registration (query + ask Njord). */
 	public static final String CONVEX_CNS = CONVEX + "/cns";
 	/** Juice and memory: what things cost, why they fail, keeping storage small (query). */
 	public static final String CONVEX_COSTS = CONVEX + "/costs";
-	/** Convex-specific safety: account keys, signing by reference, transaction hygiene, untrusted network content (no tools). */
+	/** Convex-specific safety: account keys and who keeps them, transaction hygiene, untrusted network content (no tools). */
 	public static final String CONVEX_SECURITY = CONVEX + "/convex-security";
 	/** Convergent Proof of Stake: beliefs, stake, finality, timing, tolerated attacks (no tools). */
 	public static final String CONVEX_CPOS = CONVEX + "/cpos-consensus";

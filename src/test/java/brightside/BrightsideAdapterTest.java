@@ -91,7 +91,7 @@ class BrightsideAdapterTest {
 		for (String op : new String[] { "v/ops/agent/sessions", "v/ops/agent/session-read",
 			"v/ops/agent/rename-session", "v/ops/agent/delete-session", "v/ops/agent/context",
 			"v/ops/brightside/context", "v/ops/brightside/delete-skill",
-			"v/ops/brightside/report-skill-feedback", Odin.OP_ASK, Odin.OP_RUN, Thor.OP_ALERT, Thor.OP_RUN }) {
+			"v/ops/brightside/report-skill-feedback", Odin.OP_ASK, Odin.OP_RUN, Thor.OP_ALERT, Thor.OP_RUN, Njord.OP_ASK, Njord.OP_RUN }) {
 			assertNotNull(venue.engine().resolvePath(Strings.create(op), ctx), "op present: " + op);
 		}
 

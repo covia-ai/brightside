@@ -142,6 +142,10 @@ Covia's own `convex.version` is a SNAPSHOT. If the build cannot resolve
   the agent at once or take away what it may do, tells you in the Inbox, and
   reports every change to Odin so a wiser head checks it
   ([docs/GODS.md](docs/GODS.md))
+- **A treasurer** — every payment and Convex transaction goes through
+  **Njord**, who keeps the signing keys where no assistant can use them, pays
+  only what is well evidenced and fits what you want, and asks you in the
+  Inbox before anything new ([docs/GODS.md](docs/GODS.md))
 - **Every conversation, switchable** — a sidebar of past sessions with rename,
   delete and copy-transcript; the agent can read its own history when you ask
   what you discussed last week

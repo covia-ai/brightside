@@ -468,7 +468,10 @@ public class BrightsideAdapter extends AAdapter {
 			String operation = requiredText(input, K_OPERATION, 200);
 			ACell operationInput = RT.getIn(input, K_INPUT);
 			if (operationInput == null) operationInput = Maps.empty();
-			AString user = optionalText(input, K_USER, 300);
+			AString named = optionalText(input, K_USER, 300);
+			// A god names the user it keeps by its slug.
+			AString user = (named != null && named.toString().equals(god.keeps()))
+				? Strings.create(god.kept(venueDID.toString())) : named;
 			boolean overseen = god.overseer() != null && changesState(operation);
 			AString reason = overseen
 				? Strings.create(requiredText(input, K_REASON, 2000))
@@ -500,6 +503,13 @@ public class BrightsideAdapter extends AAdapter {
 			}
 			if (!user.toString().startsWith(venueDID + ":u:")) {
 				throw new IllegalArgumentException("sudo is limited to this venue's own users; not " + user);
+			}
+			// A user a god keeps for itself is that god's alone: its secrets are
+			// usable only as that user, so this is what keeps Njord's treasury his.
+			for (God keeper : Gods.ALL) {
+				if (keeper != god && user.toString().equals(keeper.kept(venueDID.toString()))) {
+					throw new IllegalArgumentException(user + " is kept by " + keeper.id() + " alone");
+				}
 			}
 			// Covia bounds a sudo context to the presented proofs — the venue's own
 			// ambient authority does not leak in — so the delegation carries the

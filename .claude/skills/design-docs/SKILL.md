@@ -17,7 +17,7 @@ guide and points here.
 | `docs/ARCHITECTURE.md` | the one-process shape, the reads-versus-actions rule, an orientation map of the source, the key decisions, packaging |
 | `docs/SKILLS.md` | how the assistant gets abilities: namespaces, what it starts with, how a load works, the shape of the shipped library, growing and feedback |
 | `docs/IDENTITY.md` | venue, user and agent principals; one key; switching user; known limits |
-| `docs/GODS.md` | the venue's own agents: the two bridges each has, asking the owner, Odin the administrator, Thor the guardian, deliberate stops |
+| `docs/GODS.md` | the venue's own agents: the two bridges each has, asking the owner, Odin the administrator, Thor the guardian, Njord the treasurer, deliberate stops |
 | `docs/THOR_WATCH.md` | Thor's watch: the one rule Brightside watches agents' tool calls for, what a report carries, what keeps it quiet, known limits |
 | `docs/SECURITY.md` | the recovery invariant, key hierarchy, algorithms, file roles, recovery procedure, network exposure, limitations |
 | `docs/ONBOARDING.md` | first run, unlock, recovery from the phrase, settings afterwards |

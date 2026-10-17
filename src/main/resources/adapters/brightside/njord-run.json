@@ -1,0 +1,34 @@
+{
+	"name": "Run a treasury operation",
+	"description": "Executes one Convex operation as a user of this venue, signing with a key from that user's own secret store. Njord only. `user` is required: njord--treasury for your treasury, where your keys live and no one else can use them, or another user DID of this venue (user:sudo) when the owner's own key is to be used. Operations: v/ops/convex/query (free read), v/ops/secret/list (key names, never values), v/ops/convex/generate-key {name} (a new key in that user's store; returns its account key, never the seed), v/ops/convex/sign {seed: s/NAME, message}, v/ops/convex/transact {address, source, seed: s/NAME, peer?}. Anything else is refused. Anything that changes state or signs needs `reason`, and is reported to Odin with its input and outcome as soon as it is done; the output then carries report {address, id}. Every run is a recorded job.",
+	"operation": {
+		"adapter": "brightside:njord-run",
+		"toolName": "njord_run",
+		"internal": false,
+		"input": {
+			"type": "object",
+			"properties": {
+				"operation": {
+					"type": "string",
+					"description": "The full operation path, e.g. v/ops/convex/transact."
+				},
+				"input": {
+					"type": "object",
+					"description": "The operation's own input, exactly as its schema describes. Keys go by reference (s/NAME), never as a literal seed."
+				},
+				"user": {
+					"type": "string",
+					"description": "njord--treasury for your treasury, or a user DID of this venue."
+				},
+				"reason": {
+					"type": "string",
+					"description": "Required for anything that changes state or signs: your ledger line — what is paid, to whom, and on what authority. Odin receives it with the outcome. Up to 2000 characters."
+				}
+			},
+			"required": ["operation", "user"]
+		},
+		"output": {
+			"description": "The operation's own output; after a change, with report {address, id}: the task that told Odin."
+		}
+	}
+}

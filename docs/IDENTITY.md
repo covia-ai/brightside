@@ -18,6 +18,7 @@ relative to it.
 |---|---|---|---|
 | Venue | `did:key:z6Mk…` | the identity seed | `venue.etch`; the `v/` catalogue |
 | User (the owner) | `<venueDID>:u:<slug>` | none — the venue signs for it | `w/`, `g/`, `s/`, `h/` under the user |
+| Treasury | `<venueDID>:u:njord--treasury` | none — reached only through Njord's bridge | the signing keys in its `s/` |
 | Agent | `<userDID>:g:<agentId>` | none — acts under the owner, capability-scoped | `<userDID>/g/<agentId>`; `n/` while it runs |
 | Anonymous | `<venueDID>:public` | none | none; public access is off by default |
 
@@ -57,6 +58,13 @@ own agents — [the gods](GODS.md), Odin first — the chat talks to them and th
 the venue's. The operator has a display name of its own, kept in
 `identity.json` as `operator`; it is a label only, since the operator is the
 venue itself and has no slug or user DID. Every launch starts as the user.
+
+**The treasury** is a user too, kept by Njord, the treasurer
+([GODS.md](GODS.md)). A user and its agents use only their own secrets, so the
+signing keys in the treasury's store can be used by nothing but a context
+acting as the treasury, and only Njord's bridge may act as it: no assistant
+and no other god can sign with them. Its slug, `njord--treasury`, is one no
+name can produce, since `Identity` collapses runs of separators.
 
 ## Agent identity
 

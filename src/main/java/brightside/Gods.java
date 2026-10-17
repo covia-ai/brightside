@@ -7,15 +7,16 @@ import org.slf4j.LoggerFactory;
 
 /**
  * The gods: the venue's own agents, each specialised in one job on the
- * owner's behalf — {@link Odin}, the administrator, and {@link Thor}, the
- * guardian. Add one by giving it a {@link God} definition, its two bridge
- * resources under {@code adapters/brightside/}, and a place in {@link #ALL}.
+ * owner's behalf — {@link Odin}, the administrator, {@link Thor}, the
+ * guardian, and {@link Njord}, the treasurer. Add one by giving it a
+ * {@link God} definition, its two bridge resources under
+ * {@code adapters/brightside/}, and a place in {@link #ALL}.
  */
 public final class Gods {
 
 	private static final Logger log = LoggerFactory.getLogger(Gods.class);
 
-	public static final List<God> ALL = List.of(Odin.GOD, Thor.GOD);
+	public static final List<God> ALL = List.of(Odin.GOD, Thor.GOD, Njord.GOD);
 
 	private Gods() {
 	}

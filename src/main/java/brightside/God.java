@@ -35,21 +35,25 @@ import covia.grid.Venue;
  * allowlists, not the god's judgement, bound what it can do; its system prompt
  * carries the judgement. A god with an {@link #overseer} answers to it after
  * the fact: each change it makes through its run bridge carries a reason and
- * is reported to the overseer as soon as it is done. The gods are listed in
- * {@link Gods}; see {@code docs/GODS.md}.
+ * is reported to the overseer as soon as it is done. A god may also keep a
+ * principal of its own ({@link #keeps}), a user of the venue that only its run
+ * bridge may act as — Njord's treasury, whose secret store holds keys no
+ * assistant can use. The gods are listed in {@link Gods}; see
+ * {@code docs/GODS.md}.
  *
  * @param id              the agent id, also the god's name
  * @param ask             the sub-operation of {@code brightside:} by which assistants reach it
  * @param run             the sub-operation of {@code brightside:} through which it acts
  * @param overseer        the id of the god its changes are reported to, or null
+ * @param keeps           the slug of the user it keeps for itself ({@code <venueDID>:u:<slug>}), or null
  * @param systemPrompt    who it is and the policy it applies
  * @param remembers       what its pinned memory holds, for the pin's label
  * @param tools           its tools besides its run bridge and memory
  * @param venueOperations what it may run under the venue's authority
  * @param sudoOperations  what it may run inside a user's namespace, on their behalf
  */
-public record God(String id, String ask, String run, String overseer, String systemPrompt, String remembers,
-		List<String> tools, Set<String> venueOperations, Set<String> sudoOperations) {
+public record God(String id, String ask, String run, String overseer, String keeps, String systemPrompt,
+		String remembers, List<String> tools, Set<String> venueOperations, Set<String> sudoOperations) {
 
 	private static final Logger log = LoggerFactory.getLogger(God.class);
 
@@ -60,6 +64,12 @@ public record God(String id, String ask, String run, String overseer, String sys
 	private static final String MEMORY_PATH = "n/memory";
 	private static final long ADMIN_TIMEOUT_SECONDS = 30;
 
+	/** A god that keeps no user of its own. */
+	public God(String id, String ask, String run, String overseer, String systemPrompt, String remembers,
+			List<String> tools, Set<String> venueOperations, Set<String> sudoOperations) {
+		this(id, ask, run, overseer, null, systemPrompt, remembers, tools, venueOperations, sudoOperations);
+	}
+
 	/** The god's DID on {@code venueDID}: a sub-principal of the venue. */
 	public String did(String venueDID) {
 		return venueDID + ":g:" + id;
@@ -68,6 +78,11 @@ public record God(String id, String ask, String run, String overseer, String sys
 	/** The god's canonical agent address on {@code venueDID}, as agent operations take it. */
 	public String address(String venueDID) {
 		return venueDID + "/g/" + id;
+	}
+
+	/** The DID of the user this god keeps for itself on {@code venueDID}, or null. */
+	public String kept(String venueDID) {
+		return (keeps != null) ? venueDID + ":u:" + keeps : null;
 	}
 
 	/** The operation by which assistants reach this god. */
@@ -86,10 +101,16 @@ public record God(String id, String ask, String run, String overseer, String sys
 	 * uses the chat's. The record is read in-process, so a god already
 	 * configured costs no job. Best-effort on an existing god: an update refused
 	 * mid-cycle is logged and stands until the next ensure. A god suspended by a
-	 * failed turn is resumed; one stopped on purpose is left stopped.
+	 * failed turn is resumed; one stopped on purpose is left stopped. The user
+	 * it keeps, if any, is registered first.
 	 */
 	public void ensure(EmbeddedVenue venue, String llmOperation) throws Exception {
 		Venue operator = venue.operator();
+		String kept = kept(venue.did());
+		if (kept != null && venue.engine().getVenueState().users().get(Strings.create(kept)) == null) {
+			run(operator, "v/ops/user/create", Maps.of(Fields.DID, kept));
+			log.info("Registered {}'s own user {}", id, kept);
+		}
 		AMap<AString, ACell> config = config(llmOperation);
 		ACell record = venue.agentRecord(venue.did(), id);
 		if (record == null) {
