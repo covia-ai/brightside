@@ -63,6 +63,7 @@ public final class PeersScreen extends JPanel {
 	private final JButton reset = Buttons.icon(Lucide.icon("rotate-ccw", 16, Theme::muted),
 		"Put every planet, moon, venue and orbit back as it started");
 	private final JButton follow = Buttons.icon(null, null);
+	private final Actions actions;
 	private final Timer saveLater;
 	private final ExecutorService saver = Executors.newSingleThreadExecutor(r -> {
 		Thread t = new Thread(r, "brightside-peers-settings");
@@ -115,7 +116,26 @@ public final class PeersScreen extends JPanel {
 		this.source = source;
 		this.stores = stores;
 		map = new SolarMap(this::show, this::syncView, this::settingsChanged);
-		map.setOnMenu((did, at) -> new PeersMenu(map, source.graph(), actions).build(did).show(map, at.x, at.y));
+		// Switching who you act as from the menu moves the yellow at once.
+		this.actions = new Actions() {
+			@Override
+			public boolean actingAsOperator() {
+				return actions.actingAsOperator();
+			}
+
+			@Override
+			public void actAs(boolean operator) {
+				actions.actAs(operator);
+				syncActing();
+			}
+
+			@Override
+			public void chat(boolean operator, String agentId) {
+				actions.chat(operator, agentId);
+				syncActing();
+			}
+		};
+		map.setOnMenu((did, at) -> new PeersMenu(map, source.graph(), this.actions).build(did).show(map, at.x, at.y));
 		saveLater = new Timer(SAVE_AFTER_MS, e -> save());
 		saveLater.setRepeats(false);
 
@@ -140,7 +160,7 @@ public final class PeersScreen extends JPanel {
 		header.add(button("locate-fixed", "Your system (or double-click the map)", map::home));
 		header.add(button("telescope", "The whole universe of venues", map::universe));
 		follow.addActionListener(e -> {
-			String you = PeersMenu.yourPlanet(source.graph());
+			String you = map.acting();
 			map.track(you != null && !you.equals(map.tracking()) ? you : null);
 		});
 		header.add(follow);
@@ -176,9 +196,16 @@ public final class PeersScreen extends JPanel {
 		source.refresh();
 		PeerGraph graph = source.graph();
 		map.setData(graph, store.load().prune(graph), true);
+		syncActing();
 		syncPause();
 		syncView();
 		show(null);
+	}
+
+	/** Tells the map who you are acting as now, so it is drawn in yellow. */
+	private void syncActing() {
+		map.setActing(PeersMenu.actingPlanet(source.graph(), actions.actingAsOperator()));
+		syncView();
 	}
 
 	private void settingsChanged(MapSettings s) {
@@ -211,7 +238,7 @@ public final class PeersScreen extends JPanel {
 		view.setText(map.viewName() + " · " + Math.round(map.zoom() * 100) + "%");
 		reset.setEnabled(map.rearranged());
 		boolean following = map.tracking() != null;
-		String you = PeersMenu.yourPlanet(source.graph());
+		String you = map.acting();
 		follow.setIcon(Lucide.icon("orbit", 16, following ? Theme::accent : Theme::muted));
 		follow.setToolTipText(following ? "Stop tracking" : "Track your planet");
 		follow.setEnabled(following || you != null);
@@ -270,7 +297,7 @@ public final class PeersScreen extends JPanel {
 		c.add(heading("Reading the map"), "gaptop 10");
 		c.add(legendRow(new SunIcon(), "Home: your venue, at the centre", null));
 		c.add(legendRow(new PlanetIcon(new Color(0x5EC8F2), 18, false), "Planets are a venue's users", null));
-		c.add(legendRow(new PlanetIcon(SolarMap.YOU, 18, false), "You, in yellow", null));
+		c.add(legendRow(new PlanetIcon(SolarMap.YOU, 18, false), "Who you are acting as, in yellow", null));
 		c.add(legendRow(lamp(new Color(0xA9AFBC)), "Moons are their agents", null));
 		c.add(legendRow(lamp(Theme.accent()), "Your main assistant", null));
 		c.add(legendRow(new PlanetIcon(new Color(0xE8C66A), 18, true), "Rings mark a venue's admin", null));
@@ -332,10 +359,10 @@ public final class PeersScreen extends JPanel {
 		actions(c, List.of(visit, disabled(linked ? "Manage access…" : "Ask for an introduction…")));
 	}
 
-	private static void title(JPanel c, Node n, String subtitle) {
+	private void title(JPanel c, Node n, String subtitle) {
 		JPanel title = new JPanel(new MigLayout("insets 0, gap 12", "[][grow,fill]", "[][]"));
 		title.setOpaque(false);
-		title.add(new JLabel(new PlanetIcon(SolarMap.colourOf(n), 40, SolarMap.ringed(n))), "spany 2");
+		title.add(new JLabel(new PlanetIcon(map.colourOf(n), 40, SolarMap.ringed(n))), "spany 2");
 		title.add(Styles.style(new JLabel(n.name() != null ? n.name() : "Unknown venue"), "font: bold +3"), "wrap, wmin 0");
 		title.add(Labels.small(subtitle, Styles.MUTED));
 		title.setToolTipText(n.did());

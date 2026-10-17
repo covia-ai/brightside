@@ -31,11 +31,12 @@ final class PeersMenu {
 		this.actions = actions;
 	}
 
-	/** Your own planet: the named user on your venue, or null. */
-	static String yourPlanet(PeerGraph graph) {
+	/** The planet of whoever you are acting as on your venue: its operator, or the named user; null if not drawn. */
+	static String actingPlanet(PeerGraph graph, boolean operator) {
 		Node home = graph.home();
 		if (home == null) return null;
-		for (Node n : graph.partsOf(home.did())) if (Node.SELF.equals(n.relation())) return n.did();
+		String relation = operator ? Node.OPERATOR : Node.SELF;
+		for (Node n : graph.partsOf(home.did())) if (relation.equals(n.relation())) return n.did();
 		return null;
 	}
 
@@ -102,7 +103,7 @@ final class PeersMenu {
 	private void sky(JPopupMenu m) {
 		m.add(item("Home", "house", map::home));
 		m.add(item("Whole universe", "telescope", map::universe));
-		String you = yourPlanet(graph);
+		String you = map.acting();
 		if (map.tracking() != null) {
 			m.add(item("Stop tracking", "orbit", () -> map.track(null)));
 		} else if (you != null) {
