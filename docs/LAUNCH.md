@@ -28,11 +28,13 @@ how it stops. Code: `BrightSide`, `Takeover`, `EmbeddedVenue`, `TrayManager`.
 
    `--unlock` on the command line (`java -jar brightside.jar --unlock`) is for
    a launch nobody is sitting at, such as one from Claude Code: it unlocks at
-   once with the remembered passphrase, the dialog showing only progress. With
+   once with the remembered passphrase and puts nothing on screen: no unlock
+   dialog, and once the venue is up it stays in the tray (minimised, on a
+   desktop without one) until the tray brings it back. With
    no passphrase remembered, or no vault yet, it exits at once with an error
    and opens no window; a remembered passphrase that fails exits with an
    error too, as does a launch that fails after it, since nobody is there to
-   read the dialog. Once the window is up it is an ordinary session: a later
+   read a dialog. Once it is up it is an ordinary session: a later
    Lock asks for the passphrase as usual. If an instance is already running it
    is left alone and the launch exits, unless `--takeover` is given as well.
    `--takeover`, with or without `--unlock`, takes over from a running

@@ -51,7 +51,8 @@ independent agents side by side.
 
 Adding `--unlock` unlocks at once with the remembered passphrase instead of
 waiting at the unlock dialog, for starting Brightside from a script or from
-Claude Code while you are away. Without a remembered passphrase it exits with
+Claude Code while you are away, and comes up in the tray rather than as a
+window. Without a remembered passphrase it exits with
 an error; if Brightside is already running it leaves it be, unless
 `--takeover` is given too, which takes over from it without asking (on its
 own, `--takeover` just skips that question) ([LAUNCH.md](LAUNCH.md#startup)).

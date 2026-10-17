@@ -101,6 +101,8 @@ public final class BrightSide {
 	private volatile boolean takeoverApproved;
 	/** Launched with --unlock: a failed unlock exits rather than waiting at the dialog for someone. */
 	private volatile boolean unattended;
+	/** Launched with --unlock: come up in the tray (minimised without one), not as a window. Event thread. */
+	private boolean startQuiet;
 	/** Launched with --takeover: a Brightside found running is taken over without asking. */
 	private volatile boolean takeoverAllowed;
 	/** Rewrites the token for local tools while the owner keeps one ({@link ToolToken}). */
@@ -283,10 +285,12 @@ public final class BrightSide {
 						window.setVisible(true);
 					}
 					case UNLOCK -> {
-						showUnlockDialog(RememberedPassphrase.load(config.home()));
-						// The dialog stays up showing progress.
-						if (passphrase != null) {
+						if (passphrase == null) {
+							showUnlockDialog(RememberedPassphrase.load(config.home()));
+						} else {
+							// Started from a command line: nothing on screen. A failure ends the process.
 							log.info("--unlock: unlocking with the remembered passphrase");
+							startQuiet = true;
 							onUnlock(passphrase, true);
 						}
 					}
@@ -332,7 +336,17 @@ public final class BrightSide {
 			unlockDialog = null;
 		}
 		window.showChatStartup();
-		window.showAndFocus();
+		if (startQuiet) {
+			// An --unlock launch stays out of the way: in the tray, or minimised without one.
+			startQuiet = false;
+			if (tray == null) {
+				window.setExtendedState(window.getExtendedState() | java.awt.Frame.ICONIFIED);
+				window.setVisible(true);
+			}
+			log.info("--unlock: up {}", (tray != null) ? "in the tray" : "minimised");
+		} else {
+			window.showAndFocus();
+		}
 	}
 
 	/** An --unlock launch could not come up: nobody is there to try again, so say why and end with an error. */
