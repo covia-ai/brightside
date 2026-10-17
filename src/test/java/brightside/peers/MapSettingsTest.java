@@ -135,6 +135,21 @@ class MapSettingsTest {
 	}
 
 	@Test
+	void aMoonKeepsItsOwnOrbitRoundItsPlanet() {
+		Node agent = new Node("did:example:you/g/chat", "Chat", Node.AGENT, null, Node.CONNECTED, "did:example:you", List.of());
+		MapSettings s = MapSettings.DEFAULT;
+		assertEquals(MapSettings.FIRST_MOON, s.moon(agent, 0).radius(), "unplaced, the first moon out");
+		assertEquals(MapSettings.FIRST_MOON + 2 * MapSettings.MOON_SPACING, s.moon(agent, 2).radius(), 1e-9);
+		assertEquals(s.moon(agent, 0).phase(), s.moon(agent, 2).phase(), "the angle comes from the DID alone");
+		s = s.withPlacement(agent.did(), new MapSettings.Moon(5.5, 1.25));
+		assertEquals(new MapSettings.Moon(5.5, 1.25), s.moon(agent, 0));
+		assertEquals(s, MapSettings.fromCell(s.toCell()), "round-trips");
+		MapSettings far = MapSettings.fromCell(Maps.of("version", MapSettings.VERSION,
+			"placements", Maps.of(agent.did(), Maps.of("around", 99, "phase", 0))));
+		assertEquals(MapSettings.MAX_MOON, far.moon(agent, 0).radius(), "kept within reach of its planet");
+	}
+
+	@Test
 	void orbitsFromAnotherVersionGiveWayToTheDefaults() {
 		// Version 1 drew relations to you on your orbits; its orbits mean nothing now, its placements still do.
 		MapSettings old = MapSettings.fromCell(Maps.of(

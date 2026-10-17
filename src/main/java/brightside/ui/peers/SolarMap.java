@@ -111,6 +111,8 @@ final class SolarMap extends JComponent {
 	private Map<String, List<Node>> moons = Map.of();
 	/** Where each distant venue is drawn: as placed, else spread out from where its DID puts it. */
 	private Map<String, Point2D.Double> spots = Map.of();
+	/** Where each planet was drawn this frame, {x, y, radius} on screen, so a moon can be dropped round it. */
+	private final Map<String, double[]> planetAt = new LinkedHashMap<>();
 	/** Labels already drawn this frame, so a lesser one never lands on top of them. */
 	private final List<Rectangle2D> labelled = new ArrayList<>();
 
@@ -136,9 +138,9 @@ final class SolarMap extends JComponent {
 			return this == SUN || this == STAR;
 		}
 
-		/** Whether dragging it moves it; the rest stay put, and dragging them pans. */
+		/** Whether dragging it moves it (a moon round its own planet); the rest stay put, and dragging them pans. */
 		boolean movable() {
-			return this == STAR || this == PLANET;
+			return this == STAR || this == PLANET || this == MOON;
 		}
 	}
 
@@ -408,6 +410,13 @@ final class SolarMap extends JComponent {
 		if (b == null || !b.movable()) return;
 		if (b == Body.STAR) {
 			settings = settings.withPlacement(did, new MapSettings.At(at.x, at.y));
+		} else if (b == Body.MOON) {
+			double[] planet = planetAt.get(graph.get(did).belongsTo());
+			if (planet == null) return;
+			Point2D.Double sp = screen(at.x, at.y);
+			double[] ka = aroundPlanet(planet, sp.x, sp.y);
+			double phase = Math.IEEEremainder(ka[1] - t * 2 * Math.PI / moonPeriod(ka[0]), 2 * Math.PI);
+			settings = settings.withPlacement(did, new MapSettings.Moon(ka[0], phase));
 		} else {
 			double r = clampRadius(Math.hypot(at.x, at.y));
 			// The angle at time zero, wrapped into one turn so the stored value stays readable.
@@ -419,6 +428,18 @@ final class SolarMap extends JComponent {
 
 	private static double clampRadius(double r) {
 		return Math.max(MapSettings.MIN_RADIUS, Math.min(MapSettings.MAX_RADIUS, r));
+	}
+
+	/** Seconds per turn for a moon {@code k} planet radii out: further out is slower, by Kepler's law. */
+	private static double moonPeriod(double k) {
+		return 7 * Math.pow(k / MapSettings.FIRST_MOON, 1.5);
+	}
+
+	/** A point on screen as a moon's place round {@code planet}: {distance in its radii, kept in range; angle}. */
+	private static double[] aroundPlanet(double[] planet, double sx, double sy) {
+		double dx = sx - planet[0], dz = (sy - planet[1]) / TILT;
+		double k = Math.hypot(dx, dz) / Math.max(planet[2], 1e-9);
+		return new double[] { Math.max(MapSettings.MIN_MOON, Math.min(MapSettings.MAX_MOON, k)), Math.atan2(dz, dx) };
 	}
 
 	private static double period(double radius) {
@@ -684,6 +705,7 @@ final class SolarMap extends JComponent {
 			g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 			g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
 			placed.clear();
+			planetAt.clear();
 			paintSky(g, getWidth(), getHeight());
 
 			double s = scale();
@@ -893,6 +915,7 @@ final class SolarMap extends JComponent {
 	}
 
 	private void paintPlanet(Graphics2D g, Node p, double x, double y, double r, double cx, double cy) {
+		planetAt.put(p.did(), new double[] { x, y, r });
 		boolean distant = !Node.CONNECTED.equals(p.status()) && !Node.IDLE.equals(p.status());
 		boolean ghost = Node.NOT_CONNECTED.equals(p.status());
 		Color hue = distant ? Theme.blend(colourOf(p), new Color(0x8A93A6), 0.6f) : colourOf(p);
@@ -923,6 +946,16 @@ final class SolarMap extends JComponent {
 		float moonsShown = fadeIn(r, UIScale.scale(5f), UIScale.scale(8f));
 		List<double[]> ms = moonsShown > 0 ? moonPositions(p, x, y, r) : List.of();
 		List<Node> its = moonsOf(p.did());
+		if (moonsShown > 0 && dragging != null && dragAt != null && its.contains(graph.get(dragging))) {
+			// While one of its moons is carried, the orbit it would take if let go.
+			Point2D.Double sp = screen(dragAt.x, dragAt.y);
+			double ro = aroundPlanet(new double[] { x, y, r }, sp.x, sp.y)[0] * r;
+			float dash = UIScale.scale(4f);
+			g.setStroke(new BasicStroke(UIScale.scale(1.2f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 1f,
+				new float[] { dash, dash }, (float) (2 * dash - (t * 10) % (2 * dash))));
+			g.setColor(fade(Theme.accent(), 0.7f));
+			g.draw(new Ellipse2D.Double(x - ro, y - ro * TILT, 2 * ro, 2 * ro * TILT));
+		}
 		for (double[] m : ms) if (m[3] < 0) paintMoon(g, its.get((int) m[4]), m, moonsShown);
 
 		Ellipse2D body = new Ellipse2D.Double(x - r, y - r, 2 * r, 2 * r);
@@ -983,8 +1016,19 @@ final class SolarMap extends JComponent {
 		List<double[]> out = new ArrayList<>();
 		List<Node> its = moonsOf(p.did());
 		for (int i = 0; i < its.size(); i++) {
-			double orbit = r * (2.3 + i * 0.9);
-			double a = t * 2 * Math.PI / (7 + i * 4) + 2 * Math.PI * MapSettings.hash(its.get(i).did(), 6);
+			double k, a;
+			if (its.get(i).did().equals(dragging) && dragAt != null) {
+				// Carried: under the pointer, on the orbit round its planet it would take.
+				Point2D.Double sp = screen(dragAt.x, dragAt.y);
+				double[] ka = aroundPlanet(new double[] { x, y, r }, sp.x, sp.y);
+				k = ka[0];
+				a = ka[1];
+			} else {
+				MapSettings.Moon m = settings.moon(its.get(i), i);
+				k = m.radius();
+				a = m.phase() + t * 2 * Math.PI / moonPeriod(k);
+			}
+			double orbit = r * k;
 			double depth = Math.sin(a);
 			double size = Node.MAIN.equals(its.get(i).relation()) ? 1.5 : 1; // your main assistant stands out
 			out.add(new double[] { x + Math.cos(a) * orbit, y + depth * orbit * TILT,

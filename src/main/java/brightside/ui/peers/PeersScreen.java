@@ -61,7 +61,7 @@ public final class PeersScreen extends JPanel {
 	private final JButton pause = Buttons.icon(null, null);
 	private final JLabel view = Labels.small(" ", Styles.MUTED);
 	private final JButton reset = Buttons.icon(Lucide.icon("rotate-ccw", 16, Theme::muted),
-		"Put every planet, venue and orbit back as it started");
+		"Put every planet, moon, venue and orbit back as it started");
 	private final Timer saveLater;
 	private final ExecutorService saver = Executors.newSingleThreadExecutor(r -> {
 		Thread t = new Thread(r, "brightside-peers-settings");

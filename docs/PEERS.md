@@ -90,8 +90,9 @@ structure of their own:
   neighbours; adding an orbit, or moving a relation to another, is a settings
   change too.
 - **Placements**, keyed by DID: a planet's orbit radius and angle where it was
-  dropped, or a distant venue's position. Users of other venues stay where
-  their star puts them. A node with no placement is placed from a hash of its
+  dropped, a moon's distance from its planet (in its radii) and angle, or a
+  distant venue's position. Users of other venues stay where their star puts
+  them; their moons can still be moved round them. A node with no placement is placed from a hash of its
   DID, so the same node lands in the same place on every launch without
   anything being stored; unplaced venues are then pushed apart as they are
   drawn, so none sit on top of another.

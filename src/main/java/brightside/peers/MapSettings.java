@@ -40,6 +40,8 @@ public final class MapSettings {
 	public static final double ORBIT_GAP = 0.08;
 	/** How near and far a distant venue is placed by default. */
 	static final double NEAR = 5, FAR = 16;
+	/** How close in and far out a moon may be, in its planet's radii; and the spacing of unplaced moons. */
+	public static final double MIN_MOON = 1.6, MAX_MOON = 8, FIRST_MOON = 2.3, MOON_SPACING = 0.9;
 
 	/** An orbit: what it is called, which relations sit on it, and its radius. */
 	public record Orbit(String name, List<String> relations, double radius) {
@@ -53,7 +55,7 @@ public final class MapSettings {
 	}
 
 	/** Where a dragged body was left. */
-	public sealed interface Placement permits OnOrbit, At {
+	public sealed interface Placement permits OnOrbit, At, Moon {
 	}
 
 	/** A planet: its distance from you and its angle at time zero. */
@@ -62,6 +64,10 @@ public final class MapSettings {
 
 	/** A distant venue: its position on the plane. */
 	public record At(double x, double z) implements Placement {
+	}
+
+	/** A moon: its distance from its planet, in the planet's radii, and its angle at time zero. */
+	public record Moon(double radius, double phase) implements Placement {
 	}
 
 	/** The view to open on: the zoom, and whether the map is held still. */
@@ -119,6 +125,12 @@ public final class MapSettings {
 		double angle = 2 * Math.PI * hash(node.did(), 2);
 		double distance = NEAR + (FAR - NEAR) * hash(node.did(), 3);
 		return new At(Math.cos(angle) * distance, Math.sin(angle) * distance);
+	}
+
+	/** Where a moon is: as placed, else the {@code index}th out from its planet, at the angle its DID gives it. */
+	public Moon moon(Node node, int index) {
+		if (placements.get(node.did()) instanceof Moon m) return m;
+		return new Moon(FIRST_MOON + MOON_SPACING * index, 2 * Math.PI * hash(node.did(), 6));
 	}
 
 	/**
@@ -211,6 +223,7 @@ public final class MapSettings {
 			ACell p = switch (e.getValue()) {
 				case OnOrbit o -> Maps.of("radius", CVMDouble.create(o.radius()), "phase", CVMDouble.create(o.phase()));
 				case At a -> Maps.of("x", CVMDouble.create(a.x()), "z", CVMDouble.create(a.z()));
+				case Moon m -> Maps.of("around", CVMDouble.create(m.radius()), "phase", CVMDouble.create(m.phase()));
 			};
 			ps = ps.assoc(Strings.create(e.getKey()), p);
 		}
@@ -260,7 +273,10 @@ public final class MapSettings {
 				if (did == null) continue;
 				double r = num(RT.getIn(v, "radius"), Double.NaN), ph = num(RT.getIn(v, "phase"), Double.NaN);
 				double x = num(RT.getIn(v, "x"), Double.NaN), z = num(RT.getIn(v, "z"), Double.NaN);
-				if (!Double.isNaN(r) && !Double.isNaN(ph)) {
+				double around = num(RT.getIn(v, "around"), Double.NaN);
+				if (!Double.isNaN(around) && !Double.isNaN(ph)) {
+					placements.put(did, new Moon(Math.max(MIN_MOON, Math.min(MAX_MOON, around)), ph));
+				} else if (!Double.isNaN(r) && !Double.isNaN(ph)) {
 					placements.put(did, new OnOrbit(Math.max(MIN_RADIUS, Math.min(MAX_RADIUS, r)), ph));
 				} else if (!Double.isNaN(x) && !Double.isNaN(z)) {
 					placements.put(did, new At(x, z));
