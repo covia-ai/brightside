@@ -1,10 +1,12 @@
 package brightside.ui.chat;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Insets;
 import java.util.List;
+import java.util.function.Function;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -24,6 +26,7 @@ import brightside.ui.components.Panels;
 import brightside.ui.components.PressButton;
 import brightside.ui.components.Scrolls;
 import brightside.ui.components.Theme;
+import brightside.ui.peers.Colours;
 
 /**
  * The agents pane (left of the sessions list on the Sessions screen): one row per
@@ -57,6 +60,8 @@ public final class AgentList extends JPanel {
 	private final JPanel rows = Panels.column();
 	private String selectedId;
 	private String defaultId;
+	/** Each agent's colour by id, as the Peers map draws its moon; muted until told. */
+	private Function<String, Color> colours = id -> Theme.muted();
 
 	public AgentList(Listener listener) {
 		super(new BorderLayout());
@@ -85,6 +90,12 @@ public final class AgentList extends JPanel {
 		add(bottom, BorderLayout.SOUTH);
 	}
 
+	/** How to colour each agent's mini moon, by id, so it matches the Peers map. */
+	public void setColours(Function<String, Color> colours) {
+		this.colours = colours;
+		rows.repaint();
+	}
+
 	/** Replace the agent list, highlighting {@code selectedId}; {@code defaultId} is the standard agent, which can't be deleted. */
 	public void setAgents(List<AgentRef> agents, String selectedId, String defaultId) {
 		this.selectedId = selectedId;
@@ -98,6 +109,8 @@ public final class AgentList extends JPanel {
 	/** One agent: a {@link PressButton} row, selected when it is the one open. */
 	private Component agentRow(AgentRef agent) {
 		PressButton row = new PressButton(agent.name());
+		row.setIcon(Colours.moon(() -> colours.apply(agent.id()), 14));
+		row.setIconTextGap(8);
 		row.setHorizontalAlignment(SwingConstants.LEFT);
 		row.setMargin(new Insets(9, 12, 9, 12));
 		row.setAlignmentX(LEFT_ALIGNMENT);

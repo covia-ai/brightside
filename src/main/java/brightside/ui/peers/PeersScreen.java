@@ -327,7 +327,7 @@ public final class PeersScreen extends JPanel {
 		List<Node> agents = map.moonsOf(n.did());
 		if (!agents.isEmpty()) {
 			c.add(heading("Agents"), "gaptop 12");
-			for (Node a : agents) c.add(legendRow(lamp(SolarMap.lamp(a.status())), a.label(), SolarMap.statusLabel(a)));
+			for (Node a : agents) c.add(legendRow(Colours.moon(() -> map.colourOf(a), 14), a.label(), SolarMap.statusLabel(a)));
 		}
 		if (!ours) actions(c, List.of(disabled("Message"), disabled("Manage access…")));
 	}

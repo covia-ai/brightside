@@ -187,6 +187,13 @@ public final class MainWindow extends JFrame {
 				app.deleteAgent(agentId);
 			}
 		});
+		// Each agent's mini moon in the colour the Peers map draws it.
+		agentList.setColours(aid -> {
+			String owner = app.actingPrincipal();
+			if (owner == null) return brightside.ui.components.Theme.muted();
+			boolean main = !app.actingAsOperator() && aid.equals(app.mainAgentId());
+			return brightside.ui.peers.Colours.agent(owner, aid, main);
+		});
 		sessionsPane = new JPanel(new BorderLayout());
 		sessionsPane.add(agentList, BorderLayout.WEST);
 		sessionsPane.add(conversations, BorderLayout.CENTER);

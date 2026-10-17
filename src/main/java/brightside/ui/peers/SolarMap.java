@@ -87,10 +87,6 @@ final class SolarMap extends JComponent {
 	static final Color OFFLINE = new Color(0x6B7280);
 	/** Your own planet. */
 	static final Color YOU = new Color(0xFACC15);
-	/** Planet and star colours, chosen by DID. */
-	private static final Color[] PALETTE = { new Color(0x5EC8F2), new Color(0x7FE0C4), new Color(0xF2A65E),
-		new Color(0xE58BB4), new Color(0xB79CF2), new Color(0xE8C66A), new Color(0x6FA8F7), new Color(0xA8B48A),
-		new Color(0xF29F8E), new Color(0x8FD3A6) };
 
 	private final Consumer<String> onSelect;
 	private final Runnable onView;
@@ -478,7 +474,7 @@ final class SolarMap extends JComponent {
 
 	/** A node's colour, the same on every launch: chosen by its DID. */
 	static Color hue(String did) {
-		return PALETTE[(int) (MapSettings.hash(did, 4) * PALETTE.length)];
+		return Colours.of(did);
 	}
 
 	/** Who you are acting as, the operator or the named user: its planet and name are yellow. */
@@ -1308,7 +1304,7 @@ final class SolarMap extends JComponent {
 		double x = at[0], y = at[1];
 		if (p == null) {
 			double pr = Math.max(UIScale.scale(1.4f), Math.min(UIScale.scale(4f), rad * 0.022));
-			g.setColor(fade(PALETTE[(int) (MapSettings.hash(sys.did(), 8 + (int) at[2]) * PALETTE.length)], 0.6f * dim));
+			g.setColor(fade(Colours.PALETTE[(int) (MapSettings.hash(sys.did(), 8 + (int) at[2]) * Colours.PALETTE.length)], 0.6f * dim));
 			g.fill(new Ellipse2D.Double(x - pr, y - pr, 2 * pr, 2 * pr));
 			return;
 		}

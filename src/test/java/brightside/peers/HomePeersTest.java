@@ -49,6 +49,13 @@ class HomePeersTest {
 	}
 
 	@Test
+	void anAgentIsColouredAlikeOnTheMapAndInTheAgentList() {
+		Node moon = new PeerGraph(home(List.of(new HomePeers.Agent("helper", "Helper", "SLEEPING")))).get(YOU + "/g/helper");
+		assertEquals(brightside.ui.peers.Colours.of(moon.did()), brightside.ui.peers.Colours.agent(YOU, "helper", false),
+			"the agent list colours by owner and id; the map by the moon's key");
+	}
+
+	@Test
 	void beforeTheUserExistsThereIsJustTheAdmin() {
 		List<Node> n = HomePeers.of(VENUE, "V", "Operator", List.of(), null, "Robin", List.of(), null);
 		assertEquals(1, new PeerGraph(n).partsOf(VENUE).size());

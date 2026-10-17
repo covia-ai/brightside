@@ -1451,6 +1451,18 @@ public final class BrightSide {
 		startChatBackground(v, id, chatConfigFor(agentId != null ? agentId : defaultAgentId()), Bind.PRINCIPAL_SWITCH);
 	}
 
+	/** The DID of whoever the app acts as now, or null before the venue is up. */
+	public String actingPrincipal() {
+		EmbeddedVenue v = venue;
+		Identity id = identity;
+		return (v == null || id == null) ? null : actingDID(id, v);
+	}
+
+	/** The named user's main assistant: the chat agent the configuration names. */
+	public String mainAgentId() {
+		return config.chat().agentId();
+	}
+
 	/** The principal the app acts as: the venue itself as operator, else {@code id}'s user. */
 	private String actingDID(Identity id, EmbeddedVenue v) {
 		return actingAsOperator ? v.did() : id.userDID(v.did());
