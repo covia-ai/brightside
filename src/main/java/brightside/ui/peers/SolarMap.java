@@ -1006,7 +1006,7 @@ final class SolarMap extends JComponent {
 		if (home != null) placed.add(new Placed(home, Body.SUN, cx, cy, Math.max(r, UIScale.scale(8f))));
 	}
 
-	/** A faint line from you to a connected peer, with packets travelling it. */
+	/** A faint line from your venue to one of its users: the link only, since nothing flies into a sun. */
 	private void paintLink(Graphics2D g, double cx, double cy, Node p, double x, double y, double s) {
 		boolean live = Node.CONNECTED.equals(p.status());
 		if (!live && !Node.IDLE.equals(p.status())) return;
@@ -1017,7 +1017,6 @@ final class SolarMap extends JComponent {
 		g.setStroke(new BasicStroke(UIScale.scale(focus ? 1.3f : 0.9f)));
 		g.setColor(fade(hue, a * (focus ? 0.45f : live ? 0.16f : 0.08f)));
 		g.draw(new Line2D.Double(cx, cy, x, y));
-		if (live) packets(g, cx, cy, x, y, hue, 0.2 + 0.15 * settings.planet(p).radius(), MapSettings.hash(p.did(), 5), a);
 	}
 
 	private void packets(Graphics2D g, double x0, double y0, double x1, double y1, Color hue, double speed,
