@@ -25,18 +25,17 @@ doc is ahead of the code. The networked product it serves is in
 
 ## Peer data
 
-A node is whatever the network says another participant is: a venue, an agent
-on a venue, one of your own devices, a service. Brightside assumes only this
-much:
+A node is whatever the network says another participant is: a venue, a user
+on a venue, or an agent of a user. Brightside assumes only this much:
 
 | Part | What it is |
 |---|---|
 | Identity | The node's DID. The one stable key; everything else hangs off it. |
 | Name | A real, human name for the node, as it gives it or as you know it. |
-| Kind | Venue, agent, device or service; open-ended, an unknown kind is shown plainly. |
-| Relation | How it relates to you: yourself, someone you trust, something you use, known but not connected; and, for venues drawn far out, linked to you, listed in a directory, or unknown. |
+| Kind | Venue, person (a user) or agent; open-ended, an unknown kind is shown plainly. |
+| Relation | How it relates to you. Your own venue is yourself; on it, you are yourself, its operator is the admin, and anyone else is a member. Elsewhere, users are people you trust, services you use, or known; venues are linked to you, listed in a directory, or unknown. |
 | Status | Connected, idle, offline, or not connected. |
-| Belongs to | The DID of the node this one is part of. An agent belonging to a planet is its moon; a planet belonging to a distant venue is that venue's place among your peers. |
+| Belongs to | The DID of the node this one is part of: a user's venue, an agent's user. |
 | Facts | An ordered set of labelled values for the card: address, reach, how you met, what they may do, what is shared. |
 
 Facts are an open list, not fields, so a new kind of record needs no change
@@ -44,9 +43,19 @@ to the structure: the card shows a plain fact as a row and a list fact, such
 as what a node may do, as a section. Peer data is read-only to the map.
 Dragging, zooming or resizing an orbit never writes to it.
 
-A node whose relation has an orbit is a planet. A node without one is a moon
-if it belongs to a planet, and otherwise a star system far out, linked to you
-when its relation is "linked".
+The map draws the structure, not the relation:
+
+- **Stars are venues.** Your own venue is the sun at the centre; every other
+  venue is a star system far out, linked to you when its relation is "linked".
+- **Planets are users.** A user belongs to a venue and orbits its star. Your
+  venue has at least two: its admin, the operator, and you. On your venue the
+  relation picks the orbit; on another, users circle its star in the order
+  reported, with dots for users it reports but nobody has introduced.
+- **Moons are agents**, belonging to the user who owns them.
+
+The operator acts as the venue itself, so the network knows both by the
+venue's DID. On the map the operator is keyed by a DID URL under it,
+`<venueDID>#operator`, a local key only, and its card gives the real DID.
 
 ## Where peer data comes from
 
@@ -54,34 +63,38 @@ The map reads one source, which can be swapped or combined, and refreshes
 when the source says something changed:
 
 1. **Samples**, as today. They stay as a demo mode for screenshots once live
-   sources exist. The "Preview" chip goes when a live source is in use.
-2. **Local services.** Brightside already talks to real services: the model
+   sources exist. The "Preview" chip goes when every source is live.
+2. **Your venue.** The embedded venue, its operator, you, and each one's
+   agents, read in-process. This needs nothing upstream.
+3. **Local services.** Brightside already talks to real services: the model
    provider, Discord, Moltbook, the Convex peer, Claude Code, and MCP clients
-   connected to the venue. Each can be a node on the services orbit with its
-   live status. This needs nothing upstream.
-3. **The P2P network.** Venues and agents discovered and connected through a
+   connected to the venue. Each can be a system of its own with its live
+   status, linked to yours.
+4. **The P2P network.** Venues and agents discovered and connected through a
    node run inside the venue, with real DIDs and names.
 
-The relation, and so the orbit, comes from what the venue already knows about
-the node, not from the map. Nodes under your own identity are your devices.
-Nodes you hold capability grants with, or follow, are people you trust. Nodes
-running work for you are services. Nodes vouched for, or found in a directory,
-are known but not connected. Everything else is unknown, and is drawn
-unlabelled far out.
+The relation comes from what the venue already knows about the node, not from
+the map. Users you hold capability grants with, or follow, are people you
+trust. Users running work for you are services. Nodes vouched for, or found
+in a directory, are known but not connected. Everything else is unknown, and
+is drawn unlabelled far out.
 
 ## Map settings
 
 Map settings are how this installation draws the peer data. They live in a
 structure of their own:
 
-- **Orbits:** each one's name, the relations it holds, and its radius.
-  Dragging an orbit's line resizes it, kept between its neighbours; adding an
-  orbit, or moving a relation to another, is a settings change too.
+- **Orbits** of your own venue: each one's name, the relations it holds, and
+  its radius. By default the admin is innermost and users, you among them,
+  outside it. Dragging an orbit's line resizes it, kept between its
+  neighbours; adding an orbit, or moving a relation to another, is a settings
+  change too.
 - **Placements**, keyed by DID: a planet's orbit radius and angle where it was
-  dropped, or a distant venue's position. A node with no placement is placed
-  from a hash of its DID, so the same node lands in the same place on every
-  launch without anything being stored; unplaced venues are then pushed apart
-  as they are drawn, so none sit on top of another.
+  dropped, or a distant venue's position. Users of other venues stay where
+  their star puts them. A node with no placement is placed from a hash of its
+  DID, so the same node lands in the same place on every launch without
+  anything being stored; unplaced venues are then pushed apart as they are
+  drawn, so none sit on top of another.
 - **View:** the zoom to open on, and whether the map is paused.
 - **A version**, so the structure can evolve. Anything stored that does not
   make sense, from another version or none, falls back to the defaults.
@@ -103,27 +116,31 @@ the operator keeps a separate arrangement.
 
 1. **A model behind the map** (in place). The map reads peer data from a
    source and map settings from their own store, joined by DID; the samples
-   are one source (`SamplePeerSource`). `MapSettingsTest` covers the relation
-   to orbit, the hashed defaults, resizing and the stored form.
-2. **Local services live.** The services orbit shows the real connections
-   listed above, with real status.
-3. **A P2P node in the venue** ([covia#587](https://github.com/covia-ai/covia/issues/587)). Discovery and connection, under the
+   are one source (`SamplePeerSource`). Stars are venues, planets users,
+   moons agents. `MapSettingsTest` covers the relation to orbit, the hashed
+   defaults, resizing and the stored form.
+2. **Your venue live.** The sun, its admin and you, with your agents, from the
+   embedded venue; the other venues stay samples.
+3. **Local services live.** The real connections listed above, as systems
+   with real status.
+4. **A P2P node in the venue** ([covia#587](https://github.com/covia-ai/covia/issues/587)). Discovery and connection, under the
    venue's identity, off by default and joined from Settings, with a
    read-only peers operation and change events. Brightside reads it through
    the embedded API, as it reads everything else.
-4. **Relations.** Grants and follows place people on the inner orbits;
-   introductions arrive through people you trust.
-5. **Agents and traffic.** Moons from the agents a peer lets you see; packets
+5. **Relations.** Grants and follows mark the people you trust and link their
+   venues to yours; introductions arrive through people you trust.
+6. **Agents and traffic.** Moons from the agents a peer lets you see; packets
    from real remote jobs and messages.
-6. **Actions.** The card's Message and Manage access become real.
+7. **Actions.** The card's Message and Manage access become real.
 
 ## Open decisions
 
 - **Joining the network:** opt-in and off by default is the recommendation;
-  before joining, the map shows you and your services.
+  before joining, the map shows your venue and your services.
 - **The P2P key:** the venue key is simplest; a separate key rotates more
   easily ([brightside#5](https://github.com/covia-ai/brightside/issues/5)).
 - **Strangers:** a network may hold far more nodes than are worth drawing;
   show those actually seen, grouped by region, unlabelled until pointed at.
-- **Your devices:** that orbit stays empty until Brightside runs on more than
-  one device.
+- **Your devices:** more than one device under one person is more than one
+  node of that person; how they are drawn waits until Brightside runs on more
+  than one.

@@ -19,8 +19,8 @@ import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
 
 /**
- * How this installation draws peer data: the orbits (their names, the
- * relations each holds, their radii), where bodies were dragged, keyed by DID,
+ * How this installation draws peer data: the orbits of your own venue (their
+ * names, the relations each holds, their radii), where bodies were dragged, keyed by DID,
  * and the view to open on. Independent of the peer data itself: it names no
  * node's facts, a placement for a DID no source reports is ignored, and
  * resetting it touches nothing real. Immutable; each change makes a new value.
@@ -33,7 +33,7 @@ import convex.core.lang.RT;
  */
 public final class MapSettings {
 
-	public static final int VERSION = 1;
+	public static final int VERSION = 2;
 	/** How close in and far out an orbit or a planet may be, in world units. */
 	public static final double MIN_RADIUS = 0.2, MAX_RADIUS = 1.8;
 	/** The smallest gap kept between neighbouring orbits. */
@@ -69,10 +69,8 @@ public final class MapSettings {
 	}
 
 	public static final MapSettings DEFAULT = new MapSettings(List.of(
-		new Orbit("Your devices", List.of(Node.SELF), 0.34),
-		new Orbit("People you trust", List.of(Node.TRUSTED), 0.54),
-		new Orbit("Services you use", List.of(Node.USES), 0.74),
-		new Orbit("Known, not connected", List.of(Node.KNOWN), 0.94)), Map.of(), new View(1, false));
+		new Orbit("Admin", List.of(Node.OPERATOR), 0.42),
+		new Orbit("Users", List.of(Node.SELF, Node.MEMBER), 0.78)), Map.of(), new View(1, false));
 
 	private final List<Orbit> orbits;
 	private final Map<String, Placement> placements;
@@ -96,9 +94,12 @@ public final class MapSettings {
 		return view;
 	}
 
-	/** The orbit {@code node} sits on, by its relation, or -1 for one drawn far out. */
+	/**
+	 * The orbit a user of your venue sits on, by its relation, or -1 for a
+	 * relation no orbit holds, which is drawn on the outermost.
+	 */
 	public int orbitOf(Node node) {
-		if (node.relation() == null) return -1; // an agent, say: a moon or far out, never on an orbit
+		if (node.relation() == null) return -1;
 		for (int i = 0; i < orbits.size(); i++) {
 			if (orbits.get(i).relations().contains(node.relation())) return i;
 		}
@@ -225,7 +226,9 @@ public final class MapSettings {
 	public static MapSettings fromCell(ACell cell) {
 		if (!(cell instanceof AMap<?, ?>)) return DEFAULT;
 		List<Orbit> orbits = new ArrayList<>();
-		if (RT.getIn(cell, "orbits") instanceof AVector<?> os) {
+		// Orbits mean something only to the version that wrote them; placements and the view are by DID and zoom.
+		boolean sameVersion = num(RT.getIn(cell, "version"), -1) == VERSION;
+		if (sameVersion && RT.getIn(cell, "orbits") instanceof AVector<?> os) {
 			double last = 0;
 			for (long i = 0; i < os.count(); i++) {
 				ACell o = os.get(i);

@@ -187,9 +187,10 @@ public final class PeersScreen extends JPanel {
 		content.setOpaque(false);
 		PeerGraph graph = source.graph();
 		Node n = (did == null) ? null : graph.get(did);
-		if (n == null) overview(content, graph);
-		else if (map.isStar(did)) venue(content, n);
-		else planet(content, n);
+		SolarMap.Body body = (n == null) ? null : map.bodyOf(did);
+		if (body == null) overview(content, graph);
+		else if (body.star()) venue(content, n, body == SolarMap.Body.SUN);
+		else planet(content, n, graph);
 		side.add(Scrolls.vertical(content), BorderLayout.CENTER);
 		side.revalidate();
 		side.repaint();
@@ -197,19 +198,21 @@ public final class PeersScreen extends JPanel {
 
 	private void overview(JPanel c, PeerGraph graph) {
 		MapSettings s = map.settings();
-		long onOrbits = graph.nodes().stream().filter(n -> s.orbitOf(n) >= 0).count();
-		long connected = graph.nodes().stream()
-			.filter(n -> s.orbitOf(n) >= 0 && Node.CONNECTED.equals(n.status())).count();
-		long agents = graph.nodes().stream().filter(n -> n.is(Node.AGENT)).count();
-		c.add(Styles.style(new JLabel("Your constellation"), "font: bold +2"));
-		c.add(Labels.small(onOrbits + " peers · " + connected + " connected · " + agents + " agents", Styles.MUTED),
-			"gapbottom 10");
+		Node home = map.homeVenue();
+		List<Node> users = (home == null) ? List.of() : map.usersOf(home.did());
+		int agents = users.stream().mapToInt(u -> map.moonsOf(u.did()).size()).sum();
+		long venues = graph.nodes().stream().filter(n -> n.is(Node.VENUE) && n != home).count();
+		c.add(Styles.style(new JLabel(home != null ? home.label() : "Your venue"), "font: bold +2"));
+		c.add(Labels.small(SolarMap.plural(users.size(), "user") + " · " + SolarMap.plural(agents, "agent") + " · "
+			+ SolarMap.plural((int) venues, "other venue"), Styles.MUTED), "gapbottom 10");
 
 		c.add(heading("Orbits"));
 		List<MapSettings.Orbit> orbits = s.orbits();
 		for (int i = 0; i < orbits.size(); i++) {
 			int ring = i;
-			long count = graph.nodes().stream().filter(n -> s.orbitOf(n) == ring).count();
+			// A relation no orbit holds is drawn on the outermost.
+			long count = users.stream().filter(n -> s.orbitOf(n) == ring || (s.orbitOf(n) < 0 && ring == orbits.size() - 1))
+				.count();
 			c.add(legendRow(new RingIcon(i + 1, orbits.size()), orbits.get(i).name(), String.valueOf(count)));
 		}
 		c.add(heading("Status"), "gaptop 10");
@@ -217,32 +220,37 @@ public final class PeersScreen extends JPanel {
 		c.add(legendRow(lamp(SolarMap.IDLE), "Idle", null));
 		c.add(legendRow(lamp(SolarMap.OFFLINE), "Offline or not connected", null));
 		c.add(heading("Reading the map"), "gaptop 10");
-		c.add(legendRow(new SunIcon(), "You, at the centre", null));
-		c.add(legendRow(lamp(new Color(0xA9AFBC)), "Moons are a peer's agents", null));
-		c.add(legendRow(new PlanetIcon(new Color(0xE8C66A), 18, true), "Rings mark a service", null));
+		c.add(legendRow(new SunIcon(), "Your venue, at the centre", null));
+		c.add(legendRow(new PlanetIcon(new Color(0x5EC8F2), 18, false), "Planets are a venue's users", null));
+		c.add(legendRow(lamp(new Color(0xA9AFBC)), "Moons are their agents", null));
+		c.add(legendRow(new PlanetIcon(new Color(0xE8C66A), 18, true), "Rings mark a venue's admin", null));
 		c.add(legendRow(lamp(new Color(0xF6B26B)), "Stars far out are other venues", null));
 
 		c.add(new SelectableText("Click a planet or a star to see it, or drag it somewhere new; drag an orbit's line "
-			+ "to resize it. Scroll to zoom, drag the sky to pan, double-click to come home.").small().muted(),
-			"gaptop 16, wmin 0");
+			+ "to resize it. Scroll to zoom, drag the sky to pan, double-click a star to visit it, or the sky to "
+			+ "come home.").small().muted(), "gaptop 16, wmin 0");
 	}
 
-	private void planet(JPanel c, Node n) {
-		title(c, n, n.is(Node.DEVICE) ? "Your device" : kindLabel(n));
+	private void planet(JPanel c, Node n, PeerGraph graph) {
+		Node venue = graph.owner(n);
+		boolean ours = venue != null && venue == map.homeVenue();
+		String role = Node.SELF.equals(n.relation()) ? "You"
+			: SolarMap.ringed(n) ? "Admin" : "User";
+		title(c, n, venue == null ? role : role + " · " + (ours ? "your venue" : venue.label()));
 		c.add(fact("Status", new JLabel(SolarMap.statusLabel(n), lamp(SolarMap.lamp(n.status())), SwingConstants.LEADING)));
 		facts(c, n);
 		List<Node> agents = map.moonsOf(n.did());
 		if (!agents.isEmpty()) {
-			c.add(heading("Their agents"), "gaptop 12");
+			c.add(heading("Agents"), "gaptop 12");
 			for (Node a : agents) c.add(legendRow(lamp(SolarMap.lamp(a.status())), a.label(), SolarMap.statusLabel(a)));
 		}
-		actions(c, List.of(disabled("Message"), disabled("Manage access…")));
+		if (!ours) actions(c, List.of(disabled("Message"), disabled("Manage access…")));
 	}
 
-	private void venue(JPanel c, Node n) {
+	private void venue(JPanel c, Node n, boolean ours) {
 		boolean known = n.name() != null;
-		title(c, n, known ? "Venue" : "Not in your directory");
-		boolean linked = Node.LINKED.equals(n.relation());
+		title(c, n, ours ? "Your venue" : known ? "Venue" : "Not in your directory");
+		boolean linked = ours || Node.LINKED.equals(n.relation());
 		c.add(fact("Status", new JLabel(linked ? SolarMap.statusLabel(n) : "Not connected",
 			lamp(SolarMap.lamp(linked ? n.status() : Node.NOT_CONNECTED)), SwingConstants.LEADING)));
 		if (known) {
@@ -251,25 +259,19 @@ public final class PeersScreen extends JPanel {
 			c.add(new SelectableText("A venue on the network you have no introduction to. Nothing is known about it "
 				+ "until someone you trust vouches for it.").small().muted(), "gaptop 6, wmin 0");
 		}
-		List<Node> here = map.planetsOf(n.did());
-		JButton onMap = null;
-		if (!here.isEmpty()) {
-			Node p = here.getFirst();
-			onMap = Buttons.secondary("On your map");
-			onMap.setToolTipText("Go home and pick out " + p.label() + ", where this venue sits among your peers");
-			onMap.addActionListener(e -> {
-				map.home();
-				map.select(p.did());
-			});
+		List<Node> users = map.usersOf(n.did());
+		if (!users.isEmpty()) {
+			c.add(heading("Users"), "gaptop 12");
+			for (Node u : users) {
+				int m = map.moonsOf(u.did()).size();
+				c.add(legendRow(lamp(SolarMap.lamp(u.status())), u.label(), m == 0 ? null : SolarMap.plural(m, "agent")));
+			}
 		}
-		JButton more = disabled(linked ? "Manage access…" : "Ask for an introduction…");
-		actions(c, onMap == null ? List.of(more) : List.of(onMap, more));
-	}
-
-	private static String kindLabel(Node n) {
-		String k = n.kind();
-		if (k == null) return "Peer";
-		return k.substring(0, 1).toUpperCase() + k.substring(1).replace('-', ' ');
+		if (ours) return;
+		JButton visit = Buttons.secondary("Visit");
+		visit.setToolTipText("Fly over to " + n.label() + " to see its users and their agents (or double-click it)");
+		visit.addActionListener(e -> map.visit(n.did()));
+		actions(c, List.of(visit, disabled(linked ? "Manage access…" : "Ask for an introduction…")));
 	}
 
 	private static void title(JPanel c, Node n, String subtitle) {

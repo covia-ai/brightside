@@ -36,6 +36,12 @@ public final class PeerGraph {
 		return out;
 	}
 
+	/** Your own venue, the sun of the map: the venue whose relation is {@link Node#SELF}, or null. */
+	public Node home() {
+		for (Node n : byDid.values()) if (n.is(Node.VENUE) && Node.SELF.equals(n.relation())) return n;
+		return null;
+	}
+
 	/** The node {@code n} belongs to, if the graph has it. */
 	public Node owner(Node n) {
 		return get(n.belongsTo());

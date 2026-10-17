@@ -3,26 +3,34 @@ package brightside.peers;
 import java.util.List;
 
 /**
- * Another participant as a source reports it: a venue, an agent, one of your
- * own devices, a service. Deliberately little is assumed, because the
- * network's records will change: the DID is the one stable key, and
- * everything a card might show is an open list of {@link Fact}s.
+ * Another participant as a source reports it: a venue, a user on a venue, an
+ * agent of a user. Deliberately little is assumed, because the network's
+ * records will change: the DID is the one stable key, and everything a card
+ * might show is an open list of {@link Fact}s.
  *
  * <p>{@code kind}, {@code relation} and {@code status} are open strings;
  * the constants below are the ones Brightside draws specially, and anything
  * else is shown plainly. {@code belongsTo} is the DID of the node this one is
- * part of (an agent's venue or person), or null.
+ * part of (a user's venue, an agent's user), or null.
+ *
+ * <p>The key need not be a bare DID: a part of a principal the network knows
+ * by one DID, such as a venue's operator, which acts as the venue itself, is
+ * keyed by a DID URL under it ({@code <venueDID>#operator}).
  */
 public record Node(String did, String name, String kind, String relation, String status, String belongsTo,
 		List<Fact> facts) {
 
-	/** Kinds. */
-	public static final String VENUE = "venue", PERSON = "person", AGENT = "agent", DEVICE = "device",
-		SERVICE = "service";
+	/** Kinds: venues are stars, users are planets, agents are moons. */
+	public static final String VENUE = "venue", PERSON = "person", AGENT = "agent";
 
-	/** Relations to you: the orbits by default, then those drawn far out. */
-	public static final String SELF = "self", TRUSTED = "trusted", USES = "uses", KNOWN = "known",
-		LINKED = "linked", LISTED = "listed", UNKNOWN = "unknown";
+	/**
+	 * Relations to you. Your own venue is {@code self}; on it, you are
+	 * {@code self}, its operator {@code operator} and anyone else a
+	 * {@code member}. Elsewhere, users are people you trust, services you use
+	 * or known; venues are linked to you, listed in a directory, or unknown.
+	 */
+	public static final String SELF = "self", OPERATOR = "operator", MEMBER = "member", TRUSTED = "trusted",
+		USES = "uses", KNOWN = "known", LINKED = "linked", LISTED = "listed", UNKNOWN = "unknown";
 
 	/** Statuses. */
 	public static final String CONNECTED = "connected", IDLE = "idle", OFFLINE = "offline",

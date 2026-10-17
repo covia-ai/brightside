@@ -21,7 +21,8 @@ import convex.core.data.Vectors;
 import convex.core.util.JSON;
 
 /**
- * The mechanism behind the Peers map's settings: which orbit a node sits on,
+ * The mechanism behind the Peers map's settings: which orbit a user of your
+ * venue sits on,
  * where an unplaced node lands, how changes keep orbits sane, and that the
  * stored form round-trips and survives anything unexpected.
  */
@@ -32,26 +33,26 @@ class MapSettingsTest {
 	}
 
 	@Test
-	void relationsChooseTheOrbitAndTheRestAreDrawnFarOut() {
+	void relationsChooseTheOrbit() {
 		MapSettings s = MapSettings.DEFAULT;
-		assertEquals(0, s.orbitOf(node("did:example:a", Node.SELF)));
-		assertEquals(1, s.orbitOf(node("did:example:b", Node.TRUSTED)));
-		assertEquals(2, s.orbitOf(node("did:example:c", Node.USES)));
-		assertEquals(3, s.orbitOf(node("did:example:d", Node.KNOWN)));
-		assertEquals(-1, s.orbitOf(node("did:example:e", Node.LINKED)));
+		assertEquals(0, s.orbitOf(node("did:example:a", Node.OPERATOR)), "the admin, innermost");
+		assertEquals(1, s.orbitOf(node("did:example:b", Node.SELF)));
+		assertEquals(1, s.orbitOf(node("did:example:c", Node.MEMBER)), "you and anyone else share the users' orbit");
 		assertEquals(-1, s.orbitOf(node("did:example:f", "something-new")), "an unknown relation is not forced onto an orbit");
 		assertEquals(-1, s.orbitOf(node("did:example:g", null)));
+		assertEquals(s.orbits().getLast().radius(), s.planet(node("did:example:f", "something-new")).radius(),
+			"and is drawn on the outermost");
 	}
 
 	@Test
 	void anUnplacedNodeLandsInTheSamePlaceEveryTime() {
-		Node a = node("did:example:alice", Node.TRUSTED);
+		Node a = node("did:example:alice", Node.SELF);
 		Node v = node("did:example:venue-3", Node.UNKNOWN);
 		MapSettings s = MapSettings.DEFAULT;
 		assertEquals(s.planet(a), s.planet(a));
-		assertEquals(s.planet(a), MapSettings.DEFAULT.planet(new Node(a.did(), "Renamed", Node.PERSON, Node.TRUSTED,
+		assertEquals(s.planet(a), MapSettings.DEFAULT.planet(new Node(a.did(), "Renamed", Node.PERSON, Node.SELF,
 			Node.OFFLINE, null, List.of())), "placement depends on the DID alone, not on what the source says");
-		assertEquals(0.54, s.planet(a).radius(), "on its relation's orbit");
+		assertEquals(0.78, s.planet(a).radius(), "on its relation's orbit");
 		MapSettings.At at = s.venue(v);
 		double distance = Math.hypot(at.x(), at.z());
 		assertTrue(distance >= MapSettings.NEAR && distance <= MapSettings.FAR, "far out, within the universe");
@@ -60,7 +61,7 @@ class MapSettingsTest {
 		Set<Double> angles = new HashSet<>();
 		double lo = Double.MAX_VALUE, hi = 0;
 		for (int i = 0; i < 50; i++) {
-			double p = s.planet(node("did:example:n" + i, Node.TRUSTED)).phase();
+			double p = s.planet(node("did:example:n" + i, Node.MEMBER)).phase();
 			angles.add(p);
 			lo = Math.min(lo, p);
 			hi = Math.max(hi, p);
@@ -75,7 +76,7 @@ class MapSettingsTest {
 
 	@Test
 	void aPlacementWinsUntilReset() {
-		Node a = node("did:example:alice", Node.TRUSTED);
+		Node a = node("did:example:alice", Node.SELF);
 		Node v = node("did:example:far", Node.LINKED);
 		MapSettings s = MapSettings.DEFAULT
 			.withPlacement(a.did(), new MapSettings.OnOrbit(1.3, 0.5))
@@ -90,21 +91,23 @@ class MapSettingsTest {
 
 	@Test
 	void orbitsKeepTheirOrderWhenResized() {
-		MapSettings s = MapSettings.DEFAULT.withOrbitRadius(1, 5.0);
-		assertEquals(0.74 - MapSettings.ORBIT_GAP, s.orbits().get(1).radius(), 1e-9, "stops short of the next orbit out");
+		MapSettings s = MapSettings.DEFAULT.withOrbitRadius(0, 5.0);
+		assertEquals(0.78 - MapSettings.ORBIT_GAP, s.orbits().get(0).radius(), 1e-9, "stops short of the next orbit out");
 		s = MapSettings.DEFAULT.withOrbitRadius(1, 0.0);
-		assertEquals(0.34 + MapSettings.ORBIT_GAP, s.orbits().get(1).radius(), 1e-9, "and of the next orbit in");
-		s = MapSettings.DEFAULT.withOrbitRadius(3, 1.4);
-		assertEquals(1.4, s.orbits().get(3).radius(), 1e-9);
+		assertEquals(0.42 + MapSettings.ORBIT_GAP, s.orbits().get(1).radius(), 1e-9, "and of the next orbit in");
+		s = MapSettings.DEFAULT.withOrbitRadius(1, 9);
+		assertEquals(MapSettings.MAX_RADIUS, s.orbits().get(1).radius(), 1e-9, "and the outermost of the edge");
+		s = MapSettings.DEFAULT.withOrbitRadius(1, 1.4);
+		assertEquals(1.4, s.orbits().get(1).radius(), 1e-9);
 		assertTrue(s.rearranged());
-		assertEquals(1.4, s.planet(node("did:example:k", Node.KNOWN)).radius(), 1e-9, "unplaced planets follow their orbit");
+		assertEquals(1.4, s.planet(node("did:example:k", Node.MEMBER)).radius(), 1e-9, "unplaced planets follow their orbit");
 		assertEquals(MapSettings.DEFAULT.orbits(), s.reset().orbits());
 	}
 
 	@Test
 	void theStoredFormRoundTripsAndHoldsNoPeerData() {
 		MapSettings s = MapSettings.DEFAULT
-			.withOrbitRadius(2, 0.8)
+			.withOrbitRadius(1, 0.9)
 			.withPlacement("did:example:alice", new MapSettings.OnOrbit(1.1, -2.25))
 			.withPlacement("did:example:far", new MapSettings.At(3.5, -9))
 			.withView(new MapSettings.View(0.25, true));
@@ -132,6 +135,22 @@ class MapSettingsTest {
 	}
 
 	@Test
+	void orbitsFromAnotherVersionGiveWayToTheDefaults() {
+		// Version 1 drew relations to you on your orbits; its orbits mean nothing now, its placements still do.
+		MapSettings old = MapSettings.fromCell(Maps.of(
+			"version", 1,
+			"orbits", Vectors.of(Maps.of("name", "Your devices", "relations", Vectors.of("self"), "radius", 0.34),
+				Maps.of("name", "People you trust", "relations", Vectors.of("trusted"), "radius", 0.54)),
+			"placements", Maps.of("did:example:far", Maps.of("x", 4, "z", -6)),
+			"view", Maps.of("zoom", 0.5)));
+		assertEquals(MapSettings.DEFAULT.orbits(), old.orbits());
+		assertEquals(new MapSettings.At(4, -6), old.placements().get("did:example:far"));
+		assertEquals(0.5, old.view().zoom());
+		MapSettings now = MapSettings.DEFAULT.withOrbitRadius(1, 1.2);
+		assertEquals(now, MapSettings.fromCell(now.toCell()), "this version's own orbits are kept");
+	}
+
+	@Test
 	void placementsForNodesNoLongerReportedArePruned() {
 		PeerGraph graph = new PeerGraph(List.of(node("did:example:kept", Node.TRUSTED)));
 		MapSettings s = MapSettings.DEFAULT
@@ -146,18 +165,23 @@ class MapSettingsTest {
 
 	@Test
 	void theSampleGraphHangsTogether() {
-		PeerGraph g = new SamplePeerSource().graph();
+		PeerGraph g = new SamplePeerSource(true).graph();
 		Set<String> dids = new HashSet<>();
 		for (Node n : g.nodes()) {
 			assertTrue(dids.add(n.did()), "unique DIDs");
 			assertTrue(n.did().startsWith("did:example:"), "samples use the example DID method: " + n.did());
 			if (n.belongsTo() != null) assertNotNull(g.owner(n), n.did() + " belongs to a node in the graph");
-			if (n.is(Node.AGENT)) {
-				assertEquals(-1, MapSettings.DEFAULT.orbitOf(n), "agents are moons, not planets");
-				assertTrue(MapSettings.DEFAULT.orbitOf(g.owner(n)) >= 0, "every sample agent belongs to a planet");
-			}
+			if (n.is(Node.PERSON)) assertTrue(g.owner(n).is(Node.VENUE), "users are planets of a venue: " + n.did());
+			if (n.is(Node.AGENT)) assertTrue(g.owner(n).is(Node.PERSON), "agents are moons of a user: " + n.did());
 		}
-		assertEquals(3, g.partsOf("did:example:transcriber").size());
+		// Your venue has two planets: its admin and you.
+		Node home = g.home();
+		assertNotNull(home);
+		List<Node> users = g.partsOf(home.did());
+		assertEquals(List.of(Node.OPERATOR, Node.SELF), users.stream().map(Node::relation).toList());
+		assertEquals(home.did() + "#operator", users.getFirst().did(), "the admin is the venue itself, keyed under its DID");
+		assertEquals(3, g.partsOf("did:example:transcribe-venue#operator").size());
+		assertNull(new SamplePeerSource().graph().home(), "without a home, the samples stand beside a live one");
 		assertTrue(new SamplePeerSource().sample());
 	}
 }
