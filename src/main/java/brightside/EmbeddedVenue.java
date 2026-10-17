@@ -124,6 +124,24 @@ public final class EmbeddedVenue implements AutoCloseable {
 	}
 
 	/**
+	 * The user's agents for the Peers map: each one's id, display name and run
+	 * state, read from its record in-process, so drawing them leaves no job
+	 * records.
+	 */
+	public java.util.List<brightside.peers.HomePeers.Agent> agentsForMap(String userDID) {
+		java.util.List<brightside.peers.HomePeers.Agent> out = new java.util.ArrayList<>();
+		for (String aid : agents(userDID)) {
+			ACell record = agentRecord(userDID, aid);
+			AString state = convex.core.lang.RT.ensureString(convex.core.lang.RT.getIn(record, "status"));
+			AString name = convex.core.lang.RT.ensureString(convex.core.lang.RT.getIn(record, "config", "name"));
+			out.add(new brightside.peers.HomePeers.Agent(aid,
+				(name == null || name.toString().isBlank()) ? aid : name.toString(),
+				(state == null) ? null : state.toString()));
+		}
+		return out;
+	}
+
+	/**
 	 * Subscribes to the venue's live agent event tap (#394) for one agent —
 	 * the same ordered run-loop/cycle/tool events the SSE stream carries,
 	 * delivered in-process. The callback runs on the emitting thread: hand

@@ -88,8 +88,8 @@ public final class PeersScreen extends JPanel {
 		header.setBorder(Borders.hairline(false, false, true, false));
 		header.add(Styles.style(new JLabel("Peers"), "font: bold +4"));
 		if (source.sample()) {
-			header.add(chip("Preview · sample peers",
-				"Federation isn't connected yet: these peers are examples of what will appear here"));
+			header.add(chip("Preview · sample venues",
+				"Federation isn't connected yet: other venues are examples of what will appear here"));
 		} else {
 			header.add(new JLabel());
 		}
@@ -132,6 +132,7 @@ public final class PeersScreen extends JPanel {
 			save();
 		}
 		store = stores.get();
+		source.refresh();
 		PeerGraph graph = source.graph();
 		map.setData(graph, store.load().prune(graph), true);
 		syncPause();

@@ -452,9 +452,10 @@ public final class MainWindow extends JFrame {
 		skillsScreen = new brightside.ui.skills.SkillsScreen();
 		mainDeck.add(skillsScreen, MAIN_SKILLS);
 
-		// A preview of the networked product: sample peers only, nothing on the wire.
+		// Your venue, live from the embedded venue, among sample venues: nothing on the wire.
 		// How the map is drawn is the acting person's own, kept apart from the data.
-		peersScreen = new brightside.ui.peers.PeersScreen(new brightside.peers.SamplePeerSource(true), app::peersMapSettings);
+		peersScreen = new brightside.ui.peers.PeersScreen(brightside.peers.PeerSource.combined(
+			new brightside.peers.SamplePeerSource(), new brightside.peers.LiveSource(app::homePeers)), app::peersMapSettings);
 		mainDeck.add(peersScreen, MAIN_PEERS);
 
 		navBar = new NavBar(this::selectTab);

@@ -119,8 +119,9 @@ the operator keeps a separate arrangement.
    are one source (`SamplePeerSource`). Stars are venues, planets users,
    moons agents. `MapSettingsTest` covers the relation to orbit, the hashed
    defaults, resizing and the stored form.
-2. **Your venue live.** The sun, its admin and you, with your agents, from the
-   embedded venue; the other venues stay samples.
+2. **Your venue live** (in place). The sun, its admin and you, with each
+   one's agents and their run state, read in-process from the embedded venue
+   (`HomePeers`, `HomePeersVenueTest`); the other venues stay samples.
 3. **Local services live.** The real connections listed above, as systems
    with real status.
 4. **A P2P node in the venue** ([covia#587](https://github.com/covia-ai/covia/issues/587)). Discovery and connection, under the

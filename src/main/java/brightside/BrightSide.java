@@ -829,6 +829,21 @@ public final class BrightSide {
 		return (did == null) ? brightside.peers.MapSettingsStore.memory() : v.mapSettings(did);
 	}
 
+	/**
+	 * Your venue as peer data, for the Peers map: the venue, its operator, the
+	 * named user and each one's agents, read in-process, so opening the tab
+	 * leaves no job records. Empty until the venue and identity are up.
+	 */
+	public List<brightside.peers.Node> homePeers() {
+		EmbeddedVenue v = venue;
+		Identity id = identity;
+		String venueDID = (v == null) ? null : v.did();
+		if (venueDID == null || id == null) return List.of();
+		String userDID = id.userDID(venueDID);
+		return brightside.peers.HomePeers.of(venueDID, v.name(), id.operatorName(), v.agentsForMap(venueDID),
+			userDID, id.name(), v.agentsForMap(userDID));
+	}
+
 	/** The acting principal's client for the schedule: the bound chat principal, else the owner. */
 	private Venue scheduleClient() {
 		Venue acting = client;
