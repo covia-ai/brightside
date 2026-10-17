@@ -1,6 +1,6 @@
 {
 	"name": "Run a treasury operation",
-	"description": "Executes one Convex operation as a user of this venue, signing with a key from that user's own secret store. Njord only. `user` is required: njord--treasury for your treasury, where your keys live and no one else can use them, or another user DID of this venue (user:sudo) when the owner's own key is to be used. Operations: v/ops/convex/query (free read), v/ops/secret/list (key names, never values), v/ops/convex/generate-key {name} (in your treasury only; returns the new account key, never the seed), v/ops/convex/sign {seed: s/NAME, message}, v/ops/convex/transact {address, source, seed: s/NAME, peer?}. A seed goes by secret reference only; a literal one is refused. Anything else is refused. Anything that changes state or signs needs `reason`, and is reported to Odin with its input and outcome as soon as it is done; the output then carries report {address, id}. Every run is a recorded job.",
+	"description": "Executes one Convex operation as a user of this venue, signing with a key from that user's own secret store. Njord only. `user` is required: njord--treasury for your treasury, where your keys live and no one else can use them, or another user DID of this venue (user:sudo) when the owner's own key is to be used. Operations: v/ops/convex/query {source, address?, peer?} (free read; an address it runs as must hold a balance, so leave it out to read from nothing), v/ops/secret/list (key names, never values), v/ops/convex/generate-key {name} (in your treasury only; returns the new account key, never the seed; the account itself is created and funded from an existing holder), v/ops/convex/sign {seed: s/NAME, message}, v/ops/convex/transact {address, source, seed: s/NAME, peer?}. peer is host:port; without it a query or transaction goes to the public Convex network. A seed goes by secret reference only; a literal one is refused. Anything else is refused. Anything that changes state or signs needs `reason`, and is reported to Odin with its input and outcome as soon as it is done; the output then carries report {address, id}. Every run is a recorded job.",
 	"operation": {
 		"adapter": "brightside:njord-run",
 		"toolName": "njord_run",
@@ -28,7 +28,7 @@
 			"required": ["operation", "user"]
 		},
 		"output": {
-			"description": "The operation's own output; after a change, with report {address, id}: the task that told Odin."
+			"description": "The operation's own output; after a change, with report {address, id}: the task that told Odin. A query or transaction gives the network's result: value, or errorCode when the network refused it or it failed — then nothing moved, though a transaction that ran still cost its fee. info.tx is a transaction's hash."
 		}
 	}
 }

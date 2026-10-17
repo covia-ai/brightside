@@ -28,7 +28,7 @@ import covia.venue.RequestContext;
  * act as, so a key made there signs for him and for no one else — not the
  * owner's assistants, not the other gods. Every signature carries his reason
  * and is reported to Odin. Nothing here reaches a Convex peer: keys and
- * signatures are local, a transaction is not exercised.
+ * signatures are local, and {@link NjordTransactTest} sends a transaction.
  */
 class NjordTest {
 

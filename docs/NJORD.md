@@ -45,6 +45,9 @@ his to manage too. A key goes by reference only: the bridge refuses a
 literal seed, so raw key material never sits in a job, and no operation of
 his reveals one.
 
+`NjordTest` covers custody offline; `NjordTransactTest` sends a real transfer
+through his bridge, signed with a treasury key, on a local Convex network.
+
 ## How he judges
 
 His default is no until a request earns a yes. A request's `from` and
@@ -84,6 +87,8 @@ content asked for.
   funds belong under keys made in the treasury.
 - Njord can make a treasury key, but the owner creates and funds its account
   from an existing holder.
+- Brightside fixes no network. The request names the peer, and a call that
+  names none goes to Convex's public network, Covia's default.
 - Budgets and limits live in his memory and judgement. No mechanism refuses
   an over-limit transaction yet; a spending policy in Covia's Convex adapter
   would add one (covia#433).
