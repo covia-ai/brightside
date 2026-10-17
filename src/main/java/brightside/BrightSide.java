@@ -644,6 +644,7 @@ public final class BrightSide {
 		vault = null;
 		actingAsOperator = false;
 		chatStarted.set(false);
+		renewToolToken(); // with nobody unlocked, that is none
 		SwingUtilities.invokeLater(() -> {
 			if (oldInbox != null) oldInbox.stop();
 			window.userLoggedOut();
@@ -1499,6 +1500,7 @@ public final class BrightSide {
 		if (id.did() == null) persistIdentity(bound);
 		// The Claude Code projects are the owner's to use, Brightside's own source among them.
 		ClaudeCode.own(v, bound.did(), config.home());
+		renewToolToken(); // unlocked again: local tools need not wait for the hour
 		return bound;
 	}
 
@@ -2121,13 +2123,22 @@ public final class BrightSide {
 
 	public void setKeepToolToken(boolean value) {
 		prefs.setBool("toolToken.keep", value);
-		toolTokens.execute(this::refreshToolToken);
+		renewToolToken();
 	}
 
 	/** Keeps the tool token fresh from the moment the venue is up. Once. */
 	private void startToolTokens() {
 		if (toolTokensStarted.compareAndSet(false, true)) {
 			toolTokens.scheduleWithFixedDelay(this::refreshToolToken, 0, ToolToken.REFRESH_SECONDS, TimeUnit.SECONDS);
+		}
+	}
+
+	/** {@link #refreshToolToken} now, off the calling thread; nothing once exiting. */
+	private void renewToolToken() {
+		try {
+			toolTokens.execute(this::refreshToolToken);
+		} catch (java.util.concurrent.RejectedExecutionException e) {
+			// exiting: the file is already gone
 		}
 	}
 
@@ -2342,6 +2353,7 @@ public final class BrightSide {
 	/** {@link #exit()}, ending with {@code status}. */
 	private void exit(int status) {
 		if (!exiting.compareAndSet(false, true)) return;
+		toolTokens.shutdownNow(); // no refresh may write it back
 		ToolToken.clear(config.home()); // nothing left to connect to
 		chatBindings.incrementAndGet();
 		log.info("Exit requested");

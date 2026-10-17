@@ -204,7 +204,8 @@ chosen principal. It is shown for copying and never persisted. The one
 exception is opt-in: *Keep a token for local tools* writes a user token, never
 an operator one, to `tool-token.json`, valid for a day and replaced every hour
 while Brightside runs, so a tool on this computer can read it at each connect;
-it is deleted on quit, when the option is turned off, and on recovery. Instance
+it is deleted on quit, on *Log out* (or Lock) until the next unlock, when the
+option is turned off, and on recovery. Instance
 takeover uses a five-minute operator token and invokes only the authenticated
 shutdown operation. Treat a copied token as a password until it expires.
 
