@@ -13,10 +13,10 @@ recommended. Thor as he is today is in [GODS.md](GODS.md).
 - **A quiet day costs nothing.** Watching is an in-process subscription: no
   job, no model call. Only a rule that fires costs a Thor turn, and cooldowns
   and a cap bound how many.
-- **An observation is grounds to look, never to stop.** The task carries
-  facts — agent, rule, counts, times, session ids — never text an attacker
-  could have shaped. Thor reads the rest through his bridge, no further than
-  the observation needs.
+- **An observation is grounds to look, never on its own to act.** The task
+  carries facts — agent, rule, counts, times, session ids — never text an
+  attacker could have shaped. Thor reads the rest through his bridge, no
+  further than the observation needs.
 - **Rules catch shapes, not intent.** Refusals piling up, outside content
   followed by a consequential call, bursts of outward operations, access
   being widened. What is normal for this owner is Thor's to learn and keep in
@@ -75,7 +75,7 @@ bot or a scheduled wake runs while the owner is away.
 
 **Guards**, so the watch neither loops nor floods:
 
-- The venue's own agents are ignored. Thor's reads and suspensions are tool
+- The venue's own agents are ignored. Thor's own reads and actions are tool
   calls too, and he would chase himself; Odin administers by design.
 - An agent already stopped on purpose is ignored.
 - One report per agent per rule per cooldown, and a venue-wide cap an hour,
@@ -90,9 +90,11 @@ observation is never lost silently.
 
 **Thor's side.** His prompt gains one paragraph of judgement: observations
 from Brightside's watch are mechanical facts about what happened, reason to
-look and never on their own to stop; many are benign; patterns the owner has
+look and never on their own to act; many are benign; patterns the owner has
 vouched for go in his memory, so a repeat closes in one short turn. The
 task's fields are described where the watcher builds it, not in his prompt.
+Whatever he does about an observation is reported to Odin with its reason,
+as all his actions are ([GODS.md](GODS.md)).
 
 **Settings.** Rules and thresholds are configuration with defaults, so an
 owner who finds one noisy can turn it down or off.
@@ -147,5 +149,8 @@ added, and can follow A rather than come with it.
 - Which option: A is recommended, and C can follow it.
 - Whether rule 2 is in from the start or added once the others have run for
   a while.
+- Whether, on a watch observation alone with no report from anyone, Thor may
+  only suspend until the owner answers, rather than use the rest of his
+  powers.
 - Whether the fallback warning is wanted, or a Thor who cannot answer should
   simply leave the observation in the log.
