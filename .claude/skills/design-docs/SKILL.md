@@ -18,6 +18,7 @@ guide and points here.
 | `docs/SKILLS.md` | how the assistant gets abilities: namespaces, what it starts with, how a load works, the shape of the shipped library, growing and feedback |
 | `docs/IDENTITY.md` | venue, user and agent principals; one key; switching user; known limits |
 | `docs/GODS.md` | the venue's own agents: the two bridges each has, asking the owner, Odin the administrator, Thor the guardian, deliberate stops |
+| `docs/THOR_WATCH.md` | proposal: Thor noticing trouble himself — tripwires on agents' run loops against a scheduled patrol; nothing in it is built |
 | `docs/SECURITY.md` | the recovery invariant, key hierarchy, algorithms, file roles, recovery procedure, network exposure, limitations |
 | `docs/ONBOARDING.md` | first run, unlock, recovery from the phrase, settings afterwards |
 | `docs/LAUNCH.md` | startup order, taking over a running instance, tray, exit |

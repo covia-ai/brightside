@@ -98,6 +98,9 @@ assistants when.
 - **The gods are beyond his reach.** His bridge lends sudo only into users'
   namespaces; the venue's own agents answer to the owner directly.
 
+How he might notice trouble himself, without a report, is a proposal in
+[THOR_WATCH.md](THOR_WATCH.md).
+
 ## Deliberate stops
 
 Covia suspends an agent when a turn fails, and when someone stops it with
