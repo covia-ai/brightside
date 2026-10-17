@@ -460,8 +460,8 @@ public final class BrightSide {
 			// queued behind the reveal and fills in the conversation.
 			Identity bound = onVenueReady();
 			startToolTokens();
-			// Watching submits nothing, so it starts now: agents behind a bot or a
-			// schedule run before the owner sends a first message.
+			// Thor's watch submits nothing until it reports, so it starts now:
+			// agents behind a bot or a schedule run before the owner's first message.
 			if (thorWatch == null) thorWatch = ThorWatch.start(v, () -> effectiveChat().llmOperation());
 			if (clearToShow != null) SwingUtilities.invokeLater(clearToShow);
 			if (bound != null) startChatOnce(v, bound);
