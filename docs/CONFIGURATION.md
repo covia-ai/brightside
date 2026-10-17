@@ -48,6 +48,12 @@ configuration file instead, and that file's directory becomes the data
 directory — including its `files/`, `code/` and `logs/` roots — handy for keeping several
 independent agents side by side.
 
+Adding `--unlock` unlocks at once with the remembered passphrase instead of
+waiting at the unlock dialog, for starting Brightside from a script or from
+Claude Code while you are away. Without a remembered passphrase it exits with
+an error; if Brightside is already running it leaves it be
+([LAUNCH.md](LAUNCH.md#startup)).
+
 ## The file
 
 ```json5

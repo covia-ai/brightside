@@ -34,6 +34,16 @@ final class BrightSideTest {
 	}
 
 	@Test
+	void theCommandLineNamesAConfigAndMayAskToUnlock() {
+		assertEquals(new BrightSide.Launch(AppConfig.DEFAULT_FILE, false), BrightSide.Launch.parse());
+		java.nio.file.Path other = java.nio.file.Path.of("other", "config.json").toAbsolutePath().normalize();
+		assertEquals(new BrightSide.Launch(other, true), BrightSide.Launch.parse("--unlock", "other/config.json"));
+		assertEquals(new BrightSide.Launch(other, true), BrightSide.Launch.parse("other/config.json", "--unlock"));
+		org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+			() -> BrightSide.Launch.parse("--unlcok"), "a mistyped option is not taken for a config file");
+	}
+
+	@Test
 	void settingsAccessTokenAuthenticatesAsTheNamedUser() {
 		AKeyPair keyPair = AKeyPair.generate();
 		String venueDID = "did:key:z6MkVenue";

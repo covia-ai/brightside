@@ -94,6 +94,8 @@ public final class BrightSide {
 	private final AtomicLong chatBindings = new AtomicLong();
 	/** The owner already agreed, at startup, to take over the instance found running. */
 	private volatile boolean takeoverApproved;
+	/** Launched with --unlock: a failed unlock exits rather than waiting at the dialog for someone. */
+	private volatile boolean unattended;
 	/** A venue launch in progress, for {@link #closeVenue} to wait on; null when none is. */
 	private volatile CountDownLatch launching;
 	private volatile Thread launchThread;
@@ -134,9 +136,35 @@ public final class BrightSide {
 		this.prefs = prefs;
 	}
 
-	/** Entry point. Optional argument: path to the configuration file. */
+	/**
+	 * What the command line asked for: the configuration file, and whether to
+	 * unlock at once with a remembered passphrase instead of waiting for someone
+	 * to press Unlock ({@code --unlock}), for a launch nobody is sitting at.
+	 */
+	record Launch(Path config, boolean unlock) {
+		static Launch parse(String... args) {
+			Path config = AppConfig.DEFAULT_FILE;
+			boolean unlock = false;
+			for (String a : args) {
+				if (a.equals("--unlock")) unlock = true;
+				else if (a.startsWith("--")) throw new IllegalArgumentException("Unknown option " + a + " (the only one is --unlock)");
+				else config = Path.of(a).toAbsolutePath().normalize();
+			}
+			return new Launch(config, unlock);
+		}
+	}
+
+	/** Entry point. Arguments: an optional path to the configuration file, and {@code --unlock}. */
 	public static void main(String[] args) {
-		Path path = (args.length > 0) ? Path.of(args[0]).toAbsolutePath().normalize() : AppConfig.DEFAULT_FILE;
+		Launch launch;
+		try {
+			launch = Launch.parse(args);
+		} catch (IllegalArgumentException e) {
+			System.err.println(e.getMessage());
+			System.exit(64); // EX_USAGE
+			return;
+		}
+		Path path = launch.config();
 		configureLogging(path.getParent());
 		// Threads' uncaught exceptions — the event thread's included — go to the
 		// log file, not only to a console nobody is watching.
@@ -159,7 +187,7 @@ public final class BrightSide {
 		Prefs prefs = Prefs.load(config.home());
 		String mode = prefs.getString(PREF_MODE, config.theme());
 		LAF.init(prefs.getString(themeKey(mode), null), mode, prefs.getString(PREF_ACCENT, null), themesDir(config));
-		new BrightSide(config, path, prefs).start();
+		new BrightSide(config, path, prefs).start(launch.unlock());
 	}
 
 	/**
@@ -167,11 +195,38 @@ public final class BrightSide {
 	 * new person, or the unlock dialog on its own for a returning one, with the
 	 * main window built but hidden until the passphrase is accepted — then
 	 * brings the venue up in the background once the vault is open.
+	 * <p>
+	 * With {@code unlock}, a launch nobody may be sitting at: a remembered
+	 * passphrase is used at once, without waiting for Unlock, and an instance
+	 * already running is left alone rather than asked about. Without a
+	 * remembered passphrase, or if it fails, the dialog waits as usual.
 	 */
-	void start() {
+	void start(boolean unlock) {
 		Identity saved = Identity.load(config.home());
 		identity = saved;
 		Mode mode = decideMode();
+
+		char[] remembered = null;
+		if (unlock) {
+			// Started from a command line: nobody to ask, so nothing that would ask.
+			if (Takeover.isRunning(config.port())) {
+				log.info("--unlock: something already answers on port {}; leaving it running and exiting", config.port());
+				System.out.println("Brightside is already running on port " + config.port() + ".");
+				System.exit(0);
+				return;
+			}
+			remembered = (mode == Mode.UNLOCK) ? RememberedPassphrase.load(config.home()) : null;
+			if (remembered == null) {
+				String why = (mode == Mode.ONBOARD) ? "Brightside is not set up yet; run it without --unlock first."
+					: "No passphrase is remembered; unlock once with Remember me ticked, or run without --unlock.";
+				log.error("--unlock: {}", why);
+				System.err.println(why);
+				System.exit(1);
+				return;
+			}
+			unattended = true;
+		}
+		char[] passphrase = remembered;
 
 		// Another instance already running? Ask now, before any window — so a
 		// Cancel needs no passphrase first. The handover itself waits for the
@@ -203,7 +258,14 @@ public final class BrightSide {
 						window.showOnboarding();
 						window.setVisible(true);
 					}
-					case UNLOCK -> showUnlockDialog(RememberedPassphrase.load(config.home()));
+					case UNLOCK -> {
+						showUnlockDialog(RememberedPassphrase.load(config.home()));
+						// The dialog stays up showing progress.
+						if (passphrase != null) {
+							log.info("--unlock: unlocking with the remembered passphrase");
+							onUnlock(passphrase, true);
+						}
+					}
 				}
 			});
 		} catch (Exception e) {
@@ -250,6 +312,13 @@ public final class BrightSide {
 
 	/** Unlock or recovery failed: back to the dialog with the reason. Event thread. */
 	private void unlockFailed(String message) {
+		if (unattended) {
+			// --unlock: nobody is there to try another passphrase.
+			log.error("--unlock: {}", message);
+			System.err.println(message);
+			exit(1);
+			return;
+		}
 		if (unlockDialog != null) unlockDialog.showError(message);
 		else window.showSystemMessage(message);
 	}
@@ -2199,6 +2268,11 @@ public final class BrightSide {
 
 	/** Stops the venue (flushing its state) and ends the process. */
 	public void exit() {
+		exit(0);
+	}
+
+	/** {@link #exit()}, ending with {@code status}. */
+	private void exit(int status) {
 		if (!exiting.compareAndSet(false, true)) return;
 		chatBindings.incrementAndGet();
 		log.info("Exit requested");
@@ -2214,7 +2288,7 @@ public final class BrightSide {
 			try {
 				closeVenue();
 			} finally {
-				System.exit(0);
+				System.exit(status);
 			}
 		}, "brightside-exit");
 		t.setDaemon(true);

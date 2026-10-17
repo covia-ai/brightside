@@ -25,6 +25,14 @@ how it stops. Code: `BrightSide`, `Takeover`, `EmbeddedVenue`, `TrayManager`.
    stays hidden until the passphrase is accepted. *Lock* (Settings → General)
    hides the window and brings the dialog back; the tray's *Show* brings back
    whichever is current.
+
+   `--unlock` on the command line (`java -jar brightside.jar --unlock`) is for
+   a launch nobody is sitting at, such as one from Claude Code: it unlocks at
+   once with the remembered passphrase, the dialog showing only progress. With
+   no passphrase remembered, or no vault yet, it exits at once with an error
+   and opens no window; a remembered passphrase that fails exits with an
+   error too. If an instance is already running it is left alone, with no
+   takeover asked about, and the launch exits.
 3. Unlock or onboarding opens the vault, yields the identity seed and secures
    the venue config with it (seed plus the Etch v3 store key). `launchVenueWith`
    then runs on a background thread while the unlock dialog stays up showing
