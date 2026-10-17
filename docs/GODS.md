@@ -139,8 +139,9 @@ Known limits on what he can take away:
   chat first sends, so tools Thor takes from that agent come back then; a
   suspension stays.
 
-How he might notice trouble himself, without a report, is a proposal in
-[THOR_WATCH.md](THOR_WATCH.md).
+He does not wait only for reports: Brightside keeps a watch for him, so a
+credential leaving an agent reaches him without anyone reporting it
+([THOR_WATCH.md](THOR_WATCH.md)).
 
 ## Njord, the treasurer
 
@@ -149,10 +150,11 @@ him to pay, transfer or transact; the on-chain Convex skills bring that
 request instead of a signing tool ([SKILLS.md](SKILLS.md)).
 
 - **He holds the keys.** Signing keys live in his treasury, a user only his
-  bridge may act as. There he makes keys, signs and transacts on Convex; he
-  can also use a key already in another of this venue's users' stores. A key
-  never leaves a secret store: it goes by reference, and no operation of his
-  reveals it.
+  bridge may act as. He makes keys there and nowhere else, and signs and
+  transacts on Convex; he can also use a key already in another of this
+  venue's users' stores. A key never leaves a secret store: it goes by
+  reference, his bridge refuses a literal seed, and no operation of his
+  reveals one.
 - **He is sceptical by design.** He releases funds only when a request is
   well evidenced — what, to whom, how much, and the owner's own words behind
   it, checked against what he can see — and consistent with what the owner

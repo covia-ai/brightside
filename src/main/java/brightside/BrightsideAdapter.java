@@ -104,6 +104,8 @@ public class BrightsideAdapter extends AAdapter {
 	private static final AString K_REASON = Strings.intern("reason");
 	private static final AString K_REPORT = Strings.intern("report");
 	private static final AString K_ADDRESS = Strings.intern("address");
+	private static final AString K_SEED = Strings.intern("seed");
+	private static final String OP_GENERATE_KEY = "v/ops/convex/generate-key";
 	private static final String OP_AGENT_REQUEST = "v/ops/agent/request";
 	private static final String OP_USER_SUDO = "v/ops/user/sudo";
 	private static final long DEFAULT_ASK_TIMEOUT_MS = 30_000;
@@ -468,6 +470,12 @@ public class BrightsideAdapter extends AAdapter {
 			String operation = requiredText(input, K_OPERATION, 200);
 			ACell operationInput = RT.getIn(input, K_INPUT);
 			if (operationInput == null) operationInput = Maps.empty();
+			// A god signs by reference only: a literal seed would sit in its job
+			// input and in the report to its overseer, where nothing redacts it.
+			AString seed = RT.ensureString(RT.getIn(operationInput, K_SEED));
+			if (seed != null && !covia.venue.Engine.isSecretRef(seed.toString())) {
+				throw new IllegalArgumentException("A seed goes by secret reference (s/NAME), never as a literal");
+			}
 			AString named = optionalText(input, K_USER, 300);
 			// A god names the user it keeps by its slug.
 			AString user = (named != null && named.toString().equals(god.keeps()))
@@ -510,6 +518,11 @@ public class BrightsideAdapter extends AAdapter {
 				if (keeper != god && user.toString().equals(keeper.kept(venueDID.toString()))) {
 					throw new IllegalArgumentException(user + " is kept by " + keeper.id() + " alone");
 				}
+			}
+			// And a god that keeps a user makes keys only there, in its own custody.
+			if (god.keeps() != null && OP_GENERATE_KEY.equals(operation)
+					&& !user.toString().equals(god.kept(venueDID.toString()))) {
+				throw new IllegalArgumentException(god.id() + " makes keys only in " + god.keeps());
 			}
 			// Covia bounds a sudo context to the presented proofs — the venue's own
 			// ambient authority does not leak in — so the delegation carries the

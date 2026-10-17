@@ -93,6 +93,18 @@ class NjordTest {
 	}
 
 	@Test
+	void keysGoByReferenceAndAreMadeOnlyInTheTreasury() throws Exception {
+		String literal = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+		assertThrows(Exception.class, () -> asNjord(Maps.of("operation", "v/ops/convex/transact", "user", Njord.TREASURY,
+			"input", Maps.of("address", "#13", "source", "(transfer #42 1)", "seed", literal),
+			"reason", "Paying with a pasted seed.")), "a literal seed never reaches an operation or a report");
+		assertThrows(Exception.class, () -> asNjord(Maps.of("operation", "v/ops/convex/generate-key", "user", userDID,
+			"input", Maps.of("name", "OUTSIDE_CUSTODY"), "reason", "A key in the owner's store.")),
+			"his keys are made in his treasury");
+		assertFalse(String.valueOf(run(user, "v/ops/secret/list", Maps.empty())).contains("OUTSIDE_CUSTODY"));
+	}
+
+	@Test
 	void signingNeedsAReason() {
 		assertThrows(Exception.class, () -> asNjord(Maps.of("operation", "v/ops/convex/sign", "user", Njord.TREASURY,
 			"input", Maps.of("seed", "s/" + KEY, "message", "pay #42 1 CVM"))));

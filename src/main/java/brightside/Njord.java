@@ -30,7 +30,8 @@ public final class Njord {
 	 * What Njord may run inside a user's namespace — his treasury above all,
 	 * or the owner's, where a key may already be kept: read balances and
 	 * accounts, make keys, sign and transact. Each signs with a key from that
-	 * user's own secret store, by reference.
+	 * user's own secret store, by reference; the bridge refuses a literal seed,
+	 * and lets him make keys in his treasury alone.
 	 */
 	public static final Set<String> SUDO_OPERATIONS = Set.of(
 		"v/ops/convex/query",
