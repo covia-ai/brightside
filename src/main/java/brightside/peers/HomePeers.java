@@ -52,18 +52,25 @@ public final class HomePeers {
 	private static void agents(List<Node> n, String ownerDID, String planet, List<Agent> agents, String main) {
 		for (Agent a : agents) {
 			String relation = a.id().equals(main) ? Node.MAIN : null;
-			n.add(new Node(ownerDID + "/g/" + a.id(), a.name(), Node.AGENT, relation, status(a.state()), planet,
-				List.of(Fact.of("Id", a.id()))));
+			// On your own venue, so always reachable: connected. What it is doing is a fact, not a status.
+			n.add(new Node(ownerDID + "/g/" + a.id(), a.name(), Node.AGENT, relation, Node.CONNECTED, planet,
+				List.of(Fact.of("State", state(a.state())), Fact.of("Id", a.id()))));
 		}
 	}
 
-	/** An agent's run state as a status: running is connected, asleep idle, suspended offline. */
-	static String status(String state) {
-		if (state == null) return Node.IDLE;
+	/**
+	 * An agent's run state, in words, for its card. Status on the map is about
+	 * whether a node can be reached, which an agent on your own venue always
+	 * can, so this never greys it out.
+	 */
+	static String state(String state) {
+		if (state == null) return "Unknown";
 		return switch (state) {
-			case "RUNNING" -> Node.CONNECTED;
-			case "SUSPENDED", "TERMINATED" -> Node.OFFLINE;
-			default -> Node.IDLE;
+			case "RUNNING" -> "Running";
+			case "SLEEPING" -> "Asleep";
+			case "SUSPENDED" -> "Suspended";
+			case "TERMINATED" -> "Stopped";
+			default -> state.substring(0, 1) + state.substring(1).toLowerCase();
 		};
 	}
 }

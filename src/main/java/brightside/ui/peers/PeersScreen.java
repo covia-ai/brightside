@@ -324,7 +324,7 @@ public final class PeersScreen extends JPanel {
 			c.add(heading(noun.equals("body") ? "Round it" : noun + "s"), "gaptop 12");
 			for (Node k : kids) {
 				int grand = map.childCount(k.did());
-				String trailing = (grand > 0) ? SolarMap.plural(grand, MapLayout.childNoun(k)) : SolarMap.statusLabel(k);
+				String trailing = (grand > 0) ? SolarMap.plural(grand, MapLayout.childNoun(k)) : stateOf(k);
 				c.add(bodyRow(k, iconFor(k), trailing));
 			}
 		}
@@ -342,6 +342,12 @@ public final class PeersScreen extends JPanel {
 			buttons.add(disabled(Node.LINKED.equals(n.relation()) ? "Manage access…" : "Ask for an introduction…"));
 		}
 		if (!buttons.isEmpty()) actions(c, buttons);
+	}
+
+	/** What a body is doing, if its source says (an agent's run state), else its status. */
+	private static String stateOf(Node n) {
+		for (Node.Fact f : n.facts()) if (f.label().equals("State") && !f.section()) return f.value();
+		return SolarMap.statusLabel(n);
 	}
 
 	/** Whether a body is in your own venue's system. */

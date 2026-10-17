@@ -42,8 +42,10 @@ class HomePeersTest {
 		assertEquals(List.of("Odin"), g.partsOf(VENUE + "#operator").stream().map(Node::label).toList());
 		List<Node> yours = g.partsOf(YOU);
 		assertEquals(List.of(YOU + "/g/chat", YOU + "/g/old"), yours.stream().map(Node::did).toList());
-		assertEquals(List.of(Node.CONNECTED, Node.OFFLINE), yours.stream().map(Node::status).toList());
-		assertEquals(Node.IDLE, g.partsOf(VENUE + "#operator").getFirst().status(), "asleep is idle");
+		assertEquals(List.of(Node.CONNECTED, Node.CONNECTED), yours.stream().map(Node::status).toList(),
+			"on your own venue, reachable whatever they are doing: never greyed out");
+		assertTrue(yours.get(1).facts().contains(Node.Fact.of("State", "Suspended")), "what it is doing is on its card");
+		assertTrue(g.partsOf(VENUE + "#operator").getFirst().facts().contains(Node.Fact.of("State", "Asleep")));
 		assertEquals(List.of(Node.MAIN), yours.stream().map(Node::relation).filter(r -> r != null).toList(),
 			"your main assistant, and only it, is marked");
 	}
