@@ -53,10 +53,11 @@ public final class ThorWatch implements AutoCloseable {
 	private static final String SECRET_TOOLS = "secret_";
 	/**
 	 * What a credential looks like: provider API keys (Anthropic, OpenAI and
-	 * the like, GitHub, Slack, AWS, Google) and PEM private keys.
+	 * the like, GitHub, Slack, AWS, Google) and PEM private keys. A key starts
+	 * a word, so {@code task-scheduler-configuration} is not one.
 	 */
 	static final Pattern CREDENTIAL = Pattern.compile(String.join("|",
-		"sk-[A-Za-z0-9_-]{20,}",
+		"\\bsk-[A-Za-z0-9_-]{20,}",
 		"gh[pousr]_[A-Za-z0-9]{30,}",
 		"github_pat_[A-Za-z0-9_]{30,}",
 		"xox[abprs]-[A-Za-z0-9-]{10,}",

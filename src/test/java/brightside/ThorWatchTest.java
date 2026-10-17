@@ -81,6 +81,9 @@ class ThorWatchTest {
 		assertNull(watch.observe(toolCall(userDID, "watch-a", "covia_write",
 			Maps.of("value", "eyJhbGciOiJFZERTQSJ9.eyJzdWIiOiJ4In0.c2ln and " + "ab".repeat(32)))),
 			"tokens and hashes are routine");
+		assertNull(watch.observe(toolCall(userDID, "watch-a", "covia_write",
+			Maps.of("path", "w/task-scheduler-configuration-2026", "value", "disk-usage-report-for-october"))),
+			"nor is a word that merely ends in sk-");
 		assertNotNull(watch.observe(toolCall(userDID, "watch-a", "discord_send", Maps.of("content", "here: " + KEY))),
 			"a key leaving");
 	}
