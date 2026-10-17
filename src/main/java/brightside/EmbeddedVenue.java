@@ -152,6 +152,11 @@ public final class EmbeddedVenue implements AutoCloseable {
 		return engine().agentEvents().subscribe(Strings.create(ownerDID), Strings.create(agentId), onEvent::accept);
 	}
 
+	/** As {@link #subscribeAgent}, for every agent on the venue. */
+	public AutoCloseable subscribeAgents(java.util.function.Consumer<covia.venue.AgentEvents.Event> onEvent) {
+		return engine().agentEvents().subscribe(onEvent::accept);
+	}
+
 	/**
 	 * The user's encrypted secret store ({@code s/}), straight from the
 	 * in-process venue state. With {@code ensure} the user record is created

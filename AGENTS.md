@@ -53,7 +53,7 @@ rules for changing them.
 | Startup, takeover, tray, exit | `docs/LAUNCH.md` |
 | Venue, user and agent identity | `docs/IDENTITY.md` |
 | The gods — the venue's own agents: Odin the administrator, Thor the guardian | `docs/GODS.md` |
-| Thor noticing trouble himself: tripwires or a patrol (proposal) | `docs/THOR_WATCH.md` |
+| Thor's watch: a credential leaving, reported without anyone asking | `docs/THOR_WATCH.md` |
 | Vault, keys, recovery, authentication, network exposure | `docs/SECURITY.md` |
 | First run, unlock, recovery, settings | `docs/ONBOARDING.md` |
 | `config.json`, files, API keys, integrations, reaching the venue from other tools | `docs/CONFIGURATION.md` |

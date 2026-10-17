@@ -56,7 +56,8 @@ how it stops. Code: `BrightSide`, `Takeover`, `EmbeddedVenue`, `TrayManager`.
    to it. Only then is the window revealed, and the chat starts as
    `<venueDID>:u:<slug>`: the agent record, the conversations, the agents list
    and the inbox are read in-process, any changed filesystem skill is imported
-   and the conversation watcher starts. Nothing else is submitted: the agent
+   and the conversation watcher starts, as does
+  [Thor's watch](THOR_WATCH.md). Nothing else is submitted: the agent
    is created or reconfigured on the first message, and the gods with it, so
    a launch writes no jobs. A failure while the chat binds is
    reported in the window rather than left as a composer that never wakes.
