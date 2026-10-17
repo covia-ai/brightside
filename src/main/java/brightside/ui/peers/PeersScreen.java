@@ -324,7 +324,7 @@ public final class PeersScreen extends JPanel {
 		List<Node> agents = map.moonsOf(n.did());
 		if (!agents.isEmpty()) {
 			c.add(heading("Agents"), "gaptop 12");
-			for (Node a : agents) c.add(legendRow(Colours.moon(() -> map.colourOf(a), 14), a.label(), SolarMap.statusLabel(a)));
+			for (Node a : agents) c.add(bodyRow(a, Colours.moon(() -> map.colourOf(a), 14), SolarMap.statusLabel(a)));
 		}
 		if (!ours) actions(c, List.of(disabled("Message"), disabled("Manage access…")));
 	}
@@ -346,7 +346,8 @@ public final class PeersScreen extends JPanel {
 			c.add(heading("Users"), "gaptop 12");
 			for (Node u : users) {
 				int m = map.moonsOf(u.did()).size();
-				c.add(legendRow(lamp(SolarMap.lamp(u.status())), u.label(), m == 0 ? null : SolarMap.plural(m, "agent")));
+				Color colour = SolarMap.disconnected(u) ? SolarMap.greyed(map.colourOf(u)) : map.colourOf(u);
+				c.add(bodyRow(u, new PlanetIcon(colour, 18, SolarMap.ringed(u)), m == 0 ? null : SolarMap.plural(m, "agent")));
 			}
 		}
 		if (ours) return;
@@ -410,6 +411,39 @@ public final class PeersScreen extends JPanel {
 		row.setOpaque(false);
 		row.add(Labels.small(label, Styles.MUTED), "aligny top, gaptop 1");
 		row.add(value, "wmin 0");
+		return row;
+	}
+
+	/**
+	 * A row for a body on the map, drawn as it is there: click to choose it,
+	 * right-click for the same menu the map gives it.
+	 */
+	private JComponent bodyRow(Node n, Icon icon, String trailing) {
+		JComponent row = legendRow(icon, n.label(), trailing);
+		row.setToolTipText("Click to choose " + n.label() + "; right-click for more");
+		java.awt.event.MouseAdapter mouse = new java.awt.event.MouseAdapter() {
+			@Override
+			public void mousePressed(java.awt.event.MouseEvent e) {
+				if (e.isPopupTrigger()) menu(e);
+			}
+
+			@Override
+			public void mouseReleased(java.awt.event.MouseEvent e) {
+				if (e.isPopupTrigger()) menu(e);
+			}
+
+			@Override
+			public void mouseClicked(java.awt.event.MouseEvent e) {
+				if (SwingUtilities.isLeftMouseButton(e)) map.select(n.did());
+			}
+
+			private void menu(java.awt.event.MouseEvent e) {
+				new PeersMenu(map, source.graph(), actions).build(n.did()).show(e.getComponent(), e.getX(), e.getY());
+			}
+		};
+		row.addMouseListener(mouse);
+		for (Component child : row.getComponents()) child.addMouseListener(mouse);
+		row.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
 		return row;
 	}
 
