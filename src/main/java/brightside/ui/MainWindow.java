@@ -436,7 +436,7 @@ public final class MainWindow extends JFrame {
 			}
 		});
 		VaultPanel vaultPanel = new VaultPanel(app::forgetRememberedPassphrase);
-		AuthPanel authPanel = new AuthPanel(app::mintAccessToken);
+		AuthPanel authPanel = new AuthPanel(app::mintAccessToken, app::keepToolToken, app::setKeepToolToken);
 		settingsScreen = new SettingsScreen(generalPanel, themePanel, modelPanel, profilePanel, integrationsPanel,
 			schedulePanel, secretsPanel, vaultPanel, authPanel);
 

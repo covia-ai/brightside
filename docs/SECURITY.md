@@ -11,7 +11,8 @@ user-installed skills are trusted in all circumstances.
   the same identity and the same conversations, memory, skills and secrets.
   The phrase reproduces the seed; the passphrase does not.
 - **Nothing sensitive is plaintext at rest**, except a passphrase the owner
-  explicitly chose to remember.
+  explicitly chose to remember, and a day-long token for local tools they
+  chose to keep.
 - **Loopback only, authenticated only.** The venue binds to `127.0.0.1` with
   anonymous access off; the only outbound traffic is the model call the owner
   asked for.
@@ -133,6 +134,7 @@ The data home is the directory holding `config.json`, by default
 | `vault.salt` | non-secret, never silently replaced | Needed for old-passphrase unlock; not for phrase recovery. Back it up anyway |
 | `keys.enc` | transient onboarding key staging, AES-GCM | Normally absent; provider keys live in the stores inside `venue.etch` |
 | `unlock.passphrase` | **plaintext**, after explicit opt-in | Anyone who reads it can unlock the vault. Exclude from ordinary backups; cleared on recovery |
+| `tool-token.json` | **plaintext** user bearer token, after explicit opt-in | Anyone who reads it can act as the user until it expires (a day at most). Not needed for recovery; removed on quit and on recovery |
 | `identity.json` | plaintext name, slug and user DID | **Back it up**: the phrase reproduces the venue, not the user suffix |
 | `config.json`, `model.txt`, `prefs.properties` | plaintext, no secrets | Back up when customised |
 | `skills/`, `files/`, `code/` | plaintext, the owner's own | Outside the encrypted store; back up if they matter. Treat third-party skills as executable authority; `code/brightside` is a checkout Claude Code works in without asking (auto mode), as your OS user ([CONFIGURATION.md](CONFIGURATION.md#claude-code)) |
@@ -198,7 +200,11 @@ a reviewer inspects the effective configuration first.
 
 *Settings → Auth* mints an Ed25519-signed bearer token for the current user or,
 as an advanced option, the venue operator: `iss = aud = <venueDID>`, `sub` the
-chosen principal. It is shown for copying and never persisted. Instance
+chosen principal. It is shown for copying and never persisted. The one
+exception is opt-in: *Keep a token for local tools* writes a user token, never
+an operator one, to `tool-token.json`, valid for a day and replaced every hour
+while Brightside runs, so a tool on this computer can read it at each connect;
+it is deleted on quit, when the option is turned off, and on recovery. Instance
 takeover uses a five-minute operator token and invokes only the authenticated
 shutdown operation. Treat a copied token as a password until it expires.
 

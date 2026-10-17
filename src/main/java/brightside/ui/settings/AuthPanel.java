@@ -1,7 +1,11 @@
 package brightside.ui.settings;
 
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
+
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JScrollPane;
 
@@ -15,7 +19,8 @@ import brightside.ui.components.TextArea;
  * authenticates as the current named user against the local venue API, with a
  * chosen expiry. Its single primary action is <b>Generate</b> (there is nothing
  * to save); the token is shown once (selectable) for copying and is never written
- * to disk.
+ * to disk. Separately, the owner may opt in to a token for local tools that
+ * Brightside keeps fresh in a file ({@link brightside.ToolToken}).
  */
 @SuppressWarnings("serial")
 public final class AuthPanel extends SettingsPage {
@@ -44,11 +49,14 @@ public final class AuthPanel extends SettingsPage {
 	private final JComboBox<Exp> expiry = new JComboBox<>();
 	private final TextArea token = new TextArea(4, 34).placeholder("Generated token appears here");
 	private final JButton copy = Buttons.small("Copy");
+	private final JCheckBox keepToolToken = new JCheckBox("Keep a token for local tools");
 
-	public AuthPanel(Minter minter) {
+	public AuthPanel(Minter minter, BooleanSupplier keepingToolToken, Consumer<Boolean> keepToolToken) {
 		super("Generate");
 		this.minter = minter;
 		build();
+		this.keepToolToken.setSelected(keepingToolToken.getAsBoolean());
+		this.keepToolToken.addActionListener(e -> keepToolToken.accept(this.keepToolToken.isSelected()));
 	}
 
 	private void build() {
@@ -86,6 +94,12 @@ public final class AuthPanel extends SettingsPage {
 		addField("Expires in", expiry);
 		addSpan(tokenScroll, "h 96!, gaptop 6");
 		addSpanLeft(copy);
+
+		keepToolToken.setOpaque(false);
+		keepToolToken.setToolTipText("Renewed every hour while Brightside runs, and removed when it quits");
+		addField("Local tools", "While Brightside runs, keeps a user token valid for a day in tool-token.json in "
+			+ "your data folder, for tools on this computer such as Claude Code to read when they connect. Like a "
+			+ "remembered passphrase, anyone who can read your files can use it.", keepToolToken);
 	}
 
 	private void onGenerate() {

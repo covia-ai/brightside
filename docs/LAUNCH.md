@@ -31,8 +31,12 @@ how it stops. Code: `BrightSide`, `Takeover`, `EmbeddedVenue`, `TrayManager`.
    once with the remembered passphrase, the dialog showing only progress. With
    no passphrase remembered, or no vault yet, it exits at once with an error
    and opens no window; a remembered passphrase that fails exits with an
-   error too. If an instance is already running it is left alone, with no
-   takeover asked about, and the launch exits.
+   error too, as does a launch that fails after it, since nobody is there to
+   read the dialog. Once the window is up it is an ordinary session: a later
+   Lock asks for the passphrase as usual. If an instance is already running it
+   is left alone and the launch exits, unless `--takeover` is given as well.
+   `--takeover`, with or without `--unlock`, takes over from a running
+   Brightside without asking (below).
 3. Unlock or onboarding opens the vault, yields the identity seed and secures
    the venue config with it (seed plus the Etch v3 store key). `launchVenueWith`
    then runs on a background thread while the unlock dialog stays up showing
@@ -70,7 +74,8 @@ Two processes cannot share `venue.etch`; the second fails on the file lock. So
   something is running; only a refused connection means nothing is. (A private
   venue answers `401` to strangers; that still counts.)
 - A returning owner is asked *Take Over / Cancel* at startup, before the unlock
-  dialog — Cancel exits without a passphrase ever being typed. The unlock
+  dialog — Cancel exits without a passphrase ever being typed; `--takeover`
+  answers *Take Over* in advance. The unlock
   dialog then notes that the running instance will hand over once unlocked.
   (An instance that appears only later is asked about at launch time instead.)
 - A new install is told to quit the running Brightside first, and exits. It

@@ -96,6 +96,16 @@ public final class BrightSide {
 	private volatile boolean takeoverApproved;
 	/** Launched with --unlock: a failed unlock exits rather than waiting at the dialog for someone. */
 	private volatile boolean unattended;
+	/** Launched with --takeover: a Brightside found running is taken over without asking. */
+	private volatile boolean takeoverAllowed;
+	/** Rewrites the token for local tools while the owner keeps one ({@link ToolToken}). */
+	private final java.util.concurrent.ScheduledExecutorService toolTokens =
+		java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
+			Thread t = new Thread(r, "brightside-tool-token");
+			t.setDaemon(true);
+			return t;
+		});
+	private final AtomicBoolean toolTokensStarted = new AtomicBoolean();
 	/** A venue launch in progress, for {@link #closeVenue} to wait on; null when none is. */
 	private volatile CountDownLatch launching;
 	private volatile Thread launchThread;
@@ -137,24 +147,27 @@ public final class BrightSide {
 	}
 
 	/**
-	 * What the command line asked for: the configuration file, and whether to
+	 * What the command line asked for: the configuration file; whether to
 	 * unlock at once with a remembered passphrase instead of waiting for someone
-	 * to press Unlock ({@code --unlock}), for a launch nobody is sitting at.
+	 * to press Unlock ({@code --unlock}), for a launch nobody is sitting at; and
+	 * whether to take over a Brightside already running without asking
+	 * ({@code --takeover}).
 	 */
-	record Launch(Path config, boolean unlock) {
+	record Launch(Path config, boolean unlock, boolean takeover) {
 		static Launch parse(String... args) {
 			Path config = AppConfig.DEFAULT_FILE;
-			boolean unlock = false;
+			boolean unlock = false, takeover = false;
 			for (String a : args) {
 				if (a.equals("--unlock")) unlock = true;
-				else if (a.startsWith("--")) throw new IllegalArgumentException("Unknown option " + a + " (the only one is --unlock)");
+				else if (a.equals("--takeover")) takeover = true;
+				else if (a.startsWith("--")) throw new IllegalArgumentException("Unknown option " + a + " (the options are --unlock and --takeover)");
 				else config = Path.of(a).toAbsolutePath().normalize();
 			}
-			return new Launch(config, unlock);
+			return new Launch(config, unlock, takeover);
 		}
 	}
 
-	/** Entry point. Arguments: an optional path to the configuration file, and {@code --unlock}. */
+	/** Entry point. Arguments: an optional path to the configuration file, {@code --unlock} and {@code --takeover}. */
 	public static void main(String[] args) {
 		Launch launch;
 		try {
@@ -187,7 +200,7 @@ public final class BrightSide {
 		Prefs prefs = Prefs.load(config.home());
 		String mode = prefs.getString(PREF_MODE, config.theme());
 		LAF.init(prefs.getString(themeKey(mode), null), mode, prefs.getString(PREF_ACCENT, null), themesDir(config));
-		new BrightSide(config, path, prefs).start(launch.unlock());
+		new BrightSide(config, path, prefs).start(launch);
 	}
 
 	/**
@@ -196,12 +209,16 @@ public final class BrightSide {
 	 * main window built but hidden until the passphrase is accepted — then
 	 * brings the venue up in the background once the vault is open.
 	 * <p>
-	 * With {@code unlock}, a launch nobody may be sitting at: a remembered
-	 * passphrase is used at once, without waiting for Unlock, and an instance
-	 * already running is left alone rather than asked about. Without a
-	 * remembered passphrase, or if it fails, the dialog waits as usual.
+	 * With {@link Launch#unlock}, a launch nobody may be sitting at: a
+	 * remembered passphrase is used at once, without waiting for Unlock, and
+	 * anything that would need someone, no passphrase remembered or one that
+	 * fails, ends the process with an error instead. An instance already
+	 * running is left alone unless {@link Launch#takeover} says to take over
+	 * from it, which is then done without asking.
 	 */
-	void start(boolean unlock) {
+	void start(Launch launch) {
+		boolean unlock = launch.unlock();
+		takeoverAllowed = launch.takeover();
 		Identity saved = Identity.load(config.home());
 		identity = saved;
 		Mode mode = decideMode();
@@ -209,7 +226,7 @@ public final class BrightSide {
 		char[] remembered = null;
 		if (unlock) {
 			// Started from a command line: nobody to ask, so nothing that would ask.
-			if (Takeover.isRunning(config.port())) {
+			if (!takeoverAllowed && Takeover.isRunning(config.port())) {
 				log.info("--unlock: something already answers on port {}; leaving it running and exiting", config.port());
 				System.out.println("Brightside is already running on port " + config.port() + ".");
 				System.exit(0);
@@ -241,7 +258,9 @@ public final class BrightSide {
 				System.exit(0);
 				return;
 			}
-			if (!confirmTakeover()) {
+			if (takeoverAllowed) {
+				log.info("--takeover: taking over from the instance on port {} without asking", config.port());
+			} else if (!confirmTakeover()) {
 				log.info("Another Brightside instance is running and takeover was declined; exiting");
 				System.exit(0);
 				return;
@@ -302,6 +321,7 @@ public final class BrightSide {
 
 	/** The passphrase was accepted (or the identity recovered): drop the unlock dialog and bring up the window. */
 	private void unlocked() {
+		unattended = false; // up: from here on, as any launch (a later Lock asks as usual)
 		if (unlockDialog != null) {
 			unlockDialog.dispose();
 			unlockDialog = null;
@@ -310,13 +330,17 @@ public final class BrightSide {
 		window.showAndFocus();
 	}
 
+	/** An --unlock launch could not come up: nobody is there to try again, so say why and end with an error. */
+	private void unattendedFailed(String message) {
+		log.error("--unlock: {}", message);
+		System.err.println(message);
+		exit(1);
+	}
+
 	/** Unlock or recovery failed: back to the dialog with the reason. Event thread. */
 	private void unlockFailed(String message) {
 		if (unattended) {
-			// --unlock: nobody is there to try another passphrase.
-			log.error("--unlock: {}", message);
-			System.err.println(message);
-			exit(1);
+			unattendedFailed(message);
 			return;
 		}
 		if (unlockDialog != null) unlockDialog.showError(message);
@@ -416,6 +440,7 @@ public final class BrightSide {
 			// chat bind starts after that, so its own event-thread update is
 			// queued behind the reveal and fills in the conversation.
 			Identity bound = onVenueReady();
+			startToolTokens();
 			if (clearToShow != null) SwingUtilities.invokeLater(clearToShow);
 			if (bound != null) startChatOnce(v, bound);
 			if (repaired != null) {
@@ -450,6 +475,10 @@ public final class BrightSide {
 
 	/** Startup failed: say so where the owner is looking — the unlock dialog while locked, else the window. */
 	private void startupFailed(String message) {
+		if (unattended) {
+			unattendedFailed(message);
+			return;
+		}
 		SwingUtilities.invokeLater(() -> {
 			if (unlockDialog != null) unlockDialog.showError(message);
 			else window.startupFailed(message);
@@ -457,6 +486,10 @@ public final class BrightSide {
 	}
 
 	private void startupFailed(Throwable t) {
+		if (unattended) {
+			unattendedFailed("Brightside couldn't start up: " + t + " (see the logs)");
+			return;
+		}
 		SwingUtilities.invokeLater(() -> {
 			if (unlockDialog != null) unlockDialog.showError("Sorry — Brightside couldn't start up. See the logs.");
 			else window.startupFailed(t);
@@ -649,6 +682,9 @@ public final class BrightSide {
 				// venue store itself is keyed to the seed, so it stays and reopens intact.
 				Files.deleteIfExists(home.resolve(Vault.KEYS_FILE));
 				RememberedPassphrase.clear(home);
+				// Like the remembered passphrase, the tool token is something to opt back into.
+				prefs.setBool("toolToken.keep", false);
+				ToolToken.clear(home);
 				v.storeSeed(seedHex); // re-encrypt the seed under the new passphrase
 				this.vault = v;
 				this.venueSeedHex = seedHex;
@@ -1270,7 +1306,7 @@ public final class BrightSide {
 	 */
 	private boolean takeOver(int port, Path store) throws Exception {
 		// Already agreed at startup; otherwise the instance appeared since, so ask now.
-		if (!takeoverApproved && !confirmTakeover()) return false;
+		if (!takeoverApproved && !takeoverAllowed && !confirmTakeover()) return false;
 		takeoverApproved = false;
 		progress("Taking over from the running Brightside…");
 		// Who is it? A Brightside holding our identity answers brightside:info
@@ -2075,6 +2111,38 @@ public final class BrightSide {
 		prefs.setBool("tray.minimise", value);
 	}
 
+	/**
+	 * Whether a user token for local tools is kept fresh in a file while
+	 * Brightside runs (default false). See {@link ToolToken}.
+	 */
+	public boolean keepToolToken() {
+		return prefs.getBool("toolToken.keep", false);
+	}
+
+	public void setKeepToolToken(boolean value) {
+		prefs.setBool("toolToken.keep", value);
+		toolTokens.execute(this::refreshToolToken);
+	}
+
+	/** Keeps the tool token fresh from the moment the venue is up. Once. */
+	private void startToolTokens() {
+		if (toolTokensStarted.compareAndSet(false, true)) {
+			toolTokens.scheduleWithFixedDelay(this::refreshToolToken, 0, ToolToken.REFRESH_SECONDS, TimeUnit.SECONDS);
+		}
+	}
+
+	/** A fresh tool token if the owner keeps one and the venue can sign it; otherwise none at all. */
+	private void refreshToolToken() {
+		Path home = config.home();
+		try {
+			String jwt = (keepToolToken() && !exiting.get()) ? mintAccessToken(ToolToken.LIFETIME_SECONDS, false) : null;
+			if (jwt == null) ToolToken.clear(home);
+			else ToolToken.write(home, jwt);
+		} catch (Exception e) {
+			log.warn("Could not write the token for local tools: {}", e.toString());
+		}
+	}
+
 	/** {@link LAF#LIGHT} or {@link LAF#DARK}: the mode in use. */
 	public String mode() {
 		return LAF.mode();
@@ -2274,6 +2342,7 @@ public final class BrightSide {
 	/** {@link #exit()}, ending with {@code status}. */
 	private void exit(int status) {
 		if (!exiting.compareAndSet(false, true)) return;
+		ToolToken.clear(config.home()); // nothing left to connect to
 		chatBindings.incrementAndGet();
 		log.info("Exit requested");
 		SwingUtilities.invokeLater(() -> {

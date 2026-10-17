@@ -27,6 +27,7 @@ can be told is in one hand-edited file there.
 | `~/.brightside/identity.enc` | The AES-GCM-encrypted Ed25519 identity seed. |
 | `~/.brightside/keys.enc` | Transient: stages an onboarding API key until the first launch moves it into the venue's encrypted secret stores; absent afterwards. |
 | `~/.brightside/unlock.passphrase` | Optional remembered passphrase, stored as plaintext after explicit opt-in; exclude it from ordinary vault backups. |
+| `~/.brightside/tool-token.json` | Optional: while Brightside runs, a user token for local tools, renewed hourly, after explicit opt-in ([From Claude Code](#from-claude-code)). |
 | `~/.brightside/files/` | Brightside-managed local files; exposed to the assistant as the confined writable `files` root. |
 | `~/.brightside/code/` | Source checkouts the assistant works on, as the writable `code` root; `code/brightside` is Brightside's own source, a [Claude Code](#claude-code) project by default. |
 | `~/.brightside/logs/` | Plaintext rolling logs; exposed to the assistant as the server-enforced read-only `logs` root. |
@@ -51,8 +52,9 @@ independent agents side by side.
 Adding `--unlock` unlocks at once with the remembered passphrase instead of
 waiting at the unlock dialog, for starting Brightside from a script or from
 Claude Code while you are away. Without a remembered passphrase it exits with
-an error; if Brightside is already running it leaves it be
-([LAUNCH.md](LAUNCH.md#startup)).
+an error; if Brightside is already running it leaves it be, unless
+`--takeover` is given too, which takes over from it without asking (on its
+own, `--takeover` just skips that question) ([LAUNCH.md](LAUNCH.md#startup)).
 
 ## The file
 
@@ -408,6 +410,30 @@ git-ignored here because it carries the token:
    variable instead).
 2. Start Claude Code in this repository and approve the project server when
    asked; `claude mcp list` should show `brightside … ✔ Connected`.
+
+**Without pasting tokens.** Tick *Settings → Auth → Keep a token for local
+tools* and Brightside keeps a user token, valid for a day and renewed every
+hour while it runs, in `~/.brightside/tool-token.json`, already in the shape
+Claude Code's `headersHelper` must print. Point the server at it instead of a
+pasted header, and Claude Code reads it afresh at every connect, and again
+after a `401`:
+
+```json
+{
+  "mcpServers": {
+    "brightside": {
+      "type": "http",
+      "url": "http://127.0.0.1:8085/mcp",
+      "headersHelper": "cat ~/.brightside/tool-token.json"
+    }
+  }
+}
+```
+
+With that, and a remembered passphrase, Claude Code can start Brightside
+itself with `java -jar target/brightside.jar --unlock --takeover` and connect
+once it is up, with nobody at the computer. On Windows, if the helper's shell
+does not expand `~`, give the absolute path.
 
 Mint it **as the user** for Claude Code to see what you see — your workspace,
 agents, conversations and inbox. A token minted as the venue operator sees the
