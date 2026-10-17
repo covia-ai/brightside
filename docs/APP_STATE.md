@@ -115,13 +115,12 @@ cache and a recovery aid until the region is trusted, and is retired after.
 
 ## What this asks of Covia and Convex
 
-- **An `:app` region, and a way into it.** The root needs an `:app` region
-  that hosts applications by name. CAD045 ("Registration") currently has each
-  application register its own top-level keyword, as `:social` does; it needs
-  to say instead that non-core applications go under `:app`, with the core
-  regions kept to the root. Covia then has to let an embedder register its
-  application under `:app` before launch and get a cursor or host for it; the
-  start-up hook is the natural place.
+- **An `:app` region, and a way into it.** CAD045 ("Registration") puts
+  application-specific lattices under `:app`, keyed by application name, and
+  keeps root regions for ecosystem facilities allocated by the Convex
+  Foundation. Convex's root lattice does not register `:app` yet. Covia then
+  has to let an embedder register its application under `:app` before launch
+  and get a cursor or host for it; the start-up hook is the natural place.
 - **Owners that are DIDs.** CAD045's owner lattice partitions by owner
   public key, and the people on a venue have none: the venue signs for them.
   Convex's application guide allows an indirect owner, a DID resolved by the
@@ -140,8 +139,8 @@ cache and a recovery aid until the region is trusted, and is retired after.
    components, on a `RootComponent` over a memory store, with tests of merge
    (two values edited apart, merged, each change kept), signing and the
    domain methods. Needs nothing from Covia.
-2. **Agree `:app`** in CAD045, and ask Covia to let an embedder register
-   under it.
+2. **Register `:app`** in Convex's root lattice, and ask Covia to let an
+   embedder register under it.
 3. **Host it in the venue** and move the peers map onto it.
 4. **Migrate** the rest, one part at a time.
 5. **Sync between your devices** once P2P is in the venue ([covia#587](https://github.com/covia-ai/covia/issues/587)).
