@@ -151,8 +151,8 @@ final class SolarMap extends JComponent {
 		}
 	}
 
-	/** A named ring round a body: which ring, and round what. */
-	private record RingAt(Body around, int ring) {
+	/** A named ring round a body: round what, by key, since the layout is rebuilt as it moves; and which ring. */
+	private record RingAt(String around, int ring) {
 	}
 
 	/**
@@ -222,7 +222,8 @@ final class SolarMap extends JComponent {
 					dragAt = world(e.getX() + grabX, e.getY() + grabY);
 					if (!dragging.equals(selected)) select(dragging);
 				} else if (resizing != null) {
-					Body b = resizing.around();
+					Body b = layout.get(resizing.around());
+					if (b == null) return;
 					Point2D.Double w = world(e.getX(), e.getY());
 					double k = Math.hypot(w.x - b.x(), w.y - b.z()) / b.radius();
 					settings = settings.withRingRadius(resizing.ring(), k);
@@ -716,7 +717,7 @@ final class SolarMap extends JComponent {
 				double across = Math.abs(rho - k * b.radius()) * s * Math.max(TILT, Math.abs(dx) / Math.max(rho, 1e-9));
 				if (across <= nearest) {
 					nearest = across;
-					best = new RingAt(b, ring);
+					best = new RingAt(b.key, ring);
 				}
 			}
 		}
@@ -954,7 +955,7 @@ final class SolarMap extends JComponent {
 	/** A named ring round {@code b}, lit while one of its bodies is pointed at or the ring is held; named when there is room. */
 	private void paintRing(Graphics2D g, Body b, Point2D.Double c, int ring, boolean last, double s, float alpha) {
 		double r = settings.rings().get(ring).radius() * b.radius() * s;
-		boolean held = resizing != null && resizing.around() == b && resizing.ring() == ring;
+		boolean held = resizing != null && resizing.around().equals(b.key) && resizing.ring() == ring;
 		boolean lit = held || onRing(hover, b, ring) || onRing(selected, b, ring);
 		float a = alpha * (0.25f + 0.75f * fadeIn(r, UIScale.scale(20f), UIScale.scale(80f)));
 		float dash = UIScale.scale(3f);
@@ -1006,7 +1007,7 @@ final class SolarMap extends JComponent {
 		float dim = known ? 1f : 0.6f;
 		Color base = (n == null) ? hue(b.key) : colourOf(n);
 		Color hue = (n != null && disconnected(n)) ? greyed(base) : base;
-		boolean yours = n != null && labelOf(n).equals("Home");
+		boolean yours = b == layout.home();
 		double pulse = yours ? 1 + 0.04 * Math.sin(t * 1.3) : 1;
 		double corona = r * (focus ? 5.2 : 4.2) * pulse;
 		g.setPaint(new RadialGradientPaint(new Point2D.Double(x, y), (float) corona,
@@ -1134,7 +1135,7 @@ final class SolarMap extends JComponent {
 		Body b = pl.body();
 		Look look = look(b);
 		boolean focus = b.key.equals(hover) || b.key.equals(selected);
-		boolean yours = b.isRoot() && labelOf(n).equals("Home");
+		boolean yours = b == layout.home();
 		String name = labelOf(n), sub = null;
 		float alpha;
 		if (focus) {
@@ -1177,7 +1178,7 @@ final class SolarMap extends JComponent {
 	private double want(Placed p, double s) {
 		Body b = p.body();
 		if (b.key.equals(hover) || b.key.equals(selected)) return Double.MAX_VALUE;
-		if (b.node != null && b.isRoot() && labelOf(b.node).equals("Home")) return Double.MAX_VALUE / 2;
+		if (b == layout.home()) return Double.MAX_VALUE / 2;
 		double reach = b.extent() * s;
 		if (b.node != null && Node.LINKED.equals(b.node.relation())) reach *= 1.5;
 		return reach;

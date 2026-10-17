@@ -52,7 +52,6 @@ class MapLayoutTest {
 		assertEquals(3, probe.depth, "attached below a moon, it is just another body");
 		assertSame(l.get(P + "home"), probe.star());
 		assertTrue(probe.radius() < l.get(P + "chat").radius(), "smaller than what it orbits");
-		assertEquals(MapLayout.period(probe.k()), MapLayout.period(probe.k()), "one period rule");
 		assertEquals(MapLayout.PERIOD, MapLayout.period(MapLayout.K0), 1e-9);
 		assertEquals(MapLayout.PERIOD * Math.pow(2, 1.5), MapLayout.period(2 * MapLayout.K0), 1e-9, "Kepler: k^1.5");
 	}
