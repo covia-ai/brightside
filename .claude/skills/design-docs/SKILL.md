@@ -18,7 +18,7 @@ guide and points here.
 | `docs/SKILLS.md` | how the assistant gets abilities: namespaces, what it starts with, how a load works, the shape of the shipped library, growing and feedback |
 | `docs/IDENTITY.md` | venue, user and agent principals; one key; switching user; known limits |
 | `docs/GODS.md` | the venue's own agents: the two bridges each has, asking the owner, Odin the administrator, Thor the guardian, Njord the treasurer, deliberate stops |
-| `docs/THOR_WATCH.md` | Thor's watch: the one rule Brightside watches agents' tool calls for, what a report carries, what keeps it quiet, known limits |
+| `docs/THOR.md` | Thor in detail, a sub-article of GODS.md: what reaches him, the watch Brightside keeps for him, what he may and may never change, known limits |
 | `docs/SECURITY.md` | the recovery invariant, key hierarchy, algorithms, file roles, recovery procedure, network exposure, limitations |
 | `docs/ONBOARDING.md` | first run, unlock, recovery from the phrase, settings afterwards |
 | `docs/LAUNCH.md` | startup order, taking over a running instance, tray, exit |

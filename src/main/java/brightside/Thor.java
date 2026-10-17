@@ -18,7 +18,7 @@ import java.util.Set;
  * or sets a secret, grants access, or answers the owner's Inbox, and the
  * venue's own agents — the gods — are beyond his reach: his bridge lends sudo
  * only into users' namespaces. Changes to Brightside itself are Odin's; Thor
- * asks him. See {@code docs/GODS.md}.
+ * asks him. See {@code docs/THOR.md}.
  */
 public final class Thor {
 

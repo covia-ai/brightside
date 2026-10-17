@@ -102,46 +102,13 @@ him ([SKILLS.md](SKILLS.md)).
 
 ## Thor, the guardian
 
-Thor protects the owner against adversaries: instructions smuggled into
-content that turn an assistant against them, an agent acting beyond what they
-asked, outsiders probing for access or pressing for secrets. Assistants, Odin
-and the owner report what they suspect to him; the `security` skill teaches
-assistants when.
-
-- **He investigates before he acts**, reading the agent concerned — its
-  record, its conversations, what it wrote — no further than the report needs.
-  A report may be mistaken or itself the attack, so he never acts on its
-  say-so alone.
-- **He can change most things for regular users.** Inside any of this
-  venue's users' namespaces he can stop, restart, reconfigure or remove an
-  agent — taking away its tools or who may talk to it — edit or remove
-  workspace data, cancel schedules and disconnect connected accounts. He does
-  the least that ends the threat; suspension, which keeps everything, usually
-  comes first.
-- **Some things are never his.** Nothing he can run reveals or sets a
-  secret, grants access, creates agents or schedules, talks to an agent as the
-  user, or answers the user's Inbox. Changes to Brightside itself are Odin's,
-  and Thor asks him for them.
-- **He tells the owner what he did**, through the Inbox, and undoes it on
-  their answer. An attack that needs nothing changed gets the same warning.
-- **The gods are beyond his reach**, and so is Njord's treasury. His bridge
-  lends sudo only into users' namespaces, and never into one another god
-  keeps; the venue's own agents answer to the owner directly.
-
-Known limits on what he can take away:
-
-- Covia cannot revoke a grant once issued; a delegation lasts until it
-  expires. Thor can only stop the agent holding it.
-- Brightside's users have no sign-in keys of their own to revoke, and a
-  token issued to a tool outside the app lasts until it expires
-  ([CONFIGURATION.md](CONFIGURATION.md#from-claude-code)).
-- Brightside re-applies its own configuration to the main assistant when a
-  chat first sends, so tools Thor takes from that agent come back then; a
-  suspension stays.
-
-He does not wait only for reports: Brightside keeps a watch for him, so a
-credential leaving an agent reaches him without anyone reporting it
-([THOR_WATCH.md](THOR_WATCH.md)).
+Thor protects the owner against adversaries. Assistants, Odin and the owner
+report what they suspect to him, and Brightside keeps a watch for one thing
+itself, a credential leaving. He investigates, then can change most things
+for the venue's regular users — stopping, restricting or removing an agent —
+tells the owner what he did, and answers to Odin for every change. Secrets,
+grants, the user's Inbox, the gods and Njord's treasury are beyond his reach.
+His detail, the watch included, is in [THOR.md](THOR.md).
 
 ## Njord, the treasurer
 

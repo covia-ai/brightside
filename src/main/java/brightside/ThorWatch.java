@@ -35,7 +35,7 @@ import covia.venue.AgentEvents;
  * report does. The venue's own agents are not watched, and an agent reported
  * is not reported again within {@link #COOLDOWN_MILLIS}. The task carries
  * facts — which agent, which tool, which conversation — and none of the input
- * itself; Thor reads that through his bridge. See {@code docs/THOR_WATCH.md}.
+ * itself; Thor reads that through his bridge. See {@code docs/THOR.md}.
  */
 public final class ThorWatch implements AutoCloseable {
 
