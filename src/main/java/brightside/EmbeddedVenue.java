@@ -196,9 +196,9 @@ public final class EmbeddedVenue implements AutoCloseable {
 		};
 	}
 
-	/** The AES key for {@link #secrets}: derived from the venue key pair, as the secret adapter derives it. */
-	public byte[] secretKey() {
-		return covia.venue.SecretStore.deriveKey(engine().getKeyPair());
+	/** The keys for {@link #secrets}: derived from the venue key pair, as the secret adapter derives them. */
+	public covia.venue.SecretStore.Keys secretKey() {
+		return covia.venue.SecretStore.keys(engine().getKeyPair());
 	}
 
 	/** The user's HITL inbox ({@code h/}): request id → record, straight from the in-process lattice. Null before the user exists. */

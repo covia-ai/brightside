@@ -45,7 +45,7 @@
 		     mvn install. Convex arrives through Covia as a Central release, so
 		     ../convex needs installing first only while Covia's own
 		     convex.version is a SNAPSHOT. -->
-		<covia.version>0.9.11</covia.version>
+		<covia.version>0.9.12-SNAPSHOT</covia.version>
 		<flatlaf.version>3.7.2</flatlaf.version>
 		<bouncycastle.version>1.85</bouncycastle.version>
 		<junit.version>6.1.3</junit.version>

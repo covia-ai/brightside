@@ -255,7 +255,7 @@ public class MoltbookAdapter extends AAdapter {
 				throw new CompletionException(e);
 			}
 			User user = engine.getVenueState().users().ensure(ctx.getUserDID());
-			user.secrets().store(Moltbook.KEY_SECRET, r.apiKey(), SecretStore.deriveKey(engine.getKeyPair()));
+			user.secrets().store(Moltbook.KEY_SECRET, r.apiKey(), SecretStore.keys(engine.getKeyPair()));
 			writeRecord(ctx, Moltbook.record(name, r.claimUrl(), r.verificationCode()));
 			AMap<AString, ACell> out = Maps.of(
 				K_REGISTERED, CVMBool.TRUE,
