@@ -139,7 +139,8 @@ Covia's own `convex.version` is a SNAPSHOT. If the build cannot resolve
   for you ([docs/GODS.md](docs/GODS.md))
 - **A guardian** — when an assistant meets content trying to turn it against
   you, or an agent misbehaves, it tells **Thor**; he looks into it, can stop
-  the agent at once, and tells you in the Inbox, resuming it only on your word
+  the agent at once or take away what it may do, tells you in the Inbox, and
+  reports every change to Odin so a wiser head checks it
   ([docs/GODS.md](docs/GODS.md))
 - **Every conversation, switchable** — a sidebar of past sessions with rename,
   delete and copy-transcript; the agent can read its own history when you ask

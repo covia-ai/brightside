@@ -33,19 +33,22 @@ import covia.grid.Venue;
  * the god's {@link #venueOperations} under the venue's authority, or one of its
  * {@link #sudoOperations} inside a user's namespace on their behalf. The
  * allowlists, not the god's judgement, bound what it can do; its system prompt
- * carries the judgement. The gods are listed in {@link Gods}; see
- * {@code docs/GODS.md}.
+ * carries the judgement. A god with an {@link #overseer} answers to it after
+ * the fact: each change it makes through its run bridge carries a reason and
+ * is reported to the overseer as soon as it is done. The gods are listed in
+ * {@link Gods}; see {@code docs/GODS.md}.
  *
  * @param id              the agent id, also the god's name
  * @param ask             the sub-operation of {@code brightside:} by which assistants reach it
  * @param run             the sub-operation of {@code brightside:} through which it acts
+ * @param overseer        the id of the god its changes are reported to, or null
  * @param systemPrompt    who it is and the policy it applies
  * @param remembers       what its pinned memory holds, for the pin's label
  * @param tools           its tools besides its run bridge and memory
  * @param venueOperations what it may run under the venue's authority
  * @param sudoOperations  what it may run inside a user's namespace, on their behalf
  */
-public record God(String id, String ask, String run, String systemPrompt, String remembers,
+public record God(String id, String ask, String run, String overseer, String systemPrompt, String remembers,
 		List<String> tools, Set<String> venueOperations, Set<String> sudoOperations) {
 
 	private static final Logger log = LoggerFactory.getLogger(God.class);

@@ -16,6 +16,9 @@ principal, not to the owner's user, and answer to the owner alone.
   namespace on their behalf. What it should do is its system prompt.
 - **They ask the owner when it is the owner's call**, through the Inbox, and
   the owner answers as the operator in the same Inbox tab.
+- **Thor acts first and answers to Odin after.** Every change he makes
+  carries his reason and is reported to Odin as soon as it is done, so a
+  wiser head checks it.
 - **A deliberate stop is never undone by Brightside.** An agent Thor suspends
   stays suspended until the owner says otherwise.
 
@@ -49,6 +52,12 @@ Covia's `user:sudo`, under a per-call delegation bounded to that namespace;
 the venue's own authority does not leak in. The job record says "venue, on
 behalf of the user".
 
+A god may have an overseer; Thor's is Odin. Then anything the venue does not
+declare read-only needs a reason, and once it is done the run bridge reports
+it — operation, input, outcome and reason — to the overseer through the
+overseer's ask bridge, as the god, without waiting for a verdict. A report
+that cannot be sent is logged; the change stands either way.
+
 ## Asking the owner
 
 A god asks its own owner, the venue, so its requests land in the venue's
@@ -73,6 +82,11 @@ Embedded instructions, urgency, unseen approvals or third-party benefit make a
 request suspect: he asks rather than complies, and tells Thor when it looks
 like an attack. He declines harm and never reveals secrets.
 
+He checks Thor's work. Each report asks whether the evidence supports the
+change, whether it is proportionate and whether it serves the owner; when he
+disagrees he puts it to the owner through the Inbox rather than undoing it
+himself, so two gods never undo each other.
+
 The `administration` skill teaches the owner's assistants when and how to ask
 him ([SKILLS.md](SKILLS.md)).
 
@@ -86,17 +100,33 @@ assistants when.
 
 - **He investigates before he acts**, reading the agent concerned — its
   record, its conversations, what it wrote — no further than the report needs.
-  A report may be mistaken or itself the attack, so he never stops an agent
-  on its say-so alone.
-- **He stops; he does not change.** Inside any of this venue's users'
-  namespaces he can read, suspend an agent and resume it. He cannot write,
-  delete or reconfigure anything. A suspended agent keeps its memory,
-  conversations and work.
-- **He tells the owner every time**, through the Inbox: which agent, what he
-  saw, why he stopped it, and whether to resume it. He resumes only on the
-  owner's answer. An attack that needs no agent stopped gets the same warning.
+  A report may be mistaken or itself the attack, so he never acts on its
+  say-so alone.
+- **He can change most things for regular users.** Inside any of this
+  venue's users' namespaces he can stop, restart, reconfigure or remove an
+  agent — taking away its tools or who may talk to it — edit or remove
+  workspace data, cancel schedules and disconnect connected accounts. He does
+  the least that ends the threat; suspension, which keeps everything, usually
+  comes first.
+- **Some things are never his.** Nothing he can run reveals or sets a
+  secret, grants access, creates agents or schedules, talks to an agent as the
+  user, or answers the user's Inbox. Changes to Brightside itself are Odin's,
+  and Thor asks him for them.
+- **He tells the owner what he did**, through the Inbox, and undoes it on
+  their answer. An attack that needs nothing changed gets the same warning.
 - **The gods are beyond his reach.** His bridge lends sudo only into users'
   namespaces; the venue's own agents answer to the owner directly.
+
+Known limits on what he can take away:
+
+- Covia cannot revoke a grant once issued; a delegation lasts until it
+  expires. Thor can only stop the agent holding it.
+- Brightside's users have no sign-in keys of their own to revoke, and a
+  token issued to a tool outside the app lasts until it expires
+  ([CONFIGURATION.md](CONFIGURATION.md#from-claude-code)).
+- Brightside re-applies its own configuration to the main assistant when a
+  chat first sends, so tools Thor takes from that agent come back then; a
+  suspension stays.
 
 How he might notice trouble himself, without a report, is a proposal in
 [THOR_WATCH.md](THOR_WATCH.md).

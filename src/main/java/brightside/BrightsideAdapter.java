@@ -21,6 +21,7 @@ import convex.core.data.Vectors;
 import convex.core.data.prim.CVMBool;
 import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
+import convex.core.util.JSON;
 import convex.core.util.Utils;
 import covia.adapter.AAdapter;
 import covia.adapter.CoviaAdapter;
@@ -64,6 +65,8 @@ import covia.venue.UcanJwtValidator;
  */
 public class BrightsideAdapter extends AAdapter {
 
+	private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(BrightsideAdapter.class);
+
 	private static final AString K_APP = Strings.intern("app");
 	private static final AString K_VERSION = Strings.intern("version");
 	private static final AString K_VENUE = Strings.intern("venue");
@@ -98,6 +101,9 @@ public class BrightsideAdapter extends AAdapter {
 	private static final AString K_OPERATION = Strings.intern("operation");
 	private static final AString K_USER = Strings.intern("user");
 	private static final AString K_DID_FIELD = Strings.intern("did");
+	private static final AString K_REASON = Strings.intern("reason");
+	private static final AString K_REPORT = Strings.intern("report");
+	private static final AString K_ADDRESS = Strings.intern("address");
 	private static final String OP_AGENT_REQUEST = "v/ops/agent/request";
 	private static final String OP_USER_SUDO = "v/ops/user/sudo";
 	private static final long DEFAULT_ASK_TIMEOUT_MS = 30_000;
@@ -449,7 +455,8 @@ public class BrightsideAdapter extends AAdapter {
 	 * the god's venue operations, or for one of its namespace operations run on
 	 * a user's behalf through {@code user:sudo} under a per-call venue-rooted
 	 * {@code user/sudo} delegation. The god's allowlists, not the caller, bound
-	 * what the venue context is lent for.
+	 * what the venue context is lent for. For a god with an overseer, anything
+	 * that changes state needs a {@code reason}, and is reported once it is done.
 	 */
 	private CompletableFuture<ACell> handleRun(God god, RequestContext ctx, ACell input) {
 		try {
@@ -462,7 +469,24 @@ public class BrightsideAdapter extends AAdapter {
 			ACell operationInput = RT.getIn(input, K_INPUT);
 			if (operationInput == null) operationInput = Maps.empty();
 			AString user = optionalText(input, K_USER, 300);
+			boolean overseen = god.overseer() != null && changesState(operation);
+			AString reason = overseen
+				? Strings.create(requiredText(input, K_REASON, 2000))
+				: optionalText(input, K_REASON, 2000);
 
+			CompletableFuture<ACell> done = run(god, operation, operationInput, user);
+			if (!overseen) return done;
+			ACell ranWith = operationInput;
+			return done.thenCompose(outcome -> report(god, ctx, operation, ranWith, user, reason, outcome));
+		} catch (Exception e) {
+			return CompletableFuture.failedFuture(e);
+		}
+	}
+
+	/** Runs one of {@code god}'s operations: as the venue without a user, else inside that user's namespace. */
+	private CompletableFuture<ACell> run(God god, String operation, ACell operationInput, AString user) {
+		try {
+			AString venueDID = engine.getDIDString();
 			if (user == null) {
 				if (!god.venueOperations().contains(operation)) {
 					throw new IllegalArgumentException("Not a venue operation " + god.id() + " may run: " + operation
@@ -490,6 +514,56 @@ public class BrightsideAdapter extends AAdapter {
 		} catch (Exception e) {
 			return CompletableFuture.failedFuture(e);
 		}
+	}
+
+	/**
+	 * Whether {@code operation} can change anything: whatever the venue does
+	 * not declare read-only, including an operation it cannot resolve.
+	 */
+	private boolean changesState(String operation) {
+		try {
+			covia.grid.Asset asset = engine.resolveAsset(Strings.create(operation), engine.venueContext());
+			return asset == null || !CVMBool.TRUE.equals(RT.getIn(asset.meta(), Fields.OPERATION, Fields.READ_ONLY));
+		} catch (Exception e) {
+			return true;
+		}
+	}
+
+	/**
+	 * Tells {@code god}'s overseer what it has just done, through the
+	 * overseer's ask bridge as the god itself, without waiting for a verdict.
+	 * The change has happened either way, so a report that cannot be sent is
+	 * logged rather than failing it. A map outcome gains {@code report}: where
+	 * it went and the job that carries it.
+	 */
+	@SuppressWarnings("unchecked")
+	private CompletableFuture<ACell> report(God god, RequestContext ctx, String operation, ACell operationInput,
+			AString user, AString reason, ACell outcome) {
+		God overseer = Gods.byId(god.overseer());
+		if (overseer == null) {
+			log.warn("{} has no overseer named {} to report to", god.id(), god.overseer());
+			return CompletableFuture.completedFuture(outcome);
+		}
+		String where = (user != null) ? " in the namespace of " + user : " as the venue";
+		AMap<AString, ACell> ask = Maps.of(
+			K_REQUEST, clip(god.id() + " has just run " + operation + where + ". Reason given: " + reason, 4000),
+			K_CONTEXT, clip("Input:\n" + JSON.toStringPretty(operationInput)
+				+ "\n\nOutcome:\n" + ((outcome != null) ? JSON.toStringPretty(outcome) : "(none)"), 8000),
+			K_TIMEOUT, CVMLong.create(0));
+		return handleAsk(overseer, ctx, ask).handle((snapshot, e) -> {
+			if (e != null) {
+				log.warn("Could not report {}'s {} to {}: {}", god.id(), operation, overseer.id(), e.toString());
+				return outcome;
+			}
+			if (!(outcome instanceof AMap<?, ?> map)) return outcome;
+			return ((AMap<AString, ACell>) map).assoc(K_REPORT, Maps.of(
+				K_ADDRESS, RT.getIn(snapshot, K_ADDRESS),
+				K_ID, RT.getIn(snapshot, K_ID)));
+		});
+	}
+
+	private static String clip(String text, int max) {
+		return (text.length() <= max) ? text : text.substring(0, max - 1) + "…";
 	}
 
 	/**

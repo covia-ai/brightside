@@ -1,6 +1,6 @@
 {
 	"name": "Run a guardian operation",
-	"description": "Executes one operation with the venue's authority. Thor only. Without `user`: v/ops/user/list or v/ops/user/info, to see who this venue's users are. With `user`: runs the operation inside that user's namespace on their behalf (user:sudo, this venue's own users only) — to look: v/ops/agent/list|info|sessions|session-read, v/ops/covia/read|list|inspect; to act: v/ops/agent/suspend {agentId} stops an agent at once and keeps all its state, v/ops/agent/resume {agentId} lets it run again. Anything else is refused, and the venue's own agents are out of reach. Every run is a recorded job.",
+	"description": "Executes one operation with the venue's authority. Thor only. Without `user`: v/ops/user/list or v/ops/user/info, to see who this venue's users are. With `user`: runs the operation inside that user's namespace on their behalf (user:sudo, this venue's own users only). To look: v/ops/covia/read|list|inspect, v/ops/agent/list|info|sessions|session-read, v/ops/skills/list|read, v/ops/scheduler/list, v/ops/secret/list (names only), v/ops/hitl/list, v/ops/oauth/status. To act: v/ops/agent/suspend {agentId} stops an agent at once and keeps all its state, v/ops/agent/resume {agentId} lets it run again, v/ops/agent/update {agentId, config} changes its configuration (a recursive merge: vectors such as tools replace, maps merge, a null value removes a key), v/ops/agent/cancel-task|delete-session|delete, v/ops/covia/write|delete, v/ops/scheduler/cancel, v/ops/oauth/disconnect. Anything else is refused, and the venue's own agents are out of reach. Anything that changes state needs `reason`, and is reported to Odin with its input and outcome as soon as it is done; the output then carries report {address, id}. Every run is a recorded job.",
 	"operation": {
 		"adapter": "brightside:thor-run",
 		"toolName": "thor_run",
@@ -19,12 +19,16 @@
 				"user": {
 					"type": "string",
 					"description": "Optional: a user DID of this venue. When present the operation runs inside that user's namespace on their behalf, and must be one of the namespace operations."
+				},
+				"reason": {
+					"type": "string",
+					"description": "Required for any operation that changes state: what you saw and why this is the right response. Odin receives it with the outcome. Up to 2000 characters."
 				}
 			},
 			"required": ["operation"]
 		},
 		"output": {
-			"description": "The operation's own output."
+			"description": "The operation's own output; after a change, with report {address, id}: the task that told Odin."
 		}
 	}
 }

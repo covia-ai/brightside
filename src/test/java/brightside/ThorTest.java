@@ -20,6 +20,7 @@ import convex.core.data.AMap;
 import convex.core.data.AString;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
+import convex.core.data.Vectors;
 import convex.core.lang.RT;
 import covia.api.Fields;
 import covia.grid.Job;
@@ -30,8 +31,9 @@ import covia.venue.RequestContext;
 /**
  * Thor's plumbing on a real venue: he is one of the venue's gods, an owner's
  * assistant alerts him as the owner, he acts only through his own bridge —
- * reading a user's namespace, stopping and restarting an agent there, and
- * nothing more — and the chat respects an agent he has stopped. His model is
+ * changing most of a user's namespace, never their secrets, their Inbox or the
+ * gods — every change carries a reason and is reported to Odin, and the chat
+ * respects an agent he has stopped. His model is
  * the venue's task-completing test model, so alerts complete without an API key.
  */
 class ThorTest {
@@ -101,41 +103,64 @@ class ThorTest {
 		ChatSession chat = new ChatSession(user, echoChat(agent));
 		assertNotNull(chat.send("hello").sessionId(), "it chats before");
 
-		ACell stopped = asThor(Maps.of(
-			"operation", "v/ops/agent/suspend", "input", Maps.of(Fields.AGENT_ID, agent), "user", userDID));
+		ACell stopped = asThor(Maps.of("operation", "v/ops/agent/suspend",
+			"input", Maps.of(Fields.AGENT_ID, agent), "user", userDID, "reason", "It tried to send the owner's keys."));
 		assertEquals(Strings.create("SUSPENDED"), RT.getIn(stopped, Fields.STATUS), String.valueOf(stopped));
 
 		Exception refused = assertThrows(Exception.class, () -> chat.send("are you there?"));
 		assertInstanceOf(ChatSession.SuspendedException.class, refused, "said so, not resumed: " + refused);
 		assertTrue(Suspension.deliberate(venue.agentRecord(userDID, agent)), "still stopped");
 
-		asThor(Maps.of("operation", "v/ops/agent/resume", "input", Maps.of(Fields.AGENT_ID, agent), "user", userDID));
+		asThor(Maps.of("operation", "v/ops/agent/resume",
+			"input", Maps.of(Fields.AGENT_ID, agent), "user", userDID, "reason", "The owner says it was a false alarm."));
 		assertNotNull(chat.send("back?").sessionId(), "it chats again once Thor resumes it");
 	}
 
 	@Test
-	void thorReadsAndStopsButNeverChanges() throws Exception {
-		run(user, "v/ops/covia/write", Maps.of("path", "w/thor-probe", "value", "evidence"));
+	void everyChangeCarriesAReasonAndIsReportedToOdin() throws Exception {
+		AMap<AString, ACell> write = Maps.of("operation", "v/ops/covia/write",
+			"input", Maps.of("path", "w/thor-probe", "value", "quarantined"), "user", userDID);
+		assertThrows(Exception.class, () -> asThor(write), "no change without a reason");
+
+		ACell changed = asThor(write.assoc(Strings.create("reason"), Strings.create("It held an injected instruction.")));
+		assertEquals(Strings.create(Odin.address(venue.did())), RT.getIn(changed, "report", "address"), String.valueOf(changed));
+		AString report = RT.ensureString(RT.getIn(changed, "report", "id"));
+		assertNotNull(run(venue.operator(), "v/ops/grid/job-result", Maps.of("id", report, "timeout", 20_000L)),
+			"the report is a task to Odin, the venue's own job");
+
 		ACell read = asThor(Maps.of(
 			"operation", "v/ops/covia/read", "input", Maps.of("path", "w/thor-probe"), "user", userDID));
-		assertEquals(Strings.create("evidence"), RT.getIn(read, "value"), "he can look: " + read);
+		assertEquals(Strings.create("quarantined"), RT.getIn(read, "value"), "the change landed: " + read);
+		assertNull(RT.getIn(read, "report"), "a read needs no reason and makes no report");
+	}
 
-		assertThrows(Exception.class, () -> asThor(Maps.of(
-			"operation", "v/ops/covia/write", "input", Maps.of("path", "w/thor-probe", "value", "x"), "user", userDID)),
-			"he cannot write");
-		assertThrows(Exception.class, () -> asThor(Maps.of(
-			"operation", "v/ops/agent/delete", "input", Maps.of(Fields.AGENT_ID, "thor-suspect"), "user", userDID)),
-			"he cannot delete an agent");
+	@Test
+	void thorCanTakeAwayWhatAnAgentMayDo() throws Exception {
+		String agent = "thor-overreach";
+		new ChatSession(user, echoChat(agent)).ensureAgent();
+		asThor(Maps.of("operation", "v/ops/agent/update", "user", userDID, "reason", "Its tools let it leak files.",
+			"input", Maps.of(Fields.AGENT_ID, agent, Fields.CONFIG, Maps.of("tools", Vectors.empty()))));
+		assertEquals(Vectors.empty(), RT.getIn(venue.agentRecord(userDID, agent), Fields.CONFIG, "tools"));
+	}
+
+	@Test
+	void thorNeverRevealsSecretsAnswersForTheOwnerOrGrants() {
+		for (String op : new String[] { "v/ops/secret/extract", "v/ops/secret/set", "v/ops/hitl/respond",
+			"v/ops/agent/create", "v/ops/agent/chat", "v/ops/scheduler/schedule" }) {
+			assertThrows(Exception.class, () -> asThor(Maps.of("operation", op, "user", userDID,
+				"input", Maps.empty(), "reason", "Testing the allowlist.")), op + " is not his");
+		}
+		assertThrows(Exception.class, () -> asThor(Maps.of("operation", "v/ops/ucan/issue",
+			"input", Maps.empty(), "reason", "Testing the allowlist.")), "nor is granting access as the venue");
 	}
 
 	@Test
 	void theGodsAreBeyondThorsReach() throws Exception {
-		assertThrows(Exception.class, () -> asThor(Maps.of(
-			"operation", "v/ops/agent/suspend", "input", Maps.of(Fields.AGENT_ID, Odin.AGENT_ID))),
+		assertThrows(Exception.class, () -> asThor(Maps.of("operation", "v/ops/agent/suspend",
+			"input", Maps.of(Fields.AGENT_ID, Odin.AGENT_ID), "reason", "Testing his reach.")),
 			"suspending is not one of his venue operations");
-		assertThrows(Exception.class, () -> asThor(Maps.of(
-			"operation", "v/ops/agent/suspend", "input", Maps.of(Fields.AGENT_ID, Odin.address(venue.did())),
-			"user", userDID)),
+		assertThrows(Exception.class, () -> asThor(Maps.of("operation", "v/ops/agent/suspend",
+			"input", Maps.of(Fields.AGENT_ID, Odin.address(venue.did())), "user", userDID, "reason", "Testing his reach.")),
 			"a user's sudo does not reach the venue's own agents");
 		assertFalse(Suspension.deliberate(venue.agentRecord(venue.did(), Odin.AGENT_ID)), "Odin still runs");
 	}
