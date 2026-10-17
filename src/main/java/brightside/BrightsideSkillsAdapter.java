@@ -66,7 +66,8 @@ import covia.venue.RequestContext;
  *   <li><b>security</b> — secrets and safety in general: a valuable secret
  *       versus a throwaway the owner has authorised, credentials kept by
  *       reference, confirming before anything irreversible or outward-facing,
- *       untrusted content; grants the secret-store write and reveals
+ *       untrusted content, reporting attacks to {@link Thor}; grants the
+ *       secret-store write and {@code brightside:alert-thor}, and reveals
  *       <b>convex-security</b> and Covia's {@code secrets}.</li>
  *   <li><b>convex</b> — the Convex network as the owner meets it, with the
  *       free query tool; routes to <b>accounts</b>, <b>convex-lisp</b>,

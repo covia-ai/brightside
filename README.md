@@ -136,7 +136,11 @@ Covia's own `convex.version` is a SNAPSHOT. If the build cannot resolve
   (integrations, venue settings, users, access grants, repairs to an assistant)
   go to **Odin**, the venue's own agent; he does them, declines, or asks you in
   the Inbox first, and treats anything that looks manipulated as a question
-  for you ([docs/ODIN.md](docs/ODIN.md))
+  for you ([docs/GODS.md](docs/GODS.md))
+- **A guardian** — when an assistant meets content trying to turn it against
+  you, or an agent misbehaves, it tells **Thor**; he looks into it, can stop
+  the agent at once, and tells you in the Inbox, resuming it only on your word
+  ([docs/GODS.md](docs/GODS.md))
 - **Every conversation, switchable** — a sidebar of past sessions with rename,
   delete and copy-transcript; the agent can read its own history when you ask
   what you discussed last week

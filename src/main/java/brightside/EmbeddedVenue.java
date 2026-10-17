@@ -239,7 +239,7 @@ public final class EmbeddedVenue implements AutoCloseable {
 	 * A trusted in-process client acting as the venue itself — the operator.
 	 * Covia's administrative gates admit exactly this principal; Brightside uses
 	 * it for the things the app does on the owner's behalf as operator, such as
-	 * keeping {@link Odin} configured and answering his Inbox requests.
+	 * keeping the {@link Gods} configured and answering their Inbox requests.
 	 */
 	public Venue operator() {
 		return clientAs(did());

@@ -28,7 +28,7 @@ public final class HomePeers {
 	}
 
 	/**
-	 * @param operatorAgents the operator's agents, Odin among them
+	 * @param operatorAgents the operator's agents, the gods among them
 	 * @param userDID        your DID on the venue, or null before it exists
 	 * @param mainAgent      the id of your main assistant among {@code userAgents}, or null
 	 */

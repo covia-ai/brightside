@@ -1,0 +1,30 @@
+{
+	"name": "Run a guardian operation",
+	"description": "Executes one operation with the venue's authority. Thor only. Without `user`: v/ops/user/list or v/ops/user/info, to see who this venue's users are. With `user`: runs the operation inside that user's namespace on their behalf (user:sudo, this venue's own users only) — to look: v/ops/agent/list|info|sessions|session-read, v/ops/covia/read|list|inspect; to act: v/ops/agent/suspend {agentId} stops an agent at once and keeps all its state, v/ops/agent/resume {agentId} lets it run again. Anything else is refused, and the venue's own agents are out of reach. Every run is a recorded job.",
+	"operation": {
+		"adapter": "brightside:thor-run",
+		"toolName": "thor_run",
+		"internal": false,
+		"input": {
+			"type": "object",
+			"properties": {
+				"operation": {
+					"type": "string",
+					"description": "The full operation path, e.g. v/ops/agent/suspend."
+				},
+				"input": {
+					"type": "object",
+					"description": "The operation's own input, exactly as its schema describes."
+				},
+				"user": {
+					"type": "string",
+					"description": "Optional: a user DID of this venue. When present the operation runs inside that user's namespace on their behalf, and must be one of the namespace operations."
+				}
+			},
+			"required": ["operation"]
+		},
+		"output": {
+			"description": "The operation's own output."
+		}
+	}
+}

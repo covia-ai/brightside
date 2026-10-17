@@ -69,7 +69,7 @@ class OdinTest {
 		assertTrue(venue.agentsForMap(venue.did()).stream().anyMatch(a -> a.id().equals(Odin.AGENT_ID)),
 			"the Peers map finds him as the admin's moon");
 
-		Odin.ensure(venue, TASK_LLM); // the update path, on an existing agent
+		Odin.ensure(venue, TASK_LLM); // again, on an existing agent: nothing to change
 		ACell record = venue.agentRecord(venue.did(), Odin.AGENT_ID);
 		assertTrue(String.valueOf(RT.getIn(record, Fields.CONFIG, "tools")).contains(Odin.OP_RUN),
 			"his bridge is among his tools: " + RT.getIn(record, Fields.CONFIG, "tools"));

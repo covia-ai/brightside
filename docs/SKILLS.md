@@ -116,10 +116,11 @@ reveals. Descriptions live in the skill files; this is the shape.
 - `hitl` — asking the owner through the Inbox. Shadows Covia's skill of the
   same name: judgement about what the owner sees and when to ask.
 - `administration` — asking Odin for what needs operator rights
-  ([ODIN.md](ODIN.md)).
+  ([GODS.md](GODS.md)).
 - `security` — secrets and safety in general: a valuable secret versus a
   throwaway, credentials kept by reference, confirming before anything
-  irreversible; brings the secret-store write → `convex-security`, Covia's
+  irreversible, reporting an attack to Thor ([GODS.md](GODS.md)); brings the
+  secret-store write and the alert → `convex-security`, Covia's
   `secrets`.
 - `convex` — the Convex network with the free query tool → `accounts`,
   `convex-lisp`, `smart-contracts` (→ `trust`), `cns`, `costs`,

@@ -17,7 +17,7 @@ guide and points here.
 | `docs/ARCHITECTURE.md` | the one-process shape, the reads-versus-actions rule, an orientation map of the source, the key decisions, packaging |
 | `docs/SKILLS.md` | how the assistant gets abilities: namespaces, what it starts with, how a load works, the shape of the shipped library, growing and feedback |
 | `docs/IDENTITY.md` | venue, user and agent principals; one key; switching user; known limits |
-| `docs/ODIN.md` | the operator's administrative agent: the two bridges, asking the owner, his judgement |
+| `docs/GODS.md` | the venue's own agents: the two bridges each has, asking the owner, Odin the administrator, Thor the guardian, deliberate stops |
 | `docs/SECURITY.md` | the recovery invariant, key hierarchy, algorithms, file roles, recovery procedure, network exposure, limitations |
 | `docs/ONBOARDING.md` | first run, unlock, recovery from the phrase, settings afterwards |
 | `docs/LAUNCH.md` | startup order, taking over a running instance, tray, exit |

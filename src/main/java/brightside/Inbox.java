@@ -59,7 +59,7 @@ public final class Inbox {
 	 * A request in an inbox. Times are epoch millis ({@code expires} 0 = none);
 	 * {@code response} is null while open. {@code owner} is the DID whose inbox
 	 * holds it — the owner's own, or the venue's when the app answers as the
-	 * operator (Odin asks his owner, the venue) — and null when unknown.
+	 * operator (the gods ask their owner, the venue) — and null when unknown.
 	 */
 	public record Request(String id, String from, String agent, String title, String description,
 			List<Ask> asks, String status, long created, long expires, Response response, String owner) {

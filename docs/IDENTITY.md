@@ -53,7 +53,7 @@ aid, not a substitute for checking the value.
 
 **Switching user.** *Settings → Identity → Switch user* switches the app to
 the venue principal itself for the session: the agents pane lists the venue's
-own agents with [Odin](ODIN.md) first, the chat talks to them and the Inbox is
+own agents — [the gods](GODS.md), Odin first — the chat talks to them and the Inbox is
 the venue's. The operator has a display name of its own, kept in
 `identity.json` as `operator`; it is a label only, since the operator is the
 venue itself and has no slug or user DID. Every launch starts as the user.

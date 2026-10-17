@@ -63,7 +63,7 @@ public final class ProfilePanel extends SettingsPage {
 	private static final int COPY = 16;
 
 	private static final String SWITCH_HINT = "Who Brightside acts as: you, for everyday use, or the venue operator "
-		+ "(advanced) — the venue's own agents, Odin among them, and the venue's Inbox. Everything else is as yourself; "
+		+ "(advanced) — the venue's own agents (the gods, Odin and Thor) and the venue's Inbox. Everything else is as yourself; "
 		+ "Brightside starts as you on every launch.";
 	private static final String NAME_HINT = "What Brightside and other people call you. Changing it does not change "
 		+ "your identity.";

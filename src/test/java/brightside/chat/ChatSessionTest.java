@@ -401,6 +401,32 @@ class ChatSessionTest {
 	}
 
 	@Test
+	void anAgentStoppedOnPurposeStaysStopped() throws Exception {
+		ChatSession s = new ChatSession(venue, echoChat("bs-stopped"));
+		assertNotNull(s.send("hello").sessionId());
+		job("v/ops/agent/suspend", Maps.of(Fields.AGENT_ID, "bs-stopped"));
+
+		// Neither re-applying the configuration nor sending lifts it.
+		new ChatSession(venue, echoChat("bs-stopped")).ensureAgent();
+		assertThrows(ChatSession.SuspendedException.class, () -> s.send("still there?"));
+		ACell info = agentInfo("bs-stopped");
+		assertEquals(Strings.create("SUSPENDED"), RT.getIn(info, Fields.STATUS), String.valueOf(info));
+
+		job("v/ops/agent/resume", Maps.of(Fields.AGENT_ID, "bs-stopped"));
+		assertNotNull(s.send("back").sessionId(), "whoever stopped it lets it run again");
+	}
+
+	@Test
+	void theReadyHookRunsOnceOnTheFirstSend() throws Exception {
+		java.util.concurrent.atomic.AtomicInteger runs = new java.util.concurrent.atomic.AtomicInteger();
+		ChatSession s = new ChatSession(venue, echoChat("bs-ready")).whenReady(runs::incrementAndGet);
+		assertEquals(0, runs.get(), "binding submits nothing and runs nothing");
+		s.send("one");
+		s.send("two");
+		assertEquals(1, runs.get());
+	}
+
+	@Test
 	void ensureAgentIsIdempotentAcrossSessions() throws Exception {
 		ChatSession a = new ChatSession(venue, echoChat("bs-shared"));
 		a.ensureAgent();
@@ -434,8 +460,11 @@ class ChatSessionTest {
 	}
 
 	private static ACell agentInfo(String agentId) throws Exception {
-		return venue.invoke("v/ops/agent/info", Maps.of(Fields.AGENT_ID, agentId))
-			.get(5, TimeUnit.SECONDS).future().get(5, TimeUnit.SECONDS);
+		return job("v/ops/agent/info", Maps.of(Fields.AGENT_ID, agentId));
+	}
+
+	private static ACell job(String op, AMap<AString, ACell> input) throws Exception {
+		return venue.invoke(op, input).get(5, TimeUnit.SECONDS).future().get(5, TimeUnit.SECONDS);
 	}
 
 	@SuppressWarnings("unchecked")

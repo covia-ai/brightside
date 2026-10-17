@@ -91,6 +91,10 @@ public final class BrightSide {
 	private TrayManager tray; // event thread only
 	private final AtomicBoolean exiting = new AtomicBoolean();
 	private final AtomicBoolean chatStarted = new AtomicBoolean();
+	/** Whether this launch has brought the gods up to date on a first message yet. */
+	private final AtomicBoolean godsEnsured = new AtomicBoolean();
+	/** One god ensure at a time, so two cannot both try to create the same god. */
+	private final Object godsLock = new Object();
 	private final AtomicLong chatBindings = new AtomicLong();
 	/** The owner already agreed, at startup, to take over the instance found running. */
 	private volatile boolean takeoverApproved;
@@ -135,7 +139,7 @@ public final class BrightSide {
 	/**
 	 * Whether the app is acting as the venue operator rather than as the named
 	 * user (Settings → Identity → Switch user). The operator sees and chats with the
-	 * venue's own agents — Odin — and answers the venue's Inbox; everyday use is
+	 * venue's own agents — the gods — and answers the venue's Inbox; everyday use is
 	 * as the user. Never persisted: every launch starts as the user.
 	 */
 	private volatile boolean actingAsOperator;
@@ -716,7 +720,7 @@ public final class BrightSide {
 	/**
 	 * One-way migration: provider keys still in the vault's {@code keys.enc}
 	 * move into the encrypted secret stores — the acting user's and the
-	 * operator's, so each user's agents resolve their own key and Odin the
+	 * operator's, so each user's agents resolve their own key and the gods the
 	 * operator's — without overwriting a value already set in a store (a store
 	 * edit wins). {@code keys.enc} is then removed: the stores are the single
 	 * home for API keys, and they survive passphrase recovery where the vault
@@ -781,7 +785,7 @@ public final class BrightSide {
 				"Saved. Add the " + label + " API key (Settings → Model) and it takes effect straight away."));
 			return;
 		}
-		ensureOdin(venue);
+		ensureGods(venue);
 		ChatSession c = chat;
 		if (c == null) return;
 		Thread t = new Thread(() -> {
@@ -805,7 +809,7 @@ public final class BrightSide {
 
 	/**
 	 * Stores a provider API key in the encrypted secret stores — the named
-	 * user's and the operator's, so the chat agent and Odin both resolve it —
+	 * user's and the operator's, so the chat agent and the gods all resolve it —
 	 * effective immediately. A different per-user value can be set in
 	 * Settings → Secrets. Returns false if it couldn't.
 	 */
@@ -1385,9 +1389,10 @@ public final class BrightSide {
 	 * still awaited.
 	 */
 	private Identity onVenueReady() {
-		// Default skills are installed by BrightsideAdapter at venue launch. Odin
-		// is not touched here: he is created or reconfigured when first needed
-		// (acting as the operator, or a model change), so a launch submits no jobs.
+		// Default skills are installed by BrightsideAdapter at venue launch. The
+		// gods are not touched here: they are created or brought up to date when
+		// first needed (the first message, acting as the operator, or a model
+		// change), so a launch submits no jobs.
 		EmbeddedVenue v = venue;
 		Vault vlt = vault;
 		Identity id = identity;
@@ -1398,20 +1403,19 @@ public final class BrightSide {
 	}
 
 	/**
-	 * Keeps {@link Odin}, the operator's administrative agent, configured with
-	 * the chat's model — at launch and whenever the model changes. Best-effort
-	 * and off the calling thread: the chat never waits on him.
+	 * Keeps the {@link Gods} configured with the chat's model — on the first
+	 * message, so an assistant can reach them, and whenever the model changes.
+	 * A god already configured costs no job. Best-effort and off the calling
+	 * thread: the chat never waits on them.
 	 */
-	private void ensureOdin(EmbeddedVenue v) {
+	private void ensureGods(EmbeddedVenue v) {
 		if (v == null) return;
 		String model = effectiveChat().llmOperation();
 		Thread t = new Thread(() -> {
-			try {
-				Odin.ensure(v, model);
-			} catch (Exception e) {
-				log.warn("{} is not available: {}", Odin.AGENT_ID, e.toString());
+			synchronized (godsLock) {
+				Gods.ensureAll(v, model);
 			}
-		}, "brightside-odin");
+		}, "brightside-gods");
 		t.setDaemon(true);
 		t.start();
 	}
@@ -1511,8 +1515,8 @@ public final class BrightSide {
 	}
 
 	private void startChatBackground(EmbeddedVenue v, Identity id, AppConfig.Chat chatConfig, Bind bind) {
-		// The operator's agents keep the configuration their records hold —
-		// Odin's is owned by Odin.ensure, never by the chat's persona config.
+		// The operator's agents keep the configuration their records hold — a
+		// god's is owned by God.ensure, never by the chat's persona config.
 		boolean configureExisting = !actingAsOperator && chatConfig.agentId().equals(config.chat().agentId());
 		startChatBackground(v, id, chatConfig, bind, configureExisting);
 	}
@@ -1612,15 +1616,23 @@ public final class BrightSide {
 		// The agent is not created or reconfigured here: ChatSession.ensureAgent
 		// runs on the first send, so binding the chat submits no jobs — and Home
 		// leaves ChatSession.sessionId null until the user actually sends their
-		// first message. Odin is the exception when the operator turns to him:
-		// he is configured by his own ensure, so the session must find him there.
-		if (target.operator() && Odin.AGENT_ID.equals(chatConfig.agentId())) {
+		// first message. A god is the exception when the operator turns to it:
+		// it is configured by its own ensure, so the session must find it there.
+		// The rest of the gods follow on the first message, so an assistant can
+		// reach them; once configured, that costs nothing.
+		God god = target.operator() ? Gods.byId(chatConfig.agentId()) : null;
+		if (god != null) {
 			try {
-				Odin.ensure(v, chatConfig.llmOperation());
+				synchronized (godsLock) {
+					god.ensure(v, chatConfig.llmOperation());
+				}
 			} catch (Exception e) {
-				log.warn("{} not ready", Odin.AGENT_ID, e);
+				log.warn("{} not ready", god.id(), e);
 			}
 		}
+		session.whenReady(() -> {
+			if (godsEnsured.compareAndSet(false, true)) ensureGods(v);
+		});
 		// Import any skills the user has dropped into ~/.brightside/skills/
 		// (agentskills.io SKILL.md folders) on the first bind. Check the stored
 		// value in-process so an unchanged skill costs no write job.
@@ -1832,7 +1844,7 @@ public final class BrightSide {
 
 	/**
 	 * The owner's inbox and the venue's own, as one value the watcher can
-	 * compare. The venue's holds what {@link Odin} asks his owner; the person at
+	 * compare. The venue's holds what the {@link Gods} ask their owner; the person at
 	 * the keyboard is that owner, so it belongs in the same Inbox.
 	 */
 	private static convex.core.data.ACell inboxes(EmbeddedVenue v, String did) {
@@ -1916,13 +1928,14 @@ public final class BrightSide {
 	}
 
 	/**
-	 * The chat config for {@code aid}: Odin's own identity for the operator's
-	 * default, the default persona for the configured chat agent, else a named one.
+	 * The chat config for {@code aid}: a god's own identity for the operator,
+	 * the default persona for the configured chat agent, else a named one.
 	 */
 	private AppConfig.Chat chatConfigFor(String aid) {
 		AppConfig.Chat base = effectiveChat();
-		if (actingAsOperator && aid.equals(Odin.AGENT_ID)) {
-			return new AppConfig.Chat(aid, base.operation(), base.llmOperation(), Odin.SYSTEM_PROMPT);
+		God god = actingAsOperator ? Gods.byId(aid) : null;
+		if (god != null) {
+			return new AppConfig.Chat(aid, base.operation(), base.llmOperation(), god.systemPrompt());
 		}
 		if (aid.equals(config.chat().agentId())) {
 			return new AppConfig.Chat(aid, base.operation(), base.llmOperation(), base.systemPrompt());

@@ -52,7 +52,7 @@ rules for changing them.
 | Skills, tools, memory: namespaces, what loads when, the shipped library | `docs/SKILLS.md` |
 | Startup, takeover, tray, exit | `docs/LAUNCH.md` |
 | Venue, user and agent identity | `docs/IDENTITY.md` |
-| Odin, the operator's administrative agent | `docs/ODIN.md` |
+| The gods — the venue's own agents: Odin the administrator, Thor the guardian | `docs/GODS.md` |
 | Vault, keys, recovery, authentication, network exposure | `docs/SECURITY.md` |
 | First run, unlock, recovery, settings | `docs/ONBOARDING.md` |
 | `config.json`, files, API keys, integrations, reaching the venue from other tools | `docs/CONFIGURATION.md` |

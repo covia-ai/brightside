@@ -147,7 +147,7 @@ The default model operation needs a provider key. Two supported ways to supply i
    launching.
 2. **Brightside settings** — enter it during onboarding or under *Settings →
    Model*. It is written to the encrypted secret stores on the venue — yours
-   and the operator's, so your agents and Odin each resolve their own copy —
+   and the operator's, so your agents and the gods each resolve their own copy —
    and takes effect immediately. A key entered at onboarding is staged
    briefly in `keys.enc` and moved into the stores at first launch.
 

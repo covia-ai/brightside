@@ -48,12 +48,15 @@ import covia.venue.UcanJwtValidator;
  *   <li>{@code brightside:shutdown} — clean process shutdown, venue-operator
  *       only, so a newly launched instance can take over (see
  *       {@link brightside.Takeover}).</li>
- *   <li>{@code brightside:ask-odin} — an assistant's request to {@link Odin},
- *       submitted as the calling user with a short-lived venue-rooted
- *       delegation, so the task is the user's own job and Odin sees who asked.</li>
- *   <li>{@code brightside:odin-run} — Odin's hands: one allowlisted operator
- *       operation under the venue's authority, or inside a user's namespace via
- *       {@code user:sudo}. Odin alone may call it.</li>
+ *   <li>Two bridges for each of the {@link Gods}: its ask bridge
+ *       ({@code brightside:ask-odin}, {@code brightside:alert-thor}) — an
+ *       assistant's request to that god, submitted as the calling user with a
+ *       short-lived venue-rooted delegation, so the task is the user's own job
+ *       and the god sees who asked — and its run bridge
+ *       ({@code brightside:odin-run}, {@code brightside:thor-run}) — the god's
+ *       hands: one operation from its allowlists, under the venue's authority
+ *       or inside a user's namespace via {@code user:sudo}. Only that god may
+ *       call its run bridge.</li>
  * </ul>
  *
  * <p>Add further Brightside operations by adding a {@code brightside/<op>.json}
@@ -153,8 +156,10 @@ public class BrightsideAdapter extends AAdapter {
 		installAsset("brightside/delete-skill", "/adapters/brightside/delete-skill.json");
 		installAsset("brightside/report-skill-feedback", "/adapters/brightside/report-skill-feedback.json");
 		installAsset("brightside/shutdown", "/adapters/brightside/shutdown.json");
-		installAsset("brightside/ask-odin", "/adapters/brightside/ask-odin.json");
-		installAsset("brightside/odin-run", "/adapters/brightside/odin-run.json");
+		for (God god : Gods.ALL) {
+			installAsset("brightside/" + god.ask(), "/adapters/brightside/" + god.ask() + ".json");
+			installAsset("brightside/" + god.run(), "/adapters/brightside/" + god.run() + ".json");
+		}
 	}
 
 	@Override
@@ -175,11 +180,9 @@ public class BrightsideAdapter extends AAdapter {
 		if ("shutdown".equals(op)) {
 			return handleShutdown(ctx);
 		}
-		if ("ask-odin".equals(op)) {
-			return handleAskOdin(ctx, input);
-		}
-		if ("odin-run".equals(op)) {
-			return handleOdinRun(ctx, input);
+		God god = Gods.byBridge(op);
+		if (god != null) {
+			return op.equals(god.ask()) ? handleAsk(god, ctx, input) : handleRun(god, ctx, input);
 		}
 		return CompletableFuture.failedFuture(
 			new IllegalArgumentException("Unknown brightside operation: " + op));
@@ -399,24 +402,24 @@ public class BrightsideAdapter extends AAdapter {
 	}
 
 	// ------------------------------------------------------------------
-	// Odin bridges
+	// God bridges
 	// ------------------------------------------------------------------
 
 	/**
-	 * An assistant's request to Odin. Agents carry no delegations and Odin lives
-	 * under the venue principal, so a plain {@code agent:request} from a user
-	 * would be refused. The bridge mints a five-minute venue-rooted
+	 * An assistant's request to a god. Agents carry no delegations and the gods
+	 * live under the venue principal, so a plain {@code agent:request} from a
+	 * user would be refused. The bridge mints a five-minute venue-rooted
 	 * {@code agent/request} delegation to the <em>calling user</em> and submits
 	 * the request as that user with it: the task is the user's own job (so the
-	 * usual job tools can follow it), Covia attributes the caller to Odin
+	 * usual job tools can follow it), Covia attributes the caller to the god
 	 * natively, and the {@code from}/{@code agent} fields on the task come from
 	 * the authenticated context — never from the request text.
 	 */
-	private CompletableFuture<ACell> handleAskOdin(RequestContext ctx, ACell input) {
+	private CompletableFuture<ACell> handleAsk(God god, RequestContext ctx, ACell input) {
 		try {
 			AString user = (ctx != null) ? ctx.getUserDID() : null;
 			if (user == null || engine.isPublicPrincipal(user)) {
-				throw new IllegalStateException("ask-odin requires an authenticated user of this venue");
+				throw new IllegalStateException(god.ask() + " requires an authenticated user of this venue");
 			}
 			String request = requiredText(input, K_REQUEST, 4000);
 			AString context = optionalText(input, K_CONTEXT, 8000);
@@ -426,7 +429,7 @@ public class BrightsideAdapter extends AAdapter {
 			if (context != null) task = task.assoc(K_CONTEXT, context);
 			if (ctx.getAgentId() != null) task = task.assoc(K_AGENT, ctx.getAgentId());
 
-			AString address = Strings.create(Odin.address(engine.getDIDString().toString()));
+			AString address = Strings.create(god.address(engine.getDIDString().toString()));
 			ACell proof = venueGrant(user, Vectors.of(cap(address, Abilities.AGENT_REQUEST)));
 			RequestContext asUser = RequestContext.of(user, Vectors.of(proof));
 			AMap<AString, ACell> requestInput = Maps.of(
@@ -440,20 +443,20 @@ public class BrightsideAdapter extends AAdapter {
 	}
 
 	/**
-	 * Odin's hands. Covia admits venue authority only to the venue DID itself,
-	 * never to an agent it owns, so Odin's tool call arrives here as his own
-	 * sub-principal and the bridge supplies the operator context — for an
-	 * allowlisted venue operation, or for an allowlisted namespace operation run
-	 * on a user's behalf through {@code user:sudo} under a per-call venue-rooted
-	 * {@code user/sudo} delegation. The allowlists, not the caller, bound what
-	 * the venue context is lent for.
+	 * A god's hands. Covia admits venue authority only to the venue DID itself,
+	 * never to an agent it owns, so the god's tool call arrives here as its own
+	 * sub-principal and the bridge supplies the operator context — for one of
+	 * the god's venue operations, or for one of its namespace operations run on
+	 * a user's behalf through {@code user:sudo} under a per-call venue-rooted
+	 * {@code user/sudo} delegation. The god's allowlists, not the caller, bound
+	 * what the venue context is lent for.
 	 */
-	private CompletableFuture<ACell> handleOdinRun(RequestContext ctx, ACell input) {
+	private CompletableFuture<ACell> handleRun(God god, RequestContext ctx, ACell input) {
 		try {
 			AString venueDID = engine.getDIDString();
 			AString caller = (ctx != null) ? ctx.getCallerDID() : null;
-			if (caller == null || !caller.toString().equals(Odin.did(venueDID.toString()))) {
-				throw new IllegalStateException("odin-run may only be invoked by " + Odin.AGENT_ID);
+			if (caller == null || !caller.toString().equals(god.did(venueDID.toString()))) {
+				throw new IllegalStateException(god.run() + " may only be invoked by " + god.id());
 			}
 			String operation = requiredText(input, K_OPERATION, 200);
 			ACell operationInput = RT.getIn(input, K_INPUT);
@@ -461,15 +464,15 @@ public class BrightsideAdapter extends AAdapter {
 			AString user = optionalText(input, K_USER, 300);
 
 			if (user == null) {
-				if (!Odin.VENUE_OPERATIONS.contains(operation)) {
-					throw new IllegalArgumentException("Not a venue operation Odin may run: " + operation
-						+ " (allowed: " + String.join(", ", new java.util.TreeSet<>(Odin.VENUE_OPERATIONS)) + ")");
+				if (!god.venueOperations().contains(operation)) {
+					throw new IllegalArgumentException("Not a venue operation " + god.id() + " may run: " + operation
+						+ " (allowed: " + String.join(", ", new java.util.TreeSet<>(god.venueOperations())) + ")");
 				}
 				return engine.jobs().invokeInternal(operation, operationInput, engine.venueContext());
 			}
-			if (!Odin.SUDO_OPERATIONS.contains(operation)) {
-				throw new IllegalArgumentException("Not an operation Odin may run in a user's namespace: " + operation
-					+ " (allowed: " + String.join(", ", new java.util.TreeSet<>(Odin.SUDO_OPERATIONS)) + ")");
+			if (!god.sudoOperations().contains(operation)) {
+				throw new IllegalArgumentException("Not an operation " + god.id() + " may run in a user's namespace: "
+					+ operation + " (allowed: " + String.join(", ", new java.util.TreeSet<>(god.sudoOperations())) + ")");
 			}
 			if (!user.toString().startsWith(venueDID + ":u:")) {
 				throw new IllegalArgumentException("sudo is limited to this venue's own users; not " + user);

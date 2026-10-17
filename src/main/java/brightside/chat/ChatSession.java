@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 
 import brightside.AppConfig;
 import brightside.BrightsideSkillsAdapter;
+import brightside.Suspension;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
@@ -54,8 +55,6 @@ public final class ChatSession {
 	private static final String OP_CHAT = "v/ops/agent/chat";
 	private static final String OP_MESSAGE = "v/ops/agent/message";
 	private static final String OP_RESUME = "v/ops/agent/resume";
-
-	private static final String STATUS_SUSPENDED = "SUSPENDED";
 
 	/** Time allowed for agent management calls (create/update/info). */
 	private static final long ADMIN_TIMEOUT_SECONDS = 30;
@@ -123,6 +122,8 @@ public final class ChatSession {
 	private volatile long sessionGeneration;
 	private boolean pendingResume;
 	private boolean agentReady;
+	/** Runs once when the agent is first ready; see {@link #whenReady}. */
+	private Runnable onReady;
 	/** The chat job whose reply is being awaited, or null. */
 	private volatile Job inFlight;
 
@@ -303,10 +304,7 @@ public final class ChatSession {
 					return false;
 				}
 			}
-			if (!updateExisting) {
-				agentReady = true;
-				return true;
-			}
+			if (!updateExisting) return ready();
 			// agent:update is a recursive *merge* (vectors replace, maps merge), not
 			// a replace: tools/skillsets/context above are re-applied wholesale, but
 			// a `loads` pin dropped from this map would linger on existing agents.
@@ -324,14 +322,33 @@ public final class ChatSession {
 			// A failed transition (a bad model op, a missing API key…) leaves the
 			// agent SUSPENDED, and a suspended agent refuses every chat until it is
 			// resumed. The configuration has just been (re)applied — which is the
-			// usual fix — so resume it now rather than leave the chat bricked.
-			if (STATUS_SUSPENDED.equals(status)) resume();
+			// usual fix — so resume it now rather than leave the chat bricked. One
+			// stopped on purpose (by Thor, say) stays stopped.
+			if (Suspension.byFault(info)) resume();
 		} else {
 			run(OP_CREATE, input, ADMIN_TIMEOUT_SECONDS);
 			log.info("Created chat agent '{}' ({} via {})", config.agentId(), config.operation(), config.llmOperation());
 		}
+		return ready();
+	}
+
+	/** Marks the agent ready and runs the {@link #whenReady} hook the first time. */
+	private boolean ready() {
 		agentReady = true;
+		Runnable hook = onReady;
+		onReady = null;
+		if (hook != null) hook.run();
 		return true;
+	}
+
+	/**
+	 * Runs {@code hook} once, the first time this session's agent is ready —
+	 * on the first send, since binding a chat submits nothing. It runs on the
+	 * sending thread, before the message goes out, so it must not block.
+	 */
+	public synchronized ChatSession whenReady(Runnable hook) {
+		this.onReady = hook;
+		return this;
 	}
 
 	/** The agent's status (SLEEPING, RUNNING, SUSPENDED, TERMINATED), or null if it doesn't exist. */
@@ -424,6 +441,24 @@ public final class ChatSession {
 		}
 	}
 
+	/**
+	 * The chat's agent was suspended on purpose — by Thor, the operator or the
+	 * owner — so Brightside will not restart it by itself, as it does after a
+	 * failed turn. The message is for the owner.
+	 */
+	public static final class SuspendedException extends Exception {
+		private static final long serialVersionUID = 1L;
+
+		SuspendedException(String agent, Throwable cause) {
+			super(agent + " has been stopped on purpose, so Brightside won't restart it by itself. If Thor "
+				+ "stopped it, his request in your Inbox says why and lets you resume it.", cause);
+		}
+	}
+
+	private String displayName() {
+		return (agentName != null) ? agentName : config.agentId();
+	}
+
 	/** Whether {@code e} is the venue refusing work because the agent is suspended. */
 	static boolean isSuspended(Throwable e) {
 		for (Throwable t = e; t != null; t = t.getCause()) {
@@ -471,7 +506,9 @@ public final class ChatSession {
 		} catch (Exception e) {
 			// Suspended by an earlier failed turn (e.g. before a key was fixed in
 			// Settings): resume and try this message once more, same session.
+			// Stopped on purpose: say so, and leave it to whoever stopped it.
 			if (isSuspended(e)) {
+				if (Suspension.deliberate(agentInfo())) throw new SuspendedException(displayName(), e);
 				log.warn("Agent is suspended ({}); resuming and retrying", e.getMessage());
 				resume();
 				Reply reply = sendOnce(message, accepted);
