@@ -290,10 +290,6 @@ public final class PeersScreen extends JPanel {
 				.count();
 			c.add(legendRow(new RingIcon(i + 1, orbits.size()), orbits.get(i).name(), String.valueOf(count)));
 		}
-		c.add(heading("Status"), "gaptop 10");
-		c.add(legendRow(lamp(SolarMap.CONNECTED), "Connected", null));
-		c.add(legendRow(lamp(SolarMap.IDLE), "Idle", null));
-		c.add(legendRow(lamp(SolarMap.OFFLINE), "Offline or not connected", null));
 		c.add(heading("Reading the map"), "gaptop 10");
 		c.add(legendRow(new SunIcon(), "Home: your venue, at the centre", null));
 		c.add(legendRow(new PlanetIcon(new Color(0x5EC8F2), 18, false), "Planets are a venue's users", null));
@@ -302,6 +298,7 @@ public final class PeersScreen extends JPanel {
 		c.add(legendRow(lamp(Theme.accent()), "Your main assistant", null));
 		c.add(legendRow(new PlanetIcon(new Color(0xE8C66A), 18, true), "Rings mark a venue's admin", null));
 		c.add(legendRow(lamp(new Color(0xF6B26B)), "Stars far out are other venues", null));
+		c.add(legendRow(new PlanetIcon(SolarMap.greyed(new Color(0x5EC8F2)), 18, false), "Greyed out: offline or not connected", null));
 
 		c.add(new SelectableText("Click a planet or a star to see it, or drag it somewhere new; drag an orbit's line "
 			+ "to resize it. Scroll to zoom, drag the sky to pan, double-click a star to visit it, or the sky to "

@@ -206,9 +206,9 @@ final class SolarMap extends JComponent {
 				dragFrom = e.getPoint();
 				if (!SwingUtilities.isLeftMouseButton(e)) return;
 				// A body is picked up; an orbit's line is taken hold of; anywhere else pans,
-				// as does the body the view follows, which the view moves with.
+				// as do the body the view follows and what it orbits, which the view moves with.
 				Placed body = hit(e.getPoint());
-				if (body != null && body.body().movable() && !body.node().did().equals(tracking)) {
+				if (body != null && body.body().movable() && !holdsTracked(body.node().did())) {
 					dragging = body.node().did();
 					grabX = body.x() - e.getX();
 					grabY = body.y() - e.getY();
@@ -494,6 +494,16 @@ final class SolarMap extends JComponent {
 		return hue(n.did());
 	}
 
+	/** Whether a node is offline or not connected, and so greyed out. */
+	static boolean disconnected(Node n) {
+		return !Node.CONNECTED.equals(n.status()) && !Node.IDLE.equals(n.status());
+	}
+
+	/** A colour greyed out, keeping a hint of itself. */
+	static Color greyed(Color c) {
+		return Theme.blend(c, new Color(0x7C8494), 0.82f);
+	}
+
 	static Color lamp(String status) {
 		if (Node.CONNECTED.equals(status)) return CONNECTED;
 		if (Node.IDLE.equals(status)) return IDLE;
@@ -605,6 +615,15 @@ final class SolarMap extends JComponent {
 		if (did != null) glide.stop();
 		viewChanged();
 		repaint();
+	}
+
+	/** Whether {@code did} is the body followed or one it orbits: dragging it would drag the view, so it pans. */
+	private boolean holdsTracked(String did) {
+		Node n = graph.get(tracking);
+		for (int depth = 0; n != null && depth < 8; depth++, n = graph.owner(n)) {
+			if (n.did().equals(did)) return true;
+		}
+		return false;
 	}
 
 	String tracking() {
@@ -1025,9 +1044,9 @@ final class SolarMap extends JComponent {
 
 	private void paintPlanet(Graphics2D g, Node p, double x, double y, double r, double cx, double cy) {
 		planetAt.put(p.did(), new double[] { x, y, r });
-		boolean distant = !Node.CONNECTED.equals(p.status()) && !Node.IDLE.equals(p.status());
+		// No status lamps: what is offline or not connected is greyed out instead.
 		boolean ghost = Node.NOT_CONNECTED.equals(p.status());
-		Color hue = distant ? Theme.blend(colourOf(p), new Color(0x8A93A6), 0.6f) : colourOf(p);
+		Color hue = disconnected(p) ? greyed(colourOf(p)) : colourOf(p);
 		Composite was = g.getComposite();
 		if (ghost) g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.55f));
 		boolean focus = p.did().equals(hover) || p.did().equals(selected);
@@ -1089,15 +1108,6 @@ final class SolarMap extends JComponent {
 
 		if (chosen) ring(g, x, y, r * (1.55 + 0.08 * Math.sin(t * 3)));
 
-		// Status, as a lamp on the planet's shoulder, once there is room for it.
-		if (r >= UIScale.scale(6f)) {
-			double lr = Math.max(UIScale.scale(3f), r * 0.22);
-			double lx = x + r * 0.72, ly = y - r * 0.72;
-			g.setColor(SPACE_EDGE);
-			g.fill(new Ellipse2D.Double(lx - lr - 1.5, ly - lr - 1.5, 2 * lr + 3, 2 * lr + 3));
-			g.setColor(lamp(p.status()));
-			g.fill(new Ellipse2D.Double(lx - lr, ly - lr, 2 * lr, 2 * lr));
-		}
 	}
 
 	private void ring(Graphics2D g, double x, double y, double r) {
@@ -1151,7 +1161,7 @@ final class SolarMap extends JComponent {
 		Color own = colourOf(moon);
 		Color c = Node.CONNECTED.equals(moon.status()) ? Theme.blend(own, Color.WHITE, 0.15f)
 			: Node.IDLE.equals(moon.status()) ? Theme.blend(own, new Color(0x9AA1B0), 0.35f)
-			: Theme.blend(own, new Color(0x6B7280), 0.75f);
+			: greyed(own);
 		double r = m[2];
 		boolean focus = moon.did().equals(hover) || moon.did().equals(selected);
 		if (focus || Node.MAIN.equals(moon.relation())) {
@@ -1245,7 +1255,7 @@ final class SolarMap extends JComponent {
 		boolean known = sys.name() != null;
 		float dim = known ? 1f : 0.6f;
 		Color base = hue(sys.did());
-		Color sun = Node.OFFLINE.equals(sys.status()) ? Theme.blend(base, new Color(0x8A93A6), 0.6f) : base;
+		Color sun = disconnected(sys) ? greyed(base) : base;
 
 		// Orbits and planets once the system is big enough to have any: the
 		// users known, as planets with their moons, then dots for the rest it reports.
