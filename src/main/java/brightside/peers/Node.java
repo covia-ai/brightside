@@ -27,10 +27,11 @@ public record Node(String did, String name, String kind, String relation, String
 	 * Relations to you. Your own venue is {@code self}; on it, you are
 	 * {@code self}, its operator {@code operator} and anyone else a
 	 * {@code member}. Elsewhere, users are people you trust, services you use
-	 * or known; venues are linked to you, listed in a directory, or unknown.
+	 * or known; venues are linked to you, listed in a directory, or unknown. An
+	 * agent has no relation, except your main assistant, which is {@code main}.
 	 */
 	public static final String SELF = "self", OPERATOR = "operator", MEMBER = "member", TRUSTED = "trusted",
-		USES = "uses", KNOWN = "known", LINKED = "linked", LISTED = "listed", UNKNOWN = "unknown";
+		USES = "uses", KNOWN = "known", LINKED = "linked", LISTED = "listed", UNKNOWN = "unknown", MAIN = "main";
 
 	/** Statuses. */
 	public static final String CONNECTED = "connected", IDLE = "idle", OFFLINE = "offline",

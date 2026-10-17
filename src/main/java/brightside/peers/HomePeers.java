@@ -30,27 +30,29 @@ public final class HomePeers {
 	/**
 	 * @param operatorAgents the operator's agents, Odin among them
 	 * @param userDID        your DID on the venue, or null before it exists
+	 * @param mainAgent      the id of your main assistant among {@code userAgents}, or null
 	 */
 	public static List<Node> of(String venueDID, String venueName, String operatorName, List<Agent> operatorAgents,
-			String userDID, String userName, List<Agent> userAgents) {
+			String userDID, String userName, List<Agent> userAgents, String mainAgent) {
 		List<Node> n = new ArrayList<>();
 		n.add(new Node(venueDID, venueName, Node.VENUE, Node.SELF, Node.CONNECTED, null,
 			List.of(Fact.of("About", "This venue, running inside Brightside"))));
 		String admin = venueDID + OPERATOR_FRAGMENT;
 		n.add(new Node(admin, operatorName, Node.PERSON, Node.OPERATOR, Node.CONNECTED, venueDID,
 			List.of(Fact.of("Role", "Runs the venue"), Fact.of("DID", venueDID))));
-		agents(n, venueDID, admin, operatorAgents);
+		agents(n, venueDID, admin, operatorAgents, null);
 		if (userDID != null) {
 			n.add(new Node(userDID, userName, Node.PERSON, Node.SELF, Node.CONNECTED, venueDID,
 				List.of(Fact.of("Role", "Owner"), Fact.of("DID", userDID))));
-			agents(n, userDID, userDID, userAgents);
+			agents(n, userDID, userDID, userAgents, mainAgent);
 		}
 		return n;
 	}
 
-	private static void agents(List<Node> n, String ownerDID, String planet, List<Agent> agents) {
+	private static void agents(List<Node> n, String ownerDID, String planet, List<Agent> agents, String main) {
 		for (Agent a : agents) {
-			n.add(new Node(ownerDID + "/g/" + a.id(), a.name(), Node.AGENT, null, status(a.state()), planet,
+			String relation = a.id().equals(main) ? Node.MAIN : null;
+			n.add(new Node(ownerDID + "/g/" + a.id(), a.name(), Node.AGENT, relation, status(a.state()), planet,
 				List.of(Fact.of("Id", a.id()))));
 		}
 	}

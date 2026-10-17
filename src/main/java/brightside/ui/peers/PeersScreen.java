@@ -203,7 +203,8 @@ public final class PeersScreen extends JPanel {
 		List<Node> users = (home == null) ? List.of() : map.usersOf(home.did());
 		int agents = users.stream().mapToInt(u -> map.moonsOf(u.did()).size()).sum();
 		long venues = graph.nodes().stream().filter(n -> n.is(Node.VENUE) && n != home).count();
-		c.add(Styles.style(new JLabel(home != null ? home.label() : "Your venue"), "font: bold +2"));
+		c.add(Styles.style(new JLabel("Home"), "font: bold +2"));
+		if (home != null) c.add(Labels.small(home.label(), Styles.MUTED));
 		c.add(Labels.small(SolarMap.plural(users.size(), "user") + " · " + SolarMap.plural(agents, "agent") + " · "
 			+ SolarMap.plural((int) venues, "other venue"), Styles.MUTED), "gapbottom 10");
 
@@ -221,9 +222,11 @@ public final class PeersScreen extends JPanel {
 		c.add(legendRow(lamp(SolarMap.IDLE), "Idle", null));
 		c.add(legendRow(lamp(SolarMap.OFFLINE), "Offline or not connected", null));
 		c.add(heading("Reading the map"), "gaptop 10");
-		c.add(legendRow(new SunIcon(), "Your venue, at the centre", null));
+		c.add(legendRow(new SunIcon(), "Home: your venue, at the centre", null));
 		c.add(legendRow(new PlanetIcon(new Color(0x5EC8F2), 18, false), "Planets are a venue's users", null));
+		c.add(legendRow(new PlanetIcon(SolarMap.YOU, 18, false), "You, in yellow", null));
 		c.add(legendRow(lamp(new Color(0xA9AFBC)), "Moons are their agents", null));
+		c.add(legendRow(lamp(Theme.accent()), "Your main assistant", null));
 		c.add(legendRow(new PlanetIcon(new Color(0xE8C66A), 18, true), "Rings mark a venue's admin", null));
 		c.add(legendRow(lamp(new Color(0xF6B26B)), "Stars far out are other venues", null));
 
@@ -233,11 +236,19 @@ public final class PeersScreen extends JPanel {
 	}
 
 	private void planet(JPanel c, Node n, PeerGraph graph) {
+		if (n.is(Node.AGENT)) {
+			Node owner = graph.owner(n);
+			String role = Node.MAIN.equals(n.relation()) ? "Main assistant" : "Agent";
+			title(c, n, owner == null ? role : role + " · " + owner.label());
+			c.add(fact("Status", new JLabel(SolarMap.statusLabel(n), lamp(SolarMap.lamp(n.status())), SwingConstants.LEADING)));
+			facts(c, n);
+			return;
+		}
 		Node venue = graph.owner(n);
 		boolean ours = venue != null && venue == map.homeVenue();
 		String role = Node.SELF.equals(n.relation()) ? "You"
 			: SolarMap.ringed(n) ? "Admin" : "User";
-		title(c, n, venue == null ? role : role + " · " + (ours ? "your venue" : venue.label()));
+		title(c, n, venue == null ? role : role + " · " + (ours ? "Home" : venue.label()));
 		c.add(fact("Status", new JLabel(SolarMap.statusLabel(n), lamp(SolarMap.lamp(n.status())), SwingConstants.LEADING)));
 		facts(c, n);
 		List<Node> agents = map.moonsOf(n.did());
@@ -250,7 +261,7 @@ public final class PeersScreen extends JPanel {
 
 	private void venue(JPanel c, Node n, boolean ours) {
 		boolean known = n.name() != null;
-		title(c, n, ours ? "Your venue" : known ? "Venue" : "Not in your directory");
+		title(c, n, ours ? "Home" : known ? "Venue" : "Not in your directory");
 		boolean linked = ours || Node.LINKED.equals(n.relation());
 		c.add(fact("Status", new JLabel(linked ? SolarMap.statusLabel(n) : "Not connected",
 			lamp(SolarMap.lamp(linked ? n.status() : Node.NOT_CONNECTED)), SwingConstants.LEADING)));
@@ -278,7 +289,7 @@ public final class PeersScreen extends JPanel {
 	private static void title(JPanel c, Node n, String subtitle) {
 		JPanel title = new JPanel(new MigLayout("insets 0, gap 12", "[][grow,fill]", "[][]"));
 		title.setOpaque(false);
-		title.add(new JLabel(new PlanetIcon(SolarMap.hue(n.did()), 40, SolarMap.ringed(n))), "spany 2");
+		title.add(new JLabel(new PlanetIcon(SolarMap.colourOf(n), 40, SolarMap.ringed(n))), "spany 2");
 		title.add(Styles.style(new JLabel(n.name() != null ? n.name() : "Unknown venue"), "font: bold +3"), "wrap, wmin 0");
 		title.add(Labels.small(subtitle, Styles.MUTED));
 		title.setToolTipText(n.did());

@@ -22,7 +22,7 @@ class HomePeersTest {
 
 	private static List<Node> home(List<HomePeers.Agent> yours) {
 		return HomePeers.of(VENUE, "Robin's Brightside", "Operator", List.of(new HomePeers.Agent("odin", "Odin", "SLEEPING")),
-			YOU, "Robin", yours);
+			YOU, "Robin", yours, "chat");
 	}
 
 	@Test
@@ -44,11 +44,13 @@ class HomePeersTest {
 		assertEquals(List.of(YOU + "/g/chat", YOU + "/g/old"), yours.stream().map(Node::did).toList());
 		assertEquals(List.of(Node.CONNECTED, Node.OFFLINE), yours.stream().map(Node::status).toList());
 		assertEquals(Node.IDLE, g.partsOf(VENUE + "#operator").getFirst().status(), "asleep is idle");
+		assertEquals(List.of(Node.MAIN), yours.stream().map(Node::relation).filter(r -> r != null).toList(),
+			"your main assistant, and only it, is marked");
 	}
 
 	@Test
 	void beforeTheUserExistsThereIsJustTheAdmin() {
-		List<Node> n = HomePeers.of(VENUE, "V", "Operator", List.of(), null, "Robin", List.of());
+		List<Node> n = HomePeers.of(VENUE, "V", "Operator", List.of(), null, "Robin", List.of(), null);
 		assertEquals(1, new PeerGraph(n).partsOf(VENUE).size());
 	}
 

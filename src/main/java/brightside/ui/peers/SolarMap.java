@@ -21,6 +21,7 @@ import java.awt.event.MouseWheelEvent;
 import java.awt.geom.Arc2D;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Line2D;
+import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
@@ -82,6 +83,8 @@ final class SolarMap extends JComponent {
 	static final Color CONNECTED = new Color(0x4ADE80);
 	static final Color IDLE = new Color(0xFBBF24);
 	static final Color OFFLINE = new Color(0x6B7280);
+	/** Your own planet. */
+	static final Color YOU = new Color(0xFACC15);
 	/** Planet and star colours, chosen by DID. */
 	private static final Color[] PALETTE = { new Color(0x5EC8F2), new Color(0x7FE0C4), new Color(0xF2A65E),
 		new Color(0xE58BB4), new Color(0xB79CF2), new Color(0xE8C66A), new Color(0x6FA8F7), new Color(0xA8B48A),
@@ -127,7 +130,7 @@ final class SolarMap extends JComponent {
 
 	/** What a node is drawn as: your venue, another venue, one of your users, or a user of another venue. */
 	enum Body {
-		SUN, STAR, PLANET, FAR_PLANET;
+		SUN, STAR, PLANET, FAR_PLANET, MOON;
 
 		boolean star() {
 			return this == SUN || this == STAR;
@@ -358,7 +361,9 @@ final class SolarMap extends JComponent {
 		if (systems.contains(n)) return Body.STAR;
 		if (planets.contains(n)) return Body.PLANET;
 		Node owner = graph.owner(n);
-		return (owner != null && users.getOrDefault(owner.did(), List.of()).contains(n)) ? Body.FAR_PLANET : null;
+		if (owner != null && users.getOrDefault(owner.did(), List.of()).contains(n)) return Body.FAR_PLANET;
+		Body planet = (owner == null) ? null : bodyOf(owner.did());
+		return (planet == Body.PLANET || planet == Body.FAR_PLANET) ? Body.MOON : null;
 	}
 
 	/** Whether {@code did} is a venue: your own, or one far out. */
@@ -423,6 +428,13 @@ final class SolarMap extends JComponent {
 	/** A node's colour, the same on every launch: chosen by its DID. */
 	static Color hue(String did) {
 		return PALETTE[(int) (MapSettings.hash(did, 4) * PALETTE.length)];
+	}
+
+	/** Yours is yellow; your main assistant wears the brand colour; anything else is coloured by its DID. */
+	static Color colourOf(Node n) {
+		if (n.is(Node.PERSON) && Node.SELF.equals(n.relation())) return YOU;
+		if (Node.MAIN.equals(n.relation())) return Theme.accent();
+		return hue(n.did());
 	}
 
 	static Color lamp(String status) {
@@ -590,7 +602,7 @@ final class SolarMap extends JComponent {
 			return (ring >= 0) ? settings.orbits().get(ring).name() + " · drag to resize" : null;
 		}
 		Node n = p.node();
-		if (p.body() == Body.SUN) return n.label() + " · your venue · " + plural(planets.size(), "user");
+		if (p.body() == Body.SUN) return "Home · " + n.label() + " · " + plural(planets.size(), "user");
 		if (p.star()) {
 			return (n.name() != null) ? n.name() + " · " + statusLabel(n) : "A venue you don't know";
 		}
@@ -838,7 +850,7 @@ final class SolarMap extends JComponent {
 
 		// Your venue's name; far out, where you are among everything else.
 		g.setFont(getFont().deriveFont(Font.BOLD, UIScale.scale(12f)));
-		String name = marker > 0.5 ? "You are here" : (home != null) ? home.label() : "Your venue";
+		String name = marker > 0.5 ? "You are here" : "Home";
 		centred(g, name, cx, cy + Math.max(r, marker > 0 ? UIScale.scale(14f) : 0) + UIScale.scale(16),
 			new Color(1f, 1f, 1f, 0.92f));
 		if (home != null) placed.add(new Placed(home, Body.SUN, cx, cy, Math.max(r, UIScale.scale(8f))));
@@ -851,7 +863,7 @@ final class SolarMap extends JComponent {
 		float a = fadeIn(s, 60, 140);
 		if (a <= 0) return;
 		boolean focus = p.did().equals(hover) || p.did().equals(selected);
-		Color hue = hue(p.did());
+		Color hue = colourOf(p);
 		g.setStroke(new BasicStroke(UIScale.scale(focus ? 1.3f : 0.9f)));
 		g.setColor(fade(hue, a * (focus ? 0.45f : live ? 0.16f : 0.08f)));
 		g.draw(new Line2D.Double(cx, cy, x, y));
@@ -860,21 +872,30 @@ final class SolarMap extends JComponent {
 
 	private void packets(Graphics2D g, double x0, double y0, double x1, double y1, Color hue, double speed,
 			double offset, float alpha) {
+		double len = Math.hypot(x1 - x0, y1 - y0);
+		if (len < 1) return;
+		double ux = (x1 - x0) / len, uy = (y1 - y0) / len;
+		double s = UIScale.scale(2.6f);
 		for (int k = 0; k < 2; k++) {
 			double f = ((t * speed + offset + k * 0.5) % 1.0 + 1) % 1.0;
 			if (k == 1) f = 1 - f; // one each way
 			double px = x0 + (x1 - x0) * f, py = y0 + (y1 - y0) * f;
-			double pr = UIScale.scale(2.2f);
+			double dx = (k == 0) ? ux : -ux, dy = (k == 0) ? uy : -uy; // pointing the way it travels
 			float a = (float) Math.sin(f * Math.PI);
-			g.setColor(fade(Theme.blend(hue, Color.WHITE, 0.5f), 0.85f * a * alpha));
-			g.fill(new Ellipse2D.Double(px - pr, py - pr, 2 * pr, 2 * pr));
+			Path2D.Double tri = new Path2D.Double();
+			tri.moveTo(px + dx * s * 1.5, py + dy * s * 1.5);
+			tri.lineTo(px - dx * s - dy * s, py - dy * s + dx * s);
+			tri.lineTo(px - dx * s + dy * s, py - dy * s - dx * s);
+			tri.closePath();
+			g.setColor(fade(Theme.blend(hue, Color.WHITE, 0.5f), 0.9f * a * alpha));
+			g.fill(tri);
 		}
 	}
 
 	private void paintPlanet(Graphics2D g, Node p, double x, double y, double r, double cx, double cy) {
 		boolean distant = !Node.CONNECTED.equals(p.status()) && !Node.IDLE.equals(p.status());
 		boolean ghost = Node.NOT_CONNECTED.equals(p.status());
-		Color hue = distant ? Theme.blend(hue(p.did()), new Color(0x8A93A6), 0.6f) : hue(p.did());
+		Color hue = distant ? Theme.blend(colourOf(p), new Color(0x8A93A6), 0.6f) : colourOf(p);
 		Composite was = g.getComposite();
 		if (ghost) g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.55f));
 		boolean focus = p.did().equals(hover) || p.did().equals(selected);
@@ -962,22 +983,35 @@ final class SolarMap extends JComponent {
 		List<double[]> out = new ArrayList<>();
 		List<Node> its = moonsOf(p.did());
 		for (int i = 0; i < its.size(); i++) {
-			double orbit = r * (1.9 + i * 0.62);
+			double orbit = r * (2.3 + i * 0.9);
 			double a = t * 2 * Math.PI / (7 + i * 4) + 2 * Math.PI * MapSettings.hash(its.get(i).did(), 6);
 			double depth = Math.sin(a);
-			out.add(new double[] { x + Math.cos(a) * orbit, y + depth * orbit * TILT, Math.max(UIScale.scale(2.4f), r * 0.32),
-				depth, i });
+			double size = Node.MAIN.equals(its.get(i).relation()) ? 1.5 : 1; // your main assistant stands out
+			out.add(new double[] { x + Math.cos(a) * orbit, y + depth * orbit * TILT,
+				Math.max(UIScale.scale(2.4f), r * 0.3) * size, depth, i });
 		}
 		return out;
 	}
 
-	private static void paintMoon(Graphics2D g, Node moon, double[] m, float alpha) {
-		Color c = Node.CONNECTED.equals(moon.status()) ? new Color(0xE6E9F0)
-			: Node.IDLE.equals(moon.status()) ? new Color(0xB9BECB) : new Color(0x6B7280);
+	/** A moon, coloured as its agent and dimmed as it rests; named once there is room, and pointed at like a planet. */
+	private void paintMoon(Graphics2D g, Node moon, double[] m, float alpha) {
+		Color own = colourOf(moon);
+		Color c = Node.CONNECTED.equals(moon.status()) ? Theme.blend(own, Color.WHITE, 0.15f)
+			: Node.IDLE.equals(moon.status()) ? Theme.blend(own, new Color(0x9AA1B0), 0.35f)
+			: Theme.blend(own, new Color(0x6B7280), 0.75f);
 		double r = m[2];
+		boolean focus = moon.did().equals(hover) || moon.did().equals(selected);
+		if (focus || Node.MAIN.equals(moon.relation())) {
+			double gr = r * (focus ? 3.2 : 2.4);
+			g.setPaint(new RadialGradientPaint(new Point2D.Double(m[0], m[1]), (float) gr, new float[] { 0f, 1f },
+				new Color[] { fade(own, 0.45f * alpha), fade(own, 0f) }));
+			g.fill(new Ellipse2D.Double(m[0] - gr, m[1] - gr, 2 * gr, 2 * gr));
+		}
 		g.setPaint(new RadialGradientPaint(new Point2D.Double(m[0] - r * 0.3, m[1] - r * 0.3), (float) (r * 1.4),
 			new float[] { 0f, 1f }, new Color[] { fade(c, alpha), fade(Theme.blend(c, Color.BLACK, 0.6f), alpha) }));
 		g.fill(new Ellipse2D.Double(m[0] - r, m[1] - r, 2 * r, 2 * r));
+		if (moon.did().equals(selected)) ring(g, m[0], m[1], Math.max(r * 2, UIScale.scale(6f)));
+		if (alpha > 0.5f) placed.add(new Placed(moon, Body.MOON, m[0], m[1], r));
 	}
 
 	// ------------------------------------------------------------------
@@ -1142,11 +1176,17 @@ final class SolarMap extends JComponent {
 		String name, sub = null;
 		float alpha;
 		double y;
-		if (!pl.star()) {
+		boolean moon = pl.body() == Body.MOON;
+		if (moon) {
+			// Small and quiet, once the moon is big enough to be worth naming.
+			alpha = focus ? 1 : 0.8f * fadeIn(pl.r(), UIScale.scale(3.5f), UIScale.scale(5.5f));
+			name = n.label();
+			if (focus) sub = statusLabel(n);
+			y = pl.y() + pl.r() + UIScale.scale(10);
+		} else if (!pl.star()) {
 			alpha = focus ? 1 : fadeIn(pl.r(), UIScale.scale(5f), UIScale.scale(8f));
 			name = n.label();
 			if (focus) sub = statusLabel(n);
-			else if (pl.body() == Body.PLANET && Node.SELF.equals(n.relation())) sub = "You";
 			boolean hasMoons = !moonsOf(n.did()).isEmpty();
 			y = pl.y() + pl.r() + UIScale.scale(15) + (pl.r() >= UIScale.scale(5f) && hasMoons ? pl.r() * 0.5 : 0);
 			if (Node.NOT_CONNECTED.equals(n.status()) && !focus) alpha *= 0.6f;
@@ -1159,7 +1199,8 @@ final class SolarMap extends JComponent {
 			y = pl.y() + Math.max(UIScale.scale(10f), Math.min(rad * TILT, UIScale.scale(60f))) + UIScale.scale(14);
 		}
 		if (alpha <= 0.02f) return;
-		g.setFont(getFont().deriveFont(focus ? Font.BOLD : Font.PLAIN, UIScale.scale(focus ? 12f : 11f)));
+		float pt = moon ? (focus ? 10.5f : 9.5f) : (focus ? 12f : 11f);
+		g.setFont(getFont().deriveFont(focus ? Font.BOLD : Font.PLAIN, UIScale.scale(pt)));
 		// Room for it? A lesser label that would overlap one already drawn waits until pointed at.
 		FontMetrics fm = g.getFontMetrics();
 		double w = fm.stringWidth(name) + UIScale.scale(6f), h = fm.getHeight() + (sub != null ? UIScale.scale(13f) : 0);
@@ -1173,11 +1214,12 @@ final class SolarMap extends JComponent {
 		}
 	}
 
-	/** How much a label is wanted: what is pointed at or chosen, then planets, then venues you are linked to, then the rest. */
+	/** How much a label is wanted: what is pointed at or chosen, then planets, their moons, venues you are linked to, then the rest. */
 	private int want(Placed p) {
 		String did = p.node().did();
-		if (did.equals(hover) || did.equals(selected)) return 4;
-		if (!p.star()) return 3;
+		if (did.equals(hover) || did.equals(selected)) return 5;
+		if (p.body() == Body.PLANET || p.body() == Body.FAR_PLANET) return 4;
+		if (p.body() == Body.MOON) return 3;
 		if (Node.LINKED.equals(p.node().relation())) return 2;
 		return (p.node().name() != null) ? 1 : 0;
 	}

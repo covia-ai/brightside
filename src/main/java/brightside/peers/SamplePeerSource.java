@@ -51,7 +51,7 @@ public final class SamplePeerSource implements PeerSource {
 		n.add(agent("home-odin", "Odin", Node.CONNECTED, "home#operator"));
 		n.add(node("home:u:robin", "Robin", Node.PERSON, Node.SELF, Node.CONNECTED, "home",
 			of("Role", "Owner"), of("DID", P + "home:u:robin")));
-		n.add(agent("home-assistant", "Assistant", Node.CONNECTED, "home:u:robin"));
+		n.add(node("home-assistant", "Brightside", Node.AGENT, Node.MAIN, Node.CONNECTED, "home:u:robin"));
 		n.add(agent("home-research", "Research", Node.IDLE, "home:u:robin"));
 	}
 

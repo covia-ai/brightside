@@ -841,7 +841,7 @@ public final class BrightSide {
 		if (venueDID == null || id == null) return List.of();
 		String userDID = id.userDID(venueDID);
 		return brightside.peers.HomePeers.of(venueDID, v.name(), id.operatorName(), v.agentsForMap(venueDID),
-			userDID, id.name(), v.agentsForMap(userDID));
+			userDID, id.name(), v.agentsForMap(userDID), config.chat().agentId());
 	}
 
 	/** The acting principal's client for the schedule: the bound chat principal, else the owner. */
