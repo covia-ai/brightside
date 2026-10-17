@@ -66,6 +66,8 @@ class OdinTest {
 	void odinBelongsToTheVenueAndEnsureIsIdempotent() throws Exception {
 		assertNotNull(venue.agentRecord(venue.did(), Odin.AGENT_ID), "created under the venue principal");
 		assertNull(venue.agentRecord(userDID, Odin.AGENT_ID), "not one of the owner's agents");
+		assertTrue(venue.agentsForMap(venue.did()).stream().anyMatch(a -> a.id().equals(Odin.AGENT_ID)),
+			"the Peers map finds him as the admin's moon");
 
 		Odin.ensure(venue, TASK_LLM); // the update path, on an existing agent
 		ACell record = venue.agentRecord(venue.did(), Odin.AGENT_ID);
