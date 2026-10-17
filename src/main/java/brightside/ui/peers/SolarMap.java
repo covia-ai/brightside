@@ -30,6 +30,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import javax.swing.JComponent;
@@ -124,6 +125,13 @@ final class SolarMap extends JComponent {
 	private double zoom = 1, panX, panY;
 	private double toZoom = 1, toPanX, toPanY;
 	private String hover, selected;
+	/** The body the view follows, kept centred as it moves, or null. */
+	private String tracking;
+	/** Where on screen the body followed is held, from the centre: moved by panning while following. */
+	private double trackDX, trackDY;
+	/** Hears a right-click: the DID of the body under it, or null for the sky, and where. */
+	private BiConsumer<String, Point> onMenu = (did, at) -> {
+	};
 	private Point dragFrom;
 	/** What is being carried: a body's DID, or an orbit's index; where it is; and where on it the pointer took hold. */
 	private String dragging;
@@ -193,11 +201,16 @@ final class SolarMap extends JComponent {
 
 			@Override
 			public void mousePressed(MouseEvent e) {
+				if (e.isPopupTrigger()) {
+					menu(e);
+					return;
+				}
 				dragFrom = e.getPoint();
 				if (!SwingUtilities.isLeftMouseButton(e)) return;
-				// A body is picked up; an orbit's line is taken hold of; anywhere else pans.
+				// A body is picked up; an orbit's line is taken hold of; anywhere else pans,
+				// as does the body the view follows, which the view moves with.
 				Placed body = hit(e.getPoint());
-				if (body != null && body.body().movable()) {
+				if (body != null && body.body().movable() && !body.node().did().equals(tracking)) {
 					dragging = body.node().did();
 					grabX = body.x() - e.getX();
 					grabY = body.y() - e.getY();
@@ -219,6 +232,11 @@ final class SolarMap extends JComponent {
 				} else {
 					panX += e.getX() - dragFrom.x;
 					panY += e.getY() - dragFrom.y;
+					if (tracking != null) {
+						// Still following, from wherever it is now held.
+						trackDX += e.getX() - dragFrom.x;
+						trackDY += e.getY() - dragFrom.y;
+					}
 					dragFrom = e.getPoint();
 					onView.run(); // the header names the venue in view
 				}
@@ -228,6 +246,14 @@ final class SolarMap extends JComponent {
 
 			@Override
 			public void mouseReleased(MouseEvent e) {
+				if (e.isPopupTrigger()) {
+					dragging = null;
+					resizing = -1;
+					dragAt = null;
+					dragFrom = null;
+					menu(e);
+					return;
+				}
 				if (dragging != null && dragAt != null) drop(dragging, dragAt);
 				else if (resizing >= 0) changed();
 				dragging = null;
@@ -304,6 +330,7 @@ final class SolarMap extends JComponent {
 			zoom = toZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, settings.view().zoom()));
 			panX = panY = toPanX = toPanY = 0;
 			setPaused(settings.view().paused());
+			tracking = settings.view().track();
 			onView.run();
 		}
 		repaint();
@@ -493,7 +520,7 @@ final class SolarMap extends JComponent {
 	/** Pauses or unpauses as the person asks, and remembers it. */
 	void togglePaused() {
 		setPaused(!paused);
-		settings = settings.withView(new MapSettings.View(zoom, paused));
+		settings = settings.withView(new MapSettings.View(zoom, paused, tracking));
 		onSettings.accept(settings);
 	}
 
@@ -507,6 +534,11 @@ final class SolarMap extends JComponent {
 
 	/** Scales the view by {@code factor} about a point on screen, so what is under it stays put. */
 	void zoomAbout(double x, double y, double factor) {
+		if (tracking != null) {
+			// Following something: zoom about where it is held, so it stays put.
+			x = getWidth() / 2.0 + trackDX;
+			y = getHeight() / 2.0 + trackDY;
+		}
 		glide.stop();
 		double z = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom * factor));
 		double cx = getWidth() / 2.0 + panX, cy = getHeight() / 2.0 + panY;
@@ -520,22 +552,29 @@ final class SolarMap extends JComponent {
 	/** Zooms in or out by a step about the centre, as the header's buttons do. */
 	void zoomStep(boolean in) {
 		double f = in ? 1.6 : 1 / 1.6;
+		if (tracking != null) {
+			zoomAbout(0, 0, f); // about the body followed
+			return;
+		}
 		double z = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom * f));
 		glideTo(z, panX * z / zoom, panY * z / zoom);
 	}
 
 	/** Back to your own system, filling the map. */
 	void home() {
+		tracking = null;
 		glideTo(1, 0, 0);
 	}
 
 	/** Out to the whole universe of venues. */
 	void universe() {
+		tracking = null;
 		glideTo(1 / UNIVERSE, 0, 0);
 	}
 
 	/** Over to another venue, near enough to see its users and their agents; your own is {@link #home()} (the view). */
 	void visit(String did) {
+		tracking = null;
 		Node sys = graph.get(did);
 		if (sys == null || !systems.contains(sys)) {
 			home();
@@ -547,8 +586,68 @@ final class SolarMap extends JComponent {
 		glideTo(z, -w.x * base * z, -w.y * base * z * TILT);
 	}
 
+	/**
+	 * Follows {@code did}, keeping it centred as it moves, or stops following
+	 * with null; remembered with the view. Panning while following keeps
+	 * following, from where it was panned to.
+	 */
+	void track(String did) {
+		tracking = did;
+		trackDX = trackDY = 0;
+		if (did != null) glide.stop();
+		viewChanged();
+		repaint();
+	}
+
+	String tracking() {
+		return tracking;
+	}
+
+	/** Pans a little towards the body followed, each frame, so it stays where it is held and the view never jumps. */
+	private void follow() {
+		if (tracking == null || tracking.equals(dragging)) return;
+		double[] at = null;
+		for (Placed p : placed) {
+			if (p.node().did().equals(tracking)) at = new double[] { p.x(), p.y() };
+		}
+		if (at == null) {
+			// A moon too small to draw: follow its planet.
+			Node n = graph.get(tracking);
+			at = (n == null) ? null : planetAt.get(n.belongsTo());
+		}
+		if (at == null) return;
+		double dx = getWidth() / 2.0 + trackDX - at[0], dy = getHeight() / 2.0 + trackDY - at[1];
+		if (Math.abs(dx) < 0.3 && Math.abs(dy) < 0.3) return;
+		panX += dx * 0.2;
+		panY += dy * 0.2;
+		repaint();
+	}
+
+	/** Called on a right-click with the DID of the body under it (chosen first), or null for the sky. */
+	void setOnMenu(BiConsumer<String, Point> onMenu) {
+		this.onMenu = onMenu;
+	}
+
+	private void menu(MouseEvent e) {
+		String did = didOf(hit(e.getPoint()));
+		if (did != null && !did.equals(selected)) select(did);
+		onMenu.accept(did, e.getPoint());
+	}
+
+	/** Whether {@code did} has been moved from where its DID puts it. */
+	boolean placed(String did) {
+		return settings.placements().containsKey(did);
+	}
+
+	/** One body back where its DID puts it. */
+	void unplace(String did) {
+		settings = settings.withoutPlacement(did);
+		changed();
+		repaint();
+	}
+
 	private void viewChanged() {
-		settings = settings.withView(new MapSettings.View(zoom, paused));
+		settings = settings.withView(new MapSettings.View(zoom, paused, tracking));
 		onSettings.accept(settings);
 		onView.run();
 	}
@@ -721,6 +820,7 @@ final class SolarMap extends JComponent {
 			List<Placed> byWant = new ArrayList<>(placed);
 			byWant.sort(Comparator.comparingInt(this::want).reversed());
 			for (Placed p : byWant) paintLabel(g, p, s);
+			follow();
 		} finally {
 			g.dispose();
 		}
@@ -827,11 +927,11 @@ final class SolarMap extends JComponent {
 		// The orbit's name, centred below its near edge, where orbits are furthest apart.
 		g.setFont(getFont().deriveFont(Font.BOLD, UIScale.scale(9.5f)));
 		String name = settings.orbits().get(ring).name().toUpperCase();
-		float tracking = UIScale.scale(1.2f);
+		float spacing = UIScale.scale(1.2f);
 		FontMetrics fm = g.getFontMetrics();
-		float width = fm.stringWidth(name) + tracking * (name.length() - 1);
+		float width = fm.stringWidth(name) + spacing * (name.length() - 1);
 		g.setColor(new Color(1f, 1f, 1f, shown * (lit ? 0.7f : 0.32f)));
-		drawTracked(g, name, (float) (cx - width / 2), (float) (cy + r * TILT + UIScale.scale(13)), tracking);
+		drawTracked(g, name, (float) (cx - width / 2), (float) (cy + r * TILT + UIScale.scale(13)), spacing);
 	}
 
 	/** The orbit a planet is on or nearest, carried or not; -1 for anything else. */

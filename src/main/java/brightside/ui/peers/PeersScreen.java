@@ -62,6 +62,7 @@ public final class PeersScreen extends JPanel {
 	private final JLabel view = Labels.small(" ", Styles.MUTED);
 	private final JButton reset = Buttons.icon(Lucide.icon("rotate-ccw", 16, Theme::muted),
 		"Put every planet, moon, venue and orbit back as it started");
+	private final JButton follow = Buttons.icon(null, null);
 	private final Timer saveLater;
 	private final ExecutorService saver = Executors.newSingleThreadExecutor(r -> {
 		Thread t = new Thread(r, "brightside-peers-settings");
@@ -72,19 +73,54 @@ public final class PeersScreen extends JPanel {
 	private MapSettings unsaved;
 
 	/**
-	 * @param source where the peer data comes from
-	 * @param stores the acting person's settings store, asked again each time the tab opens
+	 * What the map's menu can do in the rest of the app: chat, and switch
+	 * between acting as the named user and as the venue operator.
 	 */
+	public interface Actions {
+		/** Nothing beyond the map itself: for previews and tests. */
+		Actions NONE = new Actions() {
+			@Override
+			public boolean actingAsOperator() {
+				return false;
+			}
+
+			@Override
+			public void actAs(boolean operator) {
+			}
+
+			@Override
+			public void chat(boolean operator, String agentId) {
+			}
+		};
+
+		boolean actingAsOperator();
+
+		void actAs(boolean operator);
+
+		/** Opens the chat with {@code agentId}, or the principal's standard agent when null, as that principal. */
+		void chat(boolean operator, String agentId);
+	}
+
 	public PeersScreen(PeerSource source, Supplier<MapSettingsStore> stores) {
+		this(source, stores, Actions.NONE);
+	}
+
+	/**
+	 * @param source  where the peer data comes from
+	 * @param stores  the acting person's settings store, asked again each time the tab opens
+	 * @param actions what the map's menu can do in the rest of the app
+	 */
+	public PeersScreen(PeerSource source, Supplier<MapSettingsStore> stores, Actions actions) {
 		super(new BorderLayout());
 		this.source = source;
 		this.stores = stores;
 		map = new SolarMap(this::show, this::syncView, this::settingsChanged);
+		map.setOnMenu((did, at) -> new PeersMenu(map, source.graph(), actions).build(did).show(map, at.x, at.y));
 		saveLater = new Timer(SAVE_AFTER_MS, e -> save());
 		saveLater.setRepeats(false);
 
 		JPanel header = new JPanel(new MigLayout("insets 14 22 12 16, fillx",
-			"[]10[]push[]14[]2[]2[]2[]10[]2[]", ""));
+			"[]10[]push[]14[]2[]2[]2[]2[]10[]2[]", ""));
 		header.setBorder(Borders.hairline(false, false, true, false));
 		header.add(Styles.style(new JLabel("Peers"), "font: bold +4"));
 		if (source.sample()) {
@@ -103,6 +139,11 @@ public final class PeersScreen extends JPanel {
 		header.add(button("zoom-in", "Zoom in (or scroll)", () -> map.zoomStep(true)));
 		header.add(button("locate-fixed", "Your system (or double-click the map)", map::home));
 		header.add(button("telescope", "The whole universe of venues", map::universe));
+		follow.addActionListener(e -> {
+			String you = PeersMenu.yourPlanet(source.graph());
+			map.track(you != null && !you.equals(map.tracking()) ? you : null);
+		});
+		header.add(follow);
 		header.add(pause);
 		header.add(reset);
 
@@ -169,6 +210,11 @@ public final class PeersScreen extends JPanel {
 	private void syncView() {
 		view.setText(map.viewName() + " · " + Math.round(map.zoom() * 100) + "%");
 		reset.setEnabled(map.rearranged());
+		boolean following = map.tracking() != null;
+		String you = PeersMenu.yourPlanet(source.graph());
+		follow.setIcon(Lucide.icon("orbit", 16, following ? Theme::accent : Theme::muted));
+		follow.setToolTipText(following ? "Stop tracking" : "Track your planet");
+		follow.setEnabled(following || you != null);
 	}
 
 	private static JButton button(String icon, String tooltip, Runnable action) {

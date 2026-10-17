@@ -70,8 +70,15 @@ public final class MapSettings {
 	public record Moon(double radius, double phase) implements Placement {
 	}
 
-	/** The view to open on: the zoom, and whether the map is held still. */
-	public record View(double zoom, boolean paused) {
+	/** The view to open on: the zoom, whether the map is held still, and the DID it follows, or null. */
+	public record View(double zoom, boolean paused, String track) {
+		public View(double zoom, boolean paused) {
+			this(zoom, paused, null);
+		}
+
+		public View tracking(String did) {
+			return new View(zoom, paused, did);
+		}
 	}
 
 	public static final MapSettings DEFAULT = new MapSettings(List.of(
@@ -171,6 +178,14 @@ public final class MapSettings {
 		return new MapSettings(orbits, placements, v);
 	}
 
+	/** One body back where its DID puts it. */
+	public MapSettings withoutPlacement(String did) {
+		if (!placements.containsKey(did)) return this;
+		Map<String, Placement> next = new LinkedHashMap<>(placements);
+		next.remove(did);
+		return new MapSettings(orbits, next, view);
+	}
+
 	/** Every body back where its DID puts it; orbits and the view are kept. */
 	public MapSettings withoutPlacements() {
 		return new MapSettings(orbits, Map.of(), view);
@@ -186,13 +201,14 @@ public final class MapSettings {
 		return !placements.isEmpty() || !orbits.equals(DEFAULT.orbits);
 	}
 
-	/** Drops placements for DIDs {@code graph} no longer has. */
+	/** Drops placements, and the body followed, for DIDs {@code graph} no longer has. */
 	public MapSettings prune(PeerGraph graph) {
 		Map<String, Placement> next = new LinkedHashMap<>();
 		for (Map.Entry<String, Placement> e : placements.entrySet()) {
 			if (graph.get(e.getKey()) != null) next.put(e.getKey(), e.getValue());
 		}
-		return (next.size() == placements.size()) ? this : new MapSettings(orbits, next, view);
+		View v = (view.track() != null && graph.get(view.track()) == null) ? view.tracking(null) : view;
+		return (next.size() == placements.size() && v == view) ? this : new MapSettings(orbits, next, v);
 	}
 
 	@Override
@@ -228,7 +244,9 @@ public final class MapSettings {
 			ps = ps.assoc(Strings.create(e.getKey()), p);
 		}
 		return Maps.of("version", CVMLong.create(VERSION), "orbits", os, "placements", ps,
-			"view", Maps.of("zoom", CVMDouble.create(view.zoom()), "paused", CVMBool.create(view.paused())));
+			"view", (view.track() == null)
+				? Maps.of("zoom", CVMDouble.create(view.zoom()), "paused", CVMBool.create(view.paused()))
+				: Maps.of("zoom", CVMDouble.create(view.zoom()), "paused", CVMBool.create(view.paused()), "track", view.track()));
 	}
 
 	/**
@@ -286,7 +304,7 @@ public final class MapSettings {
 
 		double zoom = num(RT.getIn(cell, "view", "zoom"), 1);
 		boolean paused = CVMBool.TRUE.equals(RT.getIn(cell, "view", "paused"));
-		return new MapSettings(orbits, placements, new View(zoom > 0 ? zoom : 1, paused));
+		return new MapSettings(orbits, placements, new View(zoom > 0 ? zoom : 1, paused, str(RT.getIn(cell, "view", "track"))));
 	}
 
 	private static String str(ACell c) {

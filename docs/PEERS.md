@@ -96,7 +96,9 @@ structure of their own:
   DID, so the same node lands in the same place on every launch without
   anything being stored; unplaced venues are then pushed apart as they are
   drawn, so none sit on top of another.
-- **View:** the zoom to open on, and whether the map is paused.
+- **View:** the zoom to open on, whether the map is paused, and the body the
+  view tracks, if any (your own planet, most likely). Panning while tracking
+  keeps tracking, from where the body was panned to.
 - **A version**, so the structure can evolve. Anything stored that does not
   make sense, from another version or none, falls back to the defaults.
 

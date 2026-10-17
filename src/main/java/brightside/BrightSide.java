@@ -1433,6 +1433,24 @@ public final class BrightSide {
 		startChatBackground(v, id, chatConfigFor(defaultAgentId()), Bind.PRINCIPAL_SWITCH);
 	}
 
+	/**
+	 * Chat with {@code agentId}, or the principal's standard agent when null,
+	 * as the operator or the named user, switching principal first if need be,
+	 * in one bind. From the Peers map's menu on a planet or a moon.
+	 */
+	public void chatWith(boolean operator, String agentId) {
+		EmbeddedVenue v = venue;
+		Identity id = identity;
+		if (v == null || id == null) return;
+		if (operator == actingAsOperator) {
+			if (agentId != null && !agentId.equals(this.agentId)) switchAgent(agentId);
+			return;
+		}
+		actingAsOperator = operator;
+		log.info("Acting as {}", operator ? "the venue operator" : id.label());
+		startChatBackground(v, id, chatConfigFor(agentId != null ? agentId : defaultAgentId()), Bind.PRINCIPAL_SWITCH);
+	}
+
 	/** The principal the app acts as: the venue itself as operator, else {@code id}'s user. */
 	private String actingDID(Identity id, EmbeddedVenue v) {
 		return actingAsOperator ? v.did() : id.userDID(v.did());

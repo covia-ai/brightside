@@ -150,6 +150,27 @@ class MapSettingsTest {
 	}
 
 	@Test
+	void theBodyFollowedIsRememberedUntilItGoes() {
+		MapSettings s = MapSettings.DEFAULT.withView(new MapSettings.View(1.5, false).tracking("did:example:you"));
+		assertEquals("did:example:you", MapSettings.fromCell(s.toCell()).view().track(), "kept with the view");
+		assertNull(MapSettings.fromCell(MapSettings.DEFAULT.toCell()).view().track(), "nothing followed by default");
+		PeerGraph graph = new PeerGraph(List.of(node("did:example:you", Node.SELF)));
+		assertSame(s, s.prune(graph), "still there: still followed");
+		assertNull(s.prune(PeerGraph.EMPTY).view().track(), "gone: no longer followed");
+	}
+
+	@Test
+	void oneBodyCanBePutBack() {
+		MapSettings s = MapSettings.DEFAULT
+			.withPlacement("did:example:a", new MapSettings.OnOrbit(1, 1))
+			.withPlacement("did:example:b", new MapSettings.At(3, 4));
+		MapSettings back = s.withoutPlacement("did:example:a");
+		assertNull(back.placements().get("did:example:a"));
+		assertNotNull(back.placements().get("did:example:b"), "the rest stay where they were left");
+		assertSame(back, back.withoutPlacement("did:example:a"), "putting back what was never moved changes nothing");
+	}
+
+	@Test
 	void orbitsFromAnotherVersionGiveWayToTheDefaults() {
 		// Version 1 drew relations to you on your orbits; its orbits mean nothing now, its placements still do.
 		MapSettings old = MapSettings.fromCell(Maps.of(

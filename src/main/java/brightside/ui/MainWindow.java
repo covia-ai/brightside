@@ -455,7 +455,24 @@ public final class MainWindow extends JFrame {
 		// Your venue, live from the embedded venue, among sample venues: nothing on the wire.
 		// How the map is drawn is the acting person's own, kept apart from the data.
 		peersScreen = new brightside.ui.peers.PeersScreen(brightside.peers.PeerSource.combined(
-			new brightside.peers.SamplePeerSource(), new brightside.peers.LiveSource(app::homePeers)), app::peersMapSettings);
+			new brightside.peers.SamplePeerSource(), new brightside.peers.LiveSource(app::homePeers)), app::peersMapSettings,
+			new brightside.ui.peers.PeersScreen.Actions() {
+				@Override
+				public boolean actingAsOperator() {
+					return app.actingAsOperator();
+				}
+
+				@Override
+				public void actAs(boolean operator) {
+					app.actAs(operator);
+				}
+
+				@Override
+				public void chat(boolean operator, String agentId) {
+					app.chatWith(operator, agentId);
+					selectTab(NavBar.Tab.HOME);
+				}
+			});
 		mainDeck.add(peersScreen, MAIN_PEERS);
 
 		navBar = new NavBar(this::selectTab);
