@@ -52,8 +52,10 @@ rules for changing them.
 | Skills, tools, memory: namespaces, what loads when, the shipped library | `docs/SKILLS.md` |
 | Startup, takeover, tray, exit | `docs/LAUNCH.md` |
 | Venue, user and agent identity | `docs/IDENTITY.md` |
-| The gods — the venue's own agents: Odin the administrator, Thor the guardian, Njord the treasurer | `docs/GODS.md` |
-| Thor, the guardian, in detail (a part of the gods): what reaches him, including his watch; what he may change | `docs/THOR.md` |
+| The gods: a team of super-user agents working for the owner — the idea, what they share | `docs/GODS.md` |
+| Odin, the administrator and the wiser head the other gods answer to | `docs/ODIN.md` |
+| Thor, the guardian: what reaches him, including his watch; what he may change | `docs/THOR.md` |
+| Njord, the treasurer: custody of the keys, what he pays | `docs/NJORD.md` |
 | Vault, keys, recovery, authentication, network exposure | `docs/SECURITY.md` |
 | First run, unlock, recovery, settings | `docs/ONBOARDING.md` |
 | `config.json`, files, API keys, integrations, reaching the venue from other tools | `docs/CONFIGURATION.md` |

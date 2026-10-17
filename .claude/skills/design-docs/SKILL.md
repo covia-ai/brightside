@@ -17,8 +17,10 @@ guide and points here.
 | `docs/ARCHITECTURE.md` | the one-process shape, the reads-versus-actions rule, an orientation map of the source, the key decisions, packaging |
 | `docs/SKILLS.md` | how the assistant gets abilities: namespaces, what it starts with, how a load works, the shape of the shipped library, growing and feedback |
 | `docs/IDENTITY.md` | venue, user and agent principals; one key; switching user; known limits |
-| `docs/GODS.md` | the venue's own agents: the two bridges each has, asking the owner, Odin the administrator, Thor the guardian, Njord the treasurer, deliberate stops |
-| `docs/THOR.md` | Thor in detail, a sub-article of GODS.md: what reaches him, the watch Brightside keeps for him, what he may and may never change, known limits |
+| `docs/GODS.md` | the gods as a whole: a team of super-user agents working for the owner, when a job deserves one, the team, and what every god shares (bridges, overseer, a user of its own, asking the owner, deliberate stops) |
+| `docs/ODIN.md` | Odin, a sub-article of GODS.md: why an administrator, what he may do, how he judges, checking the other gods |
+| `docs/THOR.md` | Thor, a sub-article of GODS.md: why a guardian, what reaches him including the watch, what he may and may never change, known limits |
+| `docs/NJORD.md` | Njord, a sub-article of GODS.md: why a treasurer, custody of the keys, how he judges a payment, known limits |
 | `docs/SECURITY.md` | the recovery invariant, key hierarchy, algorithms, file roles, recovery procedure, network exposure, limitations |
 | `docs/ONBOARDING.md` | first run, unlock, recovery from the phrase, settings afterwards |
 | `docs/LAUNCH.md` | startup order, taking over a running instance, tray, exit |
@@ -59,6 +61,9 @@ A change that moves a decision or a name has a doc to keep true:
 - anything about keys, files or recovery → `SECURITY.md`, and `ONBOARDING.md`
   if the person's flow changed
 - anything about principals or switching user → `IDENTITY.md`
+- a god's powers or judgement → that god's own doc (`ODIN.md`, `THOR.md`,
+  `NJORD.md`); what every god shares, or a new god → `GODS.md`, and a new
+  god gets a doc of its own with its motivation
 - a new doc → add it to the table above and to the map in `AGENTS.md`
 
 Fix the doc in the same commit as the code. Before committing a doc change,

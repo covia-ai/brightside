@@ -13,7 +13,7 @@ import java.util.Set;
  * <p>{@code brightside:ask-odin} lets an assistant reach him across
  * principals, and {@code brightside:odin-run} lets him execute vetted operator
  * operations — optionally inside a user's namespace via {@code user:sudo}
- * (covia#447 asks for the real thing). See {@code docs/GODS.md}.
+ * (covia#447 asks for the real thing). See {@code docs/ODIN.md}.
  */
 public final class Odin {
 

@@ -18,6 +18,26 @@ in [GODS.md](GODS.md). This is what is his alone. Code: `Thor`, `ThorWatch`.
 - **He tells the owner what he did** and undoes it on their answer, and
   every change he makes is reported to Odin.
 
+## Why Thor
+
+An assistant spends its day reading what others wrote: pages, mail,
+messages, files. Any of it can carry instructions meant to turn the
+assistant against its owner, and an assistant cannot be its own guard. What
+it can do is notice and tell someone, and that someone needs the power to
+stop it at once and the judgement to know when.
+
+Stopping cannot wait for the owner. Harm from a compromised agent is under
+way while a request sits in the Inbox, so Thor acts first. He has broad
+reach over the venue's regular users, and he answers for it after the fact:
+every change is reported to Odin, and the owner can undo it. The other
+choice was a guardian that could only warn. That is safe against a
+mistaken Thor, but useless against a real attack.
+
+He is a god rather than a skill because the power must sit outside the
+agents he watches. An assistant cannot suspend its siblings or take back
+what they were given, and must not be able to. And a guardian that ran
+inside the owner's namespace would share its weaknesses.
+
 ## What reaches him
 
 The owner's assistants report what they suspect with `brightside:alert-thor`;

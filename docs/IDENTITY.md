@@ -60,7 +60,7 @@ the venue's. The operator has a display name of its own, kept in
 venue itself and has no slug or user DID. Every launch starts as the user.
 
 **The treasury** is a user too, kept by Njord, the treasurer
-([GODS.md](GODS.md)). A user and its agents use only their own secrets, so the
+([NJORD.md](NJORD.md)). A user and its agents use only their own secrets, so the
 signing keys in the treasury's store can be used by nothing but a context
 acting as the treasury, and only Njord's bridge may act as it: no assistant
 and no other god can sign with them. Its slug, `njord--treasury`, is one no

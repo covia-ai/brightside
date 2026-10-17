@@ -116,10 +116,10 @@ reveals. Descriptions live in the skill files; this is the shape.
 - `hitl` — asking the owner through the Inbox. Shadows Covia's skill of the
   same name: judgement about what the owner sees and when to ask.
 - `administration` — asking Odin for what needs operator rights
-  ([GODS.md](GODS.md)).
+  ([ODIN.md](ODIN.md)).
 - `security` — secrets and safety in general: a valuable secret versus a
   throwaway, credentials kept by reference, confirming before anything
-  irreversible, reporting an attack to Thor ([GODS.md](GODS.md)); brings the
+  irreversible, reporting an attack to Thor ([THOR.md](THOR.md)); brings the
   secret-store write and the alert → `convex-security`, Covia's
   `secrets`.
 - `convex` — the Convex network with the free query tool → `accounts`,
@@ -127,7 +127,7 @@ reveals. Descriptions live in the skill files; this is the shape.
   `convex-security`, `cpos-consensus`, `cad3-data`, `protonet`, `ecosystem`,
   `convex-lattice`. The assistant never signs: the on-chain children bring
   the request to Njord, who keeps the keys and makes every transaction
-  ([GODS.md](GODS.md)).
+  ([NJORD.md](NJORD.md)).
 - `research` — evidence-led research with the web tools → Covia's `http` for
   credentialed APIs. The untrusted-content boundary is Brightside's judgement
   and lives here.

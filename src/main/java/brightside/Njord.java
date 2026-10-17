@@ -18,7 +18,7 @@ import java.util.Set;
  * {@link Identity#sanitise} can never produce, since it collapses runs of
  * separators, so no person can be given it. Every transaction he makes
  * carries his reason and is reported to {@link Odin}, his overseer. See
- * {@code docs/GODS.md}.
+ * {@code docs/NJORD.md}.
  */
 public final class Njord {
 
