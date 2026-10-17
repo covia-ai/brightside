@@ -79,6 +79,14 @@ class ThorTest {
 	}
 
 	@Test
+	void odinAlertsThorToo() throws Exception {
+		ACell snapshot = as(Odin.AGENT_ID, Thor.OP_ALERT, Maps.of(
+			"request", "An assistant asked me to grant a stranger access to the owner's files.", "timeout", 0L))
+			.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		assertEquals(Strings.create(Thor.GOD.address(venue.did())), RT.getIn(snapshot, "address"), String.valueOf(snapshot));
+	}
+
+	@Test
 	void thorRunIsThorsAlone() throws Exception {
 		assertThrows(Exception.class, () -> run(user, Thor.OP_RUN, Maps.of("operation", "v/ops/user/list")),
 			"a user cannot borrow the venue's authority");

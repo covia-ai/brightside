@@ -74,6 +74,14 @@ class OdinTest {
 		assertTrue(String.valueOf(RT.getIn(record, Fields.CONFIG, "tools")).contains(Odin.OP_RUN),
 			"his bridge is among his tools: " + RT.getIn(record, Fields.CONFIG, "tools"));
 		assertEquals(Strings.create(TASK_LLM), RT.getIn(record, Fields.CONFIG, "llmOperation"));
+
+		// After an update (a merge into what the record held) the record still
+		// matches, so keeping him current costs no job.
+		Odin.ensure(venue, "v/test/ops/llm");
+		assertTrue(God.configured(venue.agentRecord(venue.did(), Odin.AGENT_ID), Odin.GOD.config("v/test/ops/llm")),
+			"configured after an update");
+		Odin.ensure(venue, TASK_LLM);
+		assertTrue(God.configured(venue.agentRecord(venue.did(), Odin.AGENT_ID), Odin.GOD.config(TASK_LLM)));
 	}
 
 	@Test
