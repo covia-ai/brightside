@@ -1352,7 +1352,9 @@ final class SolarMap extends JComponent {
 		Rectangle2D box = new Rectangle2D.Double(pl.x() - w / 2, y - fm.getAscent(), w, h);
 		if (!focus) for (Rectangle2D other : labelled) if (other.intersects(box)) return;
 		labelled.add(box);
-		centred(g, name, pl.x(), y, new Color(1f, 1f, 1f, Math.min(1f, 0.85f * alpha + (focus ? 0.13f : 0))));
+		// Your own name in your colour; everyone else's in white.
+		boolean you = pl.body() == Body.PLANET && Node.SELF.equals(n.relation());
+		centred(g, name, pl.x(), y, fade(you ? YOU : Color.WHITE, Math.min(1f, 0.85f * alpha + (focus ? 0.13f : 0))));
 		if (sub != null) {
 			g.setFont(getFont().deriveFont(UIScale.scale(10f)));
 			centred(g, sub, pl.x(), y + UIScale.scale(13), new Color(1f, 1f, 1f, 0.55f));
