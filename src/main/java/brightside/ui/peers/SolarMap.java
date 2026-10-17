@@ -57,10 +57,11 @@ import brightside.ui.components.Theme;
  * moons and lamps, then a system's planets — and whatever is under the pointer
  * is always named.
  *
- * <p>Hover to see, click to choose, drag a body to move it, drag an orbit's
- * line to resize it, wheel to zoom about the pointer, drag the sky to pan,
- * double-click a star to visit it, or anywhere else to come home. Each of these that changes how the map is drawn
- * hands the new settings to {@code onSettings}; none touches the peer data.
+ * <p>Hover to see, click to choose, drag a body to move it (a moon round its
+ * own planet), drag an orbit's line to resize it, wheel to zoom about the
+ * pointer, drag the sky to pan, double-click a star to visit it, or anywhere
+ * else to come home. Each of these that changes how the map is drawn hands
+ * the new settings to {@code onSettings}; none touches the peer data.
  * The map's clock is the wall clock, so placements hold across launches.
  */
 @SuppressWarnings("serial")
