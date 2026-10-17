@@ -43,15 +43,26 @@ to the structure: the card shows a plain fact as a row and a list fact, such
 as what a node may do, as a section. Peer data is read-only to the map.
 Dragging, zooming or resizing an orbit never writes to it.
 
-The map draws the structure, not the relation:
+The map draws one tree, by ownership, with the same rules at every depth
+(`MapLayout`): a node whose owner the graph does not have is a root, free on
+the plane, and every other node orbits its owner. So:
 
-- **Stars are venues.** Your own venue is the sun at the centre; every other
-  venue is a star system far out, linked to you when its relation is "linked".
-- **Planets are users.** A user belongs to a venue and orbits its star. Your
-  venue has at least two: its admin, the operator, and you. On your venue the
-  relation picks the orbit; on another, users circle its star in the order
-  reported, with dots for users it reports but nobody has introduced.
-- **Moons are agents**, belonging to the user who owns them.
+- **Stars are venues.** Your own is Home, at the centre; every other venue is
+  a star system far out, linked to you when its relation is "linked".
+- **Planets are users**, orbiting their venue. Your venue has at least two:
+  its admin, the operator, and you.
+- **Moons are agents**, orbiting the user who owns them.
+- **Anything attached further down** orbits whatever it belongs to, the same
+  way.
+
+Distances round an owner are in the owner's radii and a body's size is a
+fraction of its owner's, so a system looks alike at any depth; with equal
+density, Kepler's law makes the period depend on that distance alone. A body
+on no named ring is packed outwards clear of its neighbours. A node may say
+how many children it has by a fact named for them ("Users" on a venue); those
+nobody has introduced are drawn as dim, unnamed bodies. How each depth looks,
+its size, glow, lines and labels, is configuration; the structure has no
+levels.
 
 The operator acts as the venue itself, so the network knows both by the
 venue's DID. On the map the operator is keyed by a DID URL under it,
@@ -84,18 +95,17 @@ is drawn unlabelled far out.
 Map settings are how this installation draws the peer data. They live in a
 structure of their own:
 
-- **Orbits** of your own venue: each one's name, the relations it holds, and
-  its radius. By default the admin is innermost and users, you among them,
-  outside it. Dragging an orbit's line resizes it, kept between its
-  neighbours; adding an orbit, or moving a relation to another, is a settings
-  change too.
-- **Placements**, keyed by DID: a planet's orbit radius and angle where it was
-  dropped, a moon's distance from its planet (in its radii) and angle, or a
-  distant venue's position. Users of other venues stay where their star puts
-  them; their moons can still be moved round them. A node with no placement is placed from a hash of its
-  DID, so the same node lands in the same place on every launch without
-  anything being stored; unplaced venues are then pushed apart as they are
-  drawn, so none sit on top of another.
+- **Rings**: each one's name, the relations it holds, and its distance in the
+  radii of the body it circles. They apply under any body: by default the
+  admin is on the inner ring and users, you among them, on the outer, which
+  is where your venue's users sit. Dragging a ring's line resizes it, kept
+  between its neighbours.
+- **Placements**, keyed by DID, the same for every body: a root's position on
+  the plane, or, for anything else, its distance from its owner in the
+  owner's radii and its angle. A node with no placement is placed from a hash
+  of its DID, so the same node lands in the same place on every launch
+  without anything being stored; unplaced roots are pushed apart as they are
+  drawn, so no two systems overlap.
 - **View:** the zoom to open on, whether the map is paused, and the body the
   view tracks, if any (your own planet, most likely). Panning while tracking
   keeps tracking, from where the body was panned to.
@@ -104,8 +114,8 @@ structure of their own:
 
 Settings never hold a node's name, status or facts. A placement for a DID the
 source no longer reports is pruned when the tab opens; resetting clears
-placements and orbit sizes and nothing else. The map's clock is the wall
-clock, so planets keep moving while Brightside is closed and placements hold
+placements and ring sizes and nothing else. The map's clock is the wall
+clock, so bodies keep moving while Brightside is closed and placements hold
 across launches.
 
 **Where they live.** In Brightside's own adapter workspace on the venue, under

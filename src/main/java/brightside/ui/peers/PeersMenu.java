@@ -8,6 +8,7 @@ import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 
 import brightside.peers.HomePeers;
+import brightside.peers.MapLayout;
 import brightside.peers.Node;
 import brightside.peers.PeerGraph;
 import brightside.ui.components.Lucide;
@@ -16,8 +17,9 @@ import brightside.ui.components.Theme;
 /**
  * The Peers map's right-click menu, by what was clicked: chat with your own
  * users and their agents (switching who you act as when that is needed),
- * switch user, follow a body with the view, put a moved body back, visit a
- * venue, copy a DID; and, on the sky, the views and the map's own controls.
+ * switch user, visit a body with others round it, follow a body with the
+ * view, put a moved body back, copy a DID; and, on the sky, the views and
+ * the map's own controls.
  */
 final class PeersMenu {
 
@@ -40,63 +42,52 @@ final class PeersMenu {
 		return null;
 	}
 
+	/**
+	 * The menu for {@code did}, or for the sky when null. What it offers
+	 * follows from the data, not from where the body sits: chat as one of your
+	 * own users or with one of their agents, visit anything with bodies round
+	 * it, and track, put back or copy anything.
+	 */
 	JPopupMenu build(String did) {
 		JPopupMenu m = new JPopupMenu();
-		Node n = (did == null) ? null : graph.get(did);
-		SolarMap.Body body = (n == null) ? null : map.bodyOf(did);
-		if (body == null) {
+		MapLayout.Body b = (did == null) ? null : map.body(did);
+		if (b == null) {
 			sky(m);
 			return m;
 		}
-		switch (body) {
-			case SUN -> {
-				track(m, n);
-				copy(m, "Copy DID", n.did());
+		Node n = b.node;
+		Node owner = graph.owner(n);
+		Boolean operator = principal(n), ownerOperator = (owner == null) ? null : principal(owner);
+		boolean any = false;
+		if (operator != null) {
+			// One of your own users: chat as it, or become it.
+			m.add(item(operator ? "Chat as " + n.label() : "Chat", "messages-square", () -> actions.chat(operator, null)));
+			if (operator != actions.actingAsOperator()) {
+				m.add(item("Switch to " + n.label(), "repeat", () -> actions.actAs(operator)));
 			}
-			case STAR -> {
-				m.add(item("Visit", "telescope", () -> map.visit(n.did())));
-				m.addSeparator();
-				track(m, n);
-				putBack(m, n);
-				copy(m, "Copy DID", n.did());
-			}
-			case PLANET -> {
-				Boolean operator = principal(n);
-				if (operator != null) {
-					m.add(item(operator ? "Chat as " + n.label() : "Chat", "messages-square",
-						() -> actions.chat(operator, null)));
-					if (operator != actions.actingAsOperator()) {
-						m.add(item("Switch to " + n.label(), "repeat", () -> actions.actAs(operator)));
-					}
-					m.addSeparator();
-				}
-				track(m, n);
-				putBack(m, n);
-				copy(m, "Copy DID", operator == Boolean.TRUE ? graph.home().did() : n.did());
-			}
-			case MOON -> {
-				Node owner = graph.owner(n);
-				Boolean operator = (owner == null) ? null : principal(owner);
-				if (operator != null) {
-					String as = (operator != actions.actingAsOperator()) ? " as " + owner.label() : "";
-					m.add(item("Chat with " + n.label() + as, "messages-square", () -> actions.chat(operator, agentId(n))));
-					m.addSeparator();
-				}
-				track(m, n);
-				putBack(m, n);
-				copy(m, operator != null ? "Copy agent id" : "Copy DID", operator != null ? agentId(n) : n.did());
-			}
-			case FAR_PLANET -> {
-				JMenuItem message = item("Message", "messages-square", () -> {
-				});
-				message.setEnabled(false);
-				message.setToolTipText("Arrives with federation; this is a preview");
-				m.add(message);
-				m.addSeparator();
-				track(m, n);
-				copy(m, "Copy DID", n.did());
-			}
+			any = true;
+		} else if (ownerOperator != null && n.is(Node.AGENT)) {
+			// One of their agents: chat with it, as whoever owns it.
+			String as = (ownerOperator != actions.actingAsOperator()) ? " as " + owner.label() : "";
+			m.add(item("Chat with " + n.label() + as, "messages-square", () -> actions.chat(ownerOperator, agentId(n))));
+			any = true;
+		} else if (n.is(Node.PERSON)) {
+			JMenuItem message = item("Message", "messages-square", () -> {
+			});
+			message.setEnabled(false);
+			message.setToolTipText("Arrives with federation; this is a preview");
+			m.add(message);
+			any = true;
 		}
+		if (!b.children.isEmpty()) {
+			m.add(item("Visit", "telescope", () -> map.visit(n.did())));
+			any = true;
+		}
+		if (any) m.addSeparator();
+		track(m, n);
+		putBack(m, n);
+		if (ownerOperator != null && n.is(Node.AGENT)) copy(m, "Copy agent id", agentId(n));
+		else copy(m, "Copy DID", operator == Boolean.TRUE ? owner.did() : n.did());
 		return m;
 	}
 

@@ -29,8 +29,8 @@ class MapSettingsStoreTest {
 
 		long before = RecordedJobs.of(venue, alice);
 		MapSettings arranged = MapSettings.DEFAULT
-			.withOrbitRadius(1, 0.6)
-			.withPlacement("did:example:alice", new MapSettings.OnOrbit(1.2, 0.4))
+			.withRingRadius(1, 10)
+			.withPlacement("did:example:alice", new MapSettings.Orbit(6, 0.4))
 			.withView(new MapSettings.View(0.5, true));
 		aliceStore.save(arranged);
 		assertEquals(before, RecordedJobs.of(venue, alice), "arranging the map leaves no job record");

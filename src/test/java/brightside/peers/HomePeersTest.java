@@ -34,8 +34,8 @@ class HomePeersTest {
 		List<Node> planets = g.partsOf(VENUE);
 		assertEquals(List.of(VENUE + "#operator", YOU), planets.stream().map(Node::did).toList());
 		assertEquals(List.of(Node.OPERATOR, Node.SELF), planets.stream().map(Node::relation).toList());
-		assertEquals(0, MapSettings.DEFAULT.orbitOf(planets.get(0)), "the admin on the inner orbit");
-		assertEquals(1, MapSettings.DEFAULT.orbitOf(planets.get(1)), "you on the users' orbit");
+		assertEquals(0, MapSettings.DEFAULT.ringOf(planets.get(0)), "the admin on the inner ring");
+		assertEquals(1, MapSettings.DEFAULT.ringOf(planets.get(1)), "you on the users ring");
 		assertTrue(planets.get(0).facts().contains(Node.Fact.of("DID", VENUE)), "the admin's card gives its real DID");
 
 		// Moons: each agent belongs to the planet of the principal that owns it, keyed apart.

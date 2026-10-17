@@ -7,6 +7,7 @@ import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -24,6 +25,7 @@ import javax.swing.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import brightside.peers.MapLayout;
 import brightside.peers.MapSettings;
 import brightside.peers.MapSettingsStore;
 import brightside.peers.Node;
@@ -254,17 +256,15 @@ public final class PeersScreen extends JPanel {
 	// The side card
 	// ------------------------------------------------------------------
 
-	/** An overview with nothing chosen, else the chosen node. */
+	/** An overview with nothing chosen, else the chosen body's card. */
 	private void show(String did) {
 		side.removeAll();
 		JPanel content = new JPanel(new MigLayout("insets 18 18 18 22, fillx, wrap 1, gapy 6", "[grow,fill]", ""));
 		content.setOpaque(false);
 		PeerGraph graph = source.graph();
-		Node n = (did == null) ? null : graph.get(did);
-		SolarMap.Body body = (n == null) ? null : map.bodyOf(did);
-		if (body == null) overview(content, graph);
-		else if (body.star()) venue(content, n, body == SolarMap.Body.SUN);
-		else planet(content, n, graph);
+		MapLayout.Body b = (did == null) ? null : map.body(did);
+		if (b == null) overview(content, graph);
+		else card(content, b);
 		side.add(Scrolls.vertical(content), BorderLayout.CENTER);
 		side.revalidate();
 		side.repaint();
@@ -273,95 +273,111 @@ public final class PeersScreen extends JPanel {
 	private void overview(JPanel c, PeerGraph graph) {
 		MapSettings s = map.settings();
 		Node home = map.homeVenue();
-		List<Node> users = (home == null) ? List.of() : map.usersOf(home.did());
-		int agents = users.stream().mapToInt(u -> map.moonsOf(u.did()).size()).sum();
+		List<Node> users = (home == null) ? List.of() : map.childrenOf(home.did());
+		int agents = (home == null) ? 0 : map.descendants(home.did()) - users.size();
 		long venues = graph.nodes().stream().filter(n -> n.is(Node.VENUE) && n != home).count();
 		c.add(Styles.style(new JLabel("Home"), "font: bold +2"));
 		if (home != null) c.add(Labels.small(home.label(), Styles.MUTED));
 		c.add(Labels.small(SolarMap.plural(users.size(), "user") + " · " + SolarMap.plural(agents, "agent") + " · "
 			+ SolarMap.plural((int) venues, "other venue"), Styles.MUTED), "gapbottom 10");
 
-		c.add(heading("Orbits"));
-		List<MapSettings.Orbit> orbits = s.orbits();
-		for (int i = 0; i < orbits.size(); i++) {
+		c.add(heading("Rings"));
+		List<MapSettings.Ring> rings = s.rings();
+		for (int i = 0; i < rings.size(); i++) {
 			int ring = i;
-			// A relation no orbit holds is drawn on the outermost.
-			long count = users.stream().filter(n -> s.orbitOf(n) == ring || (s.orbitOf(n) < 0 && ring == orbits.size() - 1))
-				.count();
-			c.add(legendRow(new RingIcon(i + 1, orbits.size()), orbits.get(i).name(), String.valueOf(count)));
+			long count = users.stream().filter(n -> s.ringOf(n) == ring).count();
+			c.add(legendRow(new RingIcon(i + 1, rings.size()), rings.get(i).name(), String.valueOf(count)));
 		}
 		c.add(heading("Reading the map"), "gaptop 10");
-		c.add(legendRow(new SunIcon(), "Home: your venue, at the centre", null));
+		c.add(legendRow(new SunIcon(), "Stars are venues; Home is yours", null));
 		c.add(legendRow(new PlanetIcon(new Color(0x5EC8F2), 18, false), "Planets are a venue's users", null));
-		c.add(legendRow(new PlanetIcon(SolarMap.YOU, 18, false), "Who you are acting as, in yellow", null));
 		c.add(legendRow(lamp(new Color(0xA9AFBC)), "Moons are their agents", null));
+		c.add(legendRow(new PlanetIcon(SolarMap.YOU, 18, false), "Who you are acting as, in yellow", null));
 		c.add(legendRow(lamp(Theme.accent()), "Your main assistant", null));
 		c.add(legendRow(new PlanetIcon(new Color(0xE8C66A), 18, true), "Rings mark a venue's admin", null));
-		c.add(legendRow(lamp(new Color(0xF6B26B)), "Stars far out are other venues", null));
 		c.add(legendRow(new PlanetIcon(SolarMap.greyed(new Color(0x5EC8F2)), 18, false), "Greyed out: offline or not connected", null));
 
-		c.add(new SelectableText("Click a planet or a star to see it, or drag it somewhere new; drag an orbit's line "
-			+ "to resize it. Scroll to zoom, drag the sky to pan, double-click a star to visit it, or the sky to "
-			+ "come home.").small().muted(), "gaptop 16, wmin 0");
+		c.add(new SelectableText("Click a body to see it, or drag it somewhere new; drag a ring's line to resize it. "
+			+ "Scroll to zoom, drag the sky to pan, double-click a body to visit it, or the sky to come home.")
+			.small().muted(), "gaptop 16, wmin 0");
 	}
 
-	private void planet(JPanel c, Node n, PeerGraph graph) {
-		if (n.is(Node.AGENT)) {
-			Node owner = graph.owner(n);
-			String role = Node.MAIN.equals(n.relation()) ? "Main assistant" : "Agent";
-			title(c, n, owner == null ? role : role + " · " + owner.label());
-			c.add(fact("Status", new JLabel(SolarMap.statusLabel(n), lamp(SolarMap.lamp(n.status())), SwingConstants.LEADING)));
-			facts(c, n);
-			return;
-		}
-		Node venue = graph.owner(n);
-		boolean ours = venue != null && venue == map.homeVenue();
-		String role = Node.SELF.equals(n.relation()) ? "You"
-			: SolarMap.ringed(n) ? "Admin" : "User";
-		title(c, n, venue == null ? role : role + " · " + (ours ? "Home" : venue.label()));
+	/**
+	 * Any body's card, built the same way whatever it is: what it is and
+	 * whose, its status and facts, what orbits it, and what can be done.
+	 */
+	private void card(JPanel c, MapLayout.Body b) {
+		Node n = b.node;
+		Node owner = (b.parent == null) ? null : b.parent.node;
+		boolean ours = isOurs(b);
+		title(c, n, role(n, owner));
 		c.add(fact("Status", new JLabel(SolarMap.statusLabel(n), lamp(SolarMap.lamp(n.status())), SwingConstants.LEADING)));
-		facts(c, n);
-		List<Node> agents = map.moonsOf(n.did());
-		if (!agents.isEmpty()) {
-			c.add(heading("Agents"), "gaptop 12");
-			for (Node a : agents) c.add(bodyRow(a, Colours.moon(() -> map.colourOf(a), 14), SolarMap.statusLabel(a)));
-		}
-		if (!ours) actions(c, List.of(disabled("Message"), disabled("Manage access…")));
-	}
-
-	private void venue(JPanel c, Node n, boolean ours) {
-		boolean known = n.name() != null;
-		title(c, n, ours ? "Home" : known ? "Venue" : "Not in your directory");
-		boolean linked = ours || Node.LINKED.equals(n.relation());
-		c.add(fact("Status", new JLabel(linked ? SolarMap.statusLabel(n) : "Not connected",
-			lamp(SolarMap.lamp(linked ? n.status() : Node.NOT_CONNECTED)), SwingConstants.LEADING)));
-		if (known) {
+		if (n.name() != null) {
 			facts(c, n);
 		} else {
-			c.add(new SelectableText("A venue on the network you have no introduction to. Nothing is known about it "
-				+ "until someone you trust vouches for it.").small().muted(), "gaptop 6, wmin 0");
+			c.add(new SelectableText("Nobody has introduced it to you: nothing is known about it until someone you "
+				+ "trust vouches for it.").small().muted(), "gaptop 6, wmin 0");
 		}
-		List<Node> users = map.usersOf(n.did());
-		if (!users.isEmpty()) {
-			c.add(heading("Users"), "gaptop 12");
-			for (Node u : users) {
-				int m = map.moonsOf(u.did()).size();
-				Color colour = SolarMap.disconnected(u) ? SolarMap.greyed(map.colourOf(u)) : map.colourOf(u);
-				c.add(bodyRow(u, new PlanetIcon(colour, 18, SolarMap.ringed(u)), m == 0 ? null : SolarMap.plural(m, "agent")));
+		List<Node> kids = map.childrenOf(n.did());
+		if (!kids.isEmpty()) {
+			String noun = MapLayout.childNoun(n);
+			c.add(heading(noun.equals("body") ? "Round it" : noun + "s"), "gaptop 12");
+			for (Node k : kids) {
+				int grand = map.childCount(k.did());
+				String trailing = (grand > 0) ? SolarMap.plural(grand, MapLayout.childNoun(k)) : SolarMap.statusLabel(k);
+				c.add(bodyRow(k, iconFor(k), trailing));
 			}
 		}
-		if (ours) return;
-		JButton visit = Buttons.secondary("Visit");
-		visit.setToolTipText("Fly over to " + n.label() + " to see its users and their agents (or double-click it)");
-		visit.addActionListener(e -> map.visit(n.did()));
-		actions(c, List.of(visit, disabled(linked ? "Manage access…" : "Ask for an introduction…")));
+		List<JButton> buttons = new ArrayList<>();
+		if (!kids.isEmpty() && !(b.isRoot() && ours)) {
+			JButton visit = Buttons.secondary("Visit");
+			visit.setToolTipText("Fly over to " + n.label() + " to see what orbits it (or double-click it)");
+			visit.addActionListener(e -> map.visit(n.did()));
+			buttons.add(visit);
+		}
+		if (!ours && n.is(Node.PERSON)) {
+			buttons.add(disabled("Message"));
+			buttons.add(disabled("Manage access…"));
+		} else if (!ours && b.isRoot()) {
+			buttons.add(disabled(Node.LINKED.equals(n.relation()) ? "Manage access…" : "Ask for an introduction…"));
+		}
+		if (!buttons.isEmpty()) actions(c, buttons);
+	}
+
+	/** Whether a body is in your own venue's system. */
+	private boolean isOurs(MapLayout.Body b) {
+		Node home = map.homeVenue();
+		return home != null && b.star().node == home;
+	}
+
+	/** What a body is, and whose. */
+	private String role(Node n, Node owner) {
+		String what;
+		if (n.is(Node.VENUE)) {
+			what = Node.SELF.equals(n.relation()) ? "Home" : n.name() != null ? "Venue" : "Not in your directory";
+		} else if (n.is(Node.PERSON)) {
+			what = Node.SELF.equals(n.relation()) ? "You" : SolarMap.ringed(n) ? "Admin" : "User";
+		} else if (n.is(Node.AGENT)) {
+			what = Node.MAIN.equals(n.relation()) ? "Main assistant" : "Agent";
+		} else {
+			String k = (n.kind() == null) ? "Body" : n.kind();
+			what = k.substring(0, 1).toUpperCase() + k.substring(1).replace('-', ' ');
+		}
+		return (owner == null) ? what : what + " · " + SolarMap.labelOf(owner);
+	}
+
+	/** How a body looks in a list: as a moon if it is an agent, else as its planet, coloured as on the map. */
+	private Icon iconFor(Node n) {
+		if (n.is(Node.AGENT)) return Colours.moon(() -> map.colourOf(n), 14);
+		Color colour = SolarMap.disconnected(n) ? SolarMap.greyed(map.colourOf(n)) : map.colourOf(n);
+		return new PlanetIcon(colour, 18, SolarMap.ringed(n));
 	}
 
 	private void title(JPanel c, Node n, String subtitle) {
 		JPanel title = new JPanel(new MigLayout("insets 0, gap 12", "[][grow,fill]", "[][]"));
 		title.setOpaque(false);
 		title.add(new JLabel(new PlanetIcon(map.colourOf(n), 40, SolarMap.ringed(n))), "spany 2");
-		title.add(Styles.style(new JLabel(n.name() != null ? n.name() : "Unknown venue"), "font: bold +3"), "wrap, wmin 0");
+		title.add(Styles.style(new JLabel(n.name() != null ? n.name() : SolarMap.labelOf(n)), "font: bold +3"), "wrap, wmin 0");
 		title.add(Labels.small(subtitle, Styles.MUTED));
 		title.setToolTipText(n.did());
 		c.add(title, "gapbottom 8");
