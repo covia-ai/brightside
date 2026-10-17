@@ -17,7 +17,10 @@ credential leaving. Thor himself is in [GODS.md](GODS.md); the code is
   the conversation, but none of the input, which an attacker may have
   shaped. Thor reads that through his bridge.
 - **It stays quiet.** The venue's own agents are not watched, and an agent
-  reported is not reported again for an hour.
+  reported is not reported again for an hour. Thor takes a report as grounds
+  to look: if a credential is leaving he suspends the agent and tells the
+  owner, and if not he closes it changing nothing, so Odin hears nothing
+  either.
 - **It looks for** provider API keys (`sk-` keys of the Anthropic and OpenAI
   kind, GitHub, Slack, AWS, Google) and PEM private keys. A tool is named
   after its adapter, so the secret store's own, where a key belongs, are
