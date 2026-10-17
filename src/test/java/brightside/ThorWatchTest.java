@@ -101,7 +101,8 @@ class ThorWatchTest {
 
 	@Test
 	void onlyAUsersAgentsCallsFallInATier() throws Exception {
-		ThorWatch watch = watch(Set.of("discord_send"), null);
+		// Not started: classifying and checking need no guard on the venue.
+		ThorWatch watch = new ThorWatch(venue, () -> TASK_LLM, Utils::getCurrentTimestamp, Set.of("discord_send"), job -> {});
 		assertNull(watch.classify(call(userDID, "secret_set", Maps.of("name", "anthropic", "value", KEY))),
 			"a key where it belongs");
 		assertNull(watch.classify(call(venue.did(), "discord_send", Maps.of("content", KEY))),
