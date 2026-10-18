@@ -102,7 +102,9 @@ Each top-level skill is a useful first load; the indented ones are children it
 reveals. Descriptions live in the skill files; this is the shape.
 
 - `conversations` — how it talks with the owner, and reading, summarising or
-  compacting past conversations.
+  compacting past conversations. An ordinary summary leaves history unchanged;
+  Covia's summarisation operation can save a separate, reusable result. Only an
+  explicit request to shrink stored history calls for compaction.
 - `skills` — how it grows and surveys skills → `skill-authoring` (the write
   and delete tools for `w/skills`), Covia's `skill-import`.
 - `lattice` — structured data and its scopes, with the edit tools → Covia's
@@ -159,7 +161,9 @@ the index and open their own families.
 
 - The assistant writes its own skills to `w/skills/<name>`. `skill-authoring`
   brings the lattice write tool for that purpose and a Brightside deletion
-  operation that can address one named skill and nothing else, so
+  operation confined to `w/skills`, accepting top-level or nested relative names.
+  Deletion removes the addressed subtree; the authoring skill also teaches
+  removal of the parent's child reference without replacing its other children. Thus
   self-improvement is discoverable and reversible, and the power to change
   skills is never in context until deliberately reached for. The write tool
   itself is not exclusive to it: `lattice` brings write, append, copy and

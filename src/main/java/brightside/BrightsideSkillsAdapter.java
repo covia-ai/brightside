@@ -35,7 +35,7 @@ import covia.venue.RequestContext;
  *       every turn.</li>
  *   <li><b>conversations</b> — how it talks with the user and reviews past
  *       conversations; grants the past-session tools ({@code agent:sessions},
- *       {@code agent:session-read}, {@code agent:compact-session}).</li>
+	 *       {@code agent:session-read}, {@code agent:summarise}, {@code agent:compact-session}).</li>
  *   <li><b>skills</b> — how it grows new abilities; grants the read-only
  *       skills list/read tools for surveying skillsets, and reveals
  *       <b>skill-authoring</b> plus Covia's {@code skill-import}.</li>

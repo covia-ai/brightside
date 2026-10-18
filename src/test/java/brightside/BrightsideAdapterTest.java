@@ -177,7 +177,63 @@ class BrightsideAdapterTest {
 		Job invalid = user.invoke("v/ops/brightside/delete-skill", Maps.of("name", "../memory"))
 			.get(5, TimeUnit.SECONDS);
 		assertThrows(Exception.class, () -> invalid.future().get(5, TimeUnit.SECONDS),
-			"the operation accepts a name, never an attacker-controlled path");
+			"the operation cannot escape the caller's skills");
+	}
+
+	@Test
+	void deletesNestedSkillWithoutTouchingNamesakesSiblingsOrOtherUsers() throws Exception {
+		String ownerDID = Identity.of("nested-skills").userDID(venue.did());
+		String otherDID = Identity.of("other-skills").userDID(venue.did());
+		Venue owner = venue.clientAs(ownerDID);
+		Venue other = venue.clientAs(otherDID);
+		ACell child = Maps.of("name", "child", "description", "A nested skill",
+			"grandchild", Maps.of("name", "grandchild"));
+		ACell sibling = Maps.of("name", "sibling", "description", "Keep this skill");
+		ACell parent = Maps.of("name", "parent", "description", "Keep this parent",
+			"child", child, "sibling", sibling);
+		for (Venue client : new Venue[] { owner, other }) {
+			client.run("v/ops/covia/write", Maps.of("path", "w/skills/parent", "value", parent))
+				.get(5, TimeUnit.SECONDS);
+		}
+		owner.run("v/ops/covia/write", Maps.of("path", "w/skills/child", "value", child))
+			.get(5, TimeUnit.SECONDS);
+
+		ACell result = owner.run("v/ops/brightside/delete-skill", Maps.of("name", "parent/child"))
+			.get(5, TimeUnit.SECONDS);
+		assertEquals(CVMBool.TRUE, RT.getIn(result, "deleted"));
+		assertEquals(Strings.create("parent/child"), RT.getIn(result, "name"));
+		RequestContext ctx = RequestContext.of(Strings.create(ownerDID));
+		assertNull(venue.engine().resolvePath(Strings.create("w/skills/parent/child"), ctx));
+		assertNull(venue.engine().resolvePath(Strings.create("w/skills/parent/child/grandchild"), ctx));
+		assertEquals(sibling, venue.engine().resolvePath(Strings.create("w/skills/parent/sibling"), ctx));
+		assertEquals(Strings.create("Keep this parent"),
+			venue.engine().resolvePath(Strings.create("w/skills/parent/description"), ctx));
+		assertEquals(child, venue.engine().resolvePath(Strings.create("w/skills/child"), ctx));
+		assertEquals(parent, venue.engine().resolvePath(Strings.create("w/skills/parent"),
+			RequestContext.of(Strings.create(otherDID))));
+		ACell again = owner.run("v/ops/brightside/delete-skill", Maps.of("name", "parent/child"))
+			.get(5, TimeUnit.SECONDS);
+		assertEquals(CVMBool.FALSE, RT.getIn(again, "deleted"));
+	}
+
+	@Test
+	void rejectsMalformedSkillPathsWithoutChangingTheWorkspace() throws Exception {
+		String userDID = Identity.of("skill-paths").userDID(venue.did());
+		Venue user = venue.clientAs(userDID);
+		user.run("v/ops/covia/write", Maps.of("path", "w/skills/parent/child",
+			"value", Maps.of("name", "child"))).get(5, TimeUnit.SECONDS);
+		user.run("v/ops/covia/write", Maps.of("path", "w/memory", "value", "keep"))
+			.get(5, TimeUnit.SECONDS);
+		RequestContext ctx = RequestContext.of(Strings.create(userDID));
+		ACell before = venue.engine().resolvePath(Strings.create("w"), ctx);
+		for (String name : new String[] { "", "/", "/parent/child", "parent/", "parent//child",
+			"../memory", "parent/../../memory", "parent/./child", "parent\\child",
+			"parent/%2e%2e/memory", "parent/Child", "parent/-child", "parent/child-",
+			"parent/" + "a".repeat(65), ("a/".repeat(512)) + "a" }) {
+			assertThrows(Exception.class, () -> user.run("v/ops/brightside/delete-skill",
+				Maps.of("name", name)).get(5, TimeUnit.SECONDS), name);
+		}
+		assertEquals(before, venue.engine().resolvePath(Strings.create("w"), ctx));
 	}
 
 	@Test

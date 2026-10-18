@@ -275,17 +275,18 @@ public class BrightsideAdapter extends AAdapter {
 	}
 
 	/**
-	 * Deletes exactly one caller-owned skill. Accepting a validated name rather
-	 * than an arbitrary path is the authority boundary: granting this operation
+	 * Deletes a caller-owned skill subtree. Validating every relative name and
+	 * fixing the root at w/skills is the authority boundary: granting this operation
 	 * can never expose general deletion over workspace, memory or operations.
 	 */
 	private CompletableFuture<ACell> handleDeleteSkill(RequestContext ctx, ACell input) {
 		try {
 			AString nameCell = RT.ensureString(RT.getIn(input, K_NAME));
 			String name = (nameCell != null) ? nameCell.toString() : null;
-			if (!isSkillName(name)) {
+			if (!isSkillPath(name)) {
 				throw new IllegalArgumentException(
-					"Skill name must be 1–64 lowercase letters, digits or hyphens, without leading or trailing hyphens");
+					"Skill name must be relative to w/skills (for example parent/child), at most 1024 characters; "
+					+ "each segment must be 1–64 lowercase letters, digits or hyphens, without leading or trailing hyphens");
 			}
 			AString path = Strings.create("w/skills/" + name);
 			UserPathTarget target = engine.requireUserPath(ctx, path, Capability.CRUD_DELETE, false);
@@ -297,6 +298,14 @@ public class BrightsideAdapter extends AAdapter {
 		} catch (Exception e) {
 			return CompletableFuture.failedFuture(e);
 		}
+	}
+
+	private static boolean isSkillPath(String name) {
+		if (name == null || name.length() > 1024) return false;
+		for (String segment : name.split("/", -1)) {
+			if (!isSkillName(segment)) return false;
+		}
+		return true;
 	}
 
 	private static boolean isSkillName(String name) {

@@ -1,6 +1,6 @@
 {
 	"name": "Delete one of your skills",
-	"description": "Removes one caller-owned skill from w/skills by name. This operation cannot delete memory, conversations, operations or any other workspace path. Deleting a missing skill is a successful no-op.",
+	"description": "Removes a caller-owned skill and any children stored beneath it from w/skills. Accepts a top-level name or relative nested name such as parent/child. This operation cannot delete memory, conversations, operations or paths outside w/skills. Deleting a missing skill is a successful no-op. References in other skills are not rewritten; remove the deleted skill's reference from its parent's skill.skills list separately.",
 	"operation": {
 		"adapter": "brightside:delete-skill",
 		"toolName": "brightside_delete_skill",
@@ -9,7 +9,10 @@
 			"properties": {
 				"name": {
 					"type": "string",
-					"description": "Exact kebab-case name under w/skills, without a path prefix."
+					"description": "Exact name relative to w/skills: email-style or parent/child, never a full path or a child basename alone. Each segment is 1–64 lowercase letters, digits or hyphens, without leading or trailing hyphens. No empty, dot or traversal segments.",
+					"minLength": 1,
+					"maxLength": 1024,
+					"pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:/[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
 				}
 			},
 			"required": ["name"]
@@ -17,7 +20,7 @@
 		"output": {
 			"type": "object",
 			"properties": {
-				"name": { "type": "string", "description": "The validated skill name." },
+				"name": { "type": "string", "description": "The validated name relative to w/skills." },
 				"deleted": { "type": "boolean", "description": "True if the skill existed and was removed; false if it was already absent." }
 			}
 		}

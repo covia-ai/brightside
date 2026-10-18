@@ -22,6 +22,7 @@ import brightside.SessionHistory;
 import brightside.chat.ChatSession;
 import convex.core.data.ACell;
 import convex.core.data.Maps;
+import convex.core.lang.RT;
 import covia.grid.Venue;
 
 /**
@@ -222,6 +223,33 @@ class SessionHistoryTest {
 		assertTrue(after.items().stream().anyMatch(it -> it instanceof SessionHistory.Message m
 			&& "user".equals(m.role()) && "typed right here".equals(m.text()) && m.origin() == null),
 			"an app-typed message carries no origin caption");
+	}
+
+	@Test
+	void savedSummaryPreservesTheTranscriptAndIsReusedUntilAnotherTurn() throws Exception {
+		String userDID = Identity.of("summariser").userDID(venue.did());
+		Venue client = venue.clientAs(userDID);
+		AppConfig.Chat chat = new AppConfig.Chat("summary-agent",
+			AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo the user.");
+		ChatSession session = new ChatSession(client, chat, "Summariser");
+		String sid = session.send("keep this original conversation").sessionId();
+		List<SessionHistory.RawTurn> before = SessionHistory.rawTurns(client, "summary-agent", sid);
+		ACell input = Maps.of("agentId", "summary-agent", "sessionId", sid);
+		ACell summary = client.run("v/ops/agent/summarise", input)
+			.get(5, java.util.concurrent.TimeUnit.SECONDS);
+		assertNotNull(RT.getIn(summary, "response"));
+		assertNotNull(RT.getIn(summary, "ts"));
+		assertEquals(before, SessionHistory.rawTurns(client, "summary-agent", sid),
+			"saving a summary neither replaces history nor appends summary-generation turns");
+		assertEquals(summary, client.run("v/ops/agent/summarise", input)
+			.get(5, java.util.concurrent.TimeUnit.SECONDS), "the unchanged conversation reuses its saved result");
+		session.send("another fact to retain");
+		List<SessionHistory.RawTurn> advanced = SessionHistory.rawTurns(client, "summary-agent", sid);
+		ACell refreshed = client.run("v/ops/agent/summarise", input)
+			.get(5, java.util.concurrent.TimeUnit.SECONDS);
+		assertNotEquals(RT.getIn(summary, "turns"),
+			RT.getIn(refreshed, "turns"), "new turns invalidate the saved summary");
+		assertEquals(advanced, SessionHistory.rawTurns(client, "summary-agent", sid));
 	}
 
 	@Test
