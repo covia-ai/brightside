@@ -377,6 +377,19 @@ user's own `w/` and `n/` as its own namespace. There is no operator backdoor
 into user data — the venue principal reading another user's namespace still
 needs a proof — so authenticate *as* the user rather than across users.
 
+### From Codex
+
+The shared `.codex/config.toml` registers Brightside's local MCP endpoint.
+Authentication belongs in the user's `~/.codex/config.toml`, under
+`[mcp_servers.brightside]`. With *Settings → Auth → Keep a token for local
+tools* enabled, configure `http_headers_helper` to read
+`~/.brightside/tool-token.json`; it already contains the header map Codex
+expects. This keeps credentials out of the repository and lets the client
+read a fresh token when authentication expires. A configured
+`bearer_token_env_var` takes precedence over the helper, so omit it when
+using the rotating file. Reload the client's MCP connections after changing
+configuration.
+
 ### From Claude Code
 
 (This is Claude Code reaching *your venue*; the assistant handing work *to*
