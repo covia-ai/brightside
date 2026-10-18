@@ -459,6 +459,15 @@ expires; for a different port, edit the URL.
 
 ## Files and personal drives
 
+The **Files** tab browses the running installation's folders and the acting
+user's personal drives. Choose storage at the top, double-click a folder (or
+press Enter), and use Back or Up to navigate. Select a file for a literal UTF-8
+text preview, limited to the first 64 KiB; other files show their details.
+Refresh re-reads storage and the current folder. Browsing creates no jobs or
+model calls. This first version is read-only; file edits, external opening and
+archive browsing are outside its scope. **Storage settings** opens the page
+for adding folders and drives.
+
 *Settings → Files* manages two kinds of storage:
 
 - **Folders on this computer** are named directories available through the
@@ -480,6 +489,8 @@ intact. On restart these overrides replace individual roots under
 The file adapter does not reload roots live, so both adding access and revoking
 it require a restart. Settings shows the saved configuration for the next
 launch; running assistants keep their current roots until then.
+The Files browser shows those currently active roots too, rather than the
+pending settings.
 
 Drive deletion is not offered in Settings while Covia's deletion can be undone
 by a root save in flight ([covia#589](https://github.com/covia-ai/covia/issues/589)).

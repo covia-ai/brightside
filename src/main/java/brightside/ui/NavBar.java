@@ -42,7 +42,7 @@ import brightside.ui.components.Theme;
 public final class NavBar extends JPanel {
 
 	public enum Tab {
-		HOME, SESSIONS, SKILLS, PEERS, INBOX, SETTINGS
+		HOME, SESSIONS, FILES, SKILLS, PEERS, INBOX, SETTINGS
 	}
 
 	public interface Listener {
@@ -67,6 +67,7 @@ public final class NavBar extends JPanel {
 		row.setBorder(BorderFactory.createEmptyBorder(6, 0, 6, 0));
 		addItem(row, Tab.HOME, "Home");
 		addItem(row, Tab.SESSIONS, "Sessions");
+		addItem(row, Tab.FILES, "Files");
 		addItem(row, Tab.SKILLS, "Skills");
 		addItem(row, Tab.PEERS, "Peers");
 		addItem(row, Tab.INBOX, "Inbox");
@@ -119,6 +120,7 @@ public final class NavBar extends JPanel {
 			setToolTipText(switch (tab) {
 				case HOME -> "Your conversation";
 				case SESSIONS -> "Chat with the agents and conversations panel";
+				case FILES -> "Browse folders and personal drives";
 				case SKILLS -> "The skills your assistant can discover, and what each reveals";
 				case PEERS -> "The people, devices and services your Brightside knows";
 				case INBOX -> "Requests from your agents waiting for your decision";
@@ -182,6 +184,7 @@ public final class NavBar extends JPanel {
 		return switch (tab) {
 			case HOME -> "house";
 			case SESSIONS -> "messages-square";
+			case FILES -> "folder";
 			case SKILLS -> "book-open";
 			case PEERS -> "orbit";
 			case INBOX -> "inbox";

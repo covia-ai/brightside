@@ -63,6 +63,7 @@ public final class MainWindow extends JFrame {
 	private static final String MAIN_INBOX = "inbox";
 	private static final String MAIN_SKILLS = "skills";
 	private static final String MAIN_PEERS = "peers";
+	private static final String MAIN_FILES = "files";
 
 	private final BrightSide app;
 	private final CardLayout cards = new CardLayout();
@@ -79,6 +80,9 @@ public final class MainWindow extends JFrame {
 	private SettingsScreen settingsScreen;
 	private brightside.ui.inbox.InboxScreen inboxScreen;
 	private brightside.ui.skills.SkillsScreen skillsScreen;
+	private brightside.ui.files.FileBrowser fileBrowser;
+	private String filesOwner;
+	private EmbeddedVenue filesVenue;
 	private brightside.ui.chat.AgentList agentList;
 	private int sidebarWidth = SIDEBAR_WIDTH;
 	private final brightside.ui.onboarding.OnboardingWizard onboarding;
@@ -463,6 +467,8 @@ public final class MainWindow extends JFrame {
 
 		skillsScreen = new brightside.ui.skills.SkillsScreen();
 		mainDeck.add(skillsScreen, MAIN_SKILLS);
+		fileBrowser = new brightside.ui.files.FileBrowser(() -> showSettings(SettingsScreen.Tab.FILES));
+		mainDeck.add(fileBrowser, MAIN_FILES);
 
 		// Your venue, live from the embedded venue, among sample venues: nothing on the wire.
 		// How the map is drawn is the acting person's own, kept apart from the data.
@@ -611,6 +617,9 @@ public final class MainWindow extends JFrame {
 		settingsScreen.schedule().clear();
 		settingsScreen.secrets().clearSensitive();
 		settingsScreen.files().clear();
+		fileBrowser.clear();
+		filesOwner = null;
+		filesVenue = null;
 		settingsScreen.auth().clearSensitive();
 		settingsScreen.general().refresh(app.hasTray(), app.keepInTray(), app.minimiseToTray(), false, venue != null);
 	}
@@ -619,6 +628,12 @@ public final class MainWindow extends JFrame {
 	public void bindSessions(EmbeddedVenue venue, String owner, ChatSession session,
 			List<SessionHistory.Session> sessions) {
 		views.bind(venue, owner, session, sessions);
+		if (filesVenue != venue || !java.util.Objects.equals(filesOwner, owner)) {
+			filesVenue = venue;
+			filesOwner = owner;
+			fileBrowser.bind(new brightside.files.VenueFiles(venue, owner));
+			if (activeTab == NavBar.Tab.FILES) fileBrowser.refresh();
+		}
 	}
 
 	public void refreshSessions() {
@@ -687,6 +702,10 @@ public final class MainWindow extends JFrame {
 				// The acting person may have changed, or saved elsewhere: read their settings afresh.
 				peersScreen.reload();
 				mainCards.show(mainDeck, MAIN_PEERS);
+			}
+			case FILES -> {
+				fileBrowser.refresh();
+				mainCards.show(mainDeck, MAIN_FILES);
 			}
 			case INBOX -> mainCards.show(mainDeck, MAIN_INBOX);
 			case SKILLS -> {

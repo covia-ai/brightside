@@ -67,6 +67,14 @@ discarding stale results when the principal changes. See
 [CONFIGURATION.md](CONFIGURATION.md#files-and-personal-drives) for their scope
 and restart behaviour.
 
+**The file browser separates presentation from storage.** `ui/files/FileBrowser`
+uses the small, provider-independent `files/FileSource` boundary; `VenueFiles`
+reads through Covia's running file and DLFS adapters with their access checks.
+Navigation and bounded previews run off the event thread, and stale results
+are discarded after selection, principal changes or logout. Sharing this
+component with Convex GUI is future work; the first implementation lives in
+Brightside without a Convex GUI dependency.
+
 **The chat session reflects the agent framework.** The session view represents
 Covia agent state and allows user interactions through the embedded APIs.
 Its close coupling to the framework is intentional: the venue owns execution,
