@@ -70,8 +70,11 @@ and restart behaviour.
 **The file browser separates presentation from storage.** `ui/files/FileBrowser`
 uses the small, provider-independent `files/FileSource` boundary; `VenueFiles`
 reads through Covia's running file and DLFS adapters with their access checks.
-Navigation and bounded previews run off the event thread, and stale results
-are discarded after selection, principal changes or logout. Sharing this
+Navigation and bounded previews run off the event thread. A lazy directory
+cache shares reads between tree expansion and folder selection; refresh
+invalidates it, and principal changes replace the entire binding. Stale results
+are discarded after selection, principal changes or logout. The browser uses
+the shared Brightside cards, labels, icons and readouts. Sharing this
 component with Convex GUI is future work; the first implementation lives in
 Brightside without a Convex GUI dependency.
 

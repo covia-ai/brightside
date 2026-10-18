@@ -1,307 +1,612 @@
 package brightside.ui.files;
 
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.event.ActionEvent;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayDeque;
+import java.util.HashSet;
 import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.function.Consumer;
+import java.util.Locale;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
-import javax.swing.DefaultListCellRenderer;
+import javax.swing.DefaultListModel;
+import javax.swing.Icon;
 import javax.swing.JButton;
-import javax.swing.JComboBox;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JSplitPane;
-import javax.swing.JTable;
-import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.JTree;
 import javax.swing.KeyStroke;
+import javax.swing.ListCellRenderer;
 import javax.swing.ListSelectionModel;
-import javax.swing.SwingWorker;
-import javax.swing.table.AbstractTableModel;
-import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.SwingUtilities;
+import javax.swing.ToolTipManager;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import javax.swing.event.TreeExpansionEvent;
+import javax.swing.event.TreeWillExpandListener;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeCellRenderer;
+import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreePath;
+import javax.swing.tree.TreeSelectionModel;
 
+import com.formdev.flatlaf.FlatClientProperties;
+import com.formdev.flatlaf.util.UIScale;
+
+import brightside.files.DirectoryCache;
+import brightside.files.DirectoryCache.Location;
 import brightside.files.FileSource;
 import brightside.files.FileSource.Entry;
+import brightside.files.FileSource.Listing;
 import brightside.files.FileSource.Root;
-import brightside.ui.components.Labels;
+import brightside.ui.components.Borders;
 import brightside.ui.components.Buttons;
+import brightside.ui.components.Card;
+import brightside.ui.components.Labels;
+import brightside.ui.components.Lucide;
+import brightside.ui.components.Readout;
 import brightside.ui.components.Scrolls;
+import brightside.ui.components.Styles;
+import brightside.ui.components.Theme;
 
-/** Embeddable read-only browser. All storage access lives behind FileSource. */
+/** Lazy directory tree, folder contents and literal previews, independent of storage providers. */
 @SuppressWarnings("serial")
 public final class FileBrowser extends JPanel {
 
-	private final JComboBox<Root> roots = new JComboBox<>();
-	private final JTextField location = new JTextField();
-	private final JButton back = Buttons.secondary("Back");
-	private final JButton up = Buttons.secondary("Up");
-	private final JButton refresh = Buttons.secondary("Refresh");
-	private final JLabel status = Labels.small("Open a folder or personal drive.");
-	private final JLabel previewStatus = Labels.small("Select a file to preview.");
-	private final JTextArea preview = new JTextArea();
-	private final Entries model = new Entries();
-	private final JTable table = new JTable(model);
-	private final ArrayDeque<String> history = new ArrayDeque<>();
-	private FileSource source;
-	private Root root;
-	private String path = "";
-	private boolean updating;
-	private long generation;
-	private long previewGeneration;
-	private SwingWorker<?, ?> navigation;
-	private SwingWorker<?, ?> reading;
+	private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm").withZone(ZoneId.systemDefault());
+	private final DefaultMutableTreeNode treeRoot = new DefaultMutableTreeNode();
+	private final DefaultTreeModel treeModel = new DefaultTreeModel(treeRoot);
+	private final JTree tree = new JTree(treeModel);
+	private final DefaultListModel<Entry> entries = new DefaultListModel<>();
+	private final JList<Entry> files = new JList<>(entries);
+	private final JTextField filter = new JTextField();
+	private final JPanel breadcrumbs = panel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+	private final JLabel folderTitle = Labels.section("Your files");
+	private final JLabel count = Labels.small("Choose a folder to get started");
+	private final JLabel status = Labels.small(" ");
+	private final JLabel empty = Labels.muted("Choose a folder from the sidebar.");
+	private final JPanel contents = new JPanel(new CardLayout());
+	private final JPanel detail = panel(new BorderLayout());
+	private final JButton back = iconButton("arrow-left", "Back (Alt+Left)");
+	private final JButton up = iconButton("arrow-up", "Parent folder (Alt+Up)");
+	private final JButton refresh = iconButton("refresh-cw", "Refresh files (F5)");
+	private final JButton previewToggle = iconButton("eye", "Hide file preview");
+	private final JSplitPane folderSplit;
+	private final ArrayDeque<Location> history = new ArrayDeque<>();
+	private final Set<Location> expanded = new HashSet<>();
+	private DirectoryCache reads;
+	private Location current;
+	private Listing listing;
+	private long epoch;
+	private long navigation;
+	private long previewVersion;
+	private boolean selectingTree;
+	private boolean refreshing;
+	private boolean previewShown = true;
+	private boolean wasCompact;
 
 	public FileBrowser(Runnable storageSettings) {
-		super(new BorderLayout(0, 8));
-		setBorder(BorderFactory.createEmptyBorder(12, 18, 12, 18));
-		JPanel heading = new JPanel(new BorderLayout(12, 0));
-		heading.add(Labels.heading("Files"), BorderLayout.WEST);
-		heading.add(roots, BorderLayout.CENTER);
+		super(new BorderLayout());
+		JPanel heading = panel(new BorderLayout(12, 0));
+		heading.setBorder(BorderFactory.createEmptyBorder(16, 20, 14, 16));
+		JPanel titles = panel(new BorderLayout(0, 3));
+		titles.add(Labels.section("Files"), BorderLayout.NORTH);
+		titles.add(Labels.small("Your folders and personal drives"), BorderLayout.SOUTH);
+		heading.add(titles, BorderLayout.CENTER);
+		JPanel actions = panel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
 		JButton settings = Buttons.secondary("Storage settings");
 		settings.addActionListener(e -> storageSettings.run());
-		heading.add(settings, BorderLayout.EAST);
-		roots.setRenderer(new DefaultListCellRenderer() {
-			@Override public java.awt.Component getListCellRendererComponent(javax.swing.JList<?> list,
-					Object value, int index, boolean selected, boolean focus) {
-				super.getListCellRendererComponent(list, value, index, selected, focus);
-				putClientProperty("html.disable", true);
-				return this;
-			}
-		});
-		JPanel controls = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
-		controls.add(back);
-		controls.add(up);
-		controls.add(refresh);
-		location.setEditable(false);
-		JPanel toolbar = new JPanel(new BorderLayout(8, 0));
-		toolbar.add(controls, BorderLayout.WEST);
-		toolbar.add(location, BorderLayout.CENTER);
-		JPanel top = new JPanel(new BorderLayout(0, 10));
-		top.add(heading, BorderLayout.NORTH);
-		top.add(toolbar, BorderLayout.SOUTH);
-		add(top, BorderLayout.NORTH);
+		actions.add(settings);
+		actions.add(previewToggle);
+		actions.add(refresh);
+		heading.add(actions, BorderLayout.EAST);
+		add(heading, BorderLayout.NORTH);
 
-		table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-		table.setShowGrid(false);
-		table.setFillsViewportHeight(true);
-		table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
-			@Override protected void setValue(Object value) {
-				putClientProperty("html.disable", true);
-				super.setValue(value);
+		tree.setRootVisible(false);
+		tree.setShowsRootHandles(true);
+		tree.setRowHeight(UIScale.scale(32));
+		tree.setBorder(BorderFactory.createEmptyBorder(4, 6, 12, 8));
+		tree.putClientProperty(FlatClientProperties.TREE_WIDE_SELECTION, true);
+		Styles.classes(tree, "files");
+		tree.setCellRenderer(new TreeRenderer());
+		tree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
+		ToolTipManager.sharedInstance().registerComponent(tree);
+		tree.addTreeSelectionListener(e -> {
+			if (!selectingTree && tree.getLastSelectedPathComponent() instanceof Directory node) navigate(node.location, true);
+		});
+		tree.addTreeWillExpandListener(new TreeWillExpandListener() {
+			@Override public void treeWillExpand(TreeExpansionEvent e) {
+				if (e.getPath().getLastPathComponent() instanceof Directory node) {
+					expanded.add(node.location);
+					if (!selectingTree) load(node);
+				}
+			}
+			@Override public void treeWillCollapse(TreeExpansionEvent e) {
+				if (e.getPath().getLastPathComponent() instanceof Directory node) expanded.remove(node.location);
 			}
 		});
-		table.getColumnModel().getColumn(0).setPreferredWidth(240);
-		table.getColumnModel().getColumn(3).setPreferredWidth(145);
-		table.getSelectionModel().addListSelectionListener(e -> { if (!e.getValueIsAdjusting()) selectFile(); });
-		table.addMouseListener(new MouseAdapter() {
+		JPanel sidebar = panel(new BorderLayout());
+		sidebar.setBorder(Borders.hairlineRight());
+		JLabel locations = Labels.caption("LOCATIONS");
+		locations.setBorder(BorderFactory.createEmptyBorder(12, 18, 8, 12));
+		sidebar.add(locations, BorderLayout.NORTH);
+		sidebar.add(Scrolls.both(tree), BorderLayout.CENTER);
+		sidebar.setMinimumSize(new Dimension(UIScale.scale(150), 0));
+
+		JPanel toolbar = panel(new BorderLayout(8, 0));
+		toolbar.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 12));
+		JPanel travel = panel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+		travel.add(back);
+		travel.add(up);
+		toolbar.add(travel, BorderLayout.WEST);
+		toolbar.add(breadcrumbs, BorderLayout.CENTER);
+
+		JPanel directory = panel(new BorderLayout(0, 10));
+		directory.setBorder(BorderFactory.createEmptyBorder(10, 12, 8, 12));
+		JPanel folderHeading = panel(new BorderLayout(0, 10));
+		JPanel folderLabels = panel(new BorderLayout(0, 4));
+		folderLabels.add(folderTitle, BorderLayout.NORTH);
+		folderLabels.add(count, BorderLayout.SOUTH);
+		folderHeading.add(folderLabels, BorderLayout.NORTH);
+		filter.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Filter this folder…");
+		filter.putClientProperty(FlatClientProperties.TEXT_FIELD_LEADING_ICON, Lucide.icon("search", 16, Theme::muted));
+		filter.putClientProperty(FlatClientProperties.TEXT_FIELD_SHOW_CLEAR_BUTTON, true);
+		filter.getAccessibleContext().setAccessibleName("Filter this folder");
+		folderHeading.add(filter, BorderLayout.SOUTH);
+		directory.add(folderHeading, BorderLayout.NORTH);
+		files.setCellRenderer(new FileRenderer());
+		files.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		files.setFixedCellHeight(UIScale.scale(56));
+		files.setOpaque(false);
+		files.getAccessibleContext().setAccessibleName("Folder contents");
+		files.addListSelectionListener(e -> { if (!e.getValueIsAdjusting()) selectFile(); });
+		files.addMouseListener(new MouseAdapter() {
 			@Override public void mouseClicked(MouseEvent e) {
-				if (e.getClickCount() == 2 && javax.swing.SwingUtilities.isLeftMouseButton(e)) openDirectory();
+				int row = files.locationToIndex(e.getPoint());
+				if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount() == 2 && row >= 0
+						&& files.getCellBounds(row, row).contains(e.getPoint())) openDirectory();
 			}
 		});
-		table.getInputMap().put(KeyStroke.getKeyStroke("ENTER"), "open-directory");
-		table.getActionMap().put("open-directory", new AbstractAction() {
-			@Override public void actionPerformed(ActionEvent e) { openDirectory(); }
-		});
-		preview.setEditable(false);
-		preview.setLineWrap(true);
-		preview.setWrapStyleWord(true);
-		preview.setMargin(new java.awt.Insets(10, 10, 10, 10));
-		JPanel detail = new JPanel(new BorderLayout(0, 8));
-		detail.add(previewStatus, BorderLayout.NORTH);
-		detail.add(Scrolls.both(preview), BorderLayout.CENTER);
-		JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, Scrolls.both(table), detail);
-		split.setResizeWeight(0.65);
-		split.setDividerLocation(0.65);
-		split.getLeftComponent().setMinimumSize(new Dimension(250, 100));
-		detail.setMinimumSize(new Dimension(150, 100));
-		add(split, BorderLayout.CENTER);
+		files.getInputMap().put(KeyStroke.getKeyStroke("ENTER"), "open");
+		files.getActionMap().put("open", action(this::openDirectory));
+		contents.setOpaque(false);
+		contents.add(Scrolls.vertical(files), "files");
+		JPanel emptyPanel = panel(new java.awt.GridBagLayout());
+		emptyPanel.add(empty);
+		contents.add(emptyPanel, "empty");
+		directory.add(contents, BorderLayout.CENTER);
+		directory.setMinimumSize(new Dimension(UIScale.scale(200), UIScale.scale(180)));
+		detail.setMinimumSize(new Dimension(UIScale.scale(220), UIScale.scale(140)));
+		folderSplit = split(directory, detail, 0.55);
+		JPanel workspace = panel(new BorderLayout());
+		workspace.add(toolbar, BorderLayout.NORTH);
+		workspace.add(folderSplit, BorderLayout.CENTER);
+		JSplitPane layout = split(sidebar, workspace, 0);
+		layout.setDividerLocation(UIScale.scale(230));
+		add(layout, BorderLayout.CENTER);
+		status.setBorder(BorderFactory.createEmptyBorder(8, 18, 10, 18));
 		add(status, BorderLayout.SOUTH);
-
-		roots.addActionListener(e -> {
-			if (updating) return;
-			root = (Root) roots.getSelectedItem();
-			history.clear();
-			if (root != null) navigate("", false);
+		addComponentListener(new ComponentAdapter() {
+			@Override public void componentResized(ComponentEvent e) { responsive(); }
 		});
-		back.addActionListener(e -> { if (!history.isEmpty()) navigate(history.pop(), false); });
-		up.addActionListener(e -> {
-			int slash = path.lastIndexOf('/');
-			navigate(slash < 0 ? "" : path.substring(0, slash), true);
-		});
+		back.addActionListener(e -> goBack());
+		up.addActionListener(e -> { if (current != null) navigate(current.parent(), true); });
 		refresh.addActionListener(e -> refresh());
-		buttons();
+		previewToggle.addActionListener(e -> setPreviewShown(!previewShown));
+		shortcut("alt LEFT", "back", this::goBack);
+		shortcut("alt UP", "up", () -> { if (current != null) navigate(current.parent(), true); });
+		shortcut("F5", "refresh", this::refresh);
+		filter.getDocument().addDocumentListener(new DocumentListener() {
+			@Override public void insertUpdate(DocumentEvent e) { filter(); }
+			@Override public void removeUpdate(DocumentEvent e) { filter(); }
+			@Override public void changedUpdate(DocumentEvent e) { filter(); }
+		});
+		clear();
 	}
 
-	/** Called on the event thread whenever the acting principal or venue changes. */
-	public void bind(FileSource source) {
-		clear();
-		this.source = source;
-	}
+	/** All public view operations run on the event thread. */
+	public void bind(FileSource source) { clear(); reads = new DirectoryCache(source); buttons(); }
 
 	public void clear() {
-		generation++;
-		if (navigation != null) navigation.cancel(true);
-		clearPreview();
-		source = null;
-		root = null;
-		path = "";
+		epoch++;
+		navigation++;
+		reads = null;
+		current = null;
+		listing = null;
+		refreshing = false;
 		history.clear();
-		updating = true;
-		roots.removeAllItems();
-		updating = false;
-		model.set(List.of());
-		location.setText("");
-		status.setText("Open a folder or personal drive.");
+		expanded.clear();
+		treeRoot.removeAllChildren();
+		treeModel.reload();
+		entries.clear();
+		filter.setText("");
+		breadcrumbs.removeAll();
+		folderTitle.setText("Your files");
+		count.setText("Choose a folder to get started");
+		message("Choose a folder from the sidebar.");
+		resetPreview();
+		status.setText(" ");
 		buttons();
 	}
 
 	public void refresh() {
-		if (source == null) return;
-		FileSource captured = source;
-		Root previous = root;
-		String previousPath = path;
-		long version = ++generation;
-		if (navigation != null) navigation.cancel(true);
-		clearPreview();
-		model.set(List.of());
-		status.setText("Loading storage…");
-		roots.setEnabled(false);
-		back.setEnabled(false);
-		up.setEnabled(false);
-		navigation = work(captured::roots, available -> {
-			updating = true;
-			roots.removeAllItems();
-			for (Root r : available) roots.addItem(r);
-			root = available.stream().filter(r -> r.equals(previous)).findFirst()
-				.orElse(available.isEmpty() ? null : available.get(0));
-			roots.setSelectedItem(root);
-			updating = false;
-			if (root == null) {
-				path = "";
+		if (reads == null) return;
+		long version = ++epoch;
+		navigation++;
+		refreshing = true;
+		reads.clear();
+		listing = null;
+		entries.clear();
+		resetPreview();
+		message("Loading your storage…");
+		buttons();
+		reads.roots().whenComplete((roots, failure) -> SwingUtilities.invokeLater(() -> {
+			if (version != epoch) return;
+			refreshing = false;
+			buttons();
+			if (failure != null) {
+				treeRoot.removeAllChildren();
+				treeModel.reload();
+				message(error(failure));
+				status.setText("Refresh to try again.");
+				return;
+			}
+			selectingTree = true;
+			treeRoot.removeAllChildren();
+			for (String kind : List.of("Personal drive", "Folder")) {
+				DefaultMutableTreeNode group = new DefaultMutableTreeNode(kind.equals("Folder") ? "On this computer" : "Personal drives");
+				for (Root root : roots) if (root.kind().equals(kind)) group.add(new Directory(new Location(root, "")));
+				if (group.getChildCount() > 0) treeRoot.add(group);
+			}
+			for (Root root : roots) if (!root.kind().equals("Folder") && !root.kind().equals("Personal drive")) treeRoot.add(new Directory(new Location(root, "")));
+			treeModel.reload();
+			for (int i = 0; i < treeRoot.getChildCount(); i++) {
+				var group = (DefaultMutableTreeNode) treeRoot.getChildAt(i);
+				if (!(group instanceof Directory)) tree.expandPath(new TreePath(group.getPath()));
+			}
+			selectingTree = false;
+			for (Directory node : rootNodes()) if (expanded.contains(node.location)) { load(node); tree.expandPath(new TreePath(node.getPath())); }
+			if (roots.isEmpty()) {
+				current = null;
 				history.clear();
-				location.setText("");
-				status.setText("No storage available. Add a folder or personal drive in Storage settings.");
+				breadcrumbs.removeAll();
+				folderTitle.setText("Your files");
+				count.setText("No storage available");
+				message("Add a folder or drive in Storage settings.");
 				buttons();
 			} else {
-				if (!root.equals(previous)) history.clear();
-				navigate(root.equals(previous) ? previousPath : "", false);
+				if (current == null || !roots.contains(current.root())) {
+					history.clear();
+					current = rootNodes().get(0).location;
+				}
+				navigate(current, false);
 			}
-		}, e -> { status.setText(error(e)); buttons(); }, () -> generation == version);
+		}));
 	}
 
-	private void navigate(String next, boolean remember) {
-		if (source == null || root == null) return;
-		if (remember && !path.equals(next)) history.push(path);
-		path = next;
-		location.setText(root.name() + "/" + path);
-		long version = ++generation;
-		if (navigation != null) navigation.cancel(true);
-		clearPreview();
-		model.set(List.of());
-		status.setText("Loading folder…");
+	private List<Directory> rootNodes() {
+		java.util.ArrayList<Directory> nodes = new java.util.ArrayList<>();
+		for (var e = treeRoot.breadthFirstEnumeration(); e.hasMoreElements();) {
+			if (e.nextElement() instanceof Directory node && node.location.path().isEmpty()) nodes.add(node);
+		}
+		return nodes;
+	}
+
+	/** Completes after the event-thread model update, so selection can follow the loaded branch. */
+	private CompletableFuture<Void> load(Directory node) {
+		if (node.loaded) return CompletableFuture.completedFuture(null);
+		if (node.pending != null) return node.pending;
+		if (reads == null) return CompletableFuture.failedFuture(new IllegalStateException("Storage is unavailable."));
+		long version = epoch;
+		CompletableFuture<Void> pending = new CompletableFuture<>();
+		node.pending = pending;
+		reads.list(node.location).whenComplete((result, failure) -> SwingUtilities.invokeLater(() -> {
+			if (version != epoch || node.getRoot() != treeRoot) { pending.cancel(false); return; }
+			node.pending = null;
+			node.removeAllChildren();
+			if (failure == null) {
+				node.loaded = true;
+				for (Entry entry : result.entries()) if (entry.directory()) node.add(new Directory(node.location.child(entry.name())));
+			} else node.add(new DefaultMutableTreeNode("Cannot read · collapse and retry", false));
+			boolean open = expanded.contains(node.location);
+			boolean selected = tree.getLastSelectedPathComponent() == node;
+			selectingTree = true;
+			treeModel.nodeStructureChanged(node);
+			if (open) tree.expandPath(new TreePath(node.getPath()));
+			if (selected) tree.setSelectionPath(new TreePath(node.getPath()));
+			selectingTree = false;
+			if (failure == null) {
+				for (int i = 0; i < node.getChildCount(); i++) {
+					Directory child = (Directory) node.getChildAt(i);
+					if (expanded.contains(child.location)) { load(child); tree.expandPath(new TreePath(child.getPath())); }
+				}
+				pending.complete(null);
+			} else pending.completeExceptionally(failure);
+		}));
+		return pending;
+	}
+
+	private void navigate(Location next, boolean remember) {
+		if (reads == null || refreshing) return;
+		if (compact() && previewShown) setPreviewShown(false);
+		if (remember && current != null && !current.equals(next)) history.push(current);
+		current = next;
+		long version = ++navigation;
+		listing = null;
+		entries.clear();
+		filter.setText("");
+		resetPreview();
+		folderTitle.setText(next.name());
+		count.setText(next.root().kind());
+		crumbs();
+		message("Loading folder…");
+		status.setText(" ");
 		buttons();
-		FileSource captured = source;
-		Root selected = root;
-		navigation = work(() -> captured.list(selected, next), listing -> {
-			model.set(listing.entries());
-			status.setText(listing.warning().isEmpty()
-				? (listing.entries().isEmpty() ? "This folder is empty." : listing.entries().size() + " items · Double-click a folder to open it.")
-				: listing.warning());
-		}, e -> status.setText(error(e)), () -> generation == version);
+		reads.list(next).whenComplete((result, failure) -> SwingUtilities.invokeLater(() -> {
+			if (version != navigation) return;
+			if (failure != null) { message(error(failure)); status.setText("Use Up to return, or Refresh to try again."); return; }
+			listing = result;
+			filter();
+			status.setText(result.warning().isEmpty() ? "Double-click a folder to open it · Select a file to preview" : result.warning());
+		}));
+		for (Directory node : rootNodes()) if (node.location.root().equals(next.root())) reveal(node, next, version);
 	}
 
-	private Entry selected() {
-		int row = table.getSelectedRow();
-		return row < 0 || row >= model.entries.size() ? null : model.entries.get(row);
+	private void reveal(Directory node, Location target, long version) {
+		if (version != navigation) return;
+		if (node.location.equals(target)) {
+			selectingTree = true;
+			TreePath path = new TreePath(node.getPath());
+			tree.setSelectionPath(path);
+			tree.scrollPathToVisible(path);
+			selectingTree = false;
+			load(node);
+			return;
+		}
+		load(node).whenComplete((ignored, failure) -> {
+			if (version != navigation || failure != null) return;
+			for (int i = 0; i < node.getChildCount(); i++) {
+				Directory child = (Directory) node.getChildAt(i);
+				if (target.path().equals(child.location.path()) || target.path().startsWith(child.location.path() + "/")) {
+					tree.expandPath(new TreePath(node.getPath()));
+					reveal(child, target, version);
+					return;
+				}
+			}
+		});
 	}
 
-	private String child(Entry entry) { return path.isEmpty() ? entry.name() : path + "/" + entry.name(); }
+	private void filter() {
+		if (listing == null) return;
+		Entry selected = files.getSelectedValue();
+		String query = filter.getText().strip().toLowerCase(Locale.ROOT);
+		entries.clear();
+		for (Entry entry : listing.entries()) if (entry.name().toLowerCase(Locale.ROOT).contains(query)) entries.addElement(entry);
+		if (selected != null && entries.contains(selected)) files.setSelectedValue(selected, true);
+		count.setText(query.isEmpty() ? listing.entries().size() + " items" : entries.size() + " of " + listing.entries().size() + " items");
+		if (entries.isEmpty()) message(query.isEmpty() ? "This folder is empty." : "No files match this filter.");
+		else ((CardLayout) contents.getLayout()).show(contents, "files");
+	}
 
 	private void openDirectory() {
-		Entry entry = selected();
-		if (entry != null && entry.directory()) navigate(child(entry), true);
+		Entry entry = files.getSelectedValue();
+		if (current != null && entry != null && entry.directory()) navigate(current.child(entry.name()), true);
 	}
 
 	private void selectFile() {
-		clearPreview();
-		Entry entry = selected();
-		if (entry == null) return;
-		previewStatus.setText(entry.name());
-		if (entry.directory()) { preview.setText("Open this folder to view its contents."); return; }
-		if (!"file".equals(entry.type())) { preview.setText("Preview is unavailable for this type of file."); return; }
-		FileSource captured = source;
-		Root selected = root;
-		String selectedPath = child(entry);
-		long version = previewGeneration;
-		preview.setText("Loading preview…");
-		reading = work(() -> captured.preview(selected, selectedPath), result -> {
-			preview.setText(result.binary() ? "Preview is available for UTF-8 text files only."
-				: result.text().isEmpty() ? "This file is empty." : result.text());
-			preview.setCaretPosition(0);
-			previewStatus.setText(entry.name() + (result.truncated() ? " · First 64 KiB" : ""));
-		}, e -> preview.setText(error(e)), () -> previewGeneration == version);
-	}
-
-	private void clearPreview() {
-		previewGeneration++;
-		if (reading != null) reading.cancel(true);
-		preview.setText("");
-		previewStatus.setText("Select a file to preview.");
-	}
-
-	private void buttons() {
-		roots.setEnabled(source != null);
-		refresh.setEnabled(source != null);
-		back.setEnabled(root != null && !history.isEmpty());
-		up.setEnabled(root != null && !path.isEmpty());
-	}
-
-	private static String error(Exception e) {
-		Throwable cause = e;
-		while (cause.getCause() != null) cause = cause.getCause();
-		return "Could not read: " + (cause.getMessage() == null ? cause.getClass().getSimpleName() : cause.getMessage());
-	}
-
-	private static <T> SwingWorker<T, Void> work(Callable<T> task, Consumer<T> success,
-			Consumer<Exception> failure, java.util.function.BooleanSupplier current) {
-		SwingWorker<T, Void> worker = new SwingWorker<>() {
-			@Override protected T doInBackground() throws Exception { return task.call(); }
-			@Override protected void done() {
-				if (isCancelled() || !current.getAsBoolean()) return;
-				try { success.accept(get()); } catch (Exception e) { failure.accept(e); }
+		resetPreview();
+		if (!previewShown) return;
+		Entry entry = files.getSelectedValue();
+		if (current == null || entry == null) return;
+		Location target = current.child(entry.name());
+		Readout info = metadata(entry);
+		if (entry.directory()) { showDetail(info.link("Open folder", () -> navigate(target, true))); return; }
+		if (!"file".equals(entry.type())) { showDetail(info.note("Preview is unavailable for this type of file.")); return; }
+		showDetail(info.note("Loading preview…"));
+		long version = previewVersion;
+		reads.preview(target).whenComplete((result, failure) -> SwingUtilities.invokeLater(() -> {
+			if (version != previewVersion) return;
+			Readout d = metadata(entry);
+			if (failure != null) d.note(error(failure));
+			else if (result.binary()) d.note("Text preview is unavailable for this file.");
+			else {
+				d.section("Preview");
+				if (result.truncated()) d.note("Showing the first 64 KiB.");
+				if (result.text().isEmpty()) d.note("This file is empty.");
+				else d.code(result.text());
 			}
-		};
-		worker.execute();
-		return worker;
+			showDetail(d);
+		}));
 	}
 
-	private static final class Entries extends AbstractTableModel {
-		private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm").withZone(ZoneId.systemDefault());
-		private List<Entry> entries = List.of();
-		void set(List<Entry> entries) { this.entries = entries; fireTableDataChanged(); }
-		@Override public int getRowCount() { return entries.size(); }
-		@Override public int getColumnCount() { return 4; }
-		@Override public String getColumnName(int column) { return new String[] { "Name", "Kind", "Bytes", "Modified" }[column]; }
-		@Override public Object getValueAt(int row, int column) {
-			Entry e = entries.get(row);
-			return switch (column) {
-				case 0 -> e.name();
-				case 1 -> e.directory() ? "Folder" : e.type();
-				case 2 -> e.directory() ? "" : String.format("%,d", e.size());
-				case 3 -> e.modified() <= 0 ? "" : DATE.format(Instant.ofEpochMilli(e.modified()));
-				default -> "";
-			};
+	private static Readout metadata(Entry entry) {
+		Readout d = new Readout().section(entry.name())
+			.caption(kind(entry) + (entry.directory() ? "" : " · " + displaySize(entry.size())));
+		if (entry.modified() > 0) d.note("Modified " + DATE.format(Instant.ofEpochMilli(entry.modified())));
+		return d;
+	}
+
+	private void resetPreview() {
+		previewVersion++;
+		showDetail(new Readout().caption("FILE DETAILS").section("A closer look")
+			.note("Select a file to see its details and a text preview."));
+	}
+
+	private void showDetail(Readout readout) {
+		detail.removeAll();
+		Card surface = new Card();
+		surface.setLayout(new BorderLayout());
+		surface.add(Scrolls.vertical(readout));
+		detail.setBorder(BorderFactory.createEmptyBorder(10, 4, 8, 12));
+		detail.add(surface);
+		detail.revalidate();
+		detail.repaint();
+	}
+
+	private void crumbs() {
+		breadcrumbs.removeAll();
+		Location root = new Location(current.root(), "");
+		breadcrumbs.add(Buttons.link(root.name(), () -> navigate(root, true)));
+		String[] parts = current.path().isEmpty() ? new String[0] : current.path().split("/");
+		Location path = root;
+		for (int i = 0; i < parts.length; i++) {
+			path = path.child(parts[i]);
+			Location target = path;
+			if (i < parts.length - 2) {
+				if (i == parts.length - 3) breadcrumbs.add(Buttons.link("…", () -> navigate(target, true)));
+				continue;
+			}
+			breadcrumbs.add(Labels.icon(Lucide.icon("chevron-right", 12, Theme::muted)));
+			breadcrumbs.add(Buttons.link(parts[i], () -> navigate(target, true)));
+		}
+		breadcrumbs.setToolTipText(current.root().name() + "/" + current.path());
+		breadcrumbs.revalidate();
+		breadcrumbs.repaint();
+	}
+
+	private void goBack() { if (!refreshing && !history.isEmpty()) navigate(history.pop(), false); }
+	private void buttons() {
+		tree.setEnabled(reads != null && !refreshing);
+		refresh.setEnabled(reads != null && !refreshing);
+		back.setEnabled(!refreshing && !history.isEmpty());
+		up.setEnabled(!refreshing && current != null && !current.path().isEmpty());
+		filter.setEnabled(!refreshing && current != null);
+	}
+	private void message(String text) { empty.setText(text); ((CardLayout) contents.getLayout()).show(contents, "empty"); }
+	private void responsive() {
+		int orientation = getWidth() < UIScale.scale(900) ? JSplitPane.VERTICAL_SPLIT : JSplitPane.HORIZONTAL_SPLIT;
+		if (folderSplit.getOrientation() != orientation) {
+			folderSplit.setOrientation(orientation);
+			folderSplit.setResizeWeight(0.55);
+			placePreview();
+		}
+		boolean compact = compact();
+		if (compact && !wasCompact) setPreviewShown(false);
+		else if (compact != wasCompact) placePreview();
+		wasCompact = compact;
+	}
+	private boolean compact() {
+		return getWidth() > 0 && getHeight() > 0 && getWidth() < UIScale.scale(900) && getHeight() < UIScale.scale(480);
+	}
+	private void setPreviewShown(boolean show) {
+		previewShown = show;
+		placePreview();
+		String label = show ? "Hide file preview" : "Show file preview";
+		previewToggle.setToolTipText(label);
+		previewToggle.getAccessibleContext().setAccessibleName(label);
+		previewToggle.setIcon(Lucide.icon(show ? "eye" : "eye-off", 18, Theme::muted));
+		selectFile();
+	}
+	private void placePreview() {
+		detail.setVisible(previewShown);
+		folderSplit.getLeftComponent().setVisible(!compact() || !previewShown);
+		folderSplit.setDividerSize(previewShown && !compact() ? UIScale.scale(6) : 0);
+		folderSplit.setDividerLocation(previewShown ? (compact() ? 0.0 : 0.55) : 1.0);
+	}
+	private void shortcut(String key, String name, Runnable task) {
+		getInputMap(WHEN_ANCESTOR_OF_FOCUSED_COMPONENT).put(KeyStroke.getKeyStroke(key), name);
+		getActionMap().put(name, action(task));
+	}
+	private static AbstractAction action(Runnable task) { return new AbstractAction() {
+		@Override public void actionPerformed(ActionEvent e) { task.run(); }
+	}; }
+	private static JPanel panel(java.awt.LayoutManager layout) { JPanel p = new JPanel(layout); p.setOpaque(false); return p; }
+	private static JButton iconButton(String icon, String tip) {
+		JButton button = Buttons.icon(Lucide.icon(icon, 18, Theme::muted), tip);
+		button.getAccessibleContext().setAccessibleName(tip);
+		return button;
+	}
+	private static JSplitPane split(Component left, Component right, double weight) {
+		JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, left, right);
+		split.setBorder(null);
+		split.setContinuousLayout(true);
+		split.setResizeWeight(weight);
+		split.setDividerSize(UIScale.scale(6));
+		return split;
+	}
+	private static String error(Throwable error) {
+		while (error.getCause() != null) error = error.getCause();
+		return "Could not read: " + (error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage());
+	}
+	private static String kind(Entry entry) { return entry.directory() ? "Folder" : "file".equals(entry.type()) ? "File" : entry.type(); }
+	private static String displaySize(long bytes) {
+		if (bytes < 1024) return bytes + " B";
+		if (bytes < 1024 * 1024) return String.format(Locale.ROOT, "%.1f KB", bytes / 1024.0);
+		return String.format(Locale.ROOT, "%.1f MB", bytes / (1024.0 * 1024));
+	}
+
+	private static final class Directory extends DefaultMutableTreeNode {
+		final Location location;
+		boolean loaded;
+		CompletableFuture<Void> pending;
+		Directory(Location location) {
+			super(location.name());
+			this.location = location;
+			add(new DefaultMutableTreeNode("Loading…", false));
+		}
+	}
+
+	private static final class TreeRenderer extends DefaultTreeCellRenderer {
+		private final Icon folder = Lucide.icon("folder", 17, Theme::accentText);
+		private final Icon drive = Lucide.icon("hard-drive", 17, Theme::accentText);
+		@Override public Component getTreeCellRendererComponent(JTree tree, Object value, boolean selected,
+				boolean open, boolean leaf, int row, boolean focus) {
+			Labels.plain(this);
+			super.getTreeCellRendererComponent(tree, value, selected, open, leaf, row, focus);
+			if (value instanceof Directory node) {
+				setIcon(node.location.path().isEmpty() && node.location.root().kind().equals("Personal drive") ? drive : folder);
+				setToolTipText(node.location.root().name() + "/" + node.location.path());
+			} else { setIcon(null); setToolTipText(null); }
+			if (!selected) setForeground(value instanceof Directory ? Theme.foreground() : Theme.muted());
+			setIconTextGap(UIScale.scale(8));
+			return this;
+		}
+	}
+
+	private static final class FileRenderer extends Card implements ListCellRenderer<Entry> {
+		private final JLabel name = Labels.heading("");
+		private final JLabel meta = Labels.small("");
+		private final JLabel icon = Labels.icon(null);
+		private final JLabel trailing = Labels.icon(null);
+		private final Icon folder = Lucide.icon("folder", 24, Theme::accentText);
+		private final Icon file = Lucide.icon("file-text", 24, Theme::muted);
+		private final Icon chevron = Lucide.icon("chevron-right", 16, Theme::muted);
+		FileRenderer() {
+			setLayout(new BorderLayout(12, 0));
+			setBorder(BorderFactory.createEmptyBorder(10, 12, 10, 12));
+			JPanel labels = panel(new BorderLayout(0, 4));
+			labels.add(name, BorderLayout.NORTH);
+			labels.add(meta, BorderLayout.SOUTH);
+			add(icon, BorderLayout.WEST);
+			add(labels, BorderLayout.CENTER);
+			add(trailing, BorderLayout.EAST);
+		}
+		@Override public Component getListCellRendererComponent(JList<? extends Entry> list, Entry entry,
+				int index, boolean selected, boolean focus) {
+			name.setText(entry.name());
+			meta.setText((entry.directory() ? "Folder" : displaySize(entry.size()))
+				+ (entry.modified() > 0 ? "  ·  " + DATE.format(Instant.ofEpochMilli(entry.modified())) : ""));
+			icon.setIcon(entry.directory() ? folder : file);
+			trailing.setIcon(entry.directory() ? chevron : null);
+			fill(selected ? () -> Theme.blend(Theme.panel(), Theme.accent(), 0.13f) : Theme::panel);
+			outline(focus ? Theme::accent : () -> null);
+			return this;
 		}
 	}
 }

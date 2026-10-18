@@ -460,13 +460,21 @@ expires; for a different port, edit the URL.
 ## Files and personal drives
 
 The **Files** tab browses the running installation's folders and the acting
-user's personal drives. Choose storage at the top, double-click a folder (or
-press Enter), and use Back or Up to navigate. Select a file for a literal UTF-8
-text preview, limited to the first 64 KiB; other files show their details.
-Refresh re-reads storage and the current folder. Browsing creates no jobs or
-model calls. This first version is read-only; file edits, external opening and
-archive browsing are outside its scope. **Storage settings** opens the page
-for adding folders and drives.
+user's personal drives. The sidebar groups them into an expandable directory
+tree; folders load on demand. Select a directory in the tree or double-click
+one in the contents view (Enter works too). Click a breadcrumb to return to an
+ancestor, or use Back and Up. The filter searches names in the current folder.
+
+Select a file for details and a literal UTF-8 text preview, limited to the
+first 64 KiB. The preview sits beside the contents in wide windows and below
+them in narrow ones; its eye button hides it to make more room. Very small
+windows show the directory or the preview, switched with the eye button.
+Refresh (F5)
+re-reads storage, restoring the open tree branches and current location.
+Browsing creates no jobs or model calls and performs no background scan.
+The browser is read-only; file edits, external opening and archive browsing
+are outside its scope. **Storage settings** opens the page for adding folders
+and drives.
 
 *Settings → Files* manages two kinds of storage:
 
