@@ -138,7 +138,7 @@ public final class AppConfig {
 		this.home = home;
 		this.theme = string(raw, "theme", DEFAULT_THEME);
 		this.repairStore = bool(raw, "repairStore", true);
-		this.venue = merge(defaultVenue(home), RT.ensureMap(raw.get(Strings.create("venue"))));
+		this.venue = FileRoots.apply(merge(defaultVenue(home), RT.ensureMap(raw.get(Strings.create("venue")))), home);
 		AMap<AString, ACell> c = RT.ensureMap(raw.get(Strings.create("chat")));
 		// The chosen model persists in a small side-file (model.txt), so changing
 		// it in onboarding/Settings never rewrites the commented config.json.

@@ -1588,6 +1588,18 @@ public final class BrightSide {
 		return config.chat().agentId();
 	}
 
+	/** Folder access applies to the installation; edits are picked up on restart. */
+	public FileRoots fileRoots() {
+		return new FileRoots(config.home(), config.venueConfig());
+	}
+
+	/** Capture the principal before a settings action leaves the event thread. */
+	public PersonalDrives personalDrives() {
+		EmbeddedVenue v = venue;
+		String did = actingPrincipal();
+		return v == null || did == null ? null : new PersonalDrives(v, did);
+	}
+
 	/** The principal the app acts as: the venue itself as operator, else {@code id}'s user. */
 	private String actingDID(Identity id, EmbeddedVenue v) {
 		return actingAsOperator ? v.did() : id.userDID(v.did());
@@ -1625,10 +1637,17 @@ public final class BrightSide {
 			boolean configureExisting, ChatTarget target) {
 		String did = target.did();
 		covia.grid.Venue userClient = v.clientAs(did);
+		if (!target.operator()) {
+			try {
+				new PersonalDrives(v, did).initialise();
+			} catch (Exception e) {
+				log.warn("Could not prepare personal storage for {}", did, e);
+			}
+		}
 		ChatSession session = new ChatSession(userClient, chatConfig, id.name(), configureExisting);
 
 		// The agent is not created or reconfigured here: ChatSession.ensureAgent
-		// runs on the first send, so binding the chat submits no jobs — and Home
+		// runs on the first send, so binding submits no agent jobs — and Home
 		// leaves ChatSession.sessionId null until the user actually sends their
 		// first message. A god is the exception when the operator turns to it:
 		// it is configured by its own ensure, so the session must find it there.

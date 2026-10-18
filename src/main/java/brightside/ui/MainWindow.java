@@ -33,6 +33,7 @@ import brightside.ui.inspect.SessionViews;
 import brightside.ui.settings.AuthPanel;
 import brightside.ui.settings.DiscordPanel;
 import brightside.ui.settings.GeneralPanel;
+import brightside.ui.settings.FilesPanel;
 import brightside.ui.settings.IntegrationsPanel;
 import brightside.ui.settings.ModelPanel;
 import brightside.ui.settings.MoltbookPanel;
@@ -437,8 +438,12 @@ public final class MainWindow extends JFrame {
 		});
 		VaultPanel vaultPanel = new VaultPanel(app::forgetRememberedPassphrase);
 		AuthPanel authPanel = new AuthPanel(app::mintAccessToken, app::keepToolToken, app::setKeepToolToken);
+		FilesPanel filesPanel = new FilesPanel(new FilesPanel.Host() {
+			@Override public brightside.FileRoots folders() { return app.fileRoots(); }
+			@Override public brightside.PersonalDrives drives() { return app.personalDrives(); }
+		});
 		settingsScreen = new SettingsScreen(generalPanel, themePanel, modelPanel, profilePanel, integrationsPanel,
-			schedulePanel, secretsPanel, vaultPanel, authPanel);
+			schedulePanel, secretsPanel, vaultPanel, authPanel, filesPanel);
 
 		mainDeck = new JPanel(mainCards);
 		mainDeck.add(split, MAIN_CHAT);
@@ -605,6 +610,7 @@ public final class MainWindow extends JFrame {
 		settingsScreen.integrations().clearSensitive();
 		settingsScreen.schedule().clear();
 		settingsScreen.secrets().clearSensitive();
+		settingsScreen.files().clear();
 		settingsScreen.auth().clearSensitive();
 		settingsScreen.general().refresh(app.hasTray(), app.keepInTray(), app.minimiseToTray(), false, venue != null);
 	}
@@ -727,6 +733,7 @@ public final class MainWindow extends JFrame {
 		app.refreshMoltbookStatus(); // likewise, through showMoltbookStatus
 		app.refreshSchedule(); // answers through showSchedule, off the event thread
 		settingsScreen.secrets().refresh(app.listSecretNames());
+		settingsScreen.files().refresh();
 		settingsScreen.vault().refresh(app.hasRememberedPassphrase());
 	}
 

@@ -1,7 +1,8 @@
 # Configuration reference
 
-Everything Brightside keeps lives under `~/.brightside/`, and everything it
-can be told is in one hand-edited file there.
+Brightside keeps its own state under `~/.brightside/`. Advanced configuration
+lives in `config.json`; choices made in Settings are kept separately so that
+hand-edited file and its comments stay intact.
 
 - **Every key is optional.** An empty `{}` is valid; Brightside supplies a
   working default for anything omitted. Changes take effect on restart.
@@ -20,8 +21,9 @@ can be told is in one hand-edited file there.
 | Path | What it is |
 |---|---|
 | `~/.brightside/config.json` | Settings (JSON5 — comments allowed). Hand-edited. |
+| `~/.brightside/file-roots.json` | Folder access overrides saved by Settings → Files; applied over configured roots on restart. |
 | `~/.brightside/identity.json` | Your name, stable slug and full Covia user DID, kept apart so identity changes never rewrite settings. |
-| `~/.brightside/venue.etch` | The encrypted lattice store: conversations, memory, skills, agent state. |
+| `~/.brightside/venue.etch` | The encrypted lattice store: conversations, memory, skills, agent state and personal drives. |
 | `~/.brightside/venue.etch.unclean-<stamp>` | The store as it was before a launch-time repair ([LAUNCH.md](LAUNCH.md)); delete once the repaired store has proved itself. |
 | `~/.brightside/vault.salt` | The non-secret salt for passphrase hardening. |
 | `~/.brightside/identity.enc` | The AES-GCM-encrypted Ed25519 identity seed. |
@@ -454,6 +456,33 @@ agents, conversations and inbox. A token minted as the venue operator sees the
 venue's own namespace and its administration, but not your private data: even
 the operator needs your user's authority for that. Mint a new token when it
 expires; for a different port, edit the URL.
+
+## Files and personal drives
+
+*Settings → Files* manages two kinds of storage:
+
+- **Folders on this computer** are named directories available through the
+  assistant's file tools. Choose a folder, give it a short name, and choose
+  read-only or writable access. Existing roots are listed too. Removing a
+  root removes file-tool access; it does not delete its files or change other
+  integrations such as a Claude Code project using that directory.
+- **Personal drives** are the acting user's DLFS drives, stored in the encrypted
+  venue store. List them or create another by name; creation takes effect
+  immediately and the assistant's DLFS skill can use it. A user without any
+  drives receives a `personal` drive when first opened. Setup is remembered,
+  so later launches do not recreate an absent drive. Existing drives are kept.
+
+Folder roots are installation-wide, while drives belong to the acting user
+and are shared by that user's agents. Folder edits are saved in
+`file-roots.json`, leaving comments and other configuration in `config.json`
+intact. On restart these overrides replace individual roots under
+`venue.file.roots`; a null entry suppresses a root, including a built-in default.
+The file adapter does not reload roots live, so both adding access and revoking
+it require a restart. Settings shows the saved configuration for the next
+launch; running assistants keep their current roots until then.
+
+Drive deletion is not offered in Settings while Covia's deletion can be undone
+by a root save in flight ([covia#589](https://github.com/covia-ai/covia/issues/589)).
 
 ## Schedule
 

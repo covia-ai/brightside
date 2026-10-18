@@ -59,6 +59,14 @@ projects its state rather than maintaining a separate application model.
 **Threading.** Swing on the event thread only. Venue launch and close, agent
 calls and desktop integration run on background threads.
 
+**Storage settings distinguish installation access from personal data.**
+`FileRoots` persists folder access for the next launch; `PersonalDrives` uses
+the acting user's DLFS operations and prepares their initial drive once.
+The Files settings page reads and changes storage off the event thread,
+discarding stale results when the principal changes. See
+[CONFIGURATION.md](CONFIGURATION.md#files-and-personal-drives) for their scope
+and restart behaviour.
+
 **The chat session reflects the agent framework.** The session view represents
 Covia agent state and allows user interactions through the embedded APIs.
 Its close coupling to the framework is intentional: the venue owns execution,
