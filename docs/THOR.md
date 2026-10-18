@@ -4,11 +4,12 @@ Thor protects the owner against adversaries: instructions smuggled into
 content that turn an assistant against them, an agent acting beyond what they
 asked, outsiders probing for access or pressing for secrets. He is one of the
 gods; what they share — the bridges, asking the owner, answering to Odin — is
-in [GODS.md](GODS.md). This is what is his alone. Code: `Thor`, `ThorWatch`.
+in [GODS.md](GODS.md). This is what is his alone. Code: `Thor`.
 
-- **Trouble reaches him two ways**: reports from the owner's assistants, Odin
-  and the owner, and a watch Brightside keeps on agents' tool calls, which
-  holds a key on its way out until he has answered.
+- **He responds to reported threats** from the owner's assistants, the other
+  gods and the owner. Routine activity causes no Thor turns.
+- **His work stays focused.** No automatic tool-call screening, periodic
+  summaries or background patrols; model calls go towards concrete incidents.
 - **He investigates before he acts.** A report may be mistaken or itself the
   attack, so he never acts on its say-so alone.
 - **He can change most things for regular users**, and does the least that
@@ -34,8 +35,8 @@ choice was a guardian that could only warn. That is safe against a
 mistaken Thor, but useless against a real attack.
 
 He is a god rather than a skill because the power must sit outside the
-agents he watches. An assistant cannot suspend its siblings or take back
-what they were given, and must not be able to. And a guardian that ran
+agents he may need to stop. An assistant cannot suspend its siblings or take
+back what they were given, and must not be able to. And a guardian that ran
 inside the owner's namespace would share its weaknesses.
 
 ## What reaches him
@@ -45,36 +46,14 @@ the `security` skill teaches them when ([SKILLS.md](SKILLS.md)). Odin reports
 a request that looks like an attack, Njord a payment request that does, and
 the owner may tell him directly.
 
-The watch needs no one to report. It is a guard on every user agent's tool
-calls — Covia's tool guards, which see each operation call before it runs —
-and sorts each call into one of three tiers, with one rule each:
+Each report should describe a concrete incident, once. Ordinary mistakes,
+failed tasks and uncertainty are not attacks. Thor investigates only as far
+as the report needs, responds, then finishes. A report that does not hold up
+closes without a change or an Inbox warning.
 
-| Tier | Rule | What happens |
-|---|---|---|
-| High | something shaped like a key, token or private key in a call that sends out: a message, a post, another agent | the call waits for Thor, up to two minutes, and runs only if he allows it |
-| Medium | such a key in any other call outside the secret store | the call runs, and Thor is told at once |
-| Low | a call that sends out, with no key | the call runs, and Thor gets a summary of the last half hour's, if there were any |
-
-- **One rule a tier, on purpose**: every report is a Thor turn, and every
-  change he makes is an Odin turn as well.
-- **Watching costs nothing.** The guard is in-process and starts with the
-  venue, so a launch still submits no jobs. Only a report does: a task for
-  Thor, sent as the venue operator who owns him, once he is configured.
-- **The task carries facts, not content**: the agent, its owner, the tool and
-  the conversation, or for a summary how often each agent used each tool;
-  none of the input, which an attacker may have shaped. Thor reads that
-  through his bridge.
-- **A held call fails closed.** Anything but Thor's yes — a refusal, no
-  answer in time, a failure — refuses the call, and the agent is told why.
-- **It stays quiet.** The venue's own agents pass untouched, Thor's own calls
-  among them, so a held call never waits on him. An agent reported at medium
-  is not reported again for an hour. A report that does not hold up closes
-  changing nothing, so Odin hears nothing either.
-- **What it looks for**: provider API keys (`sk-` keys of the Anthropic and
-  OpenAI kind, GitHub, Slack, AWS, Google) and PEM private keys. The calls
-  that send out are the Discord, Slack, Telegram and WhatsApp sends, A2A
-  sends, and Moltbook posts and comments. A tool is named after its adapter,
-  so the secret store's own, where a key belongs, are `secret_*`.
+This is deliberately a minimal response service. Continuous detection and
+routine reviews would create model work for Thor, and changes would create
+more for Odin. They are outside his present role.
 
 ## What he can change
 
@@ -104,12 +83,7 @@ into users' namespaces, and never into one another god keeps.
 - Brightside re-applies its own configuration to the main assistant when a
   chat first sends, so tools Thor takes from that agent come back then; a
   suspension stays.
-- Only agents' tool calls are watched. Tools reaching the venue over MCP act
-  as the owner, not as an agent, and Thor could not stop them anyway.
-- Recovery phrases, and tokens such as the tool token, are not recognised by
-  the watch.
-- Refused tool calls would be a good second signal for the watch, but a
-  refusal comes back only as error text, and Brightside never decides on
-  wording.
-- The calls gathered for the next summary are kept in memory; those still
-  waiting when Brightside quits are not summarised.
+- Thor depends on someone reporting a threat; he does not automatically
+  detect or block a credential leaving in a tool call.
+- Tools reaching the venue over MCP act as the owner, not as an agent;
+  suspending an agent does not stop those tools.

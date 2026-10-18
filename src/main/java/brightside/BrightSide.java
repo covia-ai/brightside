@@ -80,7 +80,6 @@ public final class BrightSide {
 	private volatile EmbeddedVenue venue;
 	private volatile ChatSession chat;
 	private volatile LatticeWatcher inboxWatcher; // event thread; the owner's h/ inbox
-	private volatile ThorWatch thorWatch; // from venue ready until it closes
 	private final java.util.Set<String> notifiedRequests = java.util.concurrent.ConcurrentHashMap.newKeySet();
 	private volatile List<Inbox.Request> inboxRequests = List.of(); // the owner's and the venue's, as shown
 	private volatile Identity identity;
@@ -460,9 +459,6 @@ public final class BrightSide {
 			// queued behind the reveal and fills in the conversation.
 			Identity bound = onVenueReady();
 			startToolTokens();
-			// Thor's watch submits nothing until it reports, so it starts now:
-			// agents behind a bot or a schedule run before the owner's first message.
-			if (thorWatch == null) thorWatch = ThorWatch.start(v, () -> effectiveChat().llmOperation());
 			if (clearToShow != null) SwingUtilities.invokeLater(clearToShow);
 			if (bound != null) startChatOnce(v, bound);
 			if (repaired != null) {
@@ -2419,9 +2415,6 @@ public final class BrightSide {
 				Thread.currentThread().interrupt();
 			}
 		}
-		ThorWatch w = thorWatch;
-		thorWatch = null;
-		if (w != null) w.close();
 		EmbeddedVenue v = venue;
 		if (v == null) return;
 		try {

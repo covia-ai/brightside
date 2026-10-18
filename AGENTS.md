@@ -54,7 +54,7 @@ rules for changing them.
 | Venue, user and agent identity | `docs/IDENTITY.md` |
 | The gods: a team of super-user agents working for the owner — the idea, what they share | `docs/GODS.md` |
 | Odin, the administrator and the wiser head the other gods answer to | `docs/ODIN.md` |
-| Thor, the guardian: what reaches him, including his watch; what he may change | `docs/THOR.md` |
+| Thor, the guardian: responding to reported threats; what he may change | `docs/THOR.md` |
 | Njord, the treasurer: custody of the keys, what he pays | `docs/NJORD.md` |
 | Vault, keys, recovery, authentication, network exposure | `docs/SECURITY.md` |
 | First run, unlock, recovery, settings | `docs/ONBOARDING.md` |

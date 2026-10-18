@@ -19,7 +19,7 @@ guide and points here.
 | `docs/IDENTITY.md` | venue, user and agent principals; one key; switching user; known limits |
 | `docs/GODS.md` | the gods as a whole: a team of super-user agents working for the owner, when a job deserves one, the team, and what every god shares (bridges, overseer, a user of its own, asking the owner, deliberate stops) |
 | `docs/ODIN.md` | Odin, a sub-article of GODS.md: why an administrator, what he may do, how he judges, checking the other gods |
-| `docs/THOR.md` | Thor, a sub-article of GODS.md: why a guardian, what reaches him including the watch, what he may and may never change, known limits |
+| `docs/THOR.md` | Thor, a sub-article of GODS.md: why a guardian, responding to reported threats, what he may and may never change, known limits |
 | `docs/NJORD.md` | Njord, a sub-article of GODS.md: why a treasurer, custody of the keys, how he judges a payment, known limits |
 | `docs/SECURITY.md` | the recovery invariant, key hierarchy, algorithms, file roles, recovery procedure, network exposure, limitations |
 | `docs/ONBOARDING.md` | first run, unlock, recovery from the phrase, settings afterwards |

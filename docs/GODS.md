@@ -26,7 +26,7 @@ design and motivation.
 | God | Job | Doc |
 |---|---|---|
 | Odin, the administrator | changes that need administrator rights; the wiser head the others answer to | [ODIN.md](ODIN.md) |
-| Thor, the guardian | protects the owner against adversaries; can stop and restrict agents at once | [THOR.md](THOR.md) |
+| Thor, the guardian | responds to reported threats; can stop and restrict agents at once | [THOR.md](THOR.md) |
 | Njord, the treasurer | keeps the signing keys; every financial transaction goes through him | [NJORD.md](NJORD.md) |
 
 They work as one team. An assistant that meets an attack tells Thor. One that
@@ -37,7 +37,7 @@ Thor and Njord answer to Odin for what they do.
 ## When a job deserves a god
 
 A job earns a god only if it needs one of three things: authority the
-assistants should not hold, independence from the agents it watches, or a
+assistants should not hold, independence from the agents it acts on, or a
 reach across the whole venue rather than one conversation. Everything else
 belongs in a skill or an ordinary agent. Every god turn is a model call, so
 the team stays small and its work lean. A report that changes nothing
