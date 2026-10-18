@@ -73,6 +73,14 @@ Changes to Brightside itself are Odin's, and Thor asks him for them. The gods
 are beyond his reach, and so is Njord's treasury: his bridge lends sudo only
 into users' namespaces, and never into one another god keeps.
 
+## Future work
+
+Thor may gain interception of risky actions before they run, or proactive
+investigation that looks for threats without waiting for a report. These are
+future possibilities, not part of his current behaviour. Any such work should
+justify its token cost and keep routine activity cheap; for now, his focus
+is responding to reported threats.
+
 ## Known limits
 
 - Covia cannot revoke a grant once issued; a delegation lasts until it
