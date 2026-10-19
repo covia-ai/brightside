@@ -184,12 +184,14 @@ public final class ProfilePanel extends SettingsPage {
 			if (!refreshing && chosen != null) host.actAs(chosen.operator());
 		});
 
+		group(null);
 		addField("Switch user", SWITCH_HINT, principal);
 		nameLabel = addField("Your name", NAME_HINT, nameField);
+		group("Advanced");
 		userDidLabel = addValueRow("Covia DID", USER_DID_HINT, valueRow(userDidIcon, userDidV, copy("the Covia DID", userDidV)));
 		addValueRow("Home venue DID", VENUE_DID_HINT, valueRow(venueDidIcon, venueDidV, copy("the home venue DID", venueDidV)));
 		addValueRow("Venue signing key", KEY_HINT, valueRow(publicKeyIcon, pubV, copy("the venue signing key", pubV)));
-		addValueRow("Primary seed (Advanced)", SEED_HINT, valueRow(seedIcon, seedV, seedActions));
+		addValueRow("Primary seed", SEED_HINT, valueRow(seedIcon, seedV, seedActions));
 	}
 
 	/** The principal's own suffix — {@code :u:mike} of {@code did:key:z6Mk…:u:mike} — or the whole DID if it has none. */

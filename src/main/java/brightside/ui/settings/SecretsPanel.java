@@ -64,7 +64,9 @@ public final class SecretsPanel extends SettingsPage {
 
 	private void build() {
 		rows.setOpaque(false);
-		addSpan(rows, "gapbottom 14");
+		group(null);
+		addSpan(rows);
+		group(null);
 		addField("Name",
 			"Letters, digits, dots, dashes and underscores — how operations reference it (s/<name>)", nameField);
 		// The action belongs beside the fields it acts on: adding the primary

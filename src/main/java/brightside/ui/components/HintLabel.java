@@ -36,6 +36,12 @@ public final class HintLabel extends JPanel {
 		text.setText(label);
 	}
 
+	/** The label at full strength rather than muted: a row's label on a card. */
+	public HintLabel unmuted() {
+		Styles.classes(text);
+		return this;
+	}
+
 	/** The hover text; null hides the ⓘ. */
 	public void setHint(String hint) {
 		icon.setToolTipText(hint);

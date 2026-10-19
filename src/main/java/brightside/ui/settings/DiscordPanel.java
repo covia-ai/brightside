@@ -78,12 +78,14 @@ public final class DiscordPanel extends SettingsPage {
 			+ "Send Messages, open the generated link and add the bot to your server — or just message it directly.\n"
 			+ "4. Paste the token here, list who may talk to it, and save.");
 
+		group(null);
 		addField("Status", status);
 		addField("Bot token", tokenField);
 		addField("Allowed users", "Only these Discord users may talk to your assistant. Anyone else who messages the "
 			+ "bot is told their user id, so DM it to find yours. Direct messages always reach it; in a server it "
 			+ "answers when mentioned.", allowField);
 		addSpanLeft(remove);
+		endGroup();
 		// Needed once, when making the bot: folded away until asked for.
 		steps.setBorder(javax.swing.BorderFactory.createEmptyBorder(6, 22, 0, 0));
 		Disclosure setup = new Disclosure(Labels.muted("Setting up a Discord bot"), steps, 12).compact();

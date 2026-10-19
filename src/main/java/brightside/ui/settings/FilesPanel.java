@@ -45,9 +45,9 @@ public final class FilesPanel extends SettingsPage {
 		folders.setOpaque(false);
 		drives.setOpaque(false);
 		readOnly.setOpaque(false);
-		addSpan(Labels.section("Folders on this computer"));
+		group("Folders on this computer");
 		addSpan(SelectableText.description("Shared across this installation. Folder access changes take effect after restart."));
-		addSpan(folders, "gapbottom 12");
+		addSpan(folders);
 		JPanel chooseRow = new JPanel(new MigLayout("insets 0, fillx", "[grow,fill]8[]"));
 		chooseRow.setOpaque(false);
 		JButton choose = Buttons.plain("Choose folder…");
@@ -69,9 +69,9 @@ public final class FilesPanel extends SettingsPage {
 			run((f, d) -> f.add(name, path, ro), "Folder saved. Restart Brightside to apply folder access changes.");
 		});
 
-		addSpan(Labels.section("Personal drives"), "gaptop 20");
+		group("Personal drives");
 		addSpan(SelectableText.description("Stored inside Brightside for this user. New drives are available immediately."));
-		addSpan(drives, "gapbottom 12");
+		addSpan(drives);
 		JPanel createRow = new JPanel(new MigLayout("insets 0, fillx", "[grow,fill]8[]8[]"));
 		createRow.setOpaque(false);
 		JButton create = Buttons.plain("Create drive");

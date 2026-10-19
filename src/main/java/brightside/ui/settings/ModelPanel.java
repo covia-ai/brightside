@@ -53,7 +53,9 @@ public final class ModelPanel extends SettingsPage {
 		primary.setToolTipText("Apply the selected model and store any new key");
 		onPrimary(this::onSave);
 
-		addSpan(modelSelector);
+		group(null);
+		addField("Provider", modelSelector.providerField());
+		addField("Model", modelSelector.modelField());
 		addField("API key", keyField);
 	}
 

@@ -39,6 +39,20 @@ public final class ModelSelector extends JPanel {
 		providerChanged();
 	}
 
+	/**
+	 * The provider picker, for a form that labels its own rows (Settings →
+	 * Model): adding it there takes it out of this panel, which is then left
+	 * unshown while it goes on choosing.
+	 */
+	public JComboBox<Providers.Provider> providerField() {
+		return provider;
+	}
+
+	/** The model picker; as {@link #providerField}. */
+	public JComboBox<Providers.Model> modelField() {
+		return model;
+	}
+
 	/** Select an operation path such as {@code v/models/anthropic/claude-sonnet-5-5}. */
 	public void selectModelOp(String modelOp) {
 		syncing = true;

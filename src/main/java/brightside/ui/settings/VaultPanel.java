@@ -35,7 +35,8 @@ public final class VaultPanel extends SettingsPage {
 		baseline = isRemembered;
 		remember.setSelected(isRemembered);
 		remember.setEnabled(isRemembered); // can only be turned OFF here
-		hint.setText(isRemembered ? " " : "To remember it, tick \"Remember me\" on the unlock screen.");
+		hint.setText("To remember it, tick \"Remember me\" on the unlock screen.");
+		hint.setVisible(!isRemembered);
 		clearNote();
 		primary.setEnabled(false);
 	}
@@ -49,6 +50,7 @@ public final class VaultPanel extends SettingsPage {
 		primary.setToolTipText("Apply the change");
 		onPrimary(this::onSave);
 
+		group(null);
 		addSpan(remember);
 		addSpan(hint);
 	}

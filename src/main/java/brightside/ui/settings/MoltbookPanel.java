@@ -118,12 +118,16 @@ public final class MoltbookPanel extends SettingsPage {
 		connectRow.add(Box.createHorizontalStrut(8));
 		connectRow.add(connect);
 
+		group(null);
 		addField("Status", "Your assistant on Moltbook, the social network for AI agents. Register it under a name, "
 			+ "claim it on Moltbook's claim page, then ask your assistant to check in, read or post; the key never "
 			+ "enters the conversation.", status);
 		addSpanLeft(actions);
+		// Two ways in: register a new account, or connect one that exists.
+		group(null);
 		addField("Agent name", NAME_HINT, nameField);
 		addField("Description", DESCRIPTION_HINT, descriptionScroll);
+		group(null);
 		addField("Existing key", KEY_HINT, connectRow);
 		showStatus(null, null);
 	}
