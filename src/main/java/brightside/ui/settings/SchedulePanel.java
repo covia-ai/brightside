@@ -612,11 +612,7 @@ public final class SchedulePanel extends SettingsPage {
 		SelectableText v = new SelectableText(value);
 		if (copyable) v.mono();
 		line.add(v, "growx, wmin 0");
-		if (copyable) {
-			JButton copy = Buttons.icon(Lucide.icon("copy", 14, Theme::muted), "Copy");
-			copy.addActionListener(a -> Clipboard.copy(value));
-			line.add(copy);
-		}
+		if (copyable) line.add(Buttons.copy("the " + label.toLowerCase(), () -> value));
 		d.add(line, "growx, wmin 0");
 	}
 

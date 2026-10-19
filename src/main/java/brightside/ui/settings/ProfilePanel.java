@@ -11,14 +11,12 @@ import javax.swing.JTextField;
 import javax.swing.SwingWorker;
 
 import brightside.ui.components.Buttons;
-import brightside.ui.components.Clipboard;
 import brightside.ui.components.Dialogs;
 import brightside.ui.components.Documents;
 import brightside.ui.components.ElidedText;
+import brightside.ui.components.EyeButton;
 import brightside.ui.components.HintLabel;
-import brightside.ui.components.Lucide;
 import brightside.ui.components.Panels;
-import brightside.ui.components.Theme;
 
 /**
  * The <b>Identity</b> settings page: first, the user switcher — which principal
@@ -59,8 +57,6 @@ public final class ProfilePanel extends SettingsPage {
 
 	private static final String MASK = "•".repeat(64);
 	private static final String NONE = "—";
-	private static final int EYE = 18;
-	private static final int COPY = 16;
 
 	private static final String SWITCH_HINT = "Who Brightside acts as: you, for everyday use, or the venue operator "
 		+ "(advanced) — the venue's own agents (the gods, Odin and Thor) and the venue's Inbox. Everything else is as yourself; "
@@ -88,8 +84,9 @@ public final class ProfilePanel extends SettingsPage {
 	private final ConvexIdenticon venueDidIcon = new ConvexIdenticon();
 	private final ConvexIdenticon publicKeyIcon = new ConvexIdenticon();
 	private final ConvexIdenticon seedIcon = new ConvexIdenticon();
-	private final JButton reveal = Buttons.icon(eye(false), "Show / hide the primary Ed25519 seed");
-	private final JButton copySeed = copyButton("the primary seed");
+	private final EyeButton reveal = new EyeButton("Reveal the primary seed (behind your passphrase)",
+		"Hide the primary seed", 16);
+	private final JButton copySeed = Buttons.copy("the primary seed", () -> this.seedHex);
 	/** Switch user: the named user (everyday) or the venue operator (advanced). */
 	private final JComboBox<Principal> principal = new JComboBox<>();
 	private HintLabel nameLabel;
@@ -174,7 +171,6 @@ public final class ProfilePanel extends SettingsPage {
 
 		reveal.addActionListener(e -> toggle());
 		copySeed.setEnabled(false);
-		copySeed.addActionListener(e -> Clipboard.copy(seedHex));
 
 		JPanel seedActions = Panels.row();
 		seedActions.add(reveal);
@@ -190,9 +186,9 @@ public final class ProfilePanel extends SettingsPage {
 
 		addField("Switch user", SWITCH_HINT, principal);
 		nameLabel = addField("Your name", NAME_HINT, nameField);
-		userDidLabel = addValueRow("Covia DID", USER_DID_HINT, valueRow(userDidIcon, userDidV, copyButton("the Covia DID", userDidV)));
-		addValueRow("Home venue DID", VENUE_DID_HINT, valueRow(venueDidIcon, venueDidV, copyButton("the home venue DID", venueDidV)));
-		addValueRow("Venue signing key", KEY_HINT, valueRow(publicKeyIcon, pubV, copyButton("the venue signing key", pubV)));
+		userDidLabel = addValueRow("Covia DID", USER_DID_HINT, valueRow(userDidIcon, userDidV, copy("the Covia DID", userDidV)));
+		addValueRow("Home venue DID", VENUE_DID_HINT, valueRow(venueDidIcon, venueDidV, copy("the home venue DID", venueDidV)));
+		addValueRow("Venue signing key", KEY_HINT, valueRow(publicKeyIcon, pubV, copy("the venue signing key", pubV)));
 		addValueRow("Primary seed (Advanced)", SEED_HINT, valueRow(seedIcon, seedV, seedActions));
 	}
 
@@ -218,18 +214,9 @@ public final class ProfilePanel extends SettingsPage {
 		return valueRow(identicon, value, actions);
 	}
 
-	/** A small copy icon that takes the whole value, unless there is none. */
-	private static JButton copyButton(String subject, ElidedText value) {
-		JButton copy = copyButton(subject);
-		copy.addActionListener(e -> {
-			String text = value.getText();
-			if (text != null && !text.isBlank() && !NONE.equals(text)) Clipboard.copy(text);
-		});
-		return copy;
-	}
-
-	private static JButton copyButton(String subject) {
-		return Buttons.icon(Lucide.icon("copy", COPY, Theme::muted), "Copy " + subject + " to the clipboard");
+	/** The copy icon for a row's value, which takes nothing while the row shows none. */
+	private static JButton copy(String subject, ElidedText value) {
+		return Buttons.copy(subject, () -> NONE.equals(value.getText()) ? null : value.getText());
 	}
 
 	private void updateDirty() {
@@ -327,12 +314,7 @@ public final class ProfilePanel extends SettingsPage {
 		updateDirty();
 	}
 
-	/** The eye is open while the seed is revealed and struck through while it is hidden. */
 	private void showEye(boolean open) {
-		reveal.setIcon(eye(open));
-	}
-
-	private static javax.swing.Icon eye(boolean open) {
-		return Lucide.icon(open ? "eye" : "eye-off", EYE, Theme::muted);
+		reveal.setShown(open);
 	}
 }

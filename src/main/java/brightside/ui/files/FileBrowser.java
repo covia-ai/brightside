@@ -58,6 +58,7 @@ import brightside.files.FileSource.Root;
 import brightside.ui.components.Borders;
 import brightside.ui.components.Buttons;
 import brightside.ui.components.Card;
+import brightside.ui.components.EyeButton;
 import brightside.ui.components.Labels;
 import brightside.ui.components.Lucide;
 import brightside.ui.components.Readout;
@@ -86,7 +87,7 @@ public final class FileBrowser extends JPanel {
 	private final JButton back = iconButton("arrow-left", "Back (Alt+Left)");
 	private final JButton up = iconButton("arrow-up", "Parent folder (Alt+Up)");
 	private final JButton refresh = iconButton("refresh-cw", "Refresh files (F5)");
-	private final JButton previewToggle = iconButton("eye", "Hide file preview");
+	private final EyeButton previewToggle = new EyeButton("Show file preview", "Hide file preview", 18);
 	private final JSplitPane folderSplit;
 	private final ArrayDeque<Location> history = new ArrayDeque<>();
 	private final Set<Location> expanded = new HashSet<>();
@@ -113,6 +114,7 @@ public final class FileBrowser extends JPanel {
 		JButton settings = Buttons.secondary("Storage settings");
 		settings.addActionListener(e -> storageSettings.run());
 		actions.add(settings);
+		previewToggle.setShown(previewShown);
 		actions.add(previewToggle);
 		actions.add(refresh);
 		heading.add(actions, BorderLayout.EAST);
@@ -507,10 +509,7 @@ public final class FileBrowser extends JPanel {
 	private void setPreviewShown(boolean show) {
 		previewShown = show;
 		placePreview();
-		String label = show ? "Hide file preview" : "Show file preview";
-		previewToggle.setToolTipText(label);
-		previewToggle.getAccessibleContext().setAccessibleName(label);
-		previewToggle.setIcon(Lucide.icon(show ? "eye" : "eye-off", 18, Theme::muted));
+		previewToggle.setShown(show);
 		selectFile();
 	}
 	private void placePreview() {

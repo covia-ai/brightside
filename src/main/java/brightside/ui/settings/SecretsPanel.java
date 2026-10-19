@@ -12,6 +12,7 @@ import javax.swing.SwingWorker;
 import brightside.ui.components.Buttons;
 import brightside.ui.components.Clipboard;
 import brightside.ui.components.Dialogs;
+import brightside.ui.components.EyeButton;
 import brightside.ui.components.Labels;
 import brightside.ui.components.Lucide;
 import brightside.ui.components.SelectableText;
@@ -105,8 +106,7 @@ public final class SecretsPanel extends SettingsPage {
 	private void addRow(String name) {
 		JLabel label = Styles.classes(new JLabel(name), Styles.MONOSPACED);
 		SelectableText value = new SelectableText(MASK).mono().muted();
-		JButton eye = Buttons.icon(Lucide.icon("eye", 16, Theme::muted),
-			"Reveal the value (behind your passphrase)");
+		EyeButton eye = new EyeButton("Reveal the value (behind your passphrase)", "Hide the value", 16);
 		JButton copy = Buttons.icon(Lucide.icon("copy", 16, Theme::muted),
 			"Copy the value (behind your passphrase while it is hidden)");
 		JButton forget = Buttons.small("Forget");
@@ -117,13 +117,13 @@ public final class SecretsPanel extends SettingsPage {
 			if (revealed[0] != null) {
 				revealed[0] = null;
 				value.setText(MASK);
-				eye.setIcon(Lucide.icon("eye", 16, Theme::muted));
+				eye.setShown(false);
 				return;
 			}
 			fetchGated(name, "reveal", eye, secret -> {
 				revealed[0] = secret;
 				value.setText(secret);
-				eye.setIcon(Lucide.icon("eye-off", 16, Theme::muted));
+				eye.setShown(true);
 				setNote("Revealed for this sitting only.", false);
 			});
 		});

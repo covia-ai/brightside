@@ -1,6 +1,7 @@
 package brightside.ui.components;
 
 import java.awt.Cursor;
+import java.util.function.Supplier;
 
 import javax.swing.AbstractButton;
 import javax.swing.Icon;
@@ -67,6 +68,21 @@ public final class Buttons {
 		b.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_TOOLBAR_BUTTON);
 		b.setToolTipText(tooltip);
 		return hand(b);
+	}
+
+	/**
+	 * The copy icon beside a value: takes the whole value to the clipboard, or
+	 * does nothing while there is none. {@code subject} names the value in the
+	 * tooltip — "the Covia DID".
+	 */
+	public static JButton copy(String subject, Supplier<String> value) {
+		JButton b = icon(Lucide.icon("copy", 16, Theme::muted), "Copy " + subject + " to the clipboard");
+		b.getAccessibleContext().setAccessibleName("Copy " + subject);
+		b.addActionListener(e -> {
+			String v = value.get();
+			if (v != null && !v.isBlank()) Clipboard.copy(v);
+		});
+		return b;
 	}
 
 	/**
