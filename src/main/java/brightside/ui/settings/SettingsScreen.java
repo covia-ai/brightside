@@ -7,21 +7,27 @@ import java.awt.Insets;
 import java.util.EnumMap;
 import java.util.Map;
 
-import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
 
+import com.formdev.flatlaf.ui.FlatEmptyBorder;
+import com.formdev.flatlaf.util.UIScale;
+
 import brightside.ui.components.Borders;
+import brightside.ui.components.Lucide;
 import brightside.ui.components.Panels;
 import brightside.ui.components.PressButton;
 import brightside.ui.components.Scrolls;
 import brightside.ui.components.Styles;
+import brightside.ui.components.Theme;
 
 /**
- * The <b>Settings</b> screen: a vertical section nav on the left (Identity,
- * General, Theme, Model, Integrations, Files, Schedule, Secrets, Vault, Auth)
- * selecting the content shown on the right. One consistent place to find
+ * The <b>Settings</b> screen: a vertical section nav on the left, each section
+ * with its icon, in three groups — you and the app (Identity, General, Theme),
+ * what the assistant runs on and reaches (Model, Integrations, Files,
+ * Schedule), and keys and access (Secrets, Vault, Auth) — selecting the
+ * content shown on the right. One consistent place to find
  * application actions and configuration. Identity comes first: who the app
  * is acting as frames everything below it.
  */
@@ -29,13 +35,25 @@ import brightside.ui.components.Styles;
 public final class SettingsScreen extends JPanel {
 
 	public enum Tab {
-		PROFILE("Identity"), GENERAL("General"), THEME("Theme"), MODEL("Model"), INTEGRATIONS("Integrations"),
-		FILES("Files"), SCHEDULE("Schedule"), SECRETS("Secrets"), VAULT("Vault"), AUTH("Auth");
+		// You and the app.
+		PROFILE("Identity", "user-round", false), GENERAL("General", "sliders-horizontal", false),
+		THEME("Theme", "palette", false),
+		// What the assistant runs on and reaches.
+		MODEL("Model", "sparkles", true), INTEGRATIONS("Integrations", "plug", false), FILES("Files", "folder", false),
+		SCHEDULE("Schedule", "calendar-clock", false),
+		// Keys and access.
+		SECRETS("Secrets", "key-round", true), VAULT("Vault", "lock", false), AUTH("Auth", "ticket", false);
 
 		final String label;
+		/** The {@link Lucide} icon beside the label. */
+		final String icon;
+		/** Whether a gap sets this section apart from the one above, starting a group. */
+		final boolean startsGroup;
 
-		Tab(String label) {
+		Tab(String label, String icon, boolean startsGroup) {
 			this.label = label;
+			this.icon = icon;
+			this.startsGroup = startsGroup;
 		}
 
 		@Override
@@ -87,24 +105,27 @@ public final class SettingsScreen extends JPanel {
 
 		// The section nav: one PressButton per section, the same control as the
 		// bottom tabs — hover, pressed and selected looks from the theme, acting
-		// on the press.
+		// on the press — its icon in the accent with the label when selected,
+		// muted otherwise. The column is as wide as its widest section.
 		JPanel column = Panels.column();
-		column.setBorder(BorderFactory.createEmptyBorder(8, 6, 8, 6));
+		column.setBorder(new FlatEmptyBorder(8, 6, 8, 6));
 		for (Tab t : Tab.values()) {
 			PressButton b = new PressButton(t.label);
+			b.setIcon(Lucide.icon(t.icon, 16, () -> b.isSelected() ? Theme.accent() : Theme.muted()));
+			b.setIconTextGap(10);
 			b.setHorizontalAlignment(SwingConstants.LEFT);
-			b.setMargin(new Insets(8, 12, 8, 12));
+			b.setMargin(new Insets(8, 12, 8, 16));
 			Styles.style(b, "font: +1");
 			b.setAlignmentX(LEFT_ALIGNMENT);
-			b.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
-			b.setPreferredSize(new Dimension(138, 38));
+			// As wide as the column; the column hugs the top, so each is as tall as it prefers.
+			b.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
 			b.onPress(() -> select(t));
 			nav.put(t, b);
+			if (t.startsGroup) column.add(Box.createVerticalStrut(UIScale.scale(14)));
 			column.add(b);
-			column.add(Box.createVerticalStrut(2));
+			column.add(Box.createVerticalStrut(UIScale.scale(2)));
 		}
 		JPanel navHolder = Scrolls.hugTop(column);
-		navHolder.setPreferredSize(new Dimension(150, 0));
 		navHolder.setBorder(Borders.hairlineRight());
 
 		add(navHolder, BorderLayout.WEST);
