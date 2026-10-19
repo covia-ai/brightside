@@ -1,26 +1,22 @@
 package brightside.ui.settings;
 
-import java.awt.BorderLayout;
-
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
-import brightside.ui.components.Borders;
 import brightside.ui.components.Buttons;
 import brightside.ui.components.Labels;
-import brightside.ui.components.Scrolls;
 import brightside.ui.components.Styles;
 import net.miginfocom.swing.MigLayout;
 
 /**
  * The everyday application actions, account controls and desktop
- * preferences: one row of buttons per section, each button's tooltip saying
- * what it does.
+ * preferences, a card per section: a row of buttons in each, each button's
+ * tooltip saying what it does. Nothing to save, so no action bar.
  */
 @SuppressWarnings("serial")
-public final class GeneralPanel extends JPanel {
+public final class GeneralPanel extends SettingsPage {
 
 	/** Actions supplied by the application window/controller. */
 	public interface Host {
@@ -62,19 +58,18 @@ public final class GeneralPanel extends JPanel {
 	private boolean syncing;
 
 	public GeneralPanel(Host host) {
-		super(new BorderLayout());
+		super(null);
 		this.host = host;
-		JPanel form = new JPanel(new MigLayout("insets 24 28 20 28, fillx, wrap 1", "[grow,fill]", ""));
 
-		heading(form, "Chat", false);
-		JPanel chat = buttons(form);
+		group("Chat");
+		JPanel chat = buttons();
 		newChat = action(chat, "New chat", "Open a clean Home chat; a conversation starts only when you send",
 			host::newChat);
 		refresh = action(chat, "Refresh conversations", "Check the current agent's conversations for changes now",
 			host::refreshConversations);
 
-		heading(form, "Account", true);
-		JPanel account = buttons(form);
+		group("Account");
+		JPanel account = buttons();
 		changeName = action(account, "Change name…", "Change how Brightside addresses you; your identity stays the same",
 			host::changeName);
 		logout = action(account, "Lock", "Lock Brightside and ask for the passphrase again; it keeps running meanwhile",
@@ -88,28 +83,26 @@ public final class GeneralPanel extends JPanel {
 		minimiseToTray.addActionListener(e -> {
 			if (!syncing) host.setMinimiseToTray(minimiseToTray.isSelected());
 		});
-		heading(form, "System tray", true);
-		form.add(keepInTray, "growx");
-		form.add(minimiseToTray, "growx");
+		group("System tray");
+		addSpan(keepInTray);
+		addSpan(minimiseToTray);
 		trayNote.setVisible(false); // until refresh says the tray is missing
-		form.add(trayNote, "growx, hidemode 3");
-		JPanel tray = buttons(form);
+		addSpan(trayNote);
+		JPanel tray = buttons();
 		hideToTray = action(tray, "Hide to tray", "Hide this window and keep Brightside running", host::hideToTray);
 
-		heading(form, "Advanced", true);
-		JPanel advanced = buttons(form);
+		group("Advanced");
+		JPanel advanced = buttons();
 		dashboard = action(advanced, "Open dashboard", "The embedded venue's web dashboard, in your browser",
 			host::openDashboard);
 		action(advanced, "Open settings file", "Brightside's config.json, in its associated editor", host::openConfigFile);
 		action(advanced, "Open logs folder", "The local log files, for diagnostics", host::openLogsFolder);
 		action(advanced, "About", "Version, local address and technical identity", host::showAbout);
 
-		heading(form, "Application", true);
-		JPanel app = buttons(form);
+		group("Application");
+		JPanel app = buttons();
 		JButton quit = action(app, "Quit Brightside", "Save everything and stop Brightside completely", host::quit);
 		Styles.classes(quit, Styles.ERROR);
-
-		add(Scrolls.vertical(form), BorderLayout.CENTER);
 	}
 
 	/** Refreshes enablement and preferences whenever Settings becomes visible. */
@@ -133,18 +126,11 @@ public final class GeneralPanel extends JPanel {
 		trayNote.setVisible(!trayAvailable);
 	}
 
-	/** A section heading, ruled off from the section above unless it is the first. */
-	private static void heading(JPanel form, String text, boolean separated) {
-		JLabel heading = Labels.section(text);
-		if (separated) heading.setBorder(Borders.hairlineTop());
-		form.add(heading, "growx, gaptop " + (separated ? 16 : 0) + ", gapbottom 4");
-	}
-
-	/** The row a section's buttons go in. */
-	private static JPanel buttons(JPanel form) {
+	/** The row the current section's buttons go in. */
+	private JPanel buttons() {
 		JPanel row = new JPanel(new MigLayout("insets 0, gap 8", "", ""));
 		row.setOpaque(false);
-		form.add(row, "gaptop 2");
+		addSpanLeft(row);
 		return row;
 	}
 

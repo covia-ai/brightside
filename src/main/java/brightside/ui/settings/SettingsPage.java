@@ -49,11 +49,12 @@ abstract class SettingsPage extends JPanel {
 	protected final JLabel note = Labels.small(" ");
 	protected final JButton primary;
 
+	/** {@code primaryLabel}: the one action's label, or null for a page with nothing to save (General), which then has no action bar. */
 	protected SettingsPage(String primaryLabel) {
 		super(new BorderLayout());
-		primary = Buttons.primary(primaryLabel);
+		primary = (primaryLabel != null) ? Buttons.primary(primaryLabel) : null;
 		add(Scrolls.vertical(form), BorderLayout.CENTER);
-		add(actionBar(note, primary), BorderLayout.SOUTH);
+		if (primary != null) add(actionBar(note, primary), BorderLayout.SOUTH);
 	}
 
 	/**
