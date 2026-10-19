@@ -56,7 +56,7 @@ public final class GeneralPanel extends JPanel {
 	private final JButton logout;
 	private final JCheckBox keepInTray = new JCheckBox("Keep running in the tray when I close the window");
 	private final JCheckBox minimiseToTray = new JCheckBox("Send Brightside to the tray when minimised");
-	private final JLabel trayNote = Labels.small(" ", Styles.MUTED);
+	private final JLabel trayNote = Labels.small(" ");
 	private final JButton hideToTray;
 	private final JButton dashboard;
 	private boolean syncing;

@@ -61,7 +61,7 @@ public final class PeersScreen extends JPanel {
 	private final SolarMap map;
 	private final JPanel side = new JPanel(new BorderLayout());
 	private final JButton pause = Buttons.icon(null, null);
-	private final JLabel view = Labels.small(" ", Styles.MUTED);
+	private final JLabel view = Labels.small(" ");
 	private final JButton reset = Buttons.icon(Lucide.icon("rotate-ccw", 16, Theme::muted),
 		"Put every planet, moon, venue and orbit back as it started");
 	private final JButton follow = Buttons.icon(null, null);
@@ -277,7 +277,7 @@ public final class PeersScreen extends JPanel {
 		int agents = (home == null) ? 0 : map.descendants(home.did()) - users.size();
 		long venues = graph.nodes().stream().filter(n -> n.is(Node.VENUE) && n != home).count();
 		c.add(Labels.section("Home"));
-		if (home != null) c.add(Labels.small(home.label(), Styles.MUTED));
+		if (home != null) c.add(Labels.small(home.label()));
 		c.add(Labels.small(SolarMap.plural(users.size(), "user") + " · " + SolarMap.plural(agents, "agent") + " · "
 			+ SolarMap.plural((int) venues, "other venue"), Styles.MUTED), "gapbottom 10");
 
@@ -384,7 +384,7 @@ public final class PeersScreen extends JPanel {
 		title.setOpaque(false);
 		title.add(new JLabel(new PlanetIcon(map.colourOf(n), 40, SolarMap.ringed(n))), "spany 2");
 		title.add(Styles.style(Labels.text(n.name() != null ? n.name() : SolarMap.labelOf(n)), "font: bold +3"), "wrap, wmin 0");
-		title.add(Labels.small(subtitle, Styles.MUTED));
+		title.add(Labels.small(subtitle));
 		title.setToolTipText(n.did());
 		c.add(title, "gapbottom 8");
 	}
@@ -429,7 +429,7 @@ public final class PeersScreen extends JPanel {
 	private static JComponent fact(String label, JComponent value) {
 		JPanel row = new JPanel(new MigLayout("insets 0, fillx, gap 10", "[80!][grow,fill]", ""));
 		row.setOpaque(false);
-		row.add(Labels.small(label, Styles.MUTED), "aligny top, gaptop 1");
+		row.add(Labels.small(label), "aligny top, gaptop 1");
 		row.add(value, "wmin 0");
 		return row;
 	}
@@ -472,7 +472,7 @@ public final class PeersScreen extends JPanel {
 		row.setOpaque(false);
 		row.add(new JLabel(icon), "center");
 		row.add(Labels.text(text), "wmin 0");
-		if (trailing != null) row.add(Labels.small(trailing, Styles.MUTED));
+		if (trailing != null) row.add(Labels.small(trailing));
 		return row;
 	}
 

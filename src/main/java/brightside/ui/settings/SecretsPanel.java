@@ -84,7 +84,7 @@ public final class SecretsPanel extends SettingsPage {
 		version++;
 		rows.removeAll();
 		if (names.isEmpty()) {
-			rows.add(Labels.small("No secrets stored yet.", Styles.MUTED), "span 5");
+			rows.add(Labels.small("No secrets stored yet."), "span 5");
 		} else {
 			for (String name : names) addRow(name);
 		}

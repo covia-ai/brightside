@@ -99,7 +99,7 @@ public final class SchedulePanel extends SettingsPage {
 	private final List<Row> rows = new ArrayList<>();
 	/** Handles whose details are open, kept across refreshes. */
 	private final Set<String> expanded = new HashSet<>();
-	private final JLabel count = Labels.small(" ", Styles.MUTED);
+	private final JLabel count = Labels.small(" ");
 	private final JButton refreshButton = Buttons.icon(Lucide.icon("refresh-cw", 16, Theme::muted),
 		"Read the schedule again");
 	private List<Schedule.Event> events = List.of();
@@ -245,8 +245,8 @@ public final class SchedulePanel extends SettingsPage {
 		final Schedule.Event event;
 		final Card card = new Card(14);
 		final JLabel next = Styles.classes(new JLabel(), Styles.STRONG);
-		final JLabel nextAt = Labels.small("", Styles.MUTED);
-		final JLabel lastWhen = Labels.small("", Styles.MUTED);
+		final JLabel nextAt = Labels.small("");
+		final JLabel lastWhen = Labels.small("");
 		final JButton run = Buttons.icon(Lucide.icon("play", 16, Theme::muted), "Run now");
 		final JButton cancel = Buttons.icon(Lucide.icon("trash-2", 16, Theme::muted), "Cancel…");
 		final JButton fold = Buttons.icon(null, null);
@@ -276,14 +276,14 @@ public final class SchedulePanel extends SettingsPage {
 			nextLine.setOpaque(false);
 			nextLine.add(new JLabel(Lucide.icon("clock", 14, Theme::muted)));
 			nextLine.add(next);
-			when.add(Labels.small("Next run", Styles.MUTED));
+			when.add(Labels.small("Next run"));
 			when.add(nextLine, "gaptop 2");
 			when.add(nextAt, "gaptop 1");
 			card.add(when, "aligny top");
 
 			// How the last run went.
 			JPanel last = column();
-			last.add(Labels.small("Last run", Styles.MUTED));
+			last.add(Labels.small("Last run"));
 			last.add(lastOutcome(e), "gaptop 2");
 			last.add(lastWhen, "gaptop 1");
 			card.add(last, "aligny top");
@@ -596,7 +596,7 @@ public final class SchedulePanel extends SettingsPage {
 			: "Runs aren't kept, so how they went isn't known", false);
 		if (e.lastJob() != null) detail(d, "Last job", e.lastJob(), true);
 		if (e.lastError() != null) {
-			d.add(Labels.small("Error", Styles.MUTED), "aligny top");
+			d.add(Labels.small("Error"), "aligny top");
 			SelectableText err = new SelectableText(e.lastError()).tone(Styles.ERROR);
 			d.add(err, "growx, wmin 0");
 		}
@@ -606,7 +606,7 @@ public final class SchedulePanel extends SettingsPage {
 
 	private static void detail(JPanel d, String label, String value, boolean copyable) {
 		if (value == null) return;
-		d.add(Labels.small(label, Styles.MUTED), "aligny top");
+		d.add(Labels.small(label), "aligny top");
 		JPanel line = new JPanel(new MigLayout("insets 0, fillx, gap 4", "[grow,fill][]", ""));
 		line.setOpaque(false);
 		SelectableText v = new SelectableText(value);

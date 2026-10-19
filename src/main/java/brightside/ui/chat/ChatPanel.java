@@ -857,7 +857,7 @@ public final class ChatPanel extends JPanel {
 			JPanel stack = new JPanel();
 			stack.setLayout(new javax.swing.BoxLayout(stack, javax.swing.BoxLayout.Y_AXIS));
 			stack.setOpaque(false);
-			JLabel label = Labels.small(caption, Styles.MUTED);
+			JLabel label = Labels.small(caption);
 			float edge = user ? Component.RIGHT_ALIGNMENT : Component.LEFT_ALIGNMENT;
 			label.setAlignmentX(edge);
 			bubble.setAlignmentX(edge);
