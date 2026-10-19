@@ -26,8 +26,10 @@ public final class Styles {
 	public static final String LARGE = "large";
 	public static final String MONOSPACED = "monospaced";
 	public static final String STRONG = "strong";
+	public static final String LEAD = "lead";
 	public static final String SECTION = "section";
 	public static final String TITLE = "title";
+	public static final String OVERLINE = "overline";
 
 	// Buttons.
 	public static final String PRIMARY = "primary";

@@ -1,5 +1,7 @@
 package brightside.ui.components;
 
+import java.util.Locale;
+
 import javax.swing.Icon;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
@@ -50,6 +52,16 @@ public final class Labels {
 	/** A bold line at text size: a heading inside a block. */
 	public static JLabel heading(String text) {
 		return Styles.classes(text(text), Styles.STRONG);
+	}
+
+	/** The line that leads a card, a half-step up from the text: an event's name, a figure, an empty state's title. */
+	public static JLabel lead(String text) {
+		return Styles.classes(text(text), Styles.LEAD);
+	}
+
+	/** A small capitalised label over a group: LOCATIONS, RINGS. */
+	public static JLabel overline(String text) {
+		return Styles.classes(text(text.toUpperCase(Locale.ROOT)), Styles.OVERLINE);
 	}
 
 	/** A section heading, a step up from the text. */

@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Supplier;
 
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -26,22 +25,27 @@ import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
 import javax.swing.JTextField;
 import javax.swing.SpinnerNumberModel;
-import javax.swing.SwingConstants;
 import javax.swing.Timer;
 
 import com.formdev.flatlaf.FlatClientProperties;
 
 import brightside.Schedule;
+import brightside.ui.components.Badge;
 import brightside.ui.components.Buttons;
 import brightside.ui.components.Card;
+import brightside.ui.components.Chip;
 import brightside.ui.components.Clipboard;
 import brightside.ui.components.Dialogs;
+import brightside.ui.components.EmptyState;
 import brightside.ui.components.Labels;
 import brightside.ui.components.Lucide;
 import brightside.ui.components.SelectableText;
+import brightside.ui.components.StatTile;
+import brightside.ui.components.StatusLabel;
 import brightside.ui.components.Styles;
 import brightside.ui.components.TextArea;
 import brightside.ui.components.Theme;
+import brightside.ui.components.Tone;
 import convex.core.data.ACell;
 import net.miginfocom.swing.MigLayout;
 
@@ -144,11 +148,11 @@ public final class SchedulePanel extends SettingsPage {
 		summary.removeAll();
 		list.removeAll();
 		if (error != null) {
-			list.add(emptyState("circle-alert", Theme::error, "Couldn't read the schedule",
+			list.add(new EmptyState("circle-alert", Tone.ERROR, "Couldn't read the schedule",
 				"Try again with the refresh button. If it keeps failing, the log has the details."));
 			setNote(error, true);
 		} else if (this.events.isEmpty()) {
-			list.add(emptyState("calendar-clock", Theme::accentText, "Nothing is scheduled",
+			list.add(new EmptyState("calendar-clock", Tone.ACCENT, "Nothing is scheduled",
 				"Ask your assistant to remind you of something or to check in regularly, or schedule an "
 					+ "operation yourself with New."));
 			clearNote();
@@ -220,39 +224,17 @@ public final class SchedulePanel extends SettingsPage {
 		long waiting = events.stream().filter(e -> "INPUT_REQUIRED".equals(e.lastStatus())
 			|| "AUTH_REQUIRED".equals(e.lastStatus())).count();
 
-		summary.add(stat("clock", Theme::accentText, "Next up", relative(next.nextAt(), now), next.label()));
-		summary.add(stat("repeat", Theme::accentText, "Scheduled", plural(events.size(), "event"),
+		summary.add(new StatTile("clock", Tone.ACCENT, "Next up", relative(next.nextAt(), now), next.label()));
+		summary.add(new StatTile("repeat", Tone.ACCENT, "Scheduled", plural(events.size(), "event"),
 			repeating == 0 ? "None repeat" : repeating == events.size() ? "All repeat" : repeating + " repeat"));
 		if (failed > 0) {
-			summary.add(stat("circle-alert", Theme::error, "Last runs", failed + " failed", "Open one for the error"));
+			summary.add(new StatTile("circle-alert", Tone.ERROR, "Last runs", failed + " failed", "Open one for the error"));
 		} else if (waiting > 0) {
-			summary.add(stat("circle-pause", Theme::warning, "Last runs", waiting + " waiting for you",
+			summary.add(new StatTile("circle-pause", Tone.WARNING, "Last runs", waiting + " waiting for you",
 				"Answer in your Inbox"));
 		} else {
-			summary.add(stat("circle-check", Theme::success, "Last runs", "No failures", "Of those tracked"));
+			summary.add(new StatTile("circle-check", Tone.SUCCESS, "Last runs", "No failures", "Of those tracked"));
 		}
-	}
-
-	private static JComponent stat(String icon, Supplier<Color> tone, String caption, String value, String detail) {
-		Card c = new Card(12);
-		c.setLayout(new MigLayout("insets 12 14 12 14, wrap 2, gapy 1", "[]12[grow,fill]", ""));
-		c.add(badge(icon, tone, 36), "spany 3, aligny center");
-		c.add(Labels.small(caption, Styles.MUTED), "wmin 0");
-		JLabel v = Styles.style(new JLabel(value), "font: bold +1");
-		c.add(v, "wmin 0");
-		c.add(Labels.small(detail, Styles.MUTED), "wmin 0");
-		return c;
-	}
-
-	private static JComponent emptyState(String icon, Supplier<Color> tone, String title, String body) {
-		Card c = new Card(14);
-		c.setLayout(new MigLayout("insets 28 24 28 24, fillx, wrap 1, gapy 6", "[center]", ""));
-		c.add(badge(icon, tone, 48), "gapbottom 6");
-		c.add(Styles.style(new JLabel(title), "font: bold +1"));
-		JLabel b = Labels.html(body, 380, SwingConstants.CENTER);
-		Styles.classes(b, Styles.MUTED);
-		c.add(b);
-		return c;
 	}
 
 	// ------------------------------------------------------------------
@@ -276,14 +258,15 @@ public final class SchedulePanel extends SettingsPage {
 				"[]14[grow,fill,180:]16[140!]12[150!]8[]2[]2[]", "[]"));
 
 			// What it is: the kind as a badge, the name, how often, the reference.
-			card.add(badge(e.recurring() ? "repeat" : "calendar-clock", Theme::accentText, 38), "aligny top");
+			card.add(new Badge(e.recurring() ? "repeat" : "calendar-clock", Tone.ACCENT, 30), "aligny top");
 			JPanel what = column();
-			JLabel name = Styles.style(new JLabel(e.label()), "font: bold +1");
+			JLabel name = Labels.lead(e.label());
 			name.setToolTipText(e.operation());
 			what.add(name, "wmin 0");
 			JPanel chips = new JPanel(new MigLayout("insets 0, gap 6", "", ""));
 			chips.setOpaque(false);
-			chips.add(e.recurring() ? pill("repeat", every(e.everyMillis())) : pill("calendar-clock", "Once"));
+			chips.add(e.recurring() ? new Chip(every(e.everyMillis()), "repeat", Tone.ACCENT)
+				: new Chip("Once", "calendar-clock", Tone.ACCENT));
 			what.add(chips, "wmin 0, gaptop 4");
 			card.add(what, "wmin 0, aligny top");
 
@@ -638,36 +621,28 @@ public final class SchedulePanel extends SettingsPage {
 	}
 
 	private static JComponent lastOutcome(Schedule.Event e) {
-		if (e.lastFiredAt() <= 0) return iconLabel("hourglass", Theme::muted, "Not run yet", null);
+		if (e.lastFiredAt() <= 0) return outcome("hourglass", Tone.MUTED, "Not run yet", null);
 		String s = e.lastStatus();
 		if (s == null) {
-			return e.tracked() ? iconLabel("history", Theme::muted, "Ran", null)
-				: iconLabel("history", Theme::muted, "Ran", "Runs aren't kept, so how it went isn't known");
+			return e.tracked() ? outcome("history", Tone.MUTED, "Ran", null)
+				: outcome("history", Tone.MUTED, "Ran", "Runs aren't kept, so how it went isn't known");
 		}
-		JComponent l = switch (s) {
-			case "COMPLETE" -> iconLabel("circle-check", Theme::success, "Completed", null);
-			case "FAILED" -> iconLabel("circle-alert", Theme::error, "Failed", e.lastError());
-			case "TIMEOUT" -> iconLabel("circle-alert", Theme::error, "Timed out", e.lastError());
-			case "REJECTED" -> iconLabel("circle-x", Theme::error, "Refused", e.lastError());
-			case "CANCELLED" -> iconLabel("circle-x", Theme::muted, "Cancelled", null);
-			case "INPUT_REQUIRED", "AUTH_REQUIRED" -> iconLabel("circle-pause", Theme::warning, "Waiting for you",
+		return switch (s) {
+			case "COMPLETE" -> outcome("circle-check", Tone.SUCCESS, "Completed", null);
+			case "FAILED" -> outcome("circle-alert", Tone.ERROR, "Failed", e.lastError());
+			case "TIMEOUT" -> outcome("circle-alert", Tone.ERROR, "Timed out", e.lastError());
+			case "REJECTED" -> outcome("circle-x", Tone.ERROR, "Refused", e.lastError());
+			case "CANCELLED" -> outcome("circle-x", Tone.MUTED, "Cancelled", null);
+			case "INPUT_REQUIRED", "AUTH_REQUIRED" -> outcome("circle-pause", Tone.WARNING, "Waiting for you",
 				"It asked you something: answer it in your Inbox");
-			case "PAUSED" -> iconLabel("circle-pause", Theme::muted, "Paused", null);
-			case "PENDING", "STARTED" -> iconLabel("loader-circle", Theme::accentText, "Running", null);
-			default -> iconLabel("history", Theme::muted, s.charAt(0) + s.substring(1).toLowerCase().replace('_', ' '), null);
+			case "PAUSED" -> outcome("circle-pause", Tone.MUTED, "Paused", null);
+			case "PENDING", "STARTED" -> outcome("loader-circle", Tone.ACCENT, "Running", null);
+			default -> outcome("history", Tone.MUTED, s.charAt(0) + s.substring(1).toLowerCase().replace('_', ' '), null);
 		};
-		return l;
 	}
 
-	private static JLabel iconLabel(String icon, Supplier<Color> tone, String text, String tooltip) {
-		// The text takes the icon's tone, read when painting so it follows a theme change.
-		JLabel l = new JLabel(text, Lucide.icon(icon, 14, tone), SwingConstants.LEADING) {
-			@Override
-			public Color getForeground() {
-				return tone.get();
-			}
-		};
-		l.setIconTextGap(6);
+	private static JLabel outcome(String icon, Tone tone, String text, String tooltip) {
+		JLabel l = new StatusLabel(text, icon, tone);
 		l.setToolTipText(tooltip);
 		return l;
 	}
@@ -675,29 +650,6 @@ public final class SchedulePanel extends SettingsPage {
 	// ------------------------------------------------------------------
 	// Small pieces
 	// ------------------------------------------------------------------
-
-	/** A round tinted badge holding an icon in {@code tone}. */
-	private static JComponent badge(String icon, Supplier<Color> tone, int size) {
-		Card b = new Card(size).fill(() -> Theme.fade(tone.get(), Theme.isDark() ? 0.18f : 0.14f));
-		b.setLayout(new MigLayout("insets 0, align 50% 50%", "[center]", "[center]"));
-		b.add(new JLabel(Lucide.icon(icon, size / 2, tone)));
-		Dimension d = new Dimension(size, size);
-		b.setPreferredSize(d);
-		b.setMinimumSize(d);
-		b.setMaximumSize(d);
-		return b;
-	}
-
-	/** A small rounded chip: an icon and a word or two. */
-	private static JComponent pill(String icon, String text) {
-		Card p = new Card(999).fill(() -> Theme.fade(Theme.accent(), Theme.isDark() ? 0.16f : 0.11f));
-		p.setLayout(new MigLayout("insets 2 8 2 9, gap 4", "[][]", "[]"));
-		p.add(new JLabel(Lucide.icon(icon, 12, Theme::accentText)));
-		JLabel l = Labels.small(text);
-		Styles.style(l, "foreground: $Brightside.tinted.foreground");
-		p.add(l);
-		return p;
-	}
 
 	private static JPanel column() {
 		JPanel p = new JPanel(new MigLayout("insets 0, wrap 1, gapy 0", "[grow,fill]", ""));

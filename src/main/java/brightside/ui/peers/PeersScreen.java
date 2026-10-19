@@ -33,7 +33,7 @@ import brightside.peers.PeerGraph;
 import brightside.peers.PeerSource;
 import brightside.ui.components.Borders;
 import brightside.ui.components.Buttons;
-import brightside.ui.components.Card;
+import brightside.ui.components.Chip;
 import brightside.ui.components.Labels;
 import brightside.ui.components.Lucide;
 import brightside.ui.components.Scrolls;
@@ -276,7 +276,7 @@ public final class PeersScreen extends JPanel {
 		List<Node> users = (home == null) ? List.of() : map.childrenOf(home.did());
 		int agents = (home == null) ? 0 : map.descendants(home.did()) - users.size();
 		long venues = graph.nodes().stream().filter(n -> n.is(Node.VENUE) && n != home).count();
-		c.add(Styles.style(new JLabel("Home"), "font: bold +2"));
+		c.add(Labels.section("Home"));
 		if (home != null) c.add(Labels.small(home.label(), Styles.MUTED));
 		c.add(Labels.small(SolarMap.plural(users.size(), "user") + " · " + SolarMap.plural(agents, "agent") + " · "
 			+ SolarMap.plural((int) venues, "other venue"), Styles.MUTED), "gapbottom 10");
@@ -383,7 +383,7 @@ public final class PeersScreen extends JPanel {
 		JPanel title = new JPanel(new MigLayout("insets 0, gap 12", "[][grow,fill]", "[][]"));
 		title.setOpaque(false);
 		title.add(new JLabel(new PlanetIcon(map.colourOf(n), 40, SolarMap.ringed(n))), "spany 2");
-		title.add(Styles.style(new JLabel(n.name() != null ? n.name() : SolarMap.labelOf(n)), "font: bold +3"), "wrap, wmin 0");
+		title.add(Styles.style(Labels.text(n.name() != null ? n.name() : SolarMap.labelOf(n)), "font: bold +3"), "wrap, wmin 0");
 		title.add(Labels.small(subtitle, Styles.MUTED));
 		title.setToolTipText(n.did());
 		c.add(title, "gapbottom 8");
@@ -399,7 +399,7 @@ public final class PeersScreen extends JPanel {
 			if (!f.section() || f.values().isEmpty()) continue;
 			c.add(heading(f.label()), "gaptop 12");
 			for (String v : f.values()) {
-				c.add(new JLabel(v, Lucide.icon("circle-check", 14, Theme::success), SwingConstants.LEADING));
+				c.add(Labels.plain(new JLabel(v, Lucide.icon("circle-check", 14, Theme::success), SwingConstants.LEADING)));
 			}
 		}
 	}
@@ -423,9 +423,7 @@ public final class PeersScreen extends JPanel {
 	// ------------------------------------------------------------------
 
 	private static JComponent heading(String text) {
-		JLabel l = Labels.small(text.toUpperCase(), Styles.MUTED);
-		Styles.style(l, "font: bold -1");
-		return l;
+		return Labels.overline(text);
 	}
 
 	private static JComponent fact(String label, JComponent value) {
@@ -479,11 +477,7 @@ public final class PeersScreen extends JPanel {
 	}
 
 	private static JComponent chip(String text, String tooltip) {
-		Card c = new Card(999).fill(() -> Theme.fade(Theme.accent(), Theme.isDark() ? 0.18f : 0.12f));
-		c.setLayout(new MigLayout("insets 2 9 2 9", "[]", "[]"));
-		JLabel l = Labels.small(text);
-		Styles.style(l, "foreground: $Brightside.tinted.foreground");
-		c.add(l);
+		Chip c = new Chip(text);
 		c.setToolTipText(tooltip);
 		return c;
 	}

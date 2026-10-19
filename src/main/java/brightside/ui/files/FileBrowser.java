@@ -143,7 +143,7 @@ public final class FileBrowser extends JPanel {
 		});
 		JPanel sidebar = panel(new BorderLayout());
 		sidebar.setBorder(Borders.hairlineRight());
-		JLabel locations = Labels.caption("LOCATIONS");
+		JLabel locations = Labels.overline("Locations");
 		locations.setBorder(BorderFactory.createEmptyBorder(12, 18, 8, 12));
 		sidebar.add(locations, BorderLayout.NORTH);
 		sidebar.add(Scrolls.both(tree), BorderLayout.CENTER);
