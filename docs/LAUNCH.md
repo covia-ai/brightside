@@ -15,6 +15,12 @@ how it stops. Code: `BrightSide`, `Takeover`, `EmbeddedVenue`, `TrayManager`.
 
 ## Startup
 
+The launcher `Main` normally enters `BrightSide.main`. With `--mcp-stdio`,
+it runs only a connection to the existing app: no desktop, unlock or takeover.
+Standard output carries MCP messages only; diagnostics go to standard error.
+Closing the client's input ends that connection and leaves the app running.
+See [stdio setup](CONFIGURATION.md#from-a-stdio-mcp-client).
+
 1. `BrightSide.main` loads `~/.brightside/config.json` (`AppConfig`), configures
    logging to `~/.brightside/logs/brightside.log` (dated rollovers; uncaught
    exceptions on any thread land there too) and installs the look and feel.

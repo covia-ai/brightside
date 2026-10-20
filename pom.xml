@@ -50,7 +50,7 @@
 		<bouncycastle.version>1.85</bouncycastle.version>
 		<junit.version>6.1.3</junit.version>
 
-		<main.class>brightside.BrightSide</main.class>
+		<main.class>brightside.Main</main.class>
 	</properties>
 
 	<dependencies>

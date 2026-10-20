@@ -1,8 +1,8 @@
 # Architecture
 
 Brightside is one JVM process holding a Swing desktop app and a complete Covia
-venue: single Maven module `ai.covia:brightside`, main class
-`brightside.BrightSide`. The desktop application is a client of the Embedded
+venue: single Maven module `ai.covia:brightside`, launcher `brightside.Main`
+and desktop application `brightside.BrightSide`. The desktop application is a client of the Embedded
 Venue API within that process, with direct access to venue state and services.
 
 - **The Embedded Venue API is the application API.** Brightside deliberately
@@ -37,6 +37,12 @@ Brightside application ──► Embedded Venue API (in-process Java)
                                          │
 External clients ──► HTTP / MCP / A2A on 127.0.0.1
 ```
+
+For MCP clients that launch a stdio subprocess, `Main` selects `McpStdio`
+before loading the desktop app. It bridges to the running venue using the
+existing local-tool token; the MCP SDK handles HTTP sessions and streams.
+The bridge owns no venue or store. Setup is in
+[CONFIGURATION.md](CONFIGURATION.md#from-a-stdio-mcp-client).
 
 ## Reads
 
