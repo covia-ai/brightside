@@ -14,9 +14,11 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayDeque;
+import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -57,6 +59,7 @@ import brightside.files.FileSource;
 import brightside.files.FileSource.Entry;
 import brightside.files.FileSource.Listing;
 import brightside.files.FileSource.Root;
+import brightside.ui.components.Badge;
 import brightside.ui.components.Borders;
 import brightside.ui.components.Buttons;
 import brightside.ui.components.Card;
@@ -64,6 +67,7 @@ import brightside.ui.components.EmptyState;
 import brightside.ui.components.EyeButton;
 import brightside.ui.components.Labels;
 import brightside.ui.components.Lucide;
+import brightside.ui.components.Panels;
 import brightside.ui.components.Readout;
 import brightside.ui.components.Scrolls;
 import brightside.ui.components.Styles;
@@ -421,48 +425,69 @@ public final class FileBrowser extends JPanel {
 		Entry entry = files.getSelectedValue();
 		if (current == null || entry == null) return;
 		Location target = current.child(entry.name());
-		Readout info = metadata(entry);
-		if (entry.directory()) { showDetail(info.link("Open folder", () -> navigate(target, true))); return; }
-		if (!"file".equals(entry.type())) { showDetail(info.note("Preview is unavailable for this type of file.")); return; }
-		showDetail(info.note("Loading preview…"));
+		if (entry.directory()) {
+			JButton open = Buttons.plain("Open folder");
+			open.addActionListener(e -> navigate(target, true));
+			showDetail(entry, Panels.centred(open));
+			return;
+		}
+		if (!"file".equals(entry.type())) { showDetail(entry, quiet("Preview is unavailable for this type of file.")); return; }
+		showDetail(entry, quiet("Loading preview…"));
 		long version = previewVersion;
 		reads.preview(target).whenComplete((result, failure) -> SwingUtilities.invokeLater(() -> {
 			if (version != previewVersion) return;
-			Readout d = metadata(entry);
-			if (failure != null) d.note(error(failure));
-			else if (result.binary()) d.note("Text preview is unavailable for this file.");
-			else {
-				d.section("Preview");
+			if (failure != null) {
+				showDetail(entry, new EmptyState("circle-alert", Tone.ERROR, "Couldn't preview this file",
+					Labels.escape(reason(failure))).bare());
+			} else if (result.binary()) {
+				showDetail(entry, quiet("There is no text preview for this file."));
+			} else if (result.text().isEmpty()) {
+				showDetail(entry, quiet("This file is empty."));
+			} else {
+				Readout d = new Readout();
 				if (result.truncated()) d.note("Showing the first 64 KiB.");
-				if (result.text().isEmpty()) d.note("This file is empty.");
-				else d.code(result.text());
+				d.code(result.text());
+				showDetail(entry, Scrolls.vertical(d));
 			}
-			showDetail(d);
 		}));
-	}
-
-	private static Readout metadata(Entry entry) {
-		Readout d = new Readout().section(entry.name())
-			.caption(kind(entry) + (entry.directory() ? "" : " · " + displaySize(entry.size())));
-		if (entry.modified() > 0) d.note("Modified " + DATE.format(Instant.ofEpochMilli(entry.modified())));
-		return d;
 	}
 
 	private void resetPreview() {
 		previewVersion++;
-		showDetail(new Readout().caption("FILE DETAILS").section("A closer look")
-			.note("Select a file to see its details and a text preview."));
+		showDetail(null, new EmptyState("file-text", Tone.MUTED, "No file selected", "Select a file to preview it.").bare());
 	}
 
-	private void showDetail(Readout readout) {
+	/** The detail pane: a header naming {@code entry} (none when null) over {@code body}, on a card. */
+	private void showDetail(Entry entry, JComponent body) {
 		detail.removeAll();
+		detail.setBorder(BorderFactory.createEmptyBorder(10, 4, 8, 12));
+		if (entry != null) detail.add(header(entry), BorderLayout.NORTH);
 		Card surface = new Card();
 		surface.setLayout(new BorderLayout());
-		surface.add(Scrolls.vertical(readout));
-		detail.setBorder(BorderFactory.createEmptyBorder(10, 4, 8, 12));
-		detail.add(surface);
+		surface.add(body);
+		detail.add(surface, BorderLayout.CENTER);
 		detail.revalidate();
 		detail.repaint();
+	}
+
+	/** What is selected: its kind's badge, its name, then its kind, size and when it last changed. */
+	private static JComponent header(Entry entry) {
+		FileKind kind = FileKind.of(entry.name(), entry.directory());
+		JPanel h = panel(new MigLayout("insets 2 4 12 4, fillx, gapy 2", "[]12[grow,fill]", ""));
+		h.add(new Badge(kind.icon, (kind == FileKind.FOLDER) ? Tone.ACCENT : Tone.MUTED, 40), "spany 2, aligny center");
+		JLabel name = Labels.lead(entry.name());
+		name.setToolTipText(entry.name());
+		h.add(name, "wmin 0, wrap");
+		StringBuilder meta = new StringBuilder(kind(entry));
+		if (!entry.directory()) meta.append("  ·  ").append(displaySize(entry.size()));
+		if (entry.modified() > 0) meta.append("  ·  ").append(DATE.format(Instant.ofEpochMilli(entry.modified())));
+		h.add(Labels.small(meta.toString()), "wmin 0");
+		return h;
+	}
+
+	/** A quiet line in the middle of the preview: loading, or why there is nothing to show. */
+	private static JComponent quiet(String text) {
+		return Panels.centred(Labels.small(text));
 	}
 
 	/**
@@ -572,14 +597,13 @@ public final class FileBrowser extends JPanel {
 		split.setDividerSize(UIScale.scale(6));
 		return split;
 	}
-	private static String error(Throwable error) {
-		return "Could not read: " + reason(error);
-	}
 	private static String reason(Throwable error) {
 		while (error.getCause() != null) error = error.getCause();
 		return error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
 	}
-	private static String kind(Entry entry) { return entry.directory() ? "Folder" : "file".equals(entry.type()) ? "File" : entry.type(); }
+	private static String kind(Entry entry) {
+		return (entry.directory() || "file".equals(entry.type())) ? FileKind.of(entry.name(), entry.directory()).word : entry.type();
+	}
 	private static String displaySize(long bytes) {
 		if (bytes < 1024) return bytes + " B";
 		if (bytes < 1024 * 1024) return String.format(Locale.ROOT, "%.1f KB", bytes / 1024.0);
@@ -619,8 +643,8 @@ public final class FileBrowser extends JPanel {
 		private final JLabel meta = Labels.small("");
 		private final JLabel icon = Labels.icon(null);
 		private final JLabel trailing = Labels.icon(null);
-		private final Icon folder = Lucide.icon("folder", 24, Theme::accentText);
-		private final Icon file = Lucide.icon("file-text", 24, Theme::muted);
+		/** Each kind's icon: folders in the accent, files muted. */
+		private final Map<FileKind, Icon> icons = new EnumMap<>(FileKind.class);
 		private final Icon chevron = Lucide.icon("chevron-right", 16, Theme::muted);
 		FileRenderer() {
 			setLayout(new BorderLayout(12, 0));
@@ -631,13 +655,16 @@ public final class FileBrowser extends JPanel {
 			add(icon, BorderLayout.WEST);
 			add(labels, BorderLayout.CENTER);
 			add(trailing, BorderLayout.EAST);
+			for (FileKind k : FileKind.values()) {
+				icons.put(k, Lucide.icon(k.icon, 24, (k == FileKind.FOLDER) ? Theme::accentText : Theme::muted));
+			}
 		}
 		@Override public Component getListCellRendererComponent(JList<? extends Entry> list, Entry entry,
 				int index, boolean selected, boolean focus) {
 			name.setText(entry.name());
 			meta.setText((entry.directory() ? "Folder" : displaySize(entry.size()))
 				+ (entry.modified() > 0 ? "  ·  " + DATE.format(Instant.ofEpochMilli(entry.modified())) : ""));
-			icon.setIcon(entry.directory() ? folder : file);
+			icon.setIcon(icons.get(FileKind.of(entry.name(), entry.directory())));
 			trailing.setIcon(entry.directory() ? chevron : null);
 			// The selected row sits on the accent tint the tree's selection and the navigation use.
 			fill(selected ? Theme::tinted : () -> null);
