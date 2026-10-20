@@ -236,6 +236,8 @@ public final class SkillsScreen extends JPanel {
 		@Override
 		public Component getTreeCellRendererComponent(JTree t, Object value, boolean selected, boolean expanded,
 				boolean leaf, int row, boolean focus) {
+			// Skill names and paths are often an agent's writing: shown literally, never as HTML.
+			Labels.plain(this);
 			super.getTreeCellRendererComponent(t, value, selected, expanded, leaf, row, focus);
 			setIcon(null);
 			if (value instanceof DefaultMutableTreeNode n && n.getUserObject() instanceof SkillTree.Node node) {
