@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Set;
 
 import javax.swing.BorderFactory;
+import javax.swing.Icon;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -27,6 +28,7 @@ import brightside.SkillIndex;
 import brightside.ui.components.Chip;
 import brightside.ui.components.EmptyState;
 import brightside.ui.components.Labels;
+import brightside.ui.components.Lucide;
 import brightside.ui.components.ScreenHeader;
 import brightside.ui.components.Readout;
 import brightside.ui.components.Scrolls;
@@ -245,6 +247,10 @@ public final class SkillsScreen extends JPanel {
 
 	/** Names alone, no icons; directories, shadowed skills and missing reveals muted. */
 	private static final class Renderer extends DefaultTreeCellRenderer {
+		private final Icon library = Lucide.icon("library", 16, Theme::accentText);
+		private final Icon skill = Lucide.icon("book-open", 16, Theme::muted);
+		private final Icon missing = Lucide.icon("circle-alert", 16, Theme::warning);
+
 		@Override
 		public Component getTreeCellRendererComponent(JTree t, Object value, boolean selected, boolean expanded,
 				boolean leaf, int row, boolean focus) {
@@ -253,6 +259,13 @@ public final class SkillsScreen extends JPanel {
 			super.getTreeCellRendererComponent(t, value, selected, expanded, leaf, row, focus);
 			setIcon(null);
 			if (value instanceof DefaultMutableTreeNode n && n.getUserObject() instanceof SkillTree.Node node) {
+				// A library, a skill, or a path that didn't resolve, told apart at a glance.
+				setIcon(switch (node.kind()) {
+					case SKILLSET -> library;
+					case SKILL -> skill;
+					case MISSING -> missing;
+				});
+				setIconTextGap(8);
 				boolean plain = node.kind() == SkillTree.Kind.SKILL && !node.skill().shadowed();
 				setText(plain ? node.label()
 					: node.kind() == SkillTree.Kind.SKILLSET ? node.path() + "  ·  " + node.children().size()

@@ -11,11 +11,14 @@ import javax.swing.JPanel;
 
 import brightside.Inbox;
 import brightside.ui.components.Card;
+import brightside.ui.components.Chip;
 import brightside.ui.components.Disclosure;
 import brightside.ui.components.Labels;
 import brightside.ui.components.Panels;
+import brightside.ui.components.StatusLabel;
 import brightside.ui.components.Styles;
 import brightside.ui.components.Theme;
+import brightside.ui.components.Tone;
 
 /**
  * One request as a card in the Inbox column: a rounded, tinted {@link Card} —
@@ -71,21 +74,19 @@ final class RequestCard extends Card {
 		disclosure.setExpanded(expanded);
 	}
 
-	/** "Waiting for you" in the accent while open; otherwise the outcome, quietly. */
+	/** "Waiting for you" as an accent chip while open; otherwise the outcome, quietly, with its icon. */
 	private static JLabel chip(Inbox.Request r) {
-		JLabel chip = Labels.small(r.open() ? "Waiting for you" : outcome(r), r.open() ? Styles.ACCENT : Styles.MUTED);
-		chip.setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 0));
-		return chip;
-	}
-
-	private static String outcome(Inbox.Request r) {
-		return switch (r.status() == null ? "" : r.status()) {
-			case "answered" -> "Answered";
-			case "rejected" -> "Rejected";
-			case "expired" -> "Expired";
-			case "cancelled" -> "Withdrawn";
-			default -> r.status();
+		if (r.open()) return new Chip("Waiting for you");
+		StatusLabel outcome = switch (r.status() == null ? "" : r.status()) {
+			case "answered" -> new StatusLabel("Answered", "circle-check", Tone.MUTED);
+			case "rejected" -> new StatusLabel("Rejected", "circle-x", Tone.MUTED);
+			case "expired" -> new StatusLabel("Expired", "hourglass", Tone.MUTED);
+			case "cancelled" -> new StatusLabel("Withdrawn", "circle-x", Tone.MUTED);
+			default -> new StatusLabel(String.valueOf(r.status()), "history", Tone.MUTED);
 		};
+		Styles.classes(outcome, Styles.SMALL);
+		outcome.setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 0));
+		return outcome;
 	}
 
 	@Override
