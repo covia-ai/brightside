@@ -9,6 +9,7 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.event.HierarchyEvent;
 
 import javax.swing.JComponent;
 import javax.swing.JLayeredPane;
@@ -34,6 +35,7 @@ public final class Toast extends Card {
 	private static final int FADE_MS = 220;
 
 	private final Timer hold;
+	private Animator fading;
 	private float alpha = 1f;
 
 	private Toast(String text, String icon, Tone tone) {
@@ -47,6 +49,12 @@ public final class Toast extends Card {
 		add(label);
 		hold = new Timer(HOLD_MS, e -> fade());
 		hold.setRepeats(false);
+		// Gone from the screen — dismissed, or its window closed mid-toast: nothing left to time.
+		addHierarchyListener(e -> {
+			if ((e.getChangeFlags() & HierarchyEvent.SHOWING_CHANGED) == 0 || isShowing()) return;
+			hold.stop();
+			if (fading != null) fading.cancel();
+		});
 	}
 
 	/** "Copied", with a tick, just above {@code near}. */
@@ -80,10 +88,11 @@ public final class Toast extends Card {
 			dismiss();
 			return;
 		}
-		new Animator(FADE_MS, fraction -> {
+		fading = new Animator(FADE_MS, fraction -> {
 			alpha = 1f - fraction;
 			repaint();
-		}, this::dismiss).start();
+		}, this::dismiss);
+		fading.start();
 	}
 
 	private void dismiss() {

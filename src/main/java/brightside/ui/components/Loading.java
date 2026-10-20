@@ -34,6 +34,8 @@ public final class Loading extends JLabel {
 			angle = (angle + STEP) % (2 * Math.PI);
 			repaint();
 		});
+		// Showing, not merely displayable: one in a tab not chosen (the Sessions
+		// views' slots, all filled at once) is displayable but must stay still.
 		addHierarchyListener(e -> {
 			if ((e.getChangeFlags() & HierarchyEvent.SHOWING_CHANGED) == 0) return;
 			if (isShowing()) timer.start();
