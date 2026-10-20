@@ -18,6 +18,8 @@ import brightside.ui.components.Lucide;
 import brightside.ui.components.SelectableText;
 import brightside.ui.components.Styles;
 import brightside.ui.components.Theme;
+import brightside.ui.components.Toast;
+import brightside.ui.components.Tone;
 import net.miginfocom.swing.MigLayout;
 
 /**
@@ -131,15 +133,15 @@ public final class SecretsPanel extends SettingsPage {
 		});
 		copy.addActionListener(e -> {
 			if (revealed[0] != null) {
-				Clipboard.copy(revealed[0]);
-				setNote("Copied to the clipboard.", false);
+				Clipboard.copy(revealed[0], copy);
 				return;
 			}
 			// Copy without showing: the same gate, but the value goes straight
 			// to the clipboard and stays masked on screen.
 			fetchGated(name, "copy", copy, secret -> {
 				Clipboard.copy(secret);
-				setNote("Copied to the clipboard — without revealing it.", false);
+				clearNote();
+				Toast.show(copy, "Copied without revealing it", "check", Tone.SUCCESS);
 			});
 		});
 		forget.addActionListener(e -> {

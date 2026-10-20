@@ -65,7 +65,7 @@ public class ElidedText extends JLabel {
 				if (!e.isPopupTrigger()) return;
 				JPopupMenu menu = new JPopupMenu();
 				JMenuItem copy = new JMenuItem("Copy");
-				copy.addActionListener(a -> Clipboard.copy(getText()));
+				copy.addActionListener(a -> Clipboard.copy(getText(), ElidedText.this));
 				menu.add(copy);
 				menu.show(ElidedText.this, e.getX(), e.getY());
 			}

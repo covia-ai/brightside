@@ -126,8 +126,7 @@ public final class AuthPanel extends SettingsPage {
 	private void onCopy() {
 		String t = token.getText();
 		if (t == null || t.isEmpty()) return;
-		Clipboard.copy(t);
-		setNote("Copied to the clipboard.", false);
+		Clipboard.copy(t, copy);
 	}
 
 	/** Drops the displayed bearer token when the current user logs out. */

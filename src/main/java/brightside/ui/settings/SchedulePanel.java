@@ -395,10 +395,10 @@ public final class SchedulePanel extends SettingsPage {
 			item(m, "New from this…", "plus", () -> newEvent(Draft.like(event), null))
 				.setToolTipText("A new event with this one's operation and timing; its input isn't listed, so add it");
 			m.addSeparator();
-			if (event.operation() != null) item(m, "Copy operation", "copy", () -> Clipboard.copy(event.operation()));
-			item(m, "Copy handle", null, () -> Clipboard.copy(event.handle()));
-			if (event.lastJob() != null) item(m, "Copy last job id", null, () -> Clipboard.copy(event.lastJob()));
-			if (event.lastError() != null) item(m, "Copy error", null, () -> Clipboard.copy(event.lastError()));
+			if (event.operation() != null) item(m, "Copy operation", "copy", () -> Clipboard.copy(event.operation(), card));
+			item(m, "Copy handle", null, () -> Clipboard.copy(event.handle(), card));
+			if (event.lastJob() != null) item(m, "Copy last job id", null, () -> Clipboard.copy(event.lastJob(), card));
+			if (event.lastError() != null) item(m, "Copy error", null, () -> Clipboard.copy(event.lastError(), card));
 			m.addSeparator();
 			item(m, "Cancel…", "trash-2", this::onCancel).setEnabled(cancel.isEnabled());
 			return m;

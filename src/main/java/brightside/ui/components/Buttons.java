@@ -71,16 +71,16 @@ public final class Buttons {
 	}
 
 	/**
-	 * The copy icon beside a value: takes the whole value to the clipboard, or
-	 * does nothing while there is none. {@code subject} names the value in the
-	 * tooltip — "the Covia DID".
+	 * The copy icon beside a value: takes the whole value to the clipboard,
+	 * saying so briefly over the button, or does nothing while there is none.
+	 * {@code subject} names the value in the tooltip — "the Covia DID".
 	 */
 	public static JButton copy(String subject, Supplier<String> value) {
 		JButton b = icon(Lucide.icon("copy", 16, Theme::muted), "Copy " + subject + " to the clipboard");
 		b.getAccessibleContext().setAccessibleName("Copy " + subject);
 		b.addActionListener(e -> {
 			String v = value.get();
-			if (v != null && !v.isBlank()) Clipboard.copy(v);
+			if (v != null && !v.isBlank()) Clipboard.copy(v, b);
 		});
 		return b;
 	}
