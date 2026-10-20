@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Set;
 
 import javax.swing.BorderFactory;
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSplitPane;
@@ -24,12 +25,14 @@ import com.formdev.flatlaf.FlatClientProperties;
 
 import brightside.SkillIndex;
 import brightside.ui.components.Chip;
+import brightside.ui.components.EmptyState;
 import brightside.ui.components.Labels;
 import brightside.ui.components.ScreenHeader;
 import brightside.ui.components.Readout;
 import brightside.ui.components.Scrolls;
 import brightside.ui.components.Styles;
 import brightside.ui.components.Theme;
+import brightside.ui.components.Tone;
 
 /**
  * The <b>Skills</b> screen: the skills the assistant can discover, as an
@@ -181,21 +184,23 @@ public final class SkillsScreen extends JPanel {
 		TreePath p = tree.getSelectionPath();
 		SkillTree.Node n = (p != null && p.getLastPathComponent() instanceof DefaultMutableTreeNode t && t != root)
 			? nodeOf(t) : null;
-		Readout d = (n == null) ? nothing() : switch (n.kind()) {
+		JComponent view = (n == null) ? nothing() : Scrolls.vertical(switch (n.kind()) {
 			case SKILL -> skill(n.skill());
 			case SKILLSET -> directory(n);
 			case MISSING -> missing(n);
-		};
+		});
 		detail.removeAll();
-		detail.add(Scrolls.vertical(d), BorderLayout.CENTER);
+		detail.add(view, BorderLayout.CENTER);
 		detail.revalidate();
 		detail.repaint();
 	}
 
-	private Readout nothing() {
-		return new Readout().note(root.getChildCount() == 0
-			? "The assistant names no skillsets, so there is nothing for it to discover."
-			: "Choose a skill to see what it does, the tools it grants and what it reveals.");
+	private JComponent nothing() {
+		return (root.getChildCount() == 0)
+			? new EmptyState("book-open", Tone.MUTED, "No skills to discover",
+				"The assistant names no skillsets, so there is nothing for it to discover.").bare()
+			: new EmptyState("book-open", Tone.MUTED, "Nothing selected",
+				"Choose a skill to see what it does, the tools it grants and what it reveals.").bare();
 	}
 
 	private static Readout skill(SkillIndex.Skill s) {

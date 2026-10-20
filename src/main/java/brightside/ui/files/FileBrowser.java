@@ -66,6 +66,7 @@ import brightside.ui.components.Card;
 import brightside.ui.components.EmptyState;
 import brightside.ui.components.EyeButton;
 import brightside.ui.components.Labels;
+import brightside.ui.components.Loading;
 import brightside.ui.components.Lucide;
 import brightside.ui.components.Panels;
 import brightside.ui.components.Readout;
@@ -432,7 +433,7 @@ public final class FileBrowser extends JPanel {
 			return;
 		}
 		if (!"file".equals(entry.type())) { showDetail(entry, quiet("Preview is unavailable for this type of file.")); return; }
-		showDetail(entry, quiet("Loading preview…"));
+		showDetail(entry, Panels.centred(new Loading("Loading preview…")));
 		long version = previewVersion;
 		reads.preview(target).whenComplete((result, failure) -> SwingUtilities.invokeLater(() -> {
 			if (version != previewVersion) return;
@@ -485,7 +486,7 @@ public final class FileBrowser extends JPanel {
 		return h;
 	}
 
-	/** A quiet line in the middle of the preview: loading, or why there is nothing to show. */
+	/** A quiet line in the middle of the preview: why there is nothing to show. */
 	private static JComponent quiet(String text) {
 		return Panels.centred(Labels.small(text));
 	}
@@ -539,7 +540,7 @@ public final class FileBrowser extends JPanel {
 		empty.repaint();
 		((CardLayout) contents.getLayout()).show(contents, "empty");
 	}
-	private void loading(String text) { show(Labels.small(text)); }
+	private void loading(String text) { show(new Loading(text)); }
 	/** Why a read failed, and what to do about it. */
 	private static EmptyState unreadable(String title, Throwable failure, String then) {
 		return new EmptyState("circle-alert", Tone.ERROR, title, Labels.escape(reason(failure)) + "<br>" + then).bare();

@@ -31,8 +31,10 @@ import convex.core.data.Maps;
 import convex.core.data.ACell;
 import convex.core.data.Strings;
 import covia.grid.Venue;
-import brightside.ui.components.Readout;
-import brightside.ui.components.Scrolls;
+import brightside.ui.components.EmptyState;
+import brightside.ui.components.Loading;
+import brightside.ui.components.Panels;
+import brightside.ui.components.Tone;
 
 /**
  * The chat with tabs along its top: <em>Chat</em>, then the read-only views
@@ -97,9 +99,19 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 		}
 	}
 
-	static final String NO_CONVERSATION = "No conversation on screen. Choose one from the list, or send a message.";
-	static final String NO_AGENT = "No agent on screen.";
-	static final String READING = "Reading…";
+	// What a view shows while it has no reading of its own: made afresh for each slot it fills.
+	private static JComponent noConversation() {
+		return new EmptyState("messages-square", Tone.MUTED, "No conversation on screen",
+			"Choose one from the list, or send a message.").bare();
+	}
+
+	private static JComponent noAgent() {
+		return new EmptyState("bot", Tone.MUTED, "No agent on screen", null).bare();
+	}
+
+	private static JComponent reading() {
+		return Panels.centred(new Loading("Reading…"));
+	}
 
 	private final Host host;
 	private final ChatPanel chat;
@@ -152,8 +164,8 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 			parts.addTab(p.title, slot);
 		}
 		slots.get(View.CONTEXT).add(parts, BorderLayout.CENTER);
-		noteSession(NO_CONVERSATION);
-		noteAgent(NO_AGENT);
+		noteSession(SessionViews::noConversation);
+		noteAgent(SessionViews::noAgent);
 		tabs.addChangeListener(e -> onSelected());
 		add(tabs, BorderLayout.CENTER);
 		addHierarchyListener(e -> {
@@ -368,7 +380,7 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 		if (Objects.equals(sessionId, this.sessionId)) return;
 		this.sessionId = sessionId;
 		sessionVersion++;
-		noteSession((sessionId == null) ? NO_CONVERSATION : READING);
+		noteSession((sessionId == null) ? SessionViews::noConversation : SessionViews::reading);
 		if (current().perSession()) readSession();
 	}
 
@@ -383,7 +395,7 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 		if (Objects.equals(agentId, this.agentId)) return;
 		this.agentId = agentId;
 		agentVersion++;
-		noteAgent((agentId == null) ? NO_AGENT : READING);
+		noteAgent((agentId == null) ? SessionViews::noAgent : SessionViews::reading);
 		if (current() == View.AGENT) readAgent();
 	}
 
@@ -418,7 +430,7 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 		if (!Objects.equals(sessionId, this.sessionId) || version != sessionVersion) return;
 		sessionShown = version;
 		if (report == null) {
-			noteSession("Brightside couldn't read the context for this conversation.");
+			noteSession(() -> unreadable("Couldn't read this conversation's context"));
 		} else {
 			// The inspector's tabs in order: the overview, then one per piece.
 			List<ContextInspector.Tab> views = ContextInspector.tabs(report, turns, skills, host::showSkill);
@@ -437,18 +449,23 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 	public void showAgent(String agentId, int version, AgentInfo.Summary info) {
 		if (!Objects.equals(agentId, this.agentId) || version != agentVersion) return;
 		agentShown = version;
-		if (info == null) noteAgent("Brightside couldn't read that agent.");
+		if (info == null) noteAgent(() -> unreadable("Couldn't read this agent"));
 		else fill(slots.get(View.AGENT), AgentInspector.view(info));
 		if (current() == View.AGENT) readAgent();
 	}
 
-	private void noteSession(String text) {
-		fill(slots.get(View.OVERVIEW), Scrolls.vertical(new Readout().note(text)));
-		for (Part p : Part.values()) fillPart(p, p.title, Scrolls.vertical(new Readout().note(text)));
+	/** Every per-conversation view shows {@code state} (a fresh one each) in place of a reading. */
+	private void noteSession(Supplier<JComponent> state) {
+		fill(slots.get(View.OVERVIEW), state.get());
+		for (Part p : Part.values()) fillPart(p, p.title, state.get());
 	}
 
-	private void noteAgent(String text) {
-		fill(slots.get(View.AGENT), Scrolls.vertical(new Readout().note(text)));
+	private void noteAgent(Supplier<JComponent> state) {
+		fill(slots.get(View.AGENT), state.get());
+	}
+
+	private static JComponent unreadable(String title) {
+		return new EmptyState("circle-alert", Tone.ERROR, title, null).bare();
 	}
 
 	/** Replace a piece's document and its tab's title (a count where one is telling). */
