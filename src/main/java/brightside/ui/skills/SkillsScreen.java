@@ -23,7 +23,9 @@ import javax.swing.tree.TreeSelectionModel;
 import com.formdev.flatlaf.FlatClientProperties;
 
 import brightside.SkillIndex;
+import brightside.ui.components.Chip;
 import brightside.ui.components.Labels;
+import brightside.ui.components.ScreenHeader;
 import brightside.ui.components.Readout;
 import brightside.ui.components.Scrolls;
 import brightside.ui.components.Styles;
@@ -45,7 +47,9 @@ public final class SkillsScreen extends JPanel {
 
 	private static final int TREE_WIDTH = 340;
 
-	private final JLabel header = Labels.small("Skills");
+	private final ScreenHeader header = new ScreenHeader("Skills");
+	/** Whose skills these are. */
+	private final Chip agent = new Chip(" ");
 	private final DefaultMutableTreeNode root = new DefaultMutableTreeNode();
 	private final DefaultTreeModel model = new DefaultTreeModel(root);
 	private final JTree tree = new JTree(model);
@@ -56,7 +60,9 @@ public final class SkillsScreen extends JPanel {
 
 	public SkillsScreen() {
 		super(new BorderLayout());
-		header.setBorder(BorderFactory.createEmptyBorder(10, 18, 4, 18));
+		agent.setToolTipText("The agent whose skills these are");
+		agent.setVisible(false);
+		header.detail(agent);
 		add(header, BorderLayout.NORTH);
 
 		tree.setRootVisible(false);
@@ -83,7 +89,8 @@ public final class SkillsScreen extends JPanel {
 	 * {@code skillsets} (the roots, in search order) over {@code index}.
 	 */
 	public void setSkills(String agentName, List<String> skillsets, List<SkillIndex.Skill> index) {
-		header.setText((agentName != null) ? "Skills  ·  " + agentName : "Skills");
+		agent.setText((agentName != null) ? agentName : " ");
+		agent.setVisible(agentName != null);
 		Set<String> expanded = expandedPaths();
 		String selected = selectedPath();
 

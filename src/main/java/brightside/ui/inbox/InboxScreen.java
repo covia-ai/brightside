@@ -12,8 +12,10 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 
 import brightside.Inbox;
+import brightside.ui.components.Chip;
 import brightside.ui.components.Labels;
 import brightside.ui.components.Panels;
+import brightside.ui.components.ScreenHeader;
 import brightside.ui.components.Scrolls;
 
 /**
@@ -32,6 +34,9 @@ public final class InboxScreen extends JPanel {
 
 	private final RequestForm.Listener listener;
 	private final JPanel column = Panels.column();
+	private final ScreenHeader header = new ScreenHeader("Inbox");
+	/** How many requests are open, beside the title; hidden when none are. */
+	private final Chip waiting = new Chip(" ");
 	private final JLabel notice = Labels.small(" ");
 	private final JLabel empty = Labels.muted("Nothing is waiting for you.");
 	/** Cards by request id, in display order. */
@@ -41,10 +46,11 @@ public final class InboxScreen extends JPanel {
 		super(new BorderLayout());
 		this.listener = listener;
 
-		JLabel header = Labels.small("Inbox");
-		header.setBorder(BorderFactory.createEmptyBorder(10, 18, 4, 18));
+		waiting.setToolTipText("Requests waiting for your decision");
+		waiting.setVisible(false);
+		header.detail(waiting);
 
-		column.setBorder(BorderFactory.createEmptyBorder(6, 18, 12, 18));
+		column.setBorder(BorderFactory.createEmptyBorder(14, 18, 12, 18));
 		empty.setBorder(BorderFactory.createEmptyBorder(18, 0, 18, 0));
 		empty.setAlignmentX(LEFT_ALIGNMENT);
 
@@ -76,6 +82,9 @@ public final class InboxScreen extends JPanel {
 		}
 		cards.clear();
 		cards.putAll(next);
+		long open = requests.stream().filter(Inbox.Request::open).count();
+		waiting.setText(open + " waiting");
+		waiting.setVisible(open > 0);
 
 		column.removeAll();
 		if (cards.isEmpty()) {

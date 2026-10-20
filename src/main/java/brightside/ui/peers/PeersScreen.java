@@ -36,6 +36,7 @@ import brightside.ui.components.Buttons;
 import brightside.ui.components.Chip;
 import brightside.ui.components.Labels;
 import brightside.ui.components.Lucide;
+import brightside.ui.components.ScreenHeader;
 import brightside.ui.components.Scrolls;
 import brightside.ui.components.SelectableText;
 import brightside.ui.components.Styles;
@@ -141,33 +142,29 @@ public final class PeersScreen extends JPanel {
 		saveLater = new Timer(SAVE_AFTER_MS, e -> save());
 		saveLater.setRepeats(false);
 
-		JPanel header = new JPanel(new MigLayout("insets 14 22 12 16, fillx",
-			"[]10[]push[]14[]2[]2[]2[]2[]10[]2[]", ""));
-		header.setBorder(Borders.hairline(false, false, true, false));
-		header.add(Styles.style(new JLabel("Peers"), "font: bold +4"));
+		ScreenHeader header = new ScreenHeader("Peers");
 		if (source.sample()) {
-			header.add(chip("Preview · sample venues",
+			header.detail(chip("Preview · sample venues",
 				"Federation isn't connected yet: other venues are examples of what will appear here"));
-		} else {
-			header.add(new JLabel());
 		}
 		pause.addActionListener(e -> {
 			map.togglePaused();
 			syncPause();
 		});
 		reset.addActionListener(e -> map.resetLayout());
-		header.add(view);
-		header.add(button("zoom-out", "Zoom out (or scroll)", () -> map.zoomStep(false)));
-		header.add(button("zoom-in", "Zoom in (or scroll)", () -> map.zoomStep(true)));
-		header.add(button("locate-fixed", "Your system (or double-click the map)", map::home));
-		header.add(button("telescope", "The whole universe of venues", map::universe));
 		follow.addActionListener(e -> {
 			String you = map.acting();
 			map.track(you != null && !you.equals(map.tracking()) ? you : null);
 		});
-		header.add(follow);
-		header.add(pause);
-		header.add(reset);
+		// Where the view is, then moving about the map, then the map itself.
+		header.action(view);
+		header.group(button("zoom-out", "Zoom out (or scroll)", () -> map.zoomStep(false)));
+		header.action(button("zoom-in", "Zoom in (or scroll)", () -> map.zoomStep(true)));
+		header.action(button("locate-fixed", "Your system (or double-click the map)", map::home));
+		header.action(button("telescope", "The whole universe of venues", map::universe));
+		header.action(follow);
+		header.group(pause);
+		header.action(reset);
 
 		side.setOpaque(false);
 		side.setPreferredSize(new Dimension(310, 0));
@@ -279,7 +276,7 @@ public final class PeersScreen extends JPanel {
 		c.add(Labels.section("Home"));
 		if (home != null) c.add(Labels.small(home.label()));
 		c.add(Labels.small(SolarMap.plural(users.size(), "user") + " · " + SolarMap.plural(agents, "agent") + " · "
-			+ SolarMap.plural((int) venues, "other venue"), Styles.MUTED), "gapbottom 10");
+			+ SolarMap.plural((int) venues, "other venue")), "gapbottom 10");
 
 		c.add(heading("Rings"));
 		List<MapSettings.Ring> rings = s.rings();
