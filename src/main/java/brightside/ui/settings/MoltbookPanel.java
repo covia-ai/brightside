@@ -14,6 +14,7 @@ import com.formdev.flatlaf.FlatClientProperties;
 import brightside.Moltbook;
 import brightside.ui.components.Buttons;
 import brightside.ui.components.Documents;
+import brightside.ui.components.Fields;
 import brightside.ui.components.Links;
 import brightside.ui.components.Panels;
 import brightside.ui.components.PressButton;
@@ -56,7 +57,7 @@ public final class MoltbookPanel extends SettingsPage {
 	private final SelectableText status = new SelectableText("—");
 	private final JTextField nameField = new JTextField(24);
 	private final TextArea descriptionField = new TextArea(3, 30).placeholder("What this agent does, in a sentence or two");
-	private final JPasswordField keyField = new JPasswordField(24);
+	private final JPasswordField keyField = Fields.secret(new JPasswordField(24));
 	private final JButton connect = Buttons.secondary("Connect with key");
 	private final JButton claim = Buttons.secondary("Open claim page");
 	private final JButton refresh = Buttons.secondary("Refresh");

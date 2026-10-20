@@ -8,6 +8,7 @@ import com.formdev.flatlaf.FlatClientProperties;
 
 import brightside.model.Providers;
 import brightside.ui.components.Documents;
+import brightside.ui.components.Fields;
 import brightside.ui.components.ModelSelector;
 import brightside.ui.components.Styles;
 
@@ -29,7 +30,7 @@ public final class ModelPanel extends SettingsPage {
 
 	private final Handler handler;
 	private final ModelSelector modelSelector = new ModelSelector();
-	private final JPasswordField keyField = new JPasswordField(24);
+	private final JPasswordField keyField = Fields.secret(new JPasswordField(24));
 
 	private String baselineProvider;
 	private String baselineModel;
@@ -116,6 +117,7 @@ public final class ModelPanel extends SettingsPage {
 		baselineModel = m.id();
 		setNote(!keyOk ? "Couldn't store the key."
 			: keyStored ? "Saved. The new key applies after a restart." : "Saved.", !keyOk);
+		if (!keyOk) Fields.flag(keyField);
 		updateDirty();
 	}
 }

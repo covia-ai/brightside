@@ -12,6 +12,7 @@ import javax.swing.SwingWorker;
 import brightside.ui.components.Buttons;
 import brightside.ui.components.Clipboard;
 import brightside.ui.components.Dialogs;
+import brightside.ui.components.Fields;
 import brightside.ui.components.EyeButton;
 import brightside.ui.components.Labels;
 import brightside.ui.components.Lucide;
@@ -54,7 +55,7 @@ public final class SecretsPanel extends SettingsPage {
 	private final JPanel rows = new JPanel(new MigLayout(
 		"insets 0, fillx, wrap 5, gapy 2", "[grow 30,fill]12[grow 70,fill]8[]2[]6[]", ""));
 	private final JTextField nameField = new JTextField(16);
-	private final JPasswordField valueField = new JPasswordField(24);
+	private final JPasswordField valueField = Fields.secret(new JPasswordField(24));
 	/** Bumped on every rebuild so a slow reveal never lands on replaced rows. */
 	private long version;
 
@@ -207,6 +208,8 @@ public final class SecretsPanel extends SettingsPage {
 		java.util.Arrays.fill(typed, '\0');
 		if (name.isEmpty() || value.isEmpty()) {
 			setNote("A name and a value are both needed.", true);
+			if (value.isEmpty()) Fields.flag(valueField);
+			if (name.isEmpty()) Fields.flag(nameField);
 			return;
 		}
 		boolean stored = host.storeSecret(name, value);
@@ -217,6 +220,7 @@ public final class SecretsPanel extends SettingsPage {
 			setNote("Stored " + name + ".", false);
 		} else {
 			setNote("Couldn't store it — names use letters, digits, dots, dashes and underscores.", true);
+			Fields.flag(nameField);
 		}
 	}
 }

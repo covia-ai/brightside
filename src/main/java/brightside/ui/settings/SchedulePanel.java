@@ -37,6 +37,7 @@ import brightside.ui.components.Chip;
 import brightside.ui.components.Clipboard;
 import brightside.ui.components.Dialogs;
 import brightside.ui.components.EmptyState;
+import brightside.ui.components.Fields;
 import brightside.ui.components.Labels;
 import brightside.ui.components.Lucide;
 import brightside.ui.components.SelectableText;
@@ -123,7 +124,7 @@ public final class SchedulePanel extends SettingsPage {
 		addSpan(list);
 		primary.setIcon(Lucide.icon("plus", 14, () -> primary.getForeground()));
 		primary.setToolTipText("Schedule an operation to run later, once or repeatedly");
-		onPrimary(() -> newEvent(Draft.EMPTY, null));
+		onPrimary(() -> newEvent(Draft.EMPTY, null, Fault.NONE));
 
 		// Countdowns move on their own while the page is showing, and an event
 		// that has come due is read again so it moves to its next slot.
@@ -392,7 +393,7 @@ public final class SchedulePanel extends SettingsPage {
 			JPopupMenu m = new JPopupMenu();
 			item(m, "Run now", "play", this::onRun).setEnabled(run.isEnabled());
 			item(m, details.isVisible() ? "Hide details" : "Show details", null, this::toggle);
-			item(m, "New from this…", "plus", () -> newEvent(Draft.like(event), null))
+			item(m, "New from this…", "plus", () -> newEvent(Draft.like(event), null, Fault.NONE))
 				.setToolTipText("A new event with this one's operation and timing; its input isn't listed, so add it");
 			m.addSeparator();
 			if (event.operation() != null) item(m, "Copy operation", "copy", () -> Clipboard.copy(event.operation(), card));
@@ -461,6 +462,11 @@ public final class SchedulePanel extends SettingsPage {
 		}
 	}
 
+	/** Which of the New dialog's fields a refusal was about, so it reopens with that one outlined. */
+	private enum Fault {
+		NONE, OPERATION, INPUT
+	}
+
 	/** What the New dialog holds, so it can reopen as it was after a refusal. */
 	private record Draft(String operation, String input, int firstAmount, Unit firstUnit, boolean repeat,
 			int everyAmount, Unit everyUnit, boolean track) {
@@ -477,19 +483,19 @@ public final class SchedulePanel extends SettingsPage {
 	}
 
 	/** Opens the New dialog on {@code draft}, with {@code error} from a previous attempt shown above it. */
-	private void newEvent(Draft draft, String error) {
-		NewForm f = new NewForm(draft, error);
+	private void newEvent(Draft draft, String error, Fault fault) {
+		NewForm f = new NewForm(draft, error, fault);
 		if (!Dialogs.form(this, "Schedule an operation", f.panel)) return;
 		Draft typed = f.read();
 		if (typed.operation().isEmpty()) {
-			newEvent(typed, "Choose an operation to run.");
+			newEvent(typed, "Choose an operation to run.", Fault.OPERATION);
 			return;
 		}
 		ACell parsed;
 		try {
 			parsed = Schedule.parseInput(typed.input());
 		} catch (IllegalArgumentException x) {
-			newEvent(typed, x.getMessage());
+			newEvent(typed, x.getMessage(), Fault.INPUT);
 			return;
 		}
 		long after = typed.firstAmount() * typed.firstUnit().millis;
@@ -500,7 +506,7 @@ public final class SchedulePanel extends SettingsPage {
 			primary.setEnabled(true);
 			if (failed) {
 				clearNote();
-				newEvent(typed, note);
+				newEvent(typed, note, Fault.NONE);
 				return;
 			}
 			actionNote = note;
@@ -521,7 +527,7 @@ public final class SchedulePanel extends SettingsPage {
 		private final JComboBox<Unit> everyUnit = new JComboBox<>(Unit.values());
 		private final JCheckBox track;
 
-		NewForm(Draft draft, String error) {
+		NewForm(Draft draft, String error, Fault fault) {
 			operation = new JTextField(draft.operation(), 30);
 			operation.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "v/ops/…");
 			operation.setToolTipText("The operation to run, by reference: v/ops/agent/trigger, v/ops/http/get, …");
@@ -560,6 +566,8 @@ public final class SchedulePanel extends SettingsPage {
 			panel.add(row(repeat, everyAmount, everyUnit));
 			panel.add(new JLabel());
 			panel.add(track);
+			if (fault == Fault.OPERATION) Fields.flag(operation);
+			else if (fault == Fault.INPUT) Fields.flag(inputScroll, input);
 		}
 
 		Draft read() {

@@ -14,6 +14,7 @@ import brightside.Discord;
 import brightside.ui.components.Buttons;
 import brightside.ui.components.Disclosure;
 import brightside.ui.components.Documents;
+import brightside.ui.components.Fields;
 import brightside.ui.components.Labels;
 import brightside.ui.components.SelectableText;
 import brightside.ui.components.Styles;
@@ -36,7 +37,7 @@ public final class DiscordPanel extends SettingsPage {
 
 	private final Host host;
 	private final SelectableText status = new SelectableText("—");
-	private final JPasswordField tokenField = new JPasswordField(24);
+	private final JPasswordField tokenField = Fields.secret(new JPasswordField(24));
 	private final JTextField allowField = new JTextField(24);
 	private final JButton remove = Buttons.small("Remove bot");
 	private List<String> baselineAllow = List.of();
