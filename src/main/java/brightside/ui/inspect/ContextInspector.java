@@ -12,15 +12,27 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 import javax.swing.JComponent;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JProgressBar;
 import javax.swing.JTabbedPane;
+import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+
+import com.formdev.flatlaf.FlatClientProperties;
 
 import brightside.AgentContext;
 import brightside.SessionHistory;
 import brightside.SkillIndex;
+import brightside.ui.components.Badge;
+import brightside.ui.components.Card;
+import brightside.ui.components.Labels;
 import brightside.ui.components.Readout;
 import brightside.ui.components.Scrolls;
+import brightside.ui.components.StatTile;
 import brightside.ui.components.Styles;
+import brightside.ui.components.Tone;
+import net.miginfocom.swing.MigLayout;
 
 /**
  * Read-only views of the exact context an agent sends its model (from
@@ -36,7 +48,9 @@ import brightside.ui.components.Styles;
  * own tabs; every view is the conversation's own situation, and the whole
  * skill library is the Skills screen's.
  *
- * <p>Each view is a {@link Readout}: one document of sections and entries,
+ * <p>The Overview is the conversation at a glance: the model and its budget as
+ * a meter, and a tile for each piece that presses through to its tab. Every
+ * other view is a {@link Readout}: one document of sections and entries,
  * long content folded behind a "Show all" link, everything shown selectable
  * and copyable. The views cross-refer: a tool to the skill that declares it, a
  * skill to what it reveals and the tools it grants, a call to its result, a
@@ -170,40 +184,78 @@ public final class ContextInspector {
 	// Overview
 	// ------------------------------------------------------------------
 
-	private Readout overview(AgentContext.Report r) {
-		Readout d = new Readout();
-		d.pair("Model", r.model().isBlank() ? "—" : r.model()).tip(TIP_MODEL);
+	/**
+	 * The conversation at a glance: a card with the model, its tokens so far
+	 * and the budget as a meter; under it a tile for each piece worth opening
+	 * (messages, tools, loaded entries), each pressing through to its tab.
+	 */
+	private JComponent overview(AgentContext.Report r) {
+		JPanel p = new JPanel(new MigLayout("insets 20 24 20 24, fillx, wrap 3, gap 12 12",
+			"[grow,fill,sg tile][grow,fill,sg tile][grow,fill,sg tile]", ""));
+		p.setOpaque(false);
+
+		Card card = new Card();
+		card.setLayout(new MigLayout("insets 16 18 16 18, fillx, wrap 2, gapy 2", "[][grow,fill]", ""));
+		card.add(new Badge("sparkles", Tone.ACCENT, 30), "spany 2, aligny center, gapright 10");
+		JLabel model = Labels.lead(r.model().isBlank() ? "—" : r.model());
+		model.setToolTipText(TIP_MODEL);
+		card.add(model, "wmin 0");
+		JLabel tokens = Labels.small((r.sessionTokens() != null) ? "Session tokens: " + r.sessionTokens()
+			: "No tokens counted yet");
+		tokens.setToolTipText(TIP_TOKENS);
+		card.add(tokens, "wmin 0");
+
 		int pct = r.budgetPercent();
-		d.pair("Context budget", String.format("%,d of %,d bytes  ·  %d%%", r.budgetUsed(), r.budgetBytes(), pct),
-			(pct >= 100) ? Styles.WARNING : null).tip(TIP_BUDGET);
-		d.pair("Session tokens", (r.sessionTokens() != null) ? r.sessionTokens() : "—").tip(TIP_TOKENS);
-		d.pair("Messages", to(context, null, messagesSummary(r))).tip(TIP_MESSAGES);
-		d.pair("Tools", to(tools, null, toolsSummary(r))).tip(TIP_TOOLS);
-		d.pair("Loaded entries", to(loads, null, Integer.toString(r.loads().size()))).tip(TIP_LOADED);
-		d.note("Exactly what the assistant's model receives for this conversation, assembled as for a live "
-			+ "reply but not sent. The budget is the model's declared context size — a guide the assembler "
-			+ "warns against, not a cap.");
-		return d;
+		boolean over = pct >= 100;
+		JLabel budget = Labels.small("Context budget");
+		budget.setToolTipText(TIP_BUDGET);
+		JLabel share = over ? Styles.classes(Labels.text(pct + "%"), Styles.STRONG, Styles.WARNING)
+			: Styles.classes(Labels.text(pct + "%"), Styles.STRONG);
+		JPanel budgetLine = new JPanel(new MigLayout("insets 0, fillx", "[grow][]", ""));
+		budgetLine.setOpaque(false);
+		budgetLine.add(budget);
+		budgetLine.add(share);
+		card.add(budgetLine, "span 2, growx, gaptop 14");
+		JProgressBar meter = new JProgressBar(0, 100);
+		meter.setValue(Math.min(pct, 100));
+		meter.putClientProperty(FlatClientProperties.PROGRESS_BAR_LARGE_HEIGHT, true);
+		if (over) Styles.style(meter, "foreground: $Brightside.warning");
+		meter.setToolTipText(TIP_BUDGET);
+		card.add(meter, "span 2, growx, gaptop 4");
+		card.add(Labels.small(String.format("%,d of %,d bytes", r.budgetUsed(), r.budgetBytes())), "span 2, gaptop 4");
+		p.add(card, "span 3, growx, wmin 0");
+
+		p.add(new StatTile("messages-square", Tone.ACCENT, "Messages", Integer.toString(r.messages().size()),
+			bands(r)).onPress(TIP_MESSAGES, open(context)), "wmin 0");
+		boolean unavailable = !r.unavailable().isEmpty();
+		p.add(new StatTile("wrench", unavailable ? Tone.WARNING : Tone.ACCENT, "Tools", Integer.toString(r.tools().size()),
+			unavailable ? r.unavailable().size() + " unavailable" : null).onPress(TIP_TOOLS, open(tools)), "wmin 0");
+		long truncated = r.loads().stream().filter(AgentContext.Load::truncated).count();
+		p.add(new StatTile("layers", Tone.ACCENT, "Loaded", Integer.toString(r.loads().size()),
+			truncated > 0 ? truncated + " truncated" : null).onPress(TIP_LOADED, open(loads)), "wmin 0");
+
+		JLabel about = Labels.html("Exactly what the assistant's model receives for this conversation, assembled as "
+			+ "for a live reply but not sent. The budget is the model's declared context size — a guide the "
+			+ "assembler warns against, not a cap.", 520, SwingConstants.LEFT);
+		Styles.classes(about, Styles.SMALL, Styles.MUTED);
+		p.add(about, "span 3, gaptop 8, wmin 0");
+		return p;
 	}
 
-	private static String messagesSummary(AgentContext.Report r) {
-		StringBuilder sb = new StringBuilder(Integer.toString(r.messages().size()));
-		if (r.bands().size() > 1) {
-			sb.append("  (");
-			for (int i = 0; i < r.bands().size(); i++) {
-				AgentContext.Band b = r.bands().get(i);
-				if (i > 0) sb.append("  ·  ");
-				sb.append(b.name().toLowerCase()).append(' ').append(b.size());
-			}
-			sb.append(')');
+	/** The messages by band — "head 2 · conversation 120 · tail 6" — when there is more than one. */
+	private static String bands(AgentContext.Report r) {
+		if (r.bands().size() < 2) return null;
+		StringBuilder sb = new StringBuilder();
+		for (AgentContext.Band b : r.bands()) {
+			if (sb.length() > 0) sb.append(" · ");
+			sb.append(b.name().toLowerCase()).append(' ').append(b.size());
 		}
 		return sb.toString();
 	}
 
-	private static String toolsSummary(AgentContext.Report r) {
-		StringBuilder sb = new StringBuilder(Integer.toString(r.tools().size()));
-		if (!r.unavailable().isEmpty()) sb.append("  ·  ").append(r.unavailable().size()).append(" unavailable");
-		return sb.toString();
+	/** Opens the tab holding {@code pane}, at its top. */
+	private Runnable open(Readout pane) {
+		return to(pane, null, "").action();
 	}
 
 	// ------------------------------------------------------------------

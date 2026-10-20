@@ -50,6 +50,18 @@ public final class AgentInfo {
 	private AgentInfo() {
 	}
 
+	/** An agent's run state ({@code RUNNING}, {@code SLEEPING}, …) in words; "Unknown" for none. */
+	public static String state(String status) {
+		if (status == null || status.isBlank()) return "Unknown";
+		return switch (status) {
+			case "RUNNING" -> "Running";
+			case "SLEEPING" -> "Asleep";
+			case "SUSPENDED" -> "Suspended";
+			case "TERMINATED" -> "Stopped";
+			default -> status.substring(0, 1) + status.substring(1).toLowerCase();
+		};
+	}
+
 	/**
 	 * Reads {@code agentId}'s summary as the owner and joins it with the already-read
 	 * {@code record} ({@code g/<agentId>}, may be null). Null if the agent does not exist.

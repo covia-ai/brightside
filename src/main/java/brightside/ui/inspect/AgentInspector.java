@@ -4,16 +4,27 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
+import java.awt.BorderLayout;
+
 import javax.swing.JComponent;
+import javax.swing.JPanel;
 
 import brightside.AgentInfo;
+import brightside.ui.components.Badge;
+import brightside.ui.components.Borders;
+import brightside.ui.components.Chip;
+import brightside.ui.components.Labels;
 import brightside.ui.components.Readout;
 import brightside.ui.components.Scrolls;
+import brightside.ui.components.StatusLabel;
 import brightside.ui.components.Styles;
+import brightside.ui.components.Tone;
+import net.miginfocom.swing.MigLayout;
 
 /**
- * A read-only view of one agent (from {@link AgentInfo}), as one
- * {@link Readout} document: identity, status, model and activity; the system
+ * A read-only view of one agent (from {@link AgentInfo}): a fixed header with
+ * its name, run state, kind and activity, above one {@link Readout} document:
+ * identity, model and queue; the system
  * prompt and what is pinned into every turn; the always-on tools, skill
  * libraries and anything unavailable; and, folded at the end, the venue's raw
  * {@code agent:info} summary. Everything shown is selectable and copyable.
@@ -24,27 +35,66 @@ public final class AgentInspector {
 	private AgentInspector() {
 	}
 
-	/** The agent's document, scrolling. */
+	/** The agent: who and how it is in a fixed header, its document scrolling below. */
 	public static JComponent view(AgentInfo.Summary a) {
-		return Scrolls.vertical(document(a));
+		JPanel view = new JPanel(new BorderLayout());
+		view.setOpaque(false);
+		view.add(header(a), BorderLayout.NORTH);
+		view.add(Scrolls.vertical(document(a)), BorderLayout.CENTER);
+		return view;
+	}
+
+	/**
+	 * The agent at a glance: its name, its run state (in a tone, with its last
+	 * error on hover), whether it is Brightside's standard agent or one of the
+	 * owner's own, and how much it has been used.
+	 */
+	static JComponent header(AgentInfo.Summary a) {
+		JPanel h = new JPanel(new MigLayout("insets 18 24 14 24, fillx, gapy 2", "[]12[grow,fill]", ""));
+		h.setOpaque(false);
+		h.setBorder(Borders.hairline(false, false, true, false));
+		h.add(new Badge("bot", Tone.ACCENT, 38), "spany 2, aligny center");
+		JPanel title = new JPanel(new MigLayout("insets 0, gap 10", "", ""));
+		title.setOpaque(false);
+		title.add(Labels.section(a.name()), "wmin 0");
+		StatusLabel state = state(a);
+		state.setToolTipText(a.error());
+		title.add(state);
+		Chip kind = new Chip(a.standard() ? "Standard" : "Custom");
+		kind.setToolTipText(a.standard()
+			? "Brightside's standard agent: its model and instructions follow Settings and config.json."
+			: "Created from the agents pane; it keeps the model and instructions it was given.");
+		title.add(kind);
+		h.add(title, "wmin 0, wrap");
+		h.add(Labels.small(activity(a)), "wmin 0");
+		return h;
+	}
+
+	private static StatusLabel state(AgentInfo.Summary a) {
+		String words = AgentInfo.state(a.status());
+		if (a.error() != null) return new StatusLabel(words, "circle-alert", Tone.ERROR);
+		return switch (a.status() == null ? "" : a.status()) {
+			case "RUNNING" -> new StatusLabel(words, "loader-circle", Tone.ACCENT);
+			case "SLEEPING" -> new StatusLabel(words, "moon", Tone.MUTED);
+			case "SUSPENDED" -> new StatusLabel(words, "circle-pause", Tone.WARNING);
+			case "TERMINATED" -> new StatusLabel(words, "circle-x", Tone.MUTED);
+			default -> new StatusLabel(words, "info", Tone.MUTED);
+		};
 	}
 
 	static Readout document(AgentInfo.Summary a) {
 		Readout d = new Readout();
-		d.pair("Name", a.name()).tip("How the agent is shown; the owner's choice.");
+		if (a.error() != null) {
+			d.pair("Last error", a.error(), Styles.ERROR).tip("What stopped the agent, as the venue reports it.");
+		}
 		d.pair("Id", a.id()).tip("The name the venue knows the agent by. Its record lives under it in the owner's namespace.");
 		d.pair("Agent DID", a.did()).tip("The agent's own identifier, distinct from its owner's: what it acts and signs as.");
 		d.pair("Owner", a.ownerName() + "  ·  " + a.ownerDID()).tip("The user the agent belongs to and acts for.");
-		d.pair("Status", status(a)).tip("The agent's state as the venue reports it, with its last error if it stopped on one.");
 		d.pair("Model", orDash(a.model())).tip("The model operation its replies run through.");
 		d.pair("Operation", orDash(a.operation())).tip("The agent operation Brightside invokes to chat with it.");
-		d.pair("Conversations", activity(a)).tip("How many conversations the agent holds, and when it last acted.");
 		d.pair("Tasks", Long.toString(a.tasks())).tip("Tasks on the agent's queue.");
 		d.pair("Timeline", a.timelineLength() + " event" + (a.timelineLength() == 1 ? "" : "s"))
 			.tip("Events the venue has recorded on the agent's timeline.");
-		d.note(a.standard()
-			? "Brightside's standard agent: its model and instructions follow Settings and config.json."
-			: "Created from the agents pane; it keeps the model and instructions it was given.");
 
 		d.section("System prompt").tip("The instructions that open every turn: the agent's identity and role.");
 		d.prose(orDash(a.systemPrompt()));
@@ -85,15 +135,11 @@ public final class AgentInspector {
 		return sb.toString();
 	}
 
-	private static String status(AgentInfo.Summary a) {
-		String s = orDash(a.status());
-		return (a.error() != null) ? s + "  —  " + a.error() : s;
-	}
-
 	private static String activity(AgentInfo.Summary a) {
-		if (a.conversations() == 0) return "none yet";
+		if (a.conversations() == 0) return "No conversations yet";
 		String when = new SimpleDateFormat("d MMM yyyy, HH:mm").format(new Date(a.lastActive()));
-		return a.conversations() + "  ·  last active " + when;
+		return a.conversations() + (a.conversations() == 1 ? " conversation" : " conversations") + "  ·  last active "
+			+ when;
 	}
 
 	private static String orDash(String s) {

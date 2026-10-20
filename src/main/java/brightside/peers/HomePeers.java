@@ -3,6 +3,7 @@ package brightside.peers;
 import java.util.ArrayList;
 import java.util.List;
 
+import brightside.AgentInfo;
 import brightside.peers.Node.Fact;
 
 /**
@@ -64,13 +65,6 @@ public final class HomePeers {
 	 * can, so this never greys it out.
 	 */
 	static String state(String state) {
-		if (state == null) return "Unknown";
-		return switch (state) {
-			case "RUNNING" -> "Running";
-			case "SLEEPING" -> "Asleep";
-			case "SUSPENDED" -> "Suspended";
-			case "TERMINATED" -> "Stopped";
-			default -> state.substring(0, 1) + state.substring(1).toLowerCase();
-		};
+		return AgentInfo.state(state);
 	}
 }
