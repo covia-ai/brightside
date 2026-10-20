@@ -163,7 +163,7 @@ class McpStdioTest {
 	}
 
 	@Test
-	void missingLocalConsentFailsWithoutStartingTheAppOrCreatingFiles() throws Exception {
+	void missingLocalConsentFailsWithoutStartingTheAppOrOpeningItsStore() throws Exception {
 		config(shared.venue().port());
 		try (Client client = new Client()) {
 			assertEquals(1, client.exit());

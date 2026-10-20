@@ -255,6 +255,11 @@ public final class BrightSide {
 		// Cancel needs no passphrase first. The handover itself waits for the
 		// vault: the shutdown request must be signed with the venue seed.
 		if (Takeover.isRunning(config.port())) {
+			if (unlock && !takeoverAllowed) {
+				// An instance may have appeared since the first unattended probe.
+				System.exit(0);
+				return;
+			}
 			if (mode == Mode.ONBOARD) {
 				// A new install mints a new identity, and only the running venue's
 				// own key can ask it to stop: a takeover could never succeed, so
@@ -399,6 +404,11 @@ public final class BrightSide {
 			// (ask it to shut down cleanly) rather than fail on the store lock.
 			int port = config.port();
 			if (Takeover.isRunning(port)) {
+				if (unattended && !takeoverAllowed) {
+					// A concurrent launch won while this one was unlocking.
+					System.exit(0);
+					return;
+				}
 				boolean proceed;
 				try {
 					proceed = takeOver(port, storePath(venueConfig));

@@ -39,8 +39,9 @@ External clients ──► HTTP / MCP / A2A on 127.0.0.1
 ```
 
 For MCP clients that launch a stdio subprocess, `Main` selects `McpStdio`
-before loading the desktop app. It bridges to the running venue using the
-existing local-tool token; the MCP SDK handles HTTP sessions and streams.
+before loading the desktop app. It bridges to the venue using the existing
+local-tool token, starting the desktop app separately when needed;
+the MCP SDK handles HTTP sessions and streams.
 The bridge owns no venue or store. Setup is in
 [CONFIGURATION.md](CONFIGURATION.md#from-a-stdio-mcp-client).
 

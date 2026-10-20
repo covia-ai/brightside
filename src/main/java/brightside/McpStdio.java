@@ -5,6 +5,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -28,15 +32,15 @@ import io.modelcontextprotocol.spec.McpSchema.JSONRPCRequest;
 import io.modelcontextprotocol.spec.McpSchema.JSONRPCResponse;
 
 /**
- * A stdio connection to the already-running desktop venue. The MCP SDK owns
+ * A stdio connection to the desktop venue, starting the app when needed. The MCP SDK owns
  * HTTP sessions, SSE, cancellation messages and transport shutdown; this class
  * preserves the client's messages and supplies the opt-in local credential.
- * It never opens the store, unlocks the app or takes over another instance.
+ * The bridge never opens the store or takes over another instance.
  */
 final class McpStdio {
 
 	private static final String CONNECTION_FAILED =
-		"Brightside MCP connection failed. Keep Brightside running and unlocked, enable "
+		"Brightside MCP connection failed. Unlock Brightside, enable "
 		+ "'Keep a token for local tools' in Settings > Auth, then reconnect the client.";
 	private static final TypeRef<Map<String, String>> HEADERS = new TypeRef<>() {};
 	private final McpJsonMapper json = McpJsonDefaults.getMapper();
@@ -71,6 +75,20 @@ final class McpStdio {
 
 	private void failed() {
 		finished.completeExceptionally(new IOException(CONNECTION_FAILED));
+	}
+
+	/** A stale token left by a crashed app must not count as startup readiness. */
+	private boolean ready(HttpClient client, int port, Path token) {
+		try {
+			HttpRequest request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/v1/status"))
+				.timeout(Duration.ofSeconds(2))
+				.header("Authorization", authorization(token))
+				.GET().build();
+			return client.send(request, HttpResponse.BodyHandlers.discarding()).statusCode() == 200;
+		} catch (Exception e) {
+			if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+			return false;
+		}
 	}
 
 	private synchronized void receive(JSONRPCMessage message) {
@@ -158,7 +176,7 @@ final class McpStdio {
 				hasConfig = true;
 			}
 			// Read only the endpoint setting: AppConfig.load would create files and
-			// directories, which a connection to an existing app must not do.
+			// directories; opening the app's state belongs to the desktop process.
 			var raw = JSON.parseJSON5(Files.readString(config));
 			if (!(raw instanceof AMap<?, ?>)) throw new IOException("Invalid configuration");
 			var configuredPort = RT.getIn(raw, "venue", "port");
@@ -167,6 +185,13 @@ final class McpStdio {
 			if (port < 1 || port > 65535) throw new IOException("Invalid port");
 			Path token = ToolToken.file(config.toAbsolutePath().getParent());
 			McpStdio bridge = new McpStdio((int) port, token, output);
+			try (HttpClient probe = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()) {
+				McpStartup.ensureRunning(config, (int) port, () -> bridge.ready(probe, (int) port, token));
+			} catch (IOException e) {
+				// Startup errors are fixed local messages, never credentials or remote responses.
+				errors.println(e.getMessage());
+				return 1;
+			}
 			bridge.authorization(token); // Fail promptly even before initialize arrives.
 			bridge.serve(input);
 			return 0;

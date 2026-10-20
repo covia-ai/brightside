@@ -399,24 +399,32 @@ Replace the jar path with the absolute path to your build or installation.
 Use Java 21 or later, giving its executable's absolute path if the client
 cannot find `java`.
 
-1. Start and unlock Brightside.
+1. Set up Brightside and unlock it once with *Remember me* enabled if you want
+   MCP clients to start it automatically.
 2. Enable *Settings → Auth → Keep a token for local tools*.
 3. Add the command to your client's MCP configuration and connect.
 
 `--mcp-stdio` starts a small connection process for that client. It forwards
 MCP messages to the running app on loopback, reads the local token afresh for
 each HTTP request, and preserves the same tools and user permissions as HTTP.
-The HTTP endpoint still requires authentication. Each client gets its own
-connection; none opens the venue store or takes over the app.
+The HTTP endpoint still requires authentication. When the app is not running,
+the bridge starts the same installation with `--unlock` and waits up to
+30 seconds for authenticated access. Concurrent connections share that
+startup. Each client gets its own connection; the bridge never opens the venue
+store or takes over an existing app. A running but locked app needs you to
+unlock it.
 
 The command reads `~/.brightside/config.json` for the venue port and
 `tool-token.json` beside it for authentication. For a different installation,
 append the absolute configuration path after `--mcp-stdio`. This mode accepts
 neither `--unlock` nor `--takeover`.
 
-Keep Brightside running, optionally in the tray. Missing credentials, failed
-authentication or a lost connection end the bridge with a diagnostic on
-standard error; reconnect the client once the app is available. Closing a
+The app stays running after a client disconnects, including when that client
+started it. Missing setup, failed authentication or a lost connection end the
+bridge with a diagnostic on standard error; reconnect once the app is
+available. A startup timeout leaves the app starting; a later connection can
+rejoin it. `mcp-startup.lock` beside the configuration coordinates launchers
+and records the starting process; it contains no credentials. Closing a
 client ends its bridge, not Brightside. The
 [local token's authority and lifetime](#from-claude-code) also apply here.
 
