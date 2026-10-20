@@ -88,6 +88,11 @@ public final class Labels {
 		return new JLabel(wrap(html, width, align), align);
 	}
 
+	/** {@code text} made safe to place inside {@link #html}: an error message, a file name. */
+	public static String escape(String text) {
+		return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+	}
+
 	/** The HTML {@link #html} shows — for updating such a label's text later. */
 	public static String wrap(String html, int width, int align) {
 		String css = "text-align:" + (align == SwingConstants.CENTER ? "center" : "left")

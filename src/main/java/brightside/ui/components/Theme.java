@@ -129,6 +129,12 @@ public final class Theme {
 		return FlatUIUtils.getUIColor("Brightside.surface", 0x2B2B2B);
 	}
 
+	/** The accent's faint tint the selected row or tab sits on: the navigation's, the tinted button's. */
+	public static Color tinted() {
+		Color put = UIManager.getColor("Brightside.tinted.background");
+		return (put != null) ? put : fade(accent(), 0.22f);
+	}
+
 	/** Behind code in rendered Markdown: a further step off the surface it sits on. */
 	public static Color codeBackground() {
 		return FlatUIUtils.getUIColor("Brightside.code.background", 0x3A3A3A);

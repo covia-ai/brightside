@@ -22,9 +22,11 @@ import java.util.concurrent.CompletableFuture;
 
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
+import javax.swing.Box;
 import javax.swing.DefaultListModel;
 import javax.swing.Icon;
 import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
@@ -58,6 +60,7 @@ import brightside.files.FileSource.Root;
 import brightside.ui.components.Borders;
 import brightside.ui.components.Buttons;
 import brightside.ui.components.Card;
+import brightside.ui.components.EmptyState;
 import brightside.ui.components.EyeButton;
 import brightside.ui.components.Labels;
 import brightside.ui.components.Lucide;
@@ -65,6 +68,8 @@ import brightside.ui.components.Readout;
 import brightside.ui.components.Scrolls;
 import brightside.ui.components.Styles;
 import brightside.ui.components.Theme;
+import brightside.ui.components.Tone;
+import net.miginfocom.swing.MigLayout;
 
 /** Lazy directory tree, folder contents and literal previews, independent of storage providers. */
 @SuppressWarnings("serial")
@@ -77,17 +82,18 @@ public final class FileBrowser extends JPanel {
 	private final DefaultListModel<Entry> entries = new DefaultListModel<>();
 	private final JList<Entry> files = new JList<>(entries);
 	private final JTextField filter = new JTextField();
-	private final JPanel breadcrumbs = panel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-	private final JLabel folderTitle = Labels.section("Your files");
-	private final JLabel count = Labels.small("Choose a folder to get started");
+	private final JPanel breadcrumbs = panel(new MigLayout("insets 0, gap 0, aligny center", "", ""));
+	/** The line along the bottom: how many items, and any warning the listing carries. */
 	private final JLabel status = Labels.small(" ");
-	private final JLabel empty = Labels.muted("Choose a folder from the sidebar.");
+	/** What the folder area shows instead of the list: loading, empty, or why it can't be read. */
+	private final JPanel empty = panel(new java.awt.GridBagLayout());
 	private final JPanel contents = new JPanel(new CardLayout());
 	private final JPanel detail = panel(new BorderLayout());
 	private final JButton back = iconButton("arrow-left", "Back (Alt+Left)");
 	private final JButton up = iconButton("arrow-up", "Parent folder (Alt+Up)");
 	private final JButton refresh = iconButton("refresh-cw", "Refresh files (F5)");
 	private final EyeButton previewToggle = new EyeButton("Show file preview", "Hide file preview", 18);
+	private final Runnable storageSettings;
 	private final JSplitPane folderSplit;
 	private final ArrayDeque<Location> history = new ArrayDeque<>();
 	private final Set<Location> expanded = new HashSet<>();
@@ -104,22 +110,7 @@ public final class FileBrowser extends JPanel {
 
 	public FileBrowser(Runnable storageSettings) {
 		super(new BorderLayout());
-		JPanel heading = panel(new BorderLayout(12, 0));
-		heading.setBorder(BorderFactory.createEmptyBorder(16, 20, 14, 16));
-		JPanel titles = panel(new BorderLayout(0, 3));
-		titles.add(Labels.section("Files"), BorderLayout.NORTH);
-		titles.add(Labels.small("Your folders and personal drives"), BorderLayout.SOUTH);
-		heading.add(titles, BorderLayout.CENTER);
-		JPanel actions = panel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
-		JButton settings = Buttons.secondary("Storage settings");
-		settings.addActionListener(e -> storageSettings.run());
-		actions.add(settings);
-		previewToggle.setShown(previewShown);
-		actions.add(previewToggle);
-		actions.add(refresh);
-		heading.add(actions, BorderLayout.EAST);
-		add(heading, BorderLayout.NORTH);
-
+		this.storageSettings = storageSettings;
 		tree.setRootVisible(false);
 		tree.setShowsRootHandles(true);
 		tree.setRowHeight(UIScale.scale(32));
@@ -151,32 +142,39 @@ public final class FileBrowser extends JPanel {
 		sidebar.add(Scrolls.both(tree), BorderLayout.CENTER);
 		sidebar.setMinimumSize(new Dimension(UIScale.scale(150), 0));
 
+		// One toolbar over the folder: where you are on the left, the filter and
+		// the view's actions on the right. The breadcrumb is the folder's title.
 		JPanel toolbar = panel(new BorderLayout(8, 0));
 		toolbar.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 12));
-		JPanel travel = panel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+		JPanel travel = panel(new MigLayout("insets 0, gap 0, aligny center", "", ""));
 		travel.add(back);
 		travel.add(up);
 		toolbar.add(travel, BorderLayout.WEST);
 		toolbar.add(breadcrumbs, BorderLayout.CENTER);
-
-		JPanel directory = panel(new BorderLayout(0, 10));
-		directory.setBorder(BorderFactory.createEmptyBorder(10, 12, 8, 12));
-		JPanel folderHeading = panel(new BorderLayout(0, 10));
-		JPanel folderLabels = panel(new BorderLayout(0, 4));
-		folderLabels.add(folderTitle, BorderLayout.NORTH);
-		folderLabels.add(count, BorderLayout.SOUTH);
-		folderHeading.add(folderLabels, BorderLayout.NORTH);
+		filter.setColumns(14);
 		filter.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Filter this folder…");
 		filter.putClientProperty(FlatClientProperties.TEXT_FIELD_LEADING_ICON, Lucide.icon("search", 16, Theme::muted));
 		filter.putClientProperty(FlatClientProperties.TEXT_FIELD_SHOW_CLEAR_BUTTON, true);
 		filter.getAccessibleContext().setAccessibleName("Filter this folder");
-		folderHeading.add(filter, BorderLayout.SOUTH);
-		directory.add(folderHeading, BorderLayout.NORTH);
+		JPanel tools = panel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
+		tools.add(filter);
+		tools.add(Box.createHorizontalStrut(UIScale.scale(4)));
+		tools.add(refresh);
+		previewToggle.setShown(previewShown);
+		tools.add(previewToggle);
+		JButton settings = iconButton("settings", "Storage settings");
+		settings.addActionListener(e -> storageSettings.run());
+		tools.add(settings);
+		toolbar.add(tools, BorderLayout.EAST);
+
+		JPanel directory = panel(new BorderLayout());
+		directory.setBorder(BorderFactory.createEmptyBorder(4, 12, 8, 12));
 		files.setCellRenderer(new FileRenderer());
 		files.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		files.setFixedCellHeight(UIScale.scale(56));
 		files.setOpaque(false);
 		files.getAccessibleContext().setAccessibleName("Folder contents");
+		ToolTipManager.sharedInstance().registerComponent(files);
 		files.addListSelectionListener(e -> { if (!e.getValueIsAdjusting()) selectFile(); });
 		files.addMouseListener(new MouseAdapter() {
 			@Override public void mouseClicked(MouseEvent e) {
@@ -189,9 +187,7 @@ public final class FileBrowser extends JPanel {
 		files.getActionMap().put("open", action(this::openDirectory));
 		contents.setOpaque(false);
 		contents.add(Scrolls.vertical(files), "files");
-		JPanel emptyPanel = panel(new java.awt.GridBagLayout());
-		emptyPanel.add(empty);
-		contents.add(emptyPanel, "empty");
+		contents.add(empty, "empty");
 		directory.add(contents, BorderLayout.CENTER);
 		directory.setMinimumSize(new Dimension(UIScale.scale(200), UIScale.scale(180)));
 		detail.setMinimumSize(new Dimension(UIScale.scale(220), UIScale.scale(140)));
@@ -202,7 +198,8 @@ public final class FileBrowser extends JPanel {
 		JSplitPane layout = split(sidebar, workspace, 0);
 		layout.setDividerLocation(UIScale.scale(230));
 		add(layout, BorderLayout.CENTER);
-		status.setBorder(BorderFactory.createEmptyBorder(8, 18, 10, 18));
+		status.setBorder(BorderFactory.createCompoundBorder(Borders.hairlineTop(),
+			BorderFactory.createEmptyBorder(6, 18, 7, 18)));
 		add(status, BorderLayout.SOUTH);
 		addComponentListener(new ComponentAdapter() {
 			@Override public void componentResized(ComponentEvent e) { responsive(); }
@@ -239,11 +236,9 @@ public final class FileBrowser extends JPanel {
 		entries.clear();
 		filter.setText("");
 		breadcrumbs.removeAll();
-		folderTitle.setText("Your files");
-		count.setText("Choose a folder to get started");
-		message("Choose a folder from the sidebar.");
+		show(new EmptyState("folder", Tone.MUTED, "Your files", "Choose a folder from the sidebar.").bare());
 		resetPreview();
-		status.setText(" ");
+		status(null);
 		buttons();
 	}
 
@@ -256,7 +251,7 @@ public final class FileBrowser extends JPanel {
 		listing = null;
 		entries.clear();
 		resetPreview();
-		message("Loading your storage…");
+		loading("Loading your storage…");
 		buttons();
 		reads.roots().whenComplete((roots, failure) -> SwingUtilities.invokeLater(() -> {
 			if (version != epoch) return;
@@ -265,8 +260,8 @@ public final class FileBrowser extends JPanel {
 			if (failure != null) {
 				treeRoot.removeAllChildren();
 				treeModel.reload();
-				message(error(failure));
-				status.setText("Refresh to try again.");
+				show(unreadable("Couldn't read your storage", failure, "Refresh to try again."));
+				status(null);
 				return;
 			}
 			selectingTree = true;
@@ -288,9 +283,9 @@ public final class FileBrowser extends JPanel {
 				current = null;
 				history.clear();
 				breadcrumbs.removeAll();
-				folderTitle.setText("Your files");
-				count.setText("No storage available");
-				message("Add a folder or drive in Storage settings.");
+				show(new EmptyState("hard-drive", Tone.ACCENT, "No storage yet",
+					"Add a folder on this computer, or a personal drive.").bare().action("Storage settings", storageSettings));
+				status(null);
 				buttons();
 			} else {
 				if (current == null || !roots.contains(current.root())) {
@@ -354,18 +349,19 @@ public final class FileBrowser extends JPanel {
 		entries.clear();
 		filter.setText("");
 		resetPreview();
-		folderTitle.setText(next.name());
-		count.setText(next.root().kind());
 		crumbs();
-		message("Loading folder…");
-		status.setText(" ");
+		loading("Loading folder…");
+		status(next.root().kind());
 		buttons();
 		reads.list(next).whenComplete((result, failure) -> SwingUtilities.invokeLater(() -> {
 			if (version != navigation) return;
-			if (failure != null) { message(error(failure)); status.setText("Use Up to return, or Refresh to try again."); return; }
+			if (failure != null) {
+				show(unreadable("Couldn't read this folder", failure, "Use Up to return, or Refresh to try again."));
+				status(null);
+				return;
+			}
 			listing = result;
 			filter();
-			status.setText(result.warning().isEmpty() ? "Double-click a folder to open it · Select a file to preview" : result.warning());
 		}));
 		for (Directory node : rootNodes()) if (node.location.root().equals(next.root())) reveal(node, next, version);
 	}
@@ -401,9 +397,17 @@ public final class FileBrowser extends JPanel {
 		entries.clear();
 		for (Entry entry : listing.entries()) if (entry.name().toLowerCase(Locale.ROOT).contains(query)) entries.addElement(entry);
 		if (selected != null && entries.contains(selected)) files.setSelectedValue(selected, true);
-		count.setText(query.isEmpty() ? listing.entries().size() + " items" : entries.size() + " of " + listing.entries().size() + " items");
-		if (entries.isEmpty()) message(query.isEmpty() ? "This folder is empty." : "No files match this filter.");
-		else ((CardLayout) contents.getLayout()).show(contents, "files");
+		int all = listing.entries().size();
+		String count = query.isEmpty() ? items(all) : entries.size() + " of " + items(all);
+		status(listing.warning().isEmpty() ? count : count + "  ·  " + listing.warning());
+		if (entries.isEmpty()) {
+			show(query.isEmpty() ? new EmptyState("folder", Tone.MUTED, "This folder is empty", null).bare()
+				: new EmptyState("search", Tone.MUTED, "No matches", "Nothing in this folder matches the filter.").bare());
+		} else ((CardLayout) contents.getLayout()).show(contents, "files");
+	}
+
+	private static String items(int n) {
+		return n + (n == 1 ? " item" : " items");
 	}
 
 	private void openDirectory() {
@@ -461,25 +465,37 @@ public final class FileBrowser extends JPanel {
 		detail.repaint();
 	}
 
+	/**
+	 * The path as the folder's title: each folder above a link to it, the one
+	 * open in bold. A deep path shows its root, an ellipsis to the folder above
+	 * the last two, and the last two.
+	 */
 	private void crumbs() {
 		breadcrumbs.removeAll();
 		Location root = new Location(current.root(), "");
-		breadcrumbs.add(Buttons.link(root.name(), () -> navigate(root, true)));
 		String[] parts = current.path().isEmpty() ? new String[0] : current.path().split("/");
+		crumb(root.name(), root, parts.length == 0);
 		Location path = root;
 		for (int i = 0; i < parts.length; i++) {
 			path = path.child(parts[i]);
 			Location target = path;
 			if (i < parts.length - 2) {
-				if (i == parts.length - 3) breadcrumbs.add(Buttons.link("…", () -> navigate(target, true)));
+				if (i == parts.length - 3) {
+					breadcrumbs.add(Labels.icon(Lucide.icon("chevron-right", 12, Theme::muted)));
+					breadcrumbs.add(Buttons.link("…", () -> navigate(target, true)));
+				}
 				continue;
 			}
 			breadcrumbs.add(Labels.icon(Lucide.icon("chevron-right", 12, Theme::muted)));
-			breadcrumbs.add(Buttons.link(parts[i], () -> navigate(target, true)));
+			crumb(parts[i], target, i == parts.length - 1);
 		}
 		breadcrumbs.setToolTipText(current.root().name() + "/" + current.path());
 		breadcrumbs.revalidate();
 		breadcrumbs.repaint();
+	}
+
+	private void crumb(String name, Location target, boolean open) {
+		breadcrumbs.add(open ? Labels.heading(name) : Buttons.link(name, () -> navigate(target, true)));
 	}
 
 	private void goBack() { if (!refreshing && !history.isEmpty()) navigate(history.pop(), false); }
@@ -490,7 +506,24 @@ public final class FileBrowser extends JPanel {
 		up.setEnabled(!refreshing && current != null && !current.path().isEmpty());
 		filter.setEnabled(!refreshing && current != null);
 	}
-	private void message(String text) { empty.setText(text); ((CardLayout) contents.getLayout()).show(contents, "empty"); }
+	/** The folder area shows {@code state} in place of the list. */
+	private void show(JComponent state) {
+		empty.removeAll();
+		empty.add(state);
+		empty.revalidate();
+		empty.repaint();
+		((CardLayout) contents.getLayout()).show(contents, "empty");
+	}
+	private void loading(String text) { show(Labels.small(text)); }
+	/** Why a read failed, and what to do about it. */
+	private static EmptyState unreadable(String title, Throwable failure, String then) {
+		return new EmptyState("circle-alert", Tone.ERROR, title, Labels.escape(reason(failure)) + "<br>" + then).bare();
+	}
+	/** The bottom line, hidden while there is nothing to say. */
+	private void status(String text) {
+		status.setText(text);
+		status.setVisible(text != null && !text.isBlank());
+	}
 	private void responsive() {
 		int orientation = getWidth() < UIScale.scale(900) ? JSplitPane.VERTICAL_SPLIT : JSplitPane.HORIZONTAL_SPLIT;
 		if (folderSplit.getOrientation() != orientation) {
@@ -540,8 +573,11 @@ public final class FileBrowser extends JPanel {
 		return split;
 	}
 	private static String error(Throwable error) {
+		return "Could not read: " + reason(error);
+	}
+	private static String reason(Throwable error) {
 		while (error.getCause() != null) error = error.getCause();
-		return "Could not read: " + (error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage());
+		return error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
 	}
 	private static String kind(Entry entry) { return entry.directory() ? "Folder" : "file".equals(entry.type()) ? "File" : entry.type(); }
 	private static String displaySize(long bytes) {
@@ -603,8 +639,10 @@ public final class FileBrowser extends JPanel {
 				+ (entry.modified() > 0 ? "  ·  " + DATE.format(Instant.ofEpochMilli(entry.modified())) : ""));
 			icon.setIcon(entry.directory() ? folder : file);
 			trailing.setIcon(entry.directory() ? chevron : null);
-			fill(selected ? () -> Theme.blend(Theme.panel(), Theme.accent(), 0.13f) : Theme::panel);
+			// The selected row sits on the accent tint the tree's selection and the navigation use.
+			fill(selected ? Theme::tinted : () -> null);
 			outline(focus ? Theme::accent : () -> null);
+			setToolTipText(entry.directory() ? "Double-click or press Enter to open" : null);
 			return this;
 		}
 	}
