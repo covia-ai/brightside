@@ -236,7 +236,7 @@ public final class ContextInspector {
 
 		JLabel about = Labels.html("Exactly what the assistant's model receives for this conversation, assembled as "
 			+ "for a live reply but not sent. The budget is the model's declared context size — a guide the "
-			+ "assembler warns against, not a cap.", 520, SwingConstants.LEFT);
+			+ "assembler warns against, not a cap.", 440, SwingConstants.LEFT);
 		Styles.classes(about, Styles.SMALL, Styles.MUTED);
 		p.add(about, "span 3, gaptop 8, wmin 0");
 		return p;

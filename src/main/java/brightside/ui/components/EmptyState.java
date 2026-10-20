@@ -20,11 +20,13 @@ public final class EmptyState extends Card {
 	/** {@code body}: HTML, or null for a title alone. */
 	public EmptyState(String icon, Tone tone, String title, String body) {
 		super(14);
-		setLayout(new MigLayout("insets 28 24 28 24, fillx, wrap 1, gapy 6", "[center]", ""));
+		// Centred both ways, so a bare state stretched over an empty pane sits in its middle.
+		setLayout(new MigLayout("insets 28 24 28 24, fillx, wrap 1, gapy 6, aligny center", "[center]", ""));
 		add(new Badge(icon, tone, 38), "gapbottom 6");
 		add(Labels.lead(title));
 		if (body != null) {
-			JLabel b = Labels.html(body, 380, SwingConstants.CENTER);
+			// Narrow enough for the narrowest pane it fills (Files' preview): HTML wrapped at a width never shrinks.
+			JLabel b = Labels.html(body, 280, SwingConstants.CENTER);
 			Styles.classes(b, Styles.MUTED);
 			add(b);
 		}

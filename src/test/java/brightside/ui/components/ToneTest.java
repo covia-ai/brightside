@@ -8,14 +8,18 @@ import java.awt.Color;
 import javax.swing.UIManager;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import brightside.ui.LAF;
 
 /**
  * The tones' grounds come from Brightside's UI defaults through a real theme
  * install, a step stronger on a dark theme than a light one — not from the
- * fallback {@link Tone#tint} works out when a key is missing.
+ * fallback {@link Tone#tint} works out when a key is missing. Isolated: it
+ * swaps the JVM's look and feel, which the concurrent classes measuring text
+ * must not see change under them.
  */
+@Isolated
 class ToneTest {
 
 	@Test
