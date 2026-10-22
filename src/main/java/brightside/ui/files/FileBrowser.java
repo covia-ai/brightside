@@ -2,6 +2,7 @@ package brightside.ui.files;
 
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -21,6 +22,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
@@ -85,7 +87,15 @@ public final class FileBrowser extends JPanel {
 	private final DefaultTreeModel treeModel = new DefaultTreeModel(treeRoot);
 	private final JTree tree = new JTree(treeModel);
 	private final DefaultListModel<Entry> entries = new DefaultListModel<>();
-	private final JList<Entry> files = new JList<>(entries);
+	private final JList<Entry> files = new JList<>(entries) {
+		/** A folder row says how to open it; the list answers for its rows, so the renderer needn't. */
+		@Override
+		public String getToolTipText(MouseEvent e) {
+			int row = locationToIndex(e.getPoint());
+			if (row < 0 || !getCellBounds(row, row).contains(e.getPoint())) return null;
+			return entries.get(row).directory() ? "Double-click or press Enter to open" : null;
+		}
+	};
 	private final JTextField filter = new JTextField();
 	private final JPanel breadcrumbs = panel(new MigLayout("insets 0, gap 0, aligny center", "", ""));
 	/** The line along the bottom: how many items, and any warning the listing carries. */
@@ -640,6 +650,8 @@ public final class FileBrowser extends JPanel {
 	}
 
 	private static final class FileRenderer extends Card implements ListCellRenderer<Entry> {
+		// The row's looks, one instance each, so a cell that looks as the last did changes nothing.
+		private static final Supplier<Color> TINTED = Theme::tinted, ACCENT = Theme::accent, NONE = () -> null;
 		private final JLabel name = Labels.heading("");
 		private final JLabel meta = Labels.small("");
 		private final JLabel icon = Labels.icon(null);
@@ -668,9 +680,8 @@ public final class FileBrowser extends JPanel {
 			icon.setIcon(icons.get(FileKind.of(entry.name(), entry.directory())));
 			trailing.setIcon(entry.directory() ? chevron : null);
 			// The selected row sits on the accent tint the tree's selection and the navigation use.
-			fill(selected ? Theme::tinted : () -> null);
-			outline(focus ? Theme::accent : () -> null);
-			setToolTipText(entry.directory() ? "Double-click or press Enter to open" : null);
+			fill(selected ? TINTED : NONE);
+			outline(focus ? ACCENT : NONE);
 			return this;
 		}
 	}

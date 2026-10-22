@@ -2,6 +2,7 @@ package brightside.ui.components;
 
 import java.awt.Cursor;
 
+import javax.swing.Icon;
 import javax.swing.JButton;
 
 import com.formdev.flatlaf.FlatClientProperties;
@@ -18,14 +19,16 @@ public final class EyeButton extends JButton {
 
 	private final String show;
 	private final String hide;
-	private final int size;
+	private final Icon open;
+	private final Icon shut;
 	private boolean shown;
 
 	/** {@code show} and {@code hide}: the tooltips naming what a press does, while hidden and while shown. */
 	public EyeButton(String show, String hide, int size) {
 		this.show = show;
 		this.hide = hide;
-		this.size = size;
+		open = Lucide.icon("eye", size, Theme::muted);
+		shut = Lucide.icon("eye-off", size, Theme::muted);
 		putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_TOOLBAR_BUTTON);
 		setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		setShown(false);
@@ -37,7 +40,7 @@ public final class EyeButton extends JButton {
 
 	public void setShown(boolean shown) {
 		this.shown = shown;
-		setIcon(Lucide.icon(shown ? "eye" : "eye-off", size, Theme::muted));
+		setIcon(shown ? open : shut);
 		String tip = shown ? hide : show;
 		setToolTipText(tip);
 		getAccessibleContext().setAccessibleName(tip);

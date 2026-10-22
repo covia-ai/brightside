@@ -45,6 +45,7 @@ public class Card extends JPanel {
 
 	/** A fill read when painting — a {@link Theme} accessor such as {@code Theme::accent} follows a theme change. */
 	public Card fill(Supplier<Color> colour) {
+		if (colour == fill) return this; // a renderer sets the same one cell after cell
 		this.fill = colour;
 		repaint();
 		return this;
@@ -57,6 +58,7 @@ public class Card extends JPanel {
 
 	/** An outline read when painting, so it follows a theme change. */
 	public Card outline(Supplier<Color> colour) {
+		if (colour == outline) return this;
 		this.outline = colour;
 		repaint();
 		return this;

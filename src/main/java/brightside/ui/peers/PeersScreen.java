@@ -227,9 +227,15 @@ public final class PeersScreen extends JPanel {
 		});
 	}
 
+	// The header's changing icons, made once: syncView runs on every step of a glide.
+	private static final Icon PLAY = Lucide.icon("play", 16, Theme::muted);
+	private static final Icon HOLD = Lucide.icon("circle-pause", 16, Theme::muted);
+	private static final Icon TRACKING = Lucide.icon("orbit", 16, Theme::accent);
+	private static final Icon TRACK = Lucide.icon("orbit", 16, Theme::muted);
+
 	private void syncPause() {
 		boolean p = map.isPaused();
-		pause.setIcon(Lucide.icon(p ? "play" : "circle-pause", 16, Theme::muted));
+		pause.setIcon(p ? PLAY : HOLD);
 		pause.setToolTipText(p ? "Set the map turning again" : "Hold the map still");
 	}
 
@@ -238,7 +244,7 @@ public final class PeersScreen extends JPanel {
 		reset.setEnabled(map.rearranged());
 		boolean following = map.tracking() != null;
 		String you = map.acting();
-		follow.setIcon(Lucide.icon("orbit", 16, following ? Theme::accent : Theme::muted));
+		follow.setIcon(following ? TRACKING : TRACK);
 		follow.setToolTipText(following ? "Stop tracking" : "Track your planet");
 		follow.setEnabled(following || you != null);
 	}
