@@ -5,6 +5,7 @@ import java.awt.Cursor;
 import java.awt.Font;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.event.HierarchyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.Rectangle2D;
@@ -177,6 +178,11 @@ public class Readout extends JTextPane {
 		addMouseListener(clicks);
 		addMouseMotionListener(clicks);
 		ToolTipManager.sharedInstance().registerComponent(this);
+		// Rendered when seen: a document built, changed or restyled while out of
+		// sight (a tab not chosen, a screen not open) catches up when it comes into view.
+		addHierarchyListener(e -> {
+			if ((e.getChangeFlags() & HierarchyEvent.SHOWING_CHANGED) != 0 && stale && isShowing()) render();
+		});
 		built = true;
 	}
 
@@ -272,7 +278,7 @@ public class Readout extends JTextPane {
 		if (parts.isEmpty() || text == null || text.isBlank()) return this;
 		tips.put(parts.size() - 1, text);
 		stale = true;
-		if (isDisplayable()) render();
+		if (isShowing()) render();
 		return this;
 	}
 
@@ -284,7 +290,7 @@ public class Readout extends JTextPane {
 		parts.add(part);
 		this.underEntry = underEntry;
 		stale = true;
-		if (isDisplayable()) render();
+		if (isShowing()) render();
 		return this;
 	}
 
@@ -319,6 +325,7 @@ public class Readout extends JTextPane {
 	 * anchored so, or the pane has not been laid out yet.
 	 */
 	public boolean scrollTo(String id) {
+		if (stale) render();
 		Integer index = anchors.get(id);
 		if (index == null || index >= starts.length) return false;
 		int start = starts[index];
@@ -343,18 +350,14 @@ public class Readout extends JTextPane {
 		return true;
 	}
 
-	@Override
-	public void addNotify() {
-		super.addNotify();
-		if (stale) render();
-	}
-
+	/** A theme change restyles the document now if it is in view, else when it next comes into view. */
 	@Override
 	public void updateUI() {
 		super.updateUI();
 		if (built) {
 			quietCaret(); // a theme change installs a fresh caret
-			render();
+			stale = true;
+			if (isShowing()) render();
 		}
 	}
 

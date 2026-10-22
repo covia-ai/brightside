@@ -432,9 +432,10 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 		if (report == null) {
 			noteSession(() -> unreadable("Couldn't read this conversation's context"));
 		} else {
-			// The inspector's tabs in order: the overview, then one per piece.
+			// The inspector's tabs in order: the overview, then one per piece, back in the Context tab.
 			List<ContextInspector.Tab> views = ContextInspector.tabs(report, turns, skills, host::showSkill);
 			fill(slots.get(View.OVERVIEW), views.get(0).view());
+			fill(slots.get(View.CONTEXT), parts);
 			Part[] pieces = Part.values();
 			for (int i = 0; i < pieces.length; i++) {
 				ContextInspector.Tab t = views.get(i + 1);
@@ -454,10 +455,15 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 		if (current() == View.AGENT) readAgent();
 	}
 
-	/** Every per-conversation view shows {@code state} (a fresh one each) in place of a reading. */
+	/**
+	 * The per-conversation views show {@code state} in place of a reading: the
+	 * Overview one, and the Context tab one in place of its row of pieces, whose
+	 * previous documents are let go.
+	 */
 	private void noteSession(Supplier<JComponent> state) {
 		fill(slots.get(View.OVERVIEW), state.get());
-		for (Part p : Part.values()) fillPart(p, p.title, state.get());
+		fill(slots.get(View.CONTEXT), state.get());
+		for (JPanel slot : partSlots.values()) slot.removeAll();
 	}
 
 	private void noteAgent(Supplier<JComponent> state) {
