@@ -75,9 +75,14 @@ final class Bubble extends Card {
 		return new Bubble(ta, user);
 	}
 
-	/** Markdown rendered in the theme's type — the assistant's side; links open in the browser. */
+	/**
+	 * Markdown rendered in the theme's type — the assistant's side; links open
+	 * in the browser. A transcript holds many, mostly out of view, so each
+	 * renders again (for a theme change or new text) only while it is showing.
+	 */
 	static Bubble markdown(String markdown) {
 		MarkdownPane pane = new MarkdownPane(MarkdownStyles::current, markdown)
+			.renderWhenShowing()
 			.unfocusable()
 			.onLink(Links::open);
 		pane.setOpaque(false);
