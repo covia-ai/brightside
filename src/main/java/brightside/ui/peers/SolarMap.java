@@ -7,6 +7,7 @@ import java.awt.Composite;
 import java.awt.Cursor;
 import java.awt.Font;
 import java.awt.FontMetrics;
+import java.awt.Frame;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.MultipleGradientPaint;
@@ -24,6 +25,7 @@ import java.awt.geom.Line2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.IdentityHashMap;
@@ -662,6 +664,8 @@ final class SolarMap extends JComponent {
 
 	private void tick() {
 		t = clock() - pausedFor;
+		// A minimised window still counts as showing; nothing there to see, so nothing to paint.
+		if (SwingUtilities.getWindowAncestor(this) instanceof Frame f && (f.getExtendedState() & Frame.ICONIFIED) != 0) return;
 		repaint();
 	}
 
@@ -810,14 +814,41 @@ final class SolarMap extends JComponent {
 		for (Body c : b.children) reveal(c, kids, s);
 	}
 
+	/**
+	 * The deep sky and its nebulae change only with the size, the pan and the
+	 * accent, so they are drawn once into an image and reused frame to frame;
+	 * filling them afresh 30 times a second was most of the map's cost. The
+	 * stars twinkle, so they are drawn over it each frame.
+	 */
+	private record SkyKey(int w, int h, double panX, double panY, int accent) {
+	}
+
+	private SkyKey skyKey;
+	private BufferedImage skyImage;
+
 	private void paintSky(Graphics2D g, int w, int h) {
-		float rad = (float) Math.max(w, h) * 0.75f;
-		g.setPaint(new RadialGradientPaint(new Point2D.Double(w / 2.0 + panX * 0.05, h / 2.0 + panY * 0.05), rad,
-			new float[] { 0f, 1f }, new Color[] { SPACE_CENTRE, SPACE_EDGE }));
-		g.fillRect(0, 0, w, h);
 		Color accent = Theme.accent();
-		nebula(g, w * 0.22 + panX * 0.08, h * 0.28 + panY * 0.08, Math.max(w, h) * 0.38, accent, 0.10f);
-		nebula(g, w * 0.82 + panX * 0.08, h * 0.78 + panY * 0.08, Math.max(w, h) * 0.30, new Color(0x2DD4BF), 0.07f);
+		SkyKey key = new SkyKey(w, h, panX, panY, accent.getRGB());
+		if (!key.equals(skyKey) || skyImage == null) {
+			skyImage = new BufferedImage(Math.max(1, w), Math.max(1, h), BufferedImage.TYPE_INT_RGB);
+			Graphics2D s = skyImage.createGraphics();
+			try {
+				float rad = (float) Math.max(w, h) * 0.75f;
+				s.setPaint(new RadialGradientPaint(new Point2D.Double(w / 2.0 + panX * 0.05, h / 2.0 + panY * 0.05), rad,
+					new float[] { 0f, 1f }, new Color[] { SPACE_CENTRE, SPACE_EDGE }));
+				s.fillRect(0, 0, w, h);
+				nebula(s, w * 0.22 + panX * 0.08, h * 0.28 + panY * 0.08, Math.max(w, h) * 0.38, accent, 0.10f);
+				nebula(s, w * 0.82 + panX * 0.08, h * 0.78 + panY * 0.08, Math.max(w, h) * 0.30, new Color(0x2DD4BF), 0.07f);
+			} finally {
+				s.dispose();
+			}
+			skyKey = key;
+		}
+		// Drawn at the component's own size: on a scaled display the soft gradients stretch smoothly.
+		Object interpolation = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
+		g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+		g.drawImage(skyImage, 0, 0, null);
+		if (interpolation != null) g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, interpolation);
 		// The far sky drifts a little with the pan, for parallax, and twinkles.
 		for (float[] st : stars) {
 			double x = ((st[0] * w + panX * 0.06) % w + w) % w;
@@ -832,7 +863,8 @@ final class SolarMap extends JComponent {
 	private static void nebula(Graphics2D g, double x, double y, double r, Color c, float alpha) {
 		g.setPaint(new RadialGradientPaint(new Point2D.Double(x, y), (float) r, new float[] { 0f, 1f },
 			new Color[] { fade(c, alpha), fade(c, 0f) }));
-		g.fill(new Ellipse2D.Double(x - r, y - r, 2 * r, 2 * r));
+		// The gradient is clear at its rim and beyond, so its square looks the same as its circle and needs no antialiasing.
+		g.fill(new Rectangle2D.Double(x - r, y - r, 2 * r, 2 * r));
 	}
 
 	/** A dashed line from your venue to a venue linked to you, with ships travelling it when both ends are live. */
