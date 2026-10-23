@@ -343,8 +343,14 @@ final class VoiceInput {
 			if (end < draft.length() && !Character.isWhitespace(draft.charAt(end))) text = text + " ";
 		}
 		try {
-			doc.remove(anchor, shown);
-			doc.insertString(anchor, text, null);
+			// Only what changed is rewritten: answers come twice a second, mostly the
+			// same, and a selection in the words already there must survive them.
+			String now = doc.getText(anchor, shown);
+			int same = 0;
+			while (same < now.length() && same < text.length() && now.charAt(same) == text.charAt(same)) same++;
+			if (same == now.length() && same == text.length()) return;
+			doc.remove(anchor + same, shown - same);
+			doc.insertString(anchor + same, text.substring(same), null);
 			shown = text.length();
 		} catch (BadLocationException e) {
 			log.warn("Could not write the dictation into the draft", e);

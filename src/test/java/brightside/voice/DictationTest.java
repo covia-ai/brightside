@@ -17,6 +17,8 @@ class DictationTest {
 		assertEquals(new Dictation("He said “stop.”", true), Dictation.of("He said “stop.” go"), "after a closing quote");
 		assertEquals(new Dictation("First line", true), Dictation.of("First line\nGO..."), "a line break is a break too");
 		assertEquals(new Dictation("", true), Dictation.of("Go."), "alone: send what is already typed");
+		assertEquals(new Dictation("Hi Bright Side, are you hearing me?", true),
+			Dictation.of("Hi Bright Side, are you hearing me? Go"), "as Parakeet writes a lone go: no stop of its own");
 	}
 
 	@Test
