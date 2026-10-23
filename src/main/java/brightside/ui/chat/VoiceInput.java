@@ -21,6 +21,7 @@ import javax.swing.text.JTextComponent;
 
 import brightside.ui.components.Buttons;
 import brightside.ui.components.Dialogs;
+import brightside.ui.components.Documents;
 import brightside.ui.components.Loading;
 import brightside.ui.components.Lucide;
 import brightside.ui.components.StatusLabel;
@@ -31,14 +32,18 @@ import brightside.voice.Dictation;
 import brightside.voice.LiveDictation;
 import brightside.voice.Microphone;
 import brightside.voice.Voice;
+import convex.core.data.ACell;
+import convex.core.data.Strings;
 
 /**
  * Voice typing in the composer: a microphone beside Send, and one quiet line
  * above the composer while it is at work. Press to speak, press again to stop;
  * what was said goes into the draft at the caret for the owner to read, correct
  * and send. Ending with "go" as a sentence of its own sends the draft as Enter
- * would ({@link Dictation}), and so does Enter itself while dictating; nothing
- * else does. Escape discards the recording or the transcription under way.
+ * would ({@link Dictation}), as do a long pause after speaking and Enter itself
+ * while dictating; nothing else does. A draft holding spoken words goes to the
+ * agent as a {@linkplain Voice#spoken spoken message}, so it knows it was heard.
+ * Escape discards the recording or the transcription under way.
  *
  * <p>While the microphone is on, the draft is its: the place the words go — the
  * selection when it began — is held, and the engine that hears as the owner
@@ -73,6 +78,10 @@ final class VoiceInput {
 	private final Timer noteExpiry = new Timer(NOTE_MS, e -> showLine(null));
 
 	private Voice voice;
+	/** The engine as last asked, for what a spoken message says of how it was heard. */
+	private Voice.Engine engine;
+	/** The draft holds words that were spoken, until it is next emptied. */
+	private boolean dictated;
 	private boolean enabled;
 	private Phase phase = Phase.IDLE;
 	/** Bumped whenever an attempt is abandoned, so whatever it finishes later is dropped. */
@@ -92,6 +101,10 @@ final class VoiceInput {
 	VoiceInput(JTextComponent input, Runnable send) {
 		this.input = input;
 		this.send = send;
+		// An emptied draft — sent, cleared — holds nothing spoken any more.
+		Documents.onChange(input, () -> {
+			if (input.getDocument().getLength() == 0) dictated = false;
+		});
 		// Never the focus owner: the draft keeps the caret the words go to.
 		button.setFocusable(false);
 		button.addActionListener(e -> press());
@@ -146,6 +159,15 @@ final class VoiceInput {
 		else if (phase == Phase.TRANSCRIBING) sendWhenDone = true;
 	}
 
+	/**
+	 * What to send for {@code text}: a {@linkplain Voice#spoken spoken} message when
+	 * the draft holds dictated words, else just the text. {@code reviewed}: the owner
+	 * sent it themselves once the words were in, rather than by voice or mid-dictation.
+	 */
+	ACell message(String text, boolean reviewed) {
+		return dictated ? Voice.spoken(text, engine, reviewed) : Strings.create(text);
+	}
+
 	private void press() {
 		switch (phase) {
 			case IDLE -> check();
@@ -176,6 +198,7 @@ final class VoiceInput {
 				idle();
 				if (confirmDownload(engine) && phase == Phase.IDLE && voice == v) prepare(v);
 			} else {
+				this.engine = engine;
 				listen(mine, engine.live());
 			}
 		}));
@@ -256,7 +279,10 @@ final class VoiceInput {
 		CompletableFuture<String> id = v.listen(r.sampleRate());
 		live = new LiveDictation((pcm, end) -> id.thenCompose(i -> v.hear(i, pcm, end)), r.sampleRate(),
 			heard -> onEdt(mine, () -> {
-				if (busy()) show(heard.text());
+				if (!busy()) return;
+				show(heard.text());
+				// Said something, then quiet long enough to mean finished: stop and send.
+				if (phase == Phase.RECORDING && Dictation.pausedToSend(heard)) finish(true);
 			}));
 		r.onAudio(live::hear);
 	}
@@ -361,6 +387,7 @@ final class VoiceInput {
 	private void release(String words) {
 		if (anchor < 0) return;
 		show(words);
+		if (!words.isEmpty()) dictated = true;
 		input.setEditable(true);
 		input.setCaretPosition(Math.min(anchor + shown, input.getDocument().getLength()));
 		input.requestFocusInWindow();

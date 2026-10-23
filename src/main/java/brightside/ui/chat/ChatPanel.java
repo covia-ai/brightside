@@ -54,6 +54,8 @@ import brightside.ui.components.Styles;
 import brightside.ui.components.TextArea;
 import brightside.ui.components.Theme;
 import brightside.voice.Voice;
+import convex.core.data.ACell;
+import convex.core.data.Strings;
 import covia.venue.AgentEvents;
 
 /**
@@ -119,7 +121,7 @@ public final class ChatPanel extends JPanel {
 	private final JScrollPane inputScroll;
 	private final JButton send = Buttons.primary("Send");
 	private final JButton more = Buttons.icon(Lucide.icon("ellipsis", 18, Theme::muted), "Conversation options");
-	private final VoiceInput voice = new VoiceInput(input, this::send);
+	private final VoiceInput voice = new VoiceInput(input, () -> send(false));
 	private Host host;
 
 	private final List<SessionHistory.Item> displayed = new ArrayList<>();
@@ -586,26 +588,41 @@ public final class ChatPanel extends JPanel {
 	// Sending
 	// ------------------------------------------------------------------
 
-	/** Sends the composer's draft; while dictating, once the words are in. */
+	/** Sends the composer's draft, as Enter and Send do; while dictating, once the words are in. */
 	private void send() {
+		send(true);
+	}
+
+	/**
+	 * Sends the composer's draft. {@code reviewed}: the owner sent it themselves,
+	 * rather than voice typing sending it the moment the words were in — which a
+	 * spoken message tells the agent.
+	 */
+	private void send(boolean reviewed) {
 		if (voice.busy()) {
 			voice.sendWhenDone();
 			return;
 		}
 		String text = input.getText().trim();
 		if (text.isEmpty()) return;
+		ACell message = voice.message(text, reviewed);
 		input.setText("");
-		deliver(text);
+		deliver(text, message);
 	}
 
 	/** Sends {@code text} as the user's next message. */
 	private void deliver(String text) {
+		deliver(text, Strings.create(text));
+	}
+
+	/** Sends {@code message}, whose words are {@code text}, as the user's next message. */
+	private void deliver(String text, ACell message) {
 		ChatSession s = session;
 		if (s == null) return;
 		long version = bindingVersion;
-		addTurn("user", text);
+		addTurn("user", text, SessionHistory.originOf(message));
 		if (busy) {
-			enqueue(s, version, text);
+			enqueue(s, version, message);
 			focusInput();
 			return;
 		}
@@ -619,7 +636,7 @@ public final class ChatPanel extends JPanel {
 		new SwingWorker<ChatSession.Reply, Void>() {
 			@Override
 			protected ChatSession.Reply doInBackground() throws Exception {
-				return s.send(text, sid -> {
+				return s.send(message, sid -> {
 					accepted.complete(sid);
 					SwingUtilities.invokeLater(() -> {
 						if (session == s && bindingVersion == version && liveTurn != null && liveTurn.accepted()) {
@@ -692,7 +709,7 @@ public final class ChatPanel extends JPanel {
 	}
 
 	/** Deliver a follow-up to the venue queue without waiting for the active reply. */
-	private void enqueue(ChatSession s, long version, String text) {
+	private void enqueue(ChatSession s, long version, ACell message) {
 		CompletableFuture<String> accepted = acceptedSession;
 		if (accepted == null) {
 			appendError("The active conversation has not been accepted by the venue");
@@ -708,7 +725,7 @@ public final class ChatPanel extends JPanel {
 			.thenCombine(accepted, (ignored, sid) -> sid)
 			.thenApplyAsync(sid -> {
 				try {
-					return s.enqueue(text, sid);
+					return s.enqueue(message, sid);
 				} catch (Exception e) {
 					throw new CompletionException(e);
 				}
@@ -727,12 +744,17 @@ public final class ChatPanel extends JPanel {
 	}
 
 	private void addTurn(String role, String text) {
+		addTurn(role, text, null);
+	}
+
+	/** @param origin where the message came from, as the transcript shows it; null for none */
+	private void addTurn(String role, String text, String origin) {
 		// The venue records the turn in the agent session; the UI reflects it
 		// optimistically and keeps `displayed` in step so the watcher's compare
 		// doesn't re-render our own turns.
-		displayed.add(new SessionHistory.Message(role, text));
+		displayed.add(new SessionHistory.Message(role, text, origin));
 		hideEmptyState();
-		column.add(bubbleRow(text, "user".equals(role)));
+		column.add(bubbleRow(text, "user".equals(role), (origin != null) ? "via " + origin : null));
 		column.revalidate();
 		scrollToBottom();
 	}

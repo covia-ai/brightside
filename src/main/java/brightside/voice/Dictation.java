@@ -7,11 +7,20 @@ package brightside.voice;
  * writes as a sentence break — ignoring case and punctuation, and is not
  * itself written. "Let's go." and "Okay, go." are only words; so is a
  * transcript with no punctuation at all, since a pause cannot be told from it.
+ * A long pause once something has been said sends too, as the owner finishing
+ * ({@link #pausedToSend}).
  */
 public record Dictation(String text, boolean send) {
 
 	/** The spoken command, as a sentence by itself. */
 	static final String GO = "go";
+	/** How long a pause after speech ends a dictation and sends it: longer than a breath or a thought. */
+	public static final double LONG_PAUSE_SECONDS = 3;
+
+	/** Whether the owner has said something and then been quiet long enough to mean they have finished. */
+	public static boolean pausedToSend(Voice.Heard heard) {
+		return !heard.text().isBlank() && heard.quiet() >= LONG_PAUSE_SECONDS;
+	}
 	/** What may close a sentence, and what may stand after that inside it (a closing quote or bracket). */
 	private static final String TERMINATORS = ".!?…";
 	private static final String CLOSERS = "\"'”’)]»";

@@ -511,6 +511,17 @@ public final class ChatSession {
 	 *                 assigned its session id, before model work completes
 	 */
 	public Reply send(String message, Consumer<String> accepted) throws Exception {
+		return send(Strings.create(message), accepted);
+	}
+
+	/**
+	 * Sends one user message — text, or a structured {@code {text, via}} message
+	 * that says where it came from — and waits for the agent's reply.
+	 *
+	 * @param accepted called as soon as the venue has accepted the chat and
+	 *                 assigned its session id, before model work completes
+	 */
+	public Reply send(ACell message, Consumer<String> accepted) throws Exception {
 		ensureAgent();
 		try {
 			Reply reply = sendOnce(message, accepted);
@@ -548,6 +559,11 @@ public final class ChatSession {
 	 * observes the cycle(s) the venue subsequently runs.
 	 */
 	public Delivery enqueue(String message, String targetSessionId) throws Exception {
+		return enqueue(Strings.create(message), targetSessionId);
+	}
+
+	/** As {@link #enqueue(String, String)}, for a structured {@code {text, via}} message too. */
+	public Delivery enqueue(ACell message, String targetSessionId) throws Exception {
 		if (targetSessionId == null || targetSessionId.isBlank()) {
 			throw new IllegalStateException("Cannot queue a message before the venue assigns a session");
 		}
@@ -577,7 +593,7 @@ public final class ChatSession {
 		return false;
 	}
 
-	private Reply sendOnce(String message, Consumer<String> accepted) throws Exception {
+	private Reply sendOnce(ACell message, Consumer<String> accepted) throws Exception {
 		AMap<AString, ACell> input = Maps.of(Fields.AGENT_ID, config.agentId(), Fields.MESSAGE, message);
 		long generation = sessionGeneration;
 		String sid = sessionId;

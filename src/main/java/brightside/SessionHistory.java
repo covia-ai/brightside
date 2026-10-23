@@ -381,10 +381,10 @@ public final class SessionHistory {
 	/**
 	 * Where a structured inbound message came from, from its {@code via}
 	 * metadata: the delivery channel, the chat, and the sender — e.g.
-	 * {@code "Discord · #general · quark"}. Null when the message has none
-	 * (it was typed here).
+	 * {@code "Discord · #general · quark"}, or {@code "Voice"} for one spoken
+	 * here. Null when the message has none (it was typed here).
 	 */
-	private static String originOf(ACell content) {
+	public static String originOf(ACell content) {
 		ACell via = RT.getIn(content, "via");
 		if (via == null) return null;
 		List<String> bits = new ArrayList<>();

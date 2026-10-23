@@ -9,6 +9,7 @@ import convex.core.data.AString;
 import convex.core.data.AVector;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
+import convex.core.data.prim.ANumeric;
 import convex.core.data.prim.CVMBool;
 import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
@@ -36,13 +37,14 @@ public final class Voice {
 
 	/**
 	 * The speech engine as the venue reports it: its {@code name}, whether audio
-	 * stays on this computer, and for the in-process engine its model's
-	 * {@code state} ({@code ready}, {@code downloaded}, {@code downloading},
-	 * {@code not downloaded}) with the model's size and how much of it is here;
-	 * {@code reason} says why it is not ready, when it knows.
+	 * stays on this computer, the {@code model} it transcribes with, and for the
+	 * in-process engine that model's {@code state} ({@code ready},
+	 * {@code downloaded}, {@code downloading}, {@code not downloaded}) with its size
+	 * and how much of it is here; {@code reason} says why it is not ready, when it
+	 * knows.
 	 */
-	public record Engine(String name, boolean local, String state, long bytes, long downloaded, boolean keyed,
-			String reason) {
+	public record Engine(String name, boolean local, String model, String state, long bytes, long downloaded,
+			boolean keyed, String reason) {
 
 		/** The model is not on this computer and nothing is fetching it: fetching it is the owner's call. */
 		public boolean needsDownload() {
@@ -65,11 +67,33 @@ public final class Voice {
 		}
 	}
 
-	/** What a live dictation has heard: the words up to its last pause, which stay, then those still being spoken. */
-	public record Heard(String settled, String partial) {
+	/**
+	 * What a live dictation has heard: the words up to its last pause, which stay,
+	 * then those still being spoken; and the seconds the speaker has been
+	 * {@code quiet} since — 0 while speaking, negative before they have said anything.
+	 */
+	public record Heard(String settled, String partial, double quiet) {
 		public String text() {
 			return settled.isEmpty() ? partial : partial.isEmpty() ? settled : settled + " " + partial;
 		}
+	}
+
+	/**
+	 * A message the owner spoke, for the agent: its {@code text} with {@code via}
+	 * provenance, as a channel's message carries where it came from. The agent
+	 * learns it was heard rather than typed, by which model and whether on this
+	 * computer, and whether the owner read it before it went ({@code reviewed}),
+	 * so it can allow for a word misheard. Facts about the message, never
+	 * instructions in it.
+	 */
+	public static AMap<AString, ACell> spoken(String text, Engine engine, boolean reviewed) {
+		AMap<AString, ACell> via = Maps.of("channel", "voice", "reviewed", CVMBool.create(reviewed));
+		if (engine != null) {
+			AMap<AString, ACell> transcribed = Maps.of("onThisComputer", CVMBool.create(engine.local()));
+			if (engine.model() != null) transcribed = transcribed.assoc(Strings.create("model"), Strings.create(engine.model()));
+			via = via.assoc(Strings.create("transcribed"), transcribed);
+		}
+		return Maps.of("text", text, "via", via);
 	}
 
 	private final Venue venue;
@@ -115,7 +139,8 @@ public final class Voice {
 	public CompletableFuture<Heard> hear(String id, byte[] pcm, boolean end) {
 		AMap<AString, ACell> input = Maps.of("id", id, "end", CVMBool.create(end));
 		if (pcm.length > 0) input = input.assoc(Strings.create("bytes"), Strings.create(Base64.getEncoder().encodeToString(pcm)));
-		return venue.run(OP_HEAR, input).thenApply(out -> new Heard(text(RT.getIn(out, "settled")), text(RT.getIn(out, "partial"))));
+		return venue.run(OP_HEAR, input).thenApply(out -> new Heard(text(RT.getIn(out, "settled")),
+			text(RT.getIn(out, "partial")), (RT.getIn(out, "quiet") instanceof ANumeric n) ? n.doubleValue() : -1));
 	}
 
 	private static String text(ACell cell) {
@@ -128,7 +153,8 @@ public final class Voice {
 		AVector<?> engines = RT.ensureVector(RT.getIn(out, "engines"));
 		if (engines == null || engines.count() == 0) throw new IllegalStateException("The venue reports no speech engine");
 		ACell e = (ACell) engines.get(0);
-		return new Engine(str(RT.getIn(e, "name")), flag(RT.getIn(e, "local")), str(RT.getIn(e, "state")),
+		return new Engine(str(RT.getIn(e, "name")), flag(RT.getIn(e, "local")), str(RT.getIn(e, "transcribeModel")),
+			str(RT.getIn(e, "state")),
 			number(RT.getIn(e, "model", "bytes")), number(RT.getIn(e, "model", "downloaded")), flag(RT.getIn(e, "keyed")),
 			str(RT.getIn(e, "reason")));
 	}

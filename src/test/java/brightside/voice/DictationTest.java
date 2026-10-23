@@ -1,12 +1,15 @@
 package brightside.voice;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
 /**
  * "Go" sends only as the transcript's last sentence, by itself, and is not
- * written into the draft; anywhere else it is just a word.
+ * written into the draft; anywhere else it is just a word. A long pause after
+ * words sends too.
  */
 class DictationTest {
 
@@ -19,6 +22,17 @@ class DictationTest {
 		assertEquals(new Dictation("", true), Dictation.of("Go."), "alone: send what is already typed");
 		assertEquals(new Dictation("Hi Bright Side, are you hearing me?", true),
 			Dictation.of("Hi Bright Side, are you hearing me? Go"), "as Parakeet writes a lone go: no stop of its own");
+	}
+
+	@Test
+	void aLongPauseAfterWordsSends() {
+		assertTrue(Dictation.pausedToSend(new Voice.Heard("Remind me to call Sam.", "", Dictation.LONG_PAUSE_SECONDS)));
+		assertTrue(Dictation.pausedToSend(new Voice.Heard("", "Remind me", Dictation.LONG_PAUSE_SECONDS + 1)),
+			"words not yet settled count too");
+		assertFalse(Dictation.pausedToSend(new Voice.Heard("Remind me to call Sam.", "", Dictation.LONG_PAUSE_SECONDS - 0.5)),
+			"a breath or a thought is not the end");
+		assertFalse(Dictation.pausedToSend(new Voice.Heard("", "", 30)), "silence alone sends nothing");
+		assertFalse(Dictation.pausedToSend(new Voice.Heard("Remind me", "", 0)), "while still speaking");
 	}
 
 	@Test

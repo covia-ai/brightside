@@ -20,9 +20,12 @@ import brightside.EmbeddedVenue;
 import brightside.Identity;
 import brightside.SessionHistory;
 import brightside.chat.ChatSession;
+import brightside.voice.Voice;
 import convex.core.data.ACell;
 import convex.core.data.Maps;
+import convex.core.data.prim.CVMBool;
 import convex.core.lang.RT;
+import convex.core.util.JSON;
 import covia.grid.Venue;
 
 /**
@@ -223,6 +226,30 @@ class SessionHistoryTest {
 		assertTrue(after.items().stream().anyMatch(it -> it instanceof SessionHistory.Message m
 			&& "user".equals(m.role()) && "typed right here".equals(m.text()) && m.origin() == null),
 			"an app-typed message carries no origin caption");
+	}
+
+	@Test
+	void aSpokenMessageTellsTheAgentItWasHeard() throws Exception {
+		String userDID = Identity.of("speaker").userDID(venue.did());
+		Venue client = venue.clientAs(userDID);
+		AppConfig.Chat chat = new AppConfig.Chat("spoken-agent",
+			AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo the user.");
+		ChatSession s = new ChatSession(client, chat, "Speaker");
+		Voice.Engine engine = new Voice.Engine("local", true, "parakeet-tdt-v3", "ready", 0, 0, false, null);
+
+		ChatSession.Reply reply = s.send(Voice.spoken("remind me to call Sam at four", engine, false), sid -> {
+		});
+		// The echo model hands back what the model was given: the words, and that they were heard.
+		ACell given = JSON.parse(reply.text());
+		assertEquals("remind me to call Sam at four", String.valueOf(RT.getIn(given, "text")));
+		assertEquals("voice", String.valueOf(RT.getIn(given, "via", "channel")));
+		assertEquals(CVMBool.FALSE, RT.getIn(given, "via", "reviewed"), "sent by voice, not read first");
+		assertEquals("parakeet-tdt-v3", String.valueOf(RT.getIn(given, "via", "transcribed", "model")));
+
+		SessionHistory.Snapshot conv = SessionHistory.loadLatest(client, "spoken-agent");
+		assertTrue(conv.items().stream().anyMatch(it -> it instanceof SessionHistory.Message m && "user".equals(m.role())
+			&& "remind me to call Sam at four".equals(m.text()) && "Voice".equals(m.origin())),
+			"the transcript shows the words, said by voice: " + conv.items());
 	}
 
 	@Test

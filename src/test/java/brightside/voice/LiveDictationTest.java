@@ -48,19 +48,19 @@ class LiveDictationTest {
 		dictation.hear(new byte[HALF_SECOND]);
 		dictation.hear(new byte[HALF_SECOND]);
 		assertEquals(1, requests.size(), "nothing more goes while one is on its way");
-		Voice.Heard first = new Voice.Heard("", "Remind me");
+		Voice.Heard first = new Voice.Heard("", "Remind me", 0);
 		requests.get(0).reply().complete(first);
 		assertEquals(List.of(first), told);
 		assertEquals(2 * HALF_SECOND, requests.get(1).bytes(), "what gathered meanwhile goes at once");
 
 		dictation.hear(new byte[100]);
 		CompletableFuture<String> words = dictation.finish();
-		Voice.Heard second = new Voice.Heard("Remind me to call Sam.", "at four");
+		Voice.Heard second = new Voice.Heard("Remind me to call Sam.", "at four", 0);
 		requests.get(1).reply().complete(second);
 		Request end = requests.get(2);
 		assertTrue(end.end());
 		assertEquals(100, end.bytes(), "the end carries what is left");
-		Voice.Heard last = new Voice.Heard("Remind me to call Sam. At four.", "");
+		Voice.Heard last = new Voice.Heard("Remind me to call Sam. At four.", "", 0);
 		end.reply().complete(last);
 
 		assertEquals("Remind me to call Sam. At four.", words.get());
@@ -80,7 +80,7 @@ class LiveDictationTest {
 		Request end = requests.get(1);
 		assertTrue(end.end());
 		assertEquals(0, end.bytes());
-		end.reply().complete(new Voice.Heard("Some", ""));
+		end.reply().complete(new Voice.Heard("Some", "", 0));
 		assertSame(lost, assertThrows(ExecutionException.class, words::get).getCause(), "the words are not known");
 		assertTrue(told.isEmpty());
 	}
@@ -90,7 +90,7 @@ class LiveDictationTest {
 		dictation.hear(new byte[HALF_SECOND]);
 		dictation.discard();
 		dictation.hear(new byte[HALF_SECOND]);
-		requests.get(0).reply().complete(new Voice.Heard("", "Never mind"));
+		requests.get(0).reply().complete(new Voice.Heard("", "Never mind", 0));
 		assertTrue(told.isEmpty(), "what it heard is no one's");
 		Request end = requests.get(1);
 		assertTrue(end.end());
