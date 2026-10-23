@@ -68,6 +68,8 @@ public final class ChatSession {
 
 	/** The assistant's private memory lives in its scratch namespace. */
 	public static final String MEMORY_PATH = "n/memory";
+	/** What every one of the owner's assistants knows about them, in the owner's workspace. */
+	public static final String SHARED_MEMORY_PATH = "w/memory";
 	/** The user's own skills — discoverable, theirs to grow. */
 	public static final String USER_SKILLSET = "w/skills";
 	/**
@@ -125,6 +127,8 @@ public final class ChatSession {
 	private final boolean configureExisting;
 	/** The name the agent goes by, for its record's {@code config.name} (null: leave the record's). */
 	private String agentName;
+	/** A skill the agent starts with pinned, from the template it was made from (null: none). */
+	private String pinnedSkill;
 	private volatile String sessionId;
 	private volatile long sessionGeneration;
 	private boolean pendingResume;
@@ -176,6 +180,16 @@ public final class ChatSession {
 	 */
 	public synchronized ChatSession named(String agentName) {
 		this.agentName = (agentName == null || agentName.isBlank()) ? null : agentName.trim();
+		return this;
+	}
+
+	/**
+	 * Pins {@code skillPath} in the agent's {@code config.loads} as the next
+	 * {@link #ensureAgent} writes it: an agent made to specialise starts with
+	 * its skill loaded. Like any owner pin it stays; null pins nothing.
+	 */
+	public synchronized ChatSession pinning(String skillPath) {
+		this.pinnedSkill = skillPath;
 		return this;
 	}
 
@@ -263,12 +277,19 @@ public final class ChatSession {
 			"tools", Vectors.of(Strings.create(INSPECT_OP), Strings.create(MEMORY_OP),
 				Strings.create(SKILL_FEEDBACK_OP), Strings.create(COMPACT_TOOL)),
 			"toolCallTimeoutMs", TOOL_CALL_TIMEOUT_MS,
-			// Pin the assistant's memory (n/memory) into every turn's context,
-			// through the read-only recall op; the memory tool above is for edits.
-			"context", Vectors.of(Maps.of(
-				"op", MEMORY_RECALL_OP,
-				"input", Maps.of("path", MEMORY_PATH),
-				"label", "Your private memory of the user — edit with path " + MEMORY_PATH)),
+			// Pin memory into every turn's context, through the read-only recall op;
+			// the memory tool above is for edits. What the owner is like, shared by
+			// all their assistants (w/memory), then this one's own (n/memory).
+			"context", Vectors.of(
+				Maps.of(
+					"op", MEMORY_RECALL_OP,
+					"input", Maps.of("path", SHARED_MEMORY_PATH),
+					"label", "What you know about the user, shared with their other assistants — edit with path "
+						+ SHARED_MEMORY_PATH),
+				Maps.of(
+					"op", MEMORY_RECALL_OP,
+					"input", Maps.of("path", MEMORY_PATH),
+					"label", "Your private memory of the user — edit with path " + MEMORY_PATH)),
 			// No Brightside skill is pinned by default. The one app-owned load is a
 			// read-only context operation; owner pins are preserved and shipped skills
 			// are selected from their descriptions on demand.
@@ -419,6 +440,13 @@ public final class ChatSession {
 		loads = loads.dissoc(Strings.create(LEGACY_IDENTITY_SKILL));
 		loads = loads.dissoc(Strings.create(BrightsideSkillsAdapter.INTRODUCTION));
 		loads = loads.dissoc(Strings.create(BrightsideSkillsAdapter.SKILLS));
+
+		if (pinnedSkill != null && !loads.containsKey(Strings.create(pinnedSkill))) {
+			loads = loads.assoc(Strings.create(pinnedSkill), Maps.of(
+				"skill", CVMBool.TRUE,
+				"budget", 8000L,
+				"label", pinnedSkill.substring(pinnedSkill.lastIndexOf('/') + 1)));
+		}
 
 		AMap<AString, ACell> input = Maps.of("modelOperation", config.llmOperation());
 		if (userName != null && !userName.isBlank()) {

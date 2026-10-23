@@ -22,9 +22,11 @@ scheduler.
 
 ## Today
 
-The assistant's memory is a numbered list of facts at `n/memory`, edited with
-Covia's memory tool and rendered into every turn through the read-only recall
-operation as a watched pin. Odin keeps his own at the venue's `n/memory`. Past
+Each assistant has two numbered lists of facts, edited with Covia's memory
+tool and rendered into every turn through the read-only recall operation as
+watched pins: `w/memory`, what the owner is like and prefers, shared by all
+their assistants, and `n/memory`, the assistant's own. Odin keeps his at the
+venue's `n/memory`. Past
 conversations are readable as evidence through the session tools, not
 searched. Nothing records where a fact came from, nothing consolidates, and
 nothing expires.
@@ -165,7 +167,5 @@ the gates below.
 - Searchable, bounded memory in Covia is
   [covia#429](https://github.com/covia-ai/covia/issues/429); the pin and
   memory tool exist, the search operation and index do not.
-- A shared `w/memory` pinned beside the agent's own is
-  [brightside#13](https://github.com/covia-ai/brightside/issues/13).
 - Confirmation of destructive memory operations rides on
   [brightside#16](https://github.com/covia-ai/brightside/issues/16).

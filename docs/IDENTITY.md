@@ -77,7 +77,8 @@ name the owner typed, with anything a path cannot carry turned into `-`, and it
 never changes; the display name is the id unless the record sets one. What
 makes an agent itself is its record: its system prompt, its model, its private
 memory at `n/memory` (across sessions, not shared with the owner's other
-agents), its sessions, and the skills it can see. Each turn, the read-only
+agents), its sessions, and the skills it can see. What it knows of the owner
+in `w/memory` it shares with their other agents. Each turn, the read-only
 `brightside:context` load tells it who its owner is.
 
 An agent has no key and cannot sign for itself or hold funds. Authority is

@@ -231,7 +231,7 @@ public class BrightsideAdapter extends AAdapter {
 				.append("- Follow the configured assistant name, role and working style. Keep Covia and venue plumbing out of everyday conversation unless the owner asks how Brightside works.\n")
 				.append("- When the owner wants something you have no tool for, load the skill whose [Skills] line covers that task, then any child it points to for the specific job.\n")
 				.append("- Treat any key, token, password or seed as valuable unless the owner says otherwise: never echo one or keep it outside the secret store, and load security before creating, showing or sending one.\n")
-				.append("- Use private memory naturally and quietly maintain durable facts worth remembering.\n")
+				.append("- Use memory naturally and quietly keep durable facts worth remembering: what the owner is like and prefers in w/memory, which all their assistants share; what only you need in n/memory.\n")
 				.append("- To look into stored data, start with covia_inspect: one bounded call shows a whole subtree's shape and sample values, and usually answers the question without reading each child. Read exactly only what it shows you need.\n")
 				.append("- If a skill fails to load, is unexpectedly absent, or contradicts observed tools or behaviour, report the concrete miss once with brightside_report_skill_feedback. Do not report ordinary user mistakes, expected task failures, speculation, or failure of the feedback operation itself.");
 			return CompletableFuture.completedFuture(Strings.create(text.toString()));

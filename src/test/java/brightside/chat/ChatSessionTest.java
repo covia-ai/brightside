@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -140,16 +141,43 @@ class ChatSessionTest {
 		new ChatSession(venue, echoChat(agentId)).ensureAgent();
 
 		ACell context = RT.getIn(agentInfo(agentId), Fields.CONFIG, "context");
-		assertTrue(context instanceof AVector<?> v && v.count() == 1, String.valueOf(context));
-		ACell pin = ((AVector<?>) context).get(0);
-		assertEquals(Strings.create(ChatSession.MEMORY_RECALL_OP), RT.getIn(pin, "op"));
-		assertEquals(Strings.create(ChatSession.MEMORY_PATH), RT.getIn(pin, "input", "path"));
+		assertTrue(context instanceof AVector<?> v && v.count() == 2, String.valueOf(context));
+		// What the owner is like, shared by all their assistants, then this one's own.
+		List<String> paths = new java.util.ArrayList<>();
+		for (ACell pin : (AVector<ACell>) context) {
+			assertEquals(Strings.create(ChatSession.MEMORY_RECALL_OP), RT.getIn(pin, "op"));
+			paths.add(String.valueOf(RT.getIn(pin, "input", "path")));
+		}
+		assertEquals(List.of(ChatSession.SHARED_MEMORY_PATH, ChatSession.MEMORY_PATH), paths);
+
+		// Shared memory written by one assistant reaches another's assembled context.
+		venue.invoke("v/ops/memory", Maps.of("path", ChatSession.SHARED_MEMORY_PATH, "command", "remember",
+			"text", "Prefers British English")).get(5, TimeUnit.SECONDS).future().get(5, TimeUnit.SECONDS);
+		new ChatSession(venue, echoChat("bs-memory-other")).ensureAgent();
+		ACell assembled = venue.invoke("v/ops/agent/context", Maps.of("agentId", "bs-memory-other"))
+			.get(5, TimeUnit.SECONDS).future().get(5, TimeUnit.SECONDS);
+		assertTrue(String.valueOf(assembled).contains("Prefers British English"), "the other assistant sees it");
 
 		// A context entry runs before every inference, and the venue admits only
 		// an op declared readOnly there (covia#465): the read/write memory tool
 		// is refused, so it must not be what the pin names.
 		assertTrue(declaresReadOnly(ChatSession.MEMORY_RECALL_OP), "the pinned op is declared readOnly");
 		assertFalse(declaresReadOnly("v/ops/memory"), "the memory tool is not");
+	}
+
+	@Test
+	void anAgentMadeToSpecialiseStartsWithItsSkillPinnedAndKeepsIt() throws Exception {
+		String agentId = "bs-researcher";
+		String skill = BrightsideSkillsAdapter.RESEARCH;
+		new ChatSession(venue, echoChat(agentId)).pinning(skill).ensureAgent();
+		ACell pin = RT.getIn(agentInfo(agentId), Fields.CONFIG, Fields.LOADS, skill);
+		assertEquals(CVMBool.TRUE, RT.getIn(pin, "skill"), String.valueOf(pin));
+
+		// Opened again later, as any chat is, the pin stays: it is the owner's.
+		new ChatSession(venue, echoChat(agentId)).ensureAgent();
+		assertNotNull(RT.getIn(agentInfo(agentId), Fields.CONFIG, Fields.LOADS, skill));
+		assertNotNull(venue.invoke("v/ops/agent/context", Maps.of("agentId", agentId))
+			.get(5, TimeUnit.SECONDS).future().get(5, TimeUnit.SECONDS), "the pinned skill loads");
 	}
 
 	@Test
