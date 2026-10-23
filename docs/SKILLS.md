@@ -38,6 +38,7 @@ what each reveals links into the library.
 | `v/skills/root` | the venue's own library — its entry points, each opening a family | the venue |
 | `w/skills` | the owner's agent's own skills, including imported `SKILL.md` folders | the agent, `FilesystemSkills` |
 | `w/skill-feedback/<id>` | append-only reports of concrete skill-system misses | the scoped feedback operation |
+| `w/memory` | what the owner is like and prefers, shared by all their assistants | the assistants |
 | `n/…` | the agent's private scratch, including `n/memory` | the agent |
 
 Only the venue writes `v/`. A skill of the owner's shadows a shipped skill of
@@ -48,7 +49,9 @@ the same name, and Brightside's shadow the venue's.
 `ChatSession` configures the agent the same way on every launch:
 
 - **Skillsets** `w/skills`, `v/skills/brightside`, `v/skills/root`, in that
-  order. No skill is pinned.
+  order. No skill is pinned, except in an agent made from a template for one
+  kind of work: Research, Software development and Writing & editing pin
+  `research`, `coding` and `writing`, and the pin stays as the owner's.
 - **Tools** the bounded `inspect` (Covia's default pack stops at `read` and
   `list`, and the persona says to inspect first: one call shows a subtree's
   shape, usually without reading each child), the memory tool, the
@@ -57,8 +60,9 @@ the same name, and Brightside's shadow the venue's.
   how a long conversation stays usable: the assistant writes the summary, the
   exact history is archived beneath it, and the venue rebuilds the session's
   cached prefix around it with the pins, memory and skills index refreshed.
-- **Context** its memory at `n/memory`, rendered every turn through the
-  read-only recall operation, and one non-skill load, `brightside-context`,
+- **Context** memory, rendered every turn through the read-only recall
+  operation: `w/memory`, shared by all the owner's assistants, then its own
+  `n/memory`. Then one non-skill load, `brightside-context`,
   which the read-only `brightside:context` operation assembles: the owner's
   name and DID, where model processing happens, today's date and timestamp
   (a model's own "now" is its training cut-off), and the product invariants.

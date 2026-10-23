@@ -1779,7 +1779,7 @@ public final class BrightSide {
 	public void createAgent(String rawName) {
 		String name = (rawName != null) ? rawName.trim() : "";
 		String prompt = brightside.model.AgentTemplate.GENERAL.systemPrompt(name);
-		createAgent(name, currentModelOp(), prompt);
+		createAgent(name, currentModelOp(), prompt, brightside.model.AgentTemplate.GENERAL.skill());
 	}
 
 	/**
@@ -1791,9 +1791,10 @@ public final class BrightSide {
 	 * not anything is ever said to it. (Binding a chat alone creates nothing;
 	 * {@link ChatSession#ensureAgent} otherwise runs on the first send.) An
 	 * agent of that id already on the venue is opened as it is, its record
-	 * untouched.
+	 * untouched. {@code skill}, from the template, is pinned from the start
+	 * (null: none).
 	 */
-	public void createAgent(String rawName, String modelOp, String systemPrompt) {
+	public void createAgent(String rawName, String modelOp, String systemPrompt, String skill) {
 		String name = (rawName != null) ? rawName.trim() : "";
 		String aid = slug(name);
 		EmbeddedVenue v = venue;
@@ -1813,7 +1814,7 @@ public final class BrightSide {
 		AppConfig.Chat chosen = new AppConfig.Chat(aid, base.operation(), chosenModel, chosenPrompt);
 		Thread t = new Thread(() -> {
 			try {
-				new ChatSession(v.clientAs(did), chosen, id.name(), true).named(name).ensureAgent();
+				new ChatSession(v.clientAs(did), chosen, id.name(), true).named(name).pinning(skill).ensureAgent();
 			} catch (Exception e) {
 				log.warn("Could not create agent {}: {}", aid, e.toString());
 				SwingUtilities.invokeLater(() -> window.showSystemMessage(

@@ -178,7 +178,9 @@ public final class MainWindow extends JFrame {
 			@Override
 			public void onNewAgent() {
 				NewAgentPanel.Options options = NewAgentPanel.showDialog(MainWindow.this, app.currentModelOp());
-				if (options != null) app.createAgent(options.name(), options.modelOp(), options.systemPrompt());
+				if (options != null) {
+					app.createAgent(options.name(), options.modelOp(), options.systemPrompt(), options.template().skill());
+				}
 			}
 
 			@Override
