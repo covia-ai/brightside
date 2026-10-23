@@ -280,7 +280,7 @@ public class MoltbookAdapter extends AAdapter {
 
 	private void writeRecord(RequestContext ctx, AMap<AString, ACell> record) {
 		UserPathTarget target = engine.requireUserPath(ctx, Strings.create(Moltbook.RECORD_PATH), Capability.CRUD_WRITE, true);
-		CoviaAdapter.writePathToCursor(target.user().cursor(), target.pathKeys(), record);
+		CoviaAdapter.writePathToCursor(target.user().workspaceRoot(), target.pathKeys(), record);
 	}
 
 	// ------------------------------------------------------------------

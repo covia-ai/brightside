@@ -291,7 +291,7 @@ public class BrightsideAdapter extends AAdapter {
 			AString path = Strings.create("w/skills/" + name);
 			UserPathTarget target = engine.requireUserPath(ctx, path, Capability.CRUD_DELETE, false);
 			boolean deleted = target.user() != null
-				&& CoviaAdapter.deletePathFromCursor(target.user().cursor(), target.pathKeys());
+				&& CoviaAdapter.deletePathFromCursor(target.user().workspaceRoot(), target.pathKeys());
 			return CompletableFuture.completedFuture(Maps.of(
 				K_NAME, nameCell,
 				K_DELETED, CVMBool.of(deleted)));
@@ -357,7 +357,7 @@ public class BrightsideAdapter extends AAdapter {
 			if (ctx != null && ctx.getSessionId() != null) {
 				record = record.assoc(K_SESSION_ID, Strings.create(ctx.getSessionId().toHexString()));
 			}
-			CoviaAdapter.writePathToCursor(target.user().cursor(), target.pathKeys(), record);
+			CoviaAdapter.writePathToCursor(target.user().workspaceRoot(), target.pathKeys(), record);
 			return CompletableFuture.completedFuture(Maps.of(
 				K_ID, id,
 				K_PATH, path,
