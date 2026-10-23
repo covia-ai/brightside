@@ -102,6 +102,26 @@ class LiveTurnTest {
 	}
 
 	@Test
+	void aRunningToolsLatestStepFollowsItsLabel() {
+		LiveTurn t = new LiveTurn();
+		t.apply(event("tool:start", Maps.of("id", "c5", "name", "invoke_tool",
+			"detail", Maps.of("input", Maps.of("name", "claudecode_run", "input", Maps.empty())))), "Run Claude Code");
+		assertTrue(t.apply(event("tool:progress", Maps.of("id", "c5", "name", "invoke_tool",
+			"detail", Maps.of("progress", Maps.of("lastTool", "Bash: Run the speech tests", "toolCalls", 3L)))), null));
+		assertEquals("Run Claude Code · Bash: Run the speech tests", t.status());
+		assertTrue(t.apply(event("tool:progress", Maps.of("id", "c5", "name", "invoke_tool",
+			"detail", Maps.of("progress", Maps.of("text", "Writing the code now.\nThen tests.")))), null));
+		assertEquals("Run Claude Code · Writing the code now.", t.status(), "with no step yet, the first line of what it said");
+		assertEquals(1, t.activity().steps().size(), "progress is not a step of its own");
+
+		t.apply(event("tool:result", Maps.of("id", "c5", "name", "invoke_tool", "detail", Maps.of("result", "Done."))), null);
+		assertFalse(t.apply(event("tool:progress", Maps.of("id", "c5", "name", "invoke_tool",
+			"detail", Maps.of("progress", Maps.of("lastTool", "Bash: late")))), null), "a finished call reports nothing more");
+		assertFalse(t.apply(event("tool:progress", Maps.of("id", "c9", "name", "covia_read",
+			"detail", Maps.of("progress", Maps.of("lastTool", "unseen")))), null), "nor one never seen starting");
+	}
+
+	@Test
 	void otherEventsChangeNothing() {
 		LiveTurn t = new LiveTurn();
 		assertFalse(t.apply(event("status", Maps.of("status", "RUNNING")), null));

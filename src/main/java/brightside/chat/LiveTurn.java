@@ -27,8 +27,10 @@ import covia.venue.AgentEvents;
  * transcript's chip without being rebuilt.
  *
  * <p>Only what the venue sends is shown; the status is never manufactured from
- * elapsed time. A model call is "Thinking…", a tool call is its display name,
- * and when the assistant narrates a step its own words are the status.
+ * elapsed time. A model call is "Thinking…", a tool call is its display name
+ * — followed, while it runs, by the latest step its operation reports, such
+ * as Claude Code's — and when the assistant narrates a step its own words are
+ * the status.
  */
 public final class LiveTurn {
 
@@ -41,6 +43,8 @@ public final class LiveTurn {
 	private final List<SessionHistory.Step> steps = new ArrayList<>();
 	/** Tool call id → index of its running step, until its result arrives. */
 	private final Map<String, Integer> running = new HashMap<>();
+	/** Tool call id → its status label, for the progress it reports while it runs. */
+	private final Map<String, String> labels = new HashMap<>();
 	private String status = PREPARING;
 
 	/** The one-line status for the bubble. */
@@ -70,6 +74,7 @@ public final class LiveTurn {
 		if (AgentEvents.INFERENCE_START.equals(type)) return setStatus(THINKING);
 		if (AgentEvents.INFERENCE_END.equals(type)) return narrated(event.data());
 		if (AgentEvents.TOOL_START.equals(type)) return toolStarted(event.data(), toolLabel);
+		if (AgentEvents.TOOL_PROGRESS.equals(type)) return toolProgressed(event.data());
 		if (AgentEvents.TOOL_RESULT.equals(type)) return toolFinished(event.data());
 		return false;
 	}
@@ -96,10 +101,29 @@ public final class LiveTurn {
 		String call = (input != null) ? SessionHistory.renderContent(input) : null;
 		steps.add(new SessionHistory.Step(true, title, null, false, call));
 		String id = str(RT.getIn(data, "id"));
-		if (id != null) running.put(id, steps.size() - 1);
 		String label = (toolLabel != null && !toolLabel.isBlank()) ? toolLabel : title.replace('_', ' ');
+		if (id != null) {
+			running.put(id, steps.size() - 1);
+			labels.put(id, label);
+		}
 		setStatus(label + "…");
 		return true;
+	}
+
+	/**
+	 * What a running tool's operation is doing, as it reports it — Claude
+	 * Code's latest step, else the first line of what it last said — after the
+	 * tool's own label. Not a step of its own: the stored turn has none. Only
+	 * for a call seen starting and not yet finished.
+	 */
+	private boolean toolProgressed(AMap<AString, ACell> data) {
+		String label = labels.get(str(RT.getIn(data, "id")));
+		if (label == null) return false;
+		ACell progress = RT.getIn(data, "detail", "progress");
+		String step = str(RT.getIn(progress, "lastTool"));
+		if (step == null || step.isBlank()) step = str(RT.getIn(progress, "text"));
+		if (step == null || step.isBlank()) return false;
+		return setStatus(oneLine(label + " · " + oneLine(step)));
 	}
 
 	/**
@@ -112,6 +136,7 @@ public final class LiveTurn {
 		String name = str(RT.getIn(data, "name"));
 		boolean error = CVMBool.TRUE.equals(RT.getIn(data, "isError"));
 		String result = SessionHistory.renderContent(RT.getIn(data, "detail", "result"));
+		if (id != null) labels.remove(id);
 		Integer at = (id != null) ? running.remove(id) : null;
 		if (at == null) at = latestRunning(name);
 		if (at == null) {
