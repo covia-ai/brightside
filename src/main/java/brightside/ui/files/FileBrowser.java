@@ -31,6 +31,7 @@ import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.DefaultListModel;
+import javax.swing.DropMode;
 import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
@@ -46,6 +47,7 @@ import javax.swing.ListCellRenderer;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 import javax.swing.ToolTipManager;
+import javax.swing.TransferHandler;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.TreeExpansionEvent;
@@ -223,6 +225,14 @@ public final class FileBrowser extends JPanel {
 		key(files, "DELETE", "delete", () -> actions.delete(selection()));
 		key(files, "shift F10", "menu", this::menuAtSelection);
 		key(files, "CONTEXT_MENU", "menu", this::menuAtSelection);
+		// Drag rows onto a folder, in the list or the sidebar; drop files from
+		// this computer anywhere in the folder, an empty one included.
+		files.setDragEnabled(true);
+		files.setDropMode(DropMode.ON);
+		files.setTransferHandler(new FileTransfer(this::selection, this::listTarget, actions));
+		contents.setTransferHandler(new FileTransfer(List::of, s -> (changes == null || refreshing) ? null : current, actions));
+		tree.setDropMode(DropMode.ON);
+		tree.setTransferHandler(new FileTransfer(List::of, this::treeTarget, actions));
 		contents.setOpaque(false);
 		JScrollPane list = Scrolls.vertical(files);
 		list.getViewport().addMouseListener(menus);
@@ -508,6 +518,20 @@ public final class FileBrowser extends JPanel {
 	private void showMenu(Component c, int x, int y) {
 		List<Item> items = selection();
 		(items.isEmpty() ? actions.folderMenu(current, false) : actions.itemsMenu(items)).show(c, x, y);
+	}
+
+	/** Where a drop on the list lands: into a folder row, else into the open folder. */
+	private Location listTarget(TransferHandler.TransferSupport support) {
+		if (current == null || changes == null || refreshing) return null;
+		int row = rowAt(support.getDropLocation().getDropPoint());
+		return (row >= 0 && entries.get(row).directory()) ? current.child(entries.get(row).name()) : current;
+	}
+
+	/** Where a drop on the sidebar lands: into the folder under it, and nowhere else. */
+	private Location treeTarget(TransferHandler.TransferSupport support) {
+		if (changes == null || refreshing) return null;
+		TreePath path = ((JTree.DropLocation) support.getDropLocation()).getPath();
+		return (path != null && path.getLastPathComponent() instanceof Directory node) ? node.location : null;
 	}
 
 	private void treeMenu(MouseEvent e) {
@@ -870,9 +894,12 @@ public final class FileBrowser extends JPanel {
 				+ (entry.modified() > 0 ? "  ·  " + DATE.format(Instant.ofEpochMilli(entry.modified())) : ""));
 			icon.setIcon(icons.get(FileKind.of(entry.name(), entry.directory())));
 			trailing.setIcon(entry.directory() ? chevron : null);
-			// The selected row sits on the accent tint the tree's selection and the navigation use.
-			fill(selected ? TINTED : NONE);
-			outline(focus ? ACCENT : NONE);
+			// The selected row sits on the accent tint the tree's selection and the navigation use;
+			// a folder a drag would drop into is tinted and outlined.
+			JList.DropLocation drop = list.getDropLocation();
+			boolean into = entry.directory() && drop != null && drop.getIndex() == index;
+			fill(selected || into ? TINTED : NONE);
+			outline(focus || into ? ACCENT : NONE);
 			return this;
 		}
 	}
