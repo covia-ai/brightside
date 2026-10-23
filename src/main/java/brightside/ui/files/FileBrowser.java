@@ -6,6 +6,8 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
@@ -23,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
@@ -34,6 +37,7 @@ import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTextField;
 import javax.swing.JTree;
@@ -57,6 +61,9 @@ import com.formdev.flatlaf.util.UIScale;
 
 import brightside.files.DirectoryCache;
 import brightside.files.DirectoryCache.Location;
+import brightside.files.FileChanges;
+import brightside.files.FileChanges.Item;
+import brightside.files.FileChanges.Outcome;
 import brightside.files.FileSource;
 import brightside.files.FileSource.Entry;
 import brightside.files.FileSource.Listing;
@@ -75,6 +82,7 @@ import brightside.ui.components.Readout;
 import brightside.ui.components.Scrolls;
 import brightside.ui.components.Styles;
 import brightside.ui.components.Theme;
+import brightside.ui.components.Toast;
 import brightside.ui.components.Tone;
 import net.miginfocom.swing.MigLayout;
 
@@ -88,14 +96,16 @@ public final class FileBrowser extends JPanel {
 	private final JTree tree = new JTree(treeModel);
 	private final DefaultListModel<Entry> entries = new DefaultListModel<>();
 	private final JList<Entry> files = new JList<>(entries) {
-		/** A folder row says how to open it; the list answers for its rows, so the renderer needn't. */
+		/** A row that opens says how; the list answers for its rows, so the renderer needn't. */
 		@Override
 		public String getToolTipText(MouseEvent e) {
-			int row = locationToIndex(e.getPoint());
-			if (row < 0 || !getCellBounds(row, row).contains(e.getPoint())) return null;
-			return entries.get(row).directory() ? "Double-click or press Enter to open" : null;
+			int row = rowAt(e.getPoint());
+			if (row < 0 || current == null) return null;
+			Entry entry = entries.get(row);
+			return (entry.directory() || current.child(entry.name()).local() != null) ? "Double-click or press Enter to open" : null;
 		}
 	};
+	private final FileActions actions = new FileActions(this);
 	private final JTextField filter = new JTextField();
 	private final JPanel breadcrumbs = panel(new MigLayout("insets 0, gap 0, aligny center", "", ""));
 	/** The line along the bottom: how many items, and any warning the listing carries. */
@@ -113,6 +123,7 @@ public final class FileBrowser extends JPanel {
 	private final ArrayDeque<Location> history = new ArrayDeque<>();
 	private final Set<Location> expanded = new HashSet<>();
 	private DirectoryCache reads;
+	private FileChanges changes;
 	private Location current;
 	private Listing listing;
 	private long epoch;
@@ -137,6 +148,10 @@ public final class FileBrowser extends JPanel {
 		ToolTipManager.sharedInstance().registerComponent(tree);
 		tree.addTreeSelectionListener(e -> {
 			if (!selectingTree && tree.getLastSelectedPathComponent() instanceof Directory node) navigate(node.location, true);
+		});
+		tree.addMouseListener(new MouseAdapter() {
+			@Override public void mousePressed(MouseEvent e) { treeMenu(e); }
+			@Override public void mouseReleased(MouseEvent e) { treeMenu(e); }
 		});
 		tree.addTreeWillExpandListener(new TreeWillExpandListener() {
 			@Override public void treeWillExpand(TreeExpansionEvent e) {
@@ -185,7 +200,7 @@ public final class FileBrowser extends JPanel {
 		JPanel directory = panel(new BorderLayout());
 		directory.setBorder(BorderFactory.createEmptyBorder(4, 12, 8, 12));
 		files.setCellRenderer(new FileRenderer());
-		files.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		files.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
 		files.setFixedCellHeight(UIScale.scale(56));
 		files.setOpaque(false);
 		files.getAccessibleContext().setAccessibleName("Folder contents");
@@ -193,15 +208,26 @@ public final class FileBrowser extends JPanel {
 		files.addListSelectionListener(e -> { if (!e.getValueIsAdjusting()) selectFile(); });
 		files.addMouseListener(new MouseAdapter() {
 			@Override public void mouseClicked(MouseEvent e) {
-				int row = files.locationToIndex(e.getPoint());
-				if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount() == 2 && row >= 0
-						&& files.getCellBounds(row, row).contains(e.getPoint())) openDirectory();
+				if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount() == 2 && rowAt(e.getPoint()) >= 0) openSelection();
 			}
 		});
-		files.getInputMap().put(KeyStroke.getKeyStroke("ENTER"), "open");
-		files.getActionMap().put("open", action(this::openDirectory));
+		// Right-click: on a row, its menu (selecting it first if it isn't);
+		// anywhere else in the folder, the folder's own.
+		MouseAdapter menus = new MouseAdapter() {
+			@Override public void mousePressed(MouseEvent e) { folderMenu(e); }
+			@Override public void mouseReleased(MouseEvent e) { folderMenu(e); }
+		};
+		files.addMouseListener(menus);
+		key(files, "ENTER", "open", this::openSelection);
+		key(files, "F2", "rename", () -> { List<Item> items = selection(); if (items.size() == 1) actions.rename(items.get(0)); });
+		key(files, "DELETE", "delete", () -> actions.delete(selection()));
+		key(files, "shift F10", "menu", this::menuAtSelection);
+		key(files, "CONTEXT_MENU", "menu", this::menuAtSelection);
 		contents.setOpaque(false);
-		contents.add(Scrolls.vertical(files), "files");
+		JScrollPane list = Scrolls.vertical(files);
+		list.getViewport().addMouseListener(menus);
+		empty.addMouseListener(menus);
+		contents.add(list, "files");
 		contents.add(empty, "empty");
 		directory.add(contents, BorderLayout.CENTER);
 		directory.setMinimumSize(new Dimension(UIScale.scale(200), UIScale.scale(180)));
@@ -226,6 +252,7 @@ public final class FileBrowser extends JPanel {
 		shortcut("alt LEFT", "back", this::goBack);
 		shortcut("alt UP", "up", () -> { if (current != null) navigate(current.parent(), true); });
 		shortcut("F5", "refresh", this::refresh);
+		shortcut("ctrl shift N", "newFolder", () -> { if (current != null && !refreshing) actions.newFolder(current); });
 		filter.getDocument().addDocumentListener(new DocumentListener() {
 			@Override public void insertUpdate(DocumentEvent e) { filter(); }
 			@Override public void removeUpdate(DocumentEvent e) { filter(); }
@@ -235,12 +262,13 @@ public final class FileBrowser extends JPanel {
 	}
 
 	/** All public view operations run on the event thread. */
-	public void bind(FileSource source) { clear(); reads = new DirectoryCache(source); buttons(); }
+	public void bind(FileSource source) { clear(); reads = new DirectoryCache(source); changes = new FileChanges(source); buttons(); }
 
 	public void clear() {
 		epoch++;
 		navigation++;
 		reads = null;
+		changes = null;
 		current = null;
 		listing = null;
 		refreshing = false;
@@ -326,10 +354,11 @@ public final class FileBrowser extends JPanel {
 		if (node.pending != null) return node.pending;
 		if (reads == null) return CompletableFuture.failedFuture(new IllegalStateException("Storage is unavailable."));
 		long version = epoch;
+		int generation = node.generation;
 		CompletableFuture<Void> pending = new CompletableFuture<>();
 		node.pending = pending;
 		reads.list(node.location).whenComplete((result, failure) -> SwingUtilities.invokeLater(() -> {
-			if (version != epoch || node.getRoot() != treeRoot) { pending.cancel(false); return; }
+			if (version != epoch || node.getRoot() != treeRoot || generation != node.generation) { pending.cancel(false); return; }
 			node.pending = null;
 			node.removeAllChildren();
 			if (failure == null) {
@@ -405,36 +434,178 @@ public final class FileBrowser extends JPanel {
 		});
 	}
 
-	private void filter() {
+	private void filter() { filter(List.of()); }
+
+	/** Shows the entries the filter matches, keeping what was selected — or selecting {@code select} when given. */
+	private void filter(List<String> select) {
 		if (listing == null) return;
-		Entry selected = files.getSelectedValue();
-		String query = filter.getText().strip().toLowerCase(Locale.ROOT);
+		Set<String> keep = new HashSet<>(select.isEmpty() ? names(files.getSelectedValuesList()) : select);
+		String query = query();
 		entries.clear();
 		for (Entry entry : listing.entries()) if (entry.name().toLowerCase(Locale.ROOT).contains(query)) entries.addElement(entry);
-		if (selected != null && entries.contains(selected)) files.setSelectedValue(selected, true);
-		int all = listing.entries().size();
-		String count = query.isEmpty() ? items(all) : entries.size() + " of " + items(all);
-		status(listing.warning().isEmpty() ? count : count + "  ·  " + listing.warning());
+		int[] chosen = IntStream.range(0, entries.size()).filter(i -> keep.contains(entries.get(i).name())).toArray();
+		if (chosen.length > 0) {
+			files.setSelectedIndices(chosen);
+			files.ensureIndexIsVisible(chosen[0]);
+		}
+		counts();
 		if (entries.isEmpty()) {
 			show(query.isEmpty() ? new EmptyState("folder", Tone.MUTED, "This folder is empty", null).bare()
 				: new EmptyState("search", Tone.MUTED, "No matches", "Nothing in this folder matches the filter.").bare());
 		} else ((CardLayout) contents.getLayout()).show(contents, "files");
 	}
 
+	/** The bottom line: how many items, how many the filter matches, and any warning the listing carries. */
+	private void counts() {
+		if (listing == null) { status(null); return; }
+		int all = listing.entries().size();
+		String count = query().isEmpty() ? items(all) : entries.size() + " of " + items(all);
+		status(listing.warning().isEmpty() ? count : count + "  ·  " + listing.warning());
+	}
+
+	private String query() { return filter.getText().strip().toLowerCase(Locale.ROOT); }
+
 	private static String items(int n) {
 		return n + (n == 1 ? " item" : " items");
 	}
 
-	private void openDirectory() {
-		Entry entry = files.getSelectedValue();
-		if (current != null && entry != null && entry.directory()) navigate(current.child(entry.name()), true);
+	private static List<String> names(List<Entry> list) { return list.stream().map(Entry::name).toList(); }
+
+	/** The selected entries, as items in the open folder. */
+	private List<Item> selection() {
+		if (current == null) return List.of();
+		return files.getSelectedValuesList().stream().map(e -> new Item(current.child(e.name()), e.directory())).toList();
+	}
+
+	private void openSelection() {
+		List<Item> items = selection();
+		if (items.size() == 1) actions.open(items.get(0));
+	}
+
+	/** The list row at {@code p}, or -1 off the rows. */
+	private int rowAt(Point p) {
+		int row = files.locationToIndex(p);
+		return (row >= 0 && files.getCellBounds(row, row).contains(p)) ? row : -1;
+	}
+
+	private void folderMenu(MouseEvent e) {
+		if (!e.isPopupTrigger() || current == null || changes == null || refreshing) return;
+		int row = (e.getComponent() == files) ? rowAt(e.getPoint()) : -1;
+		if (row < 0) files.clearSelection();
+		else if (!files.isSelectedIndex(row)) files.setSelectedIndex(row);
+		showMenu(e.getComponent(), e.getX(), e.getY());
+	}
+
+	/** The menu from the keyboard, beside the row in focus. */
+	private void menuAtSelection() {
+		if (current == null || changes == null || refreshing) return;
+		int lead = files.getLeadSelectionIndex();
+		Rectangle cell = (lead >= 0 && files.isSelectedIndex(lead)) ? files.getCellBounds(lead, lead) : null;
+		if (cell == null) showMenu(files, UIScale.scale(24), UIScale.scale(24));
+		else showMenu(files, cell.x + UIScale.scale(48), cell.y + cell.height / 2);
+	}
+
+	private void showMenu(Component c, int x, int y) {
+		List<Item> items = selection();
+		(items.isEmpty() ? actions.folderMenu(current, false) : actions.itemsMenu(items)).show(c, x, y);
+	}
+
+	private void treeMenu(MouseEvent e) {
+		if (!e.isPopupTrigger() || changes == null || refreshing) return;
+		// The whole row answers, as the whole row shows the selection.
+		TreePath path = tree.getClosestPathForLocation(e.getX(), e.getY());
+		Rectangle row = (path == null) ? null : tree.getPathBounds(path);
+		if (row == null || e.getY() < row.y || e.getY() >= row.y + row.height) return;
+		if (path.getLastPathComponent() instanceof Directory node) actions.folderMenu(node.location, true).show(tree, e.getX(), e.getY());
+	}
+
+	FileChanges changes() { return changes; }
+
+	/** Changes as the binding changes: a change finishing after it is not applied. */
+	long binding() { return epoch; }
+
+	Location current() { return current; }
+
+	void open(Location folder) { navigate(folder, true); }
+
+	/** The status line says what a change is doing until it is done. */
+	void working(String doing) { status(doing); }
+
+	void toast(String text) { Toast.show(contents, text, "check", Tone.SUCCESS); }
+
+	/** The names {@code folder} holds, when it is the open folder; empty for another. */
+	List<String> namesIn(Location folder) {
+		return (listing != null && folder.equals(current)) ? names(listing.entries()) : List.of();
+	}
+
+	/**
+	 * After a change: read again only the folders it touched, step out of a
+	 * folder that is gone, and select what it made in the open folder.
+	 */
+	void apply(Outcome outcome, Location into) {
+		if (reads == null) return;
+		for (Location gone : outcome.gone()) {
+			reads.forget(gone);
+			expanded.removeIf(l -> l.within(gone));
+			history.removeIf(l -> l.within(gone));
+		}
+		for (Location folder : outcome.changed()) reads.forget(folder);
+		reloadTree(outcome.changed());
+		if (current == null) return;
+		Location away = null;
+		for (Location gone : outcome.gone()) if (current.within(gone)) away = gone.parent();
+		if (away != null) navigate(away, false);
+		else if (outcome.changed().contains(current)) relist(current.equals(into) ? outcome.done() : List.of());
+		else counts();
+	}
+
+	/** The open folder read again in place, without the loading state between. */
+	private void relist(List<String> select) {
+		long version = navigation;
+		reads.list(current).whenComplete((result, failure) -> SwingUtilities.invokeLater(() -> {
+			if (version != navigation) return;
+			if (failure != null) {
+				show(unreadable("Couldn't read this folder", failure, "Use Up to return, or Refresh to try again."));
+				status(null);
+				return;
+			}
+			listing = result;
+			filter(select);
+		}));
+	}
+
+	/** Folders in the sidebar whose contents changed show them afresh: now if open, when next opened if not. */
+	private void reloadTree(Set<Location> changed) {
+		List<Directory> nodes = new java.util.ArrayList<>();
+		for (var e = treeRoot.breadthFirstEnumeration(); e.hasMoreElements();) {
+			if (e.nextElement() instanceof Directory node && changed.contains(node.location)) nodes.add(node);
+		}
+		if (nodes.isEmpty()) return;
+		for (Directory node : nodes) {
+			if (node.getRoot() != treeRoot) continue; // gone with a folder reloaded before it
+			node.generation++;
+			node.pending = null;
+			node.loaded = false;
+			if (expanded.contains(node.location)) {
+				load(node);
+			} else {
+				selectingTree = true;
+				node.removeAllChildren();
+				node.add(new DefaultMutableTreeNode("Loading…", false));
+				treeModel.nodeStructureChanged(node);
+				selectingTree = false;
+			}
+		}
+		if (current != null) for (Directory node : rootNodes()) if (node.location.root().equals(current.root())) reveal(node, current, navigation);
 	}
 
 	private void selectFile() {
 		resetPreview();
 		if (!previewShown) return;
-		Entry entry = files.getSelectedValue();
-		if (current == null || entry == null) return;
+		List<Entry> selected = files.getSelectedValuesList();
+		if (current == null || selected.isEmpty()) return;
+		if (selected.size() > 1) { showDetail(null, several(selected)); return; }
+		Entry entry = selected.get(0);
 		Location target = current.child(entry.name());
 		if (entry.directory()) {
 			JButton open = Buttons.plain("Open folder");
@@ -494,6 +665,19 @@ public final class FileBrowser extends JPanel {
 		if (entry.modified() > 0) meta.append("  ·  ").append(DATE.format(Instant.ofEpochMilli(entry.modified())));
 		h.add(Labels.small(meta.toString()), "wmin 0");
 		return h;
+	}
+
+	/** What several selected items come to: how many folders, how many files and their size. */
+	private static JComponent several(List<Entry> selected) {
+		List<String> parts = new java.util.ArrayList<>();
+		long folders = selected.stream().filter(Entry::directory).count();
+		if (folders > 0) parts.add(folders + (folders == 1 ? " folder" : " folders"));
+		List<Entry> plain = selected.stream().filter(e -> !e.directory()).toList();
+		if (!plain.isEmpty()) {
+			parts.add(plain.size() + (plain.size() == 1 ? " file, " : " files, ")
+				+ displaySize(plain.stream().mapToLong(Entry::size).sum()));
+		}
+		return new EmptyState("files", Tone.MUTED, selected.size() + " items selected", String.join("  ·  ", parts)).bare();
 	}
 
 	/** A quiet line in the middle of the preview: why there is nothing to show. */
@@ -591,6 +775,11 @@ public final class FileBrowser extends JPanel {
 		getInputMap(WHEN_ANCESTOR_OF_FOCUSED_COMPONENT).put(KeyStroke.getKeyStroke(key), name);
 		getActionMap().put(name, action(task));
 	}
+	/** A key for {@code c} alone, while it has the focus — Delete in the filter field deletes a letter. */
+	private static void key(JComponent c, String key, String name, Runnable task) {
+		c.getInputMap().put(KeyStroke.getKeyStroke(key), name);
+		c.getActionMap().put(name, action(task));
+	}
 	private static AbstractAction action(Runnable task) { return new AbstractAction() {
 		@Override public void actionPerformed(ActionEvent e) { task.run(); }
 	}; }
@@ -625,6 +814,8 @@ public final class FileBrowser extends JPanel {
 		final Location location;
 		boolean loaded;
 		CompletableFuture<Void> pending;
+		/** Bumped when its contents change, so a read begun before is not shown. */
+		int generation;
 		Directory(Location location) {
 			super(location.name());
 			this.location = location;
