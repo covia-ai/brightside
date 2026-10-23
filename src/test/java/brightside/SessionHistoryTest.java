@@ -369,6 +369,28 @@ class SessionHistoryTest {
 	}
 
 	@Test
+	void messagesWaitingOnARunningTurnShowAfterTheConversation() {
+		// As the venue holds them while a turn runs: accepted, not yet in the conversation.
+		ACell session = Maps.of(
+			"frames", Vectors.of(Maps.of("conversation", Vectors.of(
+				Maps.of("role", "user", "content", "start the work", "ts", 1000L),
+				Maps.of("role", "assistant", "content", "on it", "ts", 1001L)))),
+			"pending", Vectors.of(
+				Maps.of("message", "and keep it local", "caller", "did:key:z6Mk:u:mike", "sessionId", "0b01"),
+				Maps.of("message", Maps.of("text", "not GPL", "via", Maps.of("channel", "voice")),
+					"caller", "did:key:z6Mk:u:mike", "sessionId", "0b01")),
+			"inCycle", "0x7a31");
+		ACell record = Maps.of("sessions", Maps.of(Blob.fromHex("0b01"), session));
+		List<SessionHistory.Item> expected = List.of(
+			new SessionHistory.Message("user", "start the work"),
+			new SessionHistory.Message("assistant", "on it"),
+			new SessionHistory.Message("user", "and keep it local"),
+			new SessionHistory.Message("user", "not GPL", "Voice"));
+		assertEquals(expected, SessionHistory.snapshotOf(record, "0b01").items());
+		assertEquals(expected, SessionHistory.snapshotOf(record, null).items(), "the latest session shows them too");
+	}
+
+	@Test
 	void noConversationForAnUnusedAgent() {
 		String userDID = Identity.of("nobody").userDID(venue.did());
 		assertNull(SessionHistory.loadLatest(venue.clientAs(userDID), "never-created"),

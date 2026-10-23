@@ -272,12 +272,34 @@ public final class SessionHistory {
 			for (long i = 0; i < sessions.count(); i++) {
 				MapEntry<ACell, ACell> entry = sessions.entryAt(i);
 				if (!sessionId.equals(sidHex(entry.getKey()))) continue;
-				AVector<ACell> conversation = conversationOf(entry.getValue());
-				List<Item> items = (conversation != null) ? project(conversation) : List.of();
-				return new Snapshot(record, sessionId, items);
+				return new Snapshot(record, sessionId, itemsOf(entry.getValue()));
 			}
 		}
 		return latestFrom(record);
+	}
+
+	/** A session's transcript: its conversation, then what waits to join it. */
+	private static List<Item> itemsOf(ACell session) {
+		AVector<ACell> conversation = conversationOf(session);
+		List<Item> items = new ArrayList<>((conversation != null) ? project(conversation) : List.of());
+		addWaiting(items, session);
+		return items;
+	}
+
+	/**
+	 * Messages the venue has accepted for a session but not yet taken into its
+	 * conversation — the one a running turn answers, and any queued behind it.
+	 * They stay {@code pending} until the turn ends, which may be long after
+	 * they were sent, so a transcript rebuilt meanwhile shows them after the
+	 * conversation, as they were sent, rather than as if never received.
+	 */
+	private static void addWaiting(List<Item> items, ACell session) {
+		if (!(RT.getIn(session, "pending") instanceof AVector<?> pending)) return;
+		for (long i = 0; i < pending.count(); i++) {
+			ACell raw = RT.getIn((ACell) pending.get(i), "message");
+			String text = contentText(raw);
+			if (notBlank(text)) items.add(new Message(ROLE_USER, text, originOf(raw)));
+		}
 	}
 
 	/**
@@ -307,7 +329,7 @@ public final class SessionHistory {
 		AMap<ACell, ACell> sessions = asMap(RT.getIn(record, "sessions"));
 		String bestSid = null;
 		long bestTs = Long.MIN_VALUE;
-		AVector<ACell> bestConversation = null;
+		ACell bestSession = null;
 		if (sessions != null) {
 			for (long i = 0; i < sessions.count(); i++) {
 				MapEntry<ACell, ACell> entry = sessions.entryAt(i);
@@ -319,11 +341,11 @@ public final class SessionHistory {
 				if (ts > bestTs || (ts == bestTs && sid.compareTo(bestSid) > 0)) {
 					bestTs = ts;
 					bestSid = sid;
-					bestConversation = conversation;
+					bestSession = entry.getValue();
 				}
 			}
 		}
-		List<Item> items = (bestConversation != null) ? project(bestConversation) : List.of();
+		List<Item> items = (bestSession != null) ? itemsOf(bestSession) : List.of();
 		return new Snapshot(record, bestSid, items);
 	}
 
