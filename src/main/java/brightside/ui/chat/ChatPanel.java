@@ -119,7 +119,7 @@ public final class ChatPanel extends JPanel {
 	private final JScrollPane inputScroll;
 	private final JButton send = Buttons.primary("Send");
 	private final JButton more = Buttons.icon(Lucide.icon("ellipsis", 18, Theme::muted), "Conversation options");
-	private final VoiceInput voice = new VoiceInput(input);
+	private final VoiceInput voice = new VoiceInput(input, this::send);
 	private Host host;
 
 	private final List<SessionHistory.Item> displayed = new ArrayList<>();

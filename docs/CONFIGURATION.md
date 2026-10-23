@@ -178,9 +178,12 @@ echoes.
 
 The microphone beside *Send* lets you speak a message instead of typing it.
 Press it and speak, press it again to stop, and what you said is written into
-the message box at the cursor for you to read, correct and send; it is never
-sent by itself. *Esc* discards a recording, or the transcription under way. A
-recording stops by itself after three minutes.
+the message box at the cursor for you to read, correct and send. To send it
+straight away, end with *"Go"* on its own: pause, say "go", then press the
+microphone. It works like Enter and is not written into the message. Only a
+"go" that the transcript gives a sentence of its own counts, so *"Let's go"*
+and *"Okay, go"* stay part of the message. *Esc* discards a recording, or the
+transcription under way. A recording stops by itself after three minutes.
 
 By default it all happens on this computer, so what you say never leaves it:
 Covia's `covia-speech` adapter runs inside Brightside's venue (registered

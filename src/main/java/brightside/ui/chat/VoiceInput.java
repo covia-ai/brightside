@@ -25,6 +25,7 @@ import brightside.ui.components.StatusLabel;
 import brightside.ui.components.Styles;
 import brightside.ui.components.Theme;
 import brightside.ui.components.Tone;
+import brightside.voice.Dictation;
 import brightside.voice.Microphone;
 import brightside.voice.Voice;
 
@@ -32,8 +33,9 @@ import brightside.voice.Voice;
  * Voice typing in the composer: a microphone beside Send, and one quiet line
  * above the composer while it is at work. Press to speak, press again to stop;
  * what was said goes into the draft at the caret for the owner to read, correct
- * and send — it is never sent by itself. Escape discards the recording or the
- * transcription under way.
+ * and send. Ending with "go" as a sentence of its own sends the draft as Enter
+ * would ({@link Dictation}); nothing else does. Escape discards the recording
+ * or the transcription under way.
  *
  * <p>The first press while the speech model is not on this computer asks before
  * downloading it, then shows the download until voice typing is ready. The
@@ -54,6 +56,7 @@ final class VoiceInput {
 		Thread.ofVirtual().name("brightside-voice-", 0).factory());
 
 	private final JTextComponent input;
+	private final Runnable send;
 	private final JButton button = Buttons.icon(Lucide.icon("mic", 18, Theme::muted), null);
 	private final JPanel line = new JPanel(new BorderLayout());
 	private final Timer ticker = new Timer(TICK_MS, e -> tick());
@@ -69,8 +72,10 @@ final class VoiceInput {
 	private StatusLabel listening;
 	private Loading preparing;
 
-	VoiceInput(JTextComponent input) {
+	/** @param send sends the draft, as Enter does */
+	VoiceInput(JTextComponent input, Runnable send) {
 		this.input = input;
+		this.send = send;
 		// Never the focus owner: the draft keeps the caret the words go to.
 		button.setFocusable(false);
 		button.addActionListener(e -> press());
@@ -254,12 +259,14 @@ final class VoiceInput {
 				return;
 			}
 			idle();
-			if (text.isEmpty()) {
+			Dictation said = Dictation.of(text);
+			if (said.text().isEmpty() && !said.send()) {
 				note("Nothing was heard — check the microphone and try again", "circle-alert", Tone.WARNING);
-			} else {
-				showLine(null);
-				insert(text);
+				return;
 			}
+			showLine(null);
+			if (!said.text().isEmpty()) insert(said.text());
+			if (said.send()) send.run();
 		}));
 	}
 
@@ -330,6 +337,6 @@ final class VoiceInput {
 		button.setEnabled(enabled && voice != null && (phase == Phase.IDLE || recordingNow));
 		button.setIcon(recordingNow ? Lucide.icon("square", 18, Theme::error) : Lucide.icon("mic", 18, Theme::muted));
 		button.setToolTipText(recordingNow ? "Stop, and write down what you said (Esc discards it)"
-			: "Speak your message instead of typing it");
+			: "Speak your message instead of typing it; end with “Go” to send it");
 	}
 }
