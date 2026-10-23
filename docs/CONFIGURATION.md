@@ -506,8 +506,11 @@ after a `401`:
 
 With that, and a remembered passphrase, Claude Code can start Brightside
 itself with `java -jar target/brightside.jar --unlock --takeover` and connect
-once it is up, with nobody at the computer. On Windows, if the helper's shell
-does not expand `~`, give the absolute path.
+once it is up, with nobody at the computer. On Windows the helper may run
+under `cmd.exe`, which has no `cat` and does not expand `~`: use
+`powershell.exe -NoProfile -Command Get-Content -Raw C:/Users/<you>/.brightside/tool-token.json`.
+A helper that fails sends no token, and the venue's `401` then shows up as a
+failed OAuth client registration.
 
 Mint it **as the user** for Claude Code to see what you see — your workspace,
 agents, conversations and inbox. A token minted as the venue operator sees the
