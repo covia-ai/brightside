@@ -22,7 +22,10 @@ import brightside.SessionHistory;
 import brightside.chat.ChatSession;
 import brightside.voice.Voice;
 import convex.core.data.ACell;
+import convex.core.data.AMap;
+import convex.core.data.Blob;
 import convex.core.data.Maps;
+import convex.core.data.Vectors;
 import convex.core.data.prim.CVMBool;
 import convex.core.lang.RT;
 import convex.core.util.JSON;
@@ -348,6 +351,21 @@ class SessionHistoryTest {
 	private static void invoke(Venue client, String op, ACell input) throws Exception {
 		var job = client.invoke(op, input).get(30, java.util.concurrent.TimeUnit.SECONDS);
 		job.future().get(30, java.util.concurrent.TimeUnit.SECONDS);
+	}
+
+	@Test
+	void sessionsLastActiveTogetherListTheNewerFirst() {
+		// Ids grow with creation; turns are timed to the millisecond, so two can tie.
+		List<String> ids = List.of("0a01", "0a02", "0a03", "0a04", "0a05", "0a06");
+		AMap<ACell, ACell> sessions = Maps.empty();
+		for (String id : ids) {
+			sessions = sessions.assoc(Blob.fromHex(id), Maps.of("frames", Vectors.of(Maps.of("conversation",
+				Vectors.of(Maps.of("role", "user", "content", "topic " + id, "ts", 1000L))))));
+		}
+		ACell record = Maps.of("sessions", sessions);
+		assertEquals(List.of("0a06", "0a05", "0a04", "0a03", "0a02", "0a01"),
+			SessionHistory.sessionsOf(record).stream().map(SessionHistory.Session::sessionId).toList());
+		assertEquals("0a06", SessionHistory.snapshotOf(record, null).sessionId(), "the latest is the newest of the tie");
 	}
 
 	@Test

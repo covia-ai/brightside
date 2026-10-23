@@ -1,6 +1,7 @@
 package brightside;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -252,9 +253,16 @@ public final class SessionHistory {
 					sessionTitle(entry.getValue(), conversation), latestTurnTs(conversation)));
 			}
 		}
-		out.sort((a, b) -> Long.compare(b.lastTs(), a.lastTs()));
+		out.sort(NEWEST_FIRST);
 		return out;
 	}
+
+	/**
+	 * Most recently active first. Turns are timed to the millisecond, so two
+	 * sessions can tie; then the higher id, which grows with creation, is newer.
+	 */
+	private static final Comparator<Session> NEWEST_FIRST =
+		Comparator.comparingLong(Session::lastTs).thenComparing(Session::sessionId).reversed();
 
 	/** Projects one session (by hex id) from an already-read record, or the latest. */
 	public static Snapshot snapshotOf(ACell record, String sessionId) {
@@ -306,9 +314,11 @@ public final class SessionHistory {
 				AVector<ACell> conversation = conversationOf(entry.getValue());
 				if (conversation == null || conversation.isEmpty()) continue;
 				long ts = latestTurnTs(conversation);
-				if (ts >= bestTs) {
+				String sid = sidHex(entry.getKey());
+				// Ties go to the newer session, as in the list.
+				if (ts > bestTs || (ts == bestTs && sid.compareTo(bestSid) > 0)) {
 					bestTs = ts;
-					bestSid = sidHex(entry.getKey());
+					bestSid = sid;
 					bestConversation = conversation;
 				}
 			}
