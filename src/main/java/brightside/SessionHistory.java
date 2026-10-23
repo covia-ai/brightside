@@ -21,6 +21,7 @@ import convex.core.data.prim.CVMBool;
 import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
 import convex.core.util.JSON;
+import covia.adapter.agent.GoalTreeContext;
 import covia.grid.Venue;
 
 /**
@@ -28,8 +29,10 @@ import covia.grid.Venue;
  * state</b> — the single source of truth — and projects it for display.
  *
  * <p>The agent record ({@code g/<agentId>}) holds a {@code sessions} index; each
- * session's {@code frames[0].conversation} is the turn list ({@code role} /
- * {@code content} / {@code toolCalls}). This projects an ordered list of
+ * session's root frame ({@code frames[0]}) holds its turns ({@code role} /
+ * {@code content} / {@code toolCalls}), read through Covia's own
+ * {@link GoalTreeContext#archivedConversation} so either storage format
+ * reads the same. This projects an ordered list of
  * {@link Item}s: user and final-assistant {@link Message}s, plus an
  * {@link Activity} group (the intermediate "let me try…" narration and the tool
  * calls/results) between a question and its answer — so a turn's tool use is
@@ -415,12 +418,22 @@ public final class SessionHistory {
 		return (key instanceof ABlob b) ? b.toHexString() : String.valueOf(key);
 	}
 
-	/** {@code session.frames[0].conversation}, or null. */
+	/**
+	 * The root frame's current conversation, compacted stretches as segments
+	 * over their archived turns, or null. Covia reads both of its storage
+	 * formats: the legacy {@code conversation} and the append-only
+	 * {@code history} whose {@code contextStart} marks where it begins.
+	 */
 	@SuppressWarnings("unchecked")
 	private static AVector<ACell> conversationOf(ACell session) {
 		if (!(RT.getIn(session, "frames") instanceof AVector<?> frames) || frames.isEmpty()) return null;
-		ACell conv = RT.getIn((ACell) frames.get(0), "conversation");
-		return (conv instanceof AVector<?> v) ? (AVector<ACell>) v : null;
+		if (!(frames.get(0) instanceof AMap<?, ?> root)) return null;
+		try {
+			return GoalTreeContext.archivedConversation((AMap<AString, ACell>) root);
+		} catch (IllegalArgumentException e) {
+			// A malformed frame shows nothing rather than a different conversation.
+			return null;
+		}
 	}
 
 	private static long latestTurnTs(AVector<ACell> conversation) {
