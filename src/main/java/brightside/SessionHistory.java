@@ -67,10 +67,42 @@ public final class SessionHistory {
 	 * A chat message. {@code role} is {@code "user"} or {@code "assistant"};
 	 * {@code origin} names where an inbound message arrived from when it was not
 	 * this app (e.g. {@code "Discord · #general · quark"}), else null.
+	 * {@code waiting}: the venue holds it for the assistant's next turn, behind
+	 * one still running, and it is not yet in the conversation.
 	 */
-	public record Message(String role, String text, String origin) implements Item {
+	public record Message(String role, String text, String origin, boolean waiting) implements Item {
 		public Message(String role, String text) {
 			this(role, text, null);
+		}
+
+		public Message(String role, String text, String origin) {
+			this(role, text, origin, false);
+		}
+	}
+
+	/**
+	 * A tool call as the owner should see it. A tool a loaded skill added runs
+	 * through the harness's {@code invoke_tool}, which names it in its input:
+	 * the call is that tool, with its own input, not the dispatcher.
+	 */
+	public record ToolCall(String name, ACell input) {
+		static final String INVOKE_TOOL = "invoke_tool";
+
+		/** {@code name} called with {@code input}, seen through {@code invoke_tool} to the tool it runs. */
+		public static ToolCall of(String name, ACell input) {
+			if (INVOKE_TOOL.equals(name)) {
+				ACell args = input;
+				if (args instanceof AString s) {
+					try {
+						args = JSON.parse(s.toString());
+					} catch (RuntimeException e) {
+						args = null;
+					}
+				}
+				String target = str(RT.getIn(args, "name"));
+				if (notBlank(target)) return new ToolCall(target, RT.getIn(args, "input"));
+			}
+			return new ToolCall(name, input);
 		}
 	}
 
@@ -298,7 +330,7 @@ public final class SessionHistory {
 		for (long i = 0; i < pending.count(); i++) {
 			ACell raw = RT.getIn((ACell) pending.get(i), "message");
 			String text = contentText(raw);
-			if (notBlank(text)) items.add(new Message(ROLE_USER, text, originOf(raw)));
+			if (notBlank(text)) items.add(new Message(ROLE_USER, text, originOf(raw), true));
 		}
 	}
 
@@ -512,9 +544,9 @@ public final class SessionHistory {
 	private static List<Item> project(AVector<ACell> conversation) {
 		List<Item> items = new ArrayList<>();
 		List<Step> pending = new ArrayList<>();
-		// Tool call id -> rendered arguments, captured from the assistant turn so
-		// the following tool-result turn (matched by id) can show its input too.
-		Map<String, String> callArgs = new HashMap<>();
+		// Tool call id -> the call, captured from the assistant turn so the
+		// following tool-result turn (matched by id) can show the tool and its input.
+		Map<String, ToolCall> calls = new HashMap<>();
 		for (long i = 0; i < conversation.count(); i++) {
 			ACell turn = conversation.get(i);
 			if (isSegment(turn)) {
@@ -541,18 +573,19 @@ public final class SessionHistory {
 				case ROLE_ASSISTANT -> {
 					if (hasToolCalls(turn)) {
 						if (notBlank(content)) pending.add(new Step(false, "", content, false, null));
-						recordToolCalls(turn, callArgs);
+						recordToolCalls(turn, calls);
 					} else {
 						flush(items, pending);
 						if (notBlank(content)) items.add(new Message(ROLE_ASSISTANT, content));
 					}
 				}
 				case ROLE_TOOL -> {
-					String name = str(RT.getIn(turn, "name"));
 					String id = str(RT.getIn(turn, "id"));
+					ToolCall call = (id != null) ? calls.get(id) : null;
+					String name = (call != null && call.name() != null) ? call.name() : str(RT.getIn(turn, "name"));
 					boolean error = CVMBool.TRUE.equals(RT.getIn(turn, "isError"));
-					String call = (id != null) ? callArgs.get(id) : null;
-					pending.add(new Step(true, (name != null) ? name : "tool", toolResult(turn), error, call));
+					String input = (call != null && call.input() != null) ? renderContent(call.input()) : null;
+					pending.add(new Step(true, (name != null) ? name : "tool", toolResult(turn), error, input));
 				}
 				default -> {
 					// system and any other roles are not shown
@@ -563,15 +596,14 @@ public final class SessionHistory {
 		return items;
 	}
 
-	/** Captures {@code id -> rendered arguments} for each call on an assistant turn. */
-	private static void recordToolCalls(ACell turn, Map<String, String> callArgs) {
-		if (!(RT.getIn(turn, "toolCalls") instanceof AVector<?> calls)) return;
-		for (long i = 0; i < calls.count(); i++) {
-			ACell call = calls.get(i);
+	/** Captures {@code id -> call} for each call on an assistant turn. */
+	private static void recordToolCalls(ACell turn, Map<String, ToolCall> calls) {
+		if (!(RT.getIn(turn, "toolCalls") instanceof AVector<?> requested)) return;
+		for (long i = 0; i < requested.count(); i++) {
+			ACell call = requested.get(i);
 			String id = str(RT.getIn(call, "id"));
 			if (id == null) continue;
-			ACell args = RT.getIn(call, "arguments");
-			if (args != null) callArgs.put(id, renderContent(args));
+			calls.put(id, ToolCall.of(str(RT.getIn(call, "name")), RT.getIn(call, "arguments")));
 		}
 	}
 

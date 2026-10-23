@@ -445,7 +445,7 @@ public final class ChatPanel extends JPanel {
 
 	private Component rowFor(SessionHistory.Item it) {
 		if (it instanceof SessionHistory.Message m) {
-			return bubbleRow(m.text(), "user".equals(m.role()), (m.origin() != null) ? "via " + m.origin() : null);
+			return bubbleRow(m.text(), "user".equals(m.role()), caption(m.origin(), m.waiting()));
 		}
 		if (it instanceof SessionHistory.Activity a) return activityRow(a);
 		if (it instanceof SessionHistory.Summary s) {
@@ -620,7 +620,8 @@ public final class ChatPanel extends JPanel {
 		ChatSession s = session;
 		if (s == null) return;
 		long version = bindingVersion;
-		addTurn("user", text, SessionHistory.originOf(message));
+		// Sent mid-reply, it waits in the venue's queue until the turn in progress ends.
+		addTurn("user", text, SessionHistory.originOf(message), busy);
 		if (busy) {
 			enqueue(s, version, message);
 			focusInput();
@@ -744,19 +745,34 @@ public final class ChatPanel extends JPanel {
 	}
 
 	private void addTurn(String role, String text) {
-		addTurn(role, text, null);
+		addTurn(role, text, null, false);
 	}
 
-	/** @param origin where the message came from, as the transcript shows it; null for none */
-	private void addTurn(String role, String text, String origin) {
+	/**
+	 * @param origin  where the message came from, as the transcript shows it; null for none
+	 * @param waiting whether it waits in the venue's queue behind the reply in progress
+	 */
+	private void addTurn(String role, String text, String origin, boolean waiting) {
 		// The venue records the turn in the agent session; the UI reflects it
 		// optimistically and keeps `displayed` in step so the watcher's compare
 		// doesn't re-render our own turns.
-		displayed.add(new SessionHistory.Message(role, text, origin));
+		displayed.add(new SessionHistory.Message(role, text, origin, waiting));
 		hideEmptyState();
-		column.add(bubbleRow(text, "user".equals(role), (origin != null) ? "via " + origin : null));
+		column.add(bubbleRow(text, "user".equals(role), caption(origin, waiting)));
 		column.revalidate();
 		scrollToBottom();
+	}
+
+	/**
+	 * A message's small line above its bubble: where it came from, and whether
+	 * it is queued. A queued message is read when the reply in progress is done;
+	 * the line goes once the venue has taken it into the conversation.
+	 */
+	static String caption(String origin, boolean waiting) {
+		String via = (origin != null) ? "via " + origin : null;
+		if (!waiting) return via;
+		String queued = "Queued: read when the current reply is done";
+		return (via != null) ? via + " · " + queued : queued;
 	}
 
 	static String describe(Throwable t) {

@@ -25,6 +25,10 @@ public final class ActivityLabels {
 		AString name = convex.core.lang.RT.ensureString(
 			convex.core.lang.RT.getIn(event.data(), "name"));
 		if (name == null) return null;
+		// A tool a loaded skill added runs through invoke_tool: what runs is the tool it names.
+		brightside.SessionHistory.ToolCall call = brightside.SessionHistory.ToolCall.of(
+			name.toString(), convex.core.lang.RT.getIn(event.data(), "detail", "input"));
+		if (!name.toString().equals(call.name())) return toolLabel(v, did, call.name());
 		AString label = convex.core.lang.RT.ensureString(
 			convex.core.lang.RT.getIn(event.data(), "activityLabel"));
 		if (label != null && !label.isEmpty() && !label.equals(name)) return label.toString();

@@ -90,6 +90,18 @@ class LiveTurnTest {
 	}
 
 	@Test
+	void aToolASkillAddedIsShownAsItself() {
+		LiveTurn t = new LiveTurn();
+		ACell inner = Maps.of("prompt", "Add speech output");
+		assertTrue(t.apply(event("tool:start", Maps.of("id", "c3", "name", "invoke_tool",
+			"detail", Maps.of("input", Maps.of("name", "claudecode_run", "input", inner)))), null));
+		assertEquals("claudecode run…", t.status(), "not the dispatcher, invoke_tool");
+		SessionHistory.Step running = t.activity().steps().get(0);
+		assertEquals("claudecode_run", running.title());
+		assertEquals(SessionHistory.renderContent(inner), running.call());
+	}
+
+	@Test
 	void otherEventsChangeNothing() {
 		LiveTurn t = new LiveTurn();
 		assertFalse(t.apply(event("status", Maps.of("status", "RUNNING")), null));

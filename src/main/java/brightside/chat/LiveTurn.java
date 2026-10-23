@@ -89,9 +89,10 @@ public final class LiveTurn {
 	}
 
 	private boolean toolStarted(AMap<AString, ACell> data, String toolLabel) {
-		String name = str(RT.getIn(data, "name"));
-		String title = (name != null) ? name : "tool";
-		ACell input = RT.getIn(data, "detail", "input");
+		SessionHistory.ToolCall started = SessionHistory.ToolCall.of(
+			str(RT.getIn(data, "name")), RT.getIn(data, "detail", "input"));
+		String title = (started.name() != null) ? started.name() : "tool";
+		ACell input = started.input();
 		String call = (input != null) ? SessionHistory.renderContent(input) : null;
 		steps.add(new SessionHistory.Step(true, title, null, false, call));
 		String id = str(RT.getIn(data, "id"));

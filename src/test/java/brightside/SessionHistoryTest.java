@@ -384,10 +384,34 @@ class SessionHistoryTest {
 		List<SessionHistory.Item> expected = List.of(
 			new SessionHistory.Message("user", "start the work"),
 			new SessionHistory.Message("assistant", "on it"),
-			new SessionHistory.Message("user", "and keep it local"),
-			new SessionHistory.Message("user", "not GPL", "Voice"));
+			new SessionHistory.Message("user", "and keep it local", null, true),
+			new SessionHistory.Message("user", "not GPL", "Voice", true));
 		assertEquals(expected, SessionHistory.snapshotOf(record, "0b01").items());
 		assertEquals(expected, SessionHistory.snapshotOf(record, null).items(), "the latest session shows them too");
+	}
+
+	@Test
+	void aToolASkillAddedShowsAsItselfNotTheDispatcher() {
+		// A loaded skill's tools run through invoke_tool, the real tool named in its input.
+		ACell inner = Maps.of("project", "brightside", "prompt", "Add speech output");
+		ACell conversation = Vectors.of(
+			Maps.of("role", "user", "content", "go ahead", "ts", 1000L),
+			Maps.of("role", "assistant", "content", "Handing this to Claude Code.", "ts", 1001L,
+				"toolCalls", Vectors.of(Maps.of("id", "c1", "name", "invoke_tool",
+					"arguments", Maps.of("name", "claudecode_run", "input", inner)))),
+			Maps.of("role", "tool", "id", "c1", "name", "invoke_tool", "content", "Done.", "ts", 1002L),
+			Maps.of("role", "assistant", "content", "It is done.", "ts", 1003L));
+		ACell record = Maps.of("sessions", Maps.of(Blob.fromHex("0c01"),
+			Maps.of("frames", Vectors.of(Maps.of("conversation", conversation)))));
+		SessionHistory.Activity activity = (SessionHistory.Activity) SessionHistory.snapshotOf(record, "0c01").items().get(1);
+		SessionHistory.Step step = activity.steps().get(1);
+		assertEquals("claudecode_run", step.title());
+		assertEquals(SessionHistory.renderContent(inner), step.call());
+		assertEquals("Done.", step.detail());
+		// Arguments a model sent as JSON text are seen through the same way.
+		assertEquals("claudecode_run", SessionHistory.ToolCall.of("invoke_tool",
+			convex.core.data.Strings.create("{\"name\":\"claudecode_run\",\"input\":{}}")).name());
+		assertEquals("covia_read", SessionHistory.ToolCall.of("covia_read", inner).name());
 	}
 
 	@Test
