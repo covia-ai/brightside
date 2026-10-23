@@ -277,6 +277,16 @@ public final class MainWindow extends JFrame {
 			}
 
 			@Override
+			public void setTakeOverWithoutAsking(boolean value) {
+				app.setTakeOverWithoutAsking(value);
+			}
+
+			@Override
+			public void setUnlockWithoutAsking(boolean value) {
+				app.setUnlockWithoutAsking(value);
+			}
+
+			@Override
 			public void hideToTray() {
 				app.hideToTray();
 			}
@@ -744,6 +754,8 @@ public final class MainWindow extends JFrame {
 		String userDid = (identity != null && venueDid != null) ? identity.userDID(venueDid) : null;
 		settingsScreen.general().refresh(app.hasTray(), app.keepInTray(), app.minimiseToTray(),
 			identity != null, venue != null);
+		settingsScreen.general().refreshStartup(app.takeOverWithoutAsking(), app.unlockWithoutAsking(),
+			app.hasRememberedPassphrase());
 		settingsScreen.theme().refresh(app.mode(), app.theme(), app.accent());
 		settingsScreen.model().preselect(app.currentModelOp());
 		settingsScreen.profile().refresh(name, userDid, venueDid, app.publicKeyHex(), app.canRevealPrivateSeed(),

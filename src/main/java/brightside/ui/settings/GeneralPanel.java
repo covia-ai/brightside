@@ -32,6 +32,10 @@ public final class GeneralPanel extends SettingsPage {
 
 		void setMinimiseToTray(boolean value);
 
+		void setTakeOverWithoutAsking(boolean value);
+
+		void setUnlockWithoutAsking(boolean value);
+
 		void hideToTray();
 
 		void openDashboard();
@@ -53,6 +57,9 @@ public final class GeneralPanel extends SettingsPage {
 	private final JCheckBox keepInTray = new JCheckBox("Keep running in the tray when I close the window");
 	private final JCheckBox minimiseToTray = new JCheckBox("Send Brightside to the tray when minimised");
 	private final JLabel trayNote = Labels.small(" ");
+	private final JCheckBox takeOver = new JCheckBox("Take over a Brightside that is already running, without asking");
+	private final JCheckBox unlock = new JCheckBox("Unlock with my stored passphrase, without asking");
+	private final JLabel unlockNote = Labels.small("Store your passphrase on the unlock screen to use this.");
 	private final JButton hideToTray;
 	private final JButton dashboard;
 	private boolean syncing;
@@ -74,6 +81,22 @@ public final class GeneralPanel extends SettingsPage {
 			host::changeName);
 		logout = action(account, "Lock", "Lock Brightside and ask for the passphrase again; it keeps running meanwhile",
 			host::logout);
+
+		takeOver.setOpaque(false);
+		unlock.setOpaque(false);
+		takeOver.setToolTipText("At launch, it hands over to this one; nothing is lost");
+		unlock.setToolTipText("At launch only: Lock still asks for the passphrase");
+		takeOver.addActionListener(e -> {
+			if (!syncing) host.setTakeOverWithoutAsking(takeOver.isSelected());
+		});
+		unlock.addActionListener(e -> {
+			if (!syncing) host.setUnlockWithoutAsking(unlock.isSelected());
+		});
+		group("Startup");
+		addSpan(takeOver);
+		addSpan(unlock);
+		unlockNote.setVisible(false); // until refreshStartup says nothing is stored
+		addSpan(unlockNote);
 
 		keepInTray.setOpaque(false);
 		minimiseToTray.setOpaque(false);
@@ -124,6 +147,19 @@ public final class GeneralPanel extends SettingsPage {
 		// Says why the tray controls are disabled; nothing to say when they work.
 		trayNote.setText("The system tray isn't available on this desktop.");
 		trayNote.setVisible(!trayAvailable);
+	}
+
+	/**
+	 * Refreshes the startup preferences. Unlocking without asking needs a
+	 * passphrase stored on this computer; without one it is off and says why.
+	 */
+	public void refreshStartup(boolean takeOverWithoutAsking, boolean unlockWithoutAsking, boolean passphraseStored) {
+		syncing = true;
+		takeOver.setSelected(takeOverWithoutAsking);
+		unlock.setSelected(passphraseStored && unlockWithoutAsking);
+		syncing = false;
+		unlock.setEnabled(passphraseStored);
+		unlockNote.setVisible(!passphraseStored);
 	}
 
 	/** The row the current section's buttons go in. */

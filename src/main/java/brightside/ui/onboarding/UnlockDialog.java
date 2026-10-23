@@ -58,6 +58,15 @@ public final class UnlockDialog extends JDialog {
 		showAndFocus();
 	}
 
+	/**
+	 * Presses Unlock for the owner, with the passphrase it was shown with — a
+	 * launch that unlocks without asking. The progress shows as for a press,
+	 * and a passphrase that fails leaves the field open for one typed by hand.
+	 */
+	public void unlockNow() {
+		panel.submit();
+	}
+
 	/** A wrong passphrase, or a failure worth a line: re-enables the field with the message. */
 	public void showError(String message) {
 		panel.showError(message);

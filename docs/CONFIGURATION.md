@@ -56,8 +56,13 @@ waiting at the unlock dialog, for starting Brightside from a script or from
 Claude Code while you are away, and comes up in the tray rather than as a
 window. Without a remembered passphrase it exits with
 an error; if Brightside is already running it leaves it be, unless
-`--takeover` is given too, which takes over from it without asking (on its
-own, `--takeover` just skips that question) ([LAUNCH.md](LAUNCH.md#startup)).
+`--takeover` is given too, which takes over from it without asking.
+
+`--takeover` on its own is for a launch you are sitting at, such as an IDE run
+configuration: it takes over from a running Brightside and unlocks with the
+remembered passphrase without asking, and the window comes up as usual. For
+everyday launches, Settings → General → Startup offers the same two choices
+([LAUNCH.md](LAUNCH.md#startup)).
 
 ## The file
 

@@ -1,10 +1,14 @@
 package brightside;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Path;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import brightside.BrightSide;
 import brightside.model.AgentRef;
@@ -42,6 +46,22 @@ final class BrightSideTest {
 		assertEquals(new BrightSide.Launch(AppConfig.DEFAULT_FILE, false, true), BrightSide.Launch.parse("--takeover"));
 		org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
 			() -> BrightSide.Launch.parse("--unlcok"), "a mistyped option is not taken for a config file");
+	}
+
+	@Test
+	void forgettingTheStoredPassphraseStopsUnlockingWithoutAsking(@TempDir Path home) throws Exception {
+		Path file = home.resolve("config.json");
+		AppConfig config = AppConfig.load(file);
+		BrightSide app = new BrightSide(config, file, Prefs.load(home));
+		RememberedPassphrase.store(home, "correct horse".toCharArray());
+		app.setUnlockWithoutAsking(true);
+		assertTrue(new BrightSide(config, file, Prefs.load(home)).unlockWithoutAsking(), "kept for the next launch");
+
+		app.forgetRememberedPassphrase();
+
+		assertFalse(app.hasRememberedPassphrase());
+		// A passphrase stored again later is not consent to unlock with it unasked.
+		assertFalse(new BrightSide(config, file, Prefs.load(home)).unlockWithoutAsking());
 	}
 
 	@Test

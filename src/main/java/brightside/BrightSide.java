@@ -73,6 +73,13 @@ public final class BrightSide {
 	private static final String PREF_THEME_DARK = "ui.theme.dark";
 	private static final String PREF_THEME_LIGHT = "ui.theme.light";
 	private static final String PREF_ACCENT = "ui.accent";
+	/**
+	 * Preference keys for Settings → General → Startup: take over a Brightside
+	 * found running without asking, and unlock at launch with the remembered
+	 * passphrase without waiting for Unlock. {@code --takeover} does both.
+	 */
+	private static final String PREF_TAKE_OVER = "startup.takeOver";
+	private static final String PREF_UNLOCK = "startup.unlock";
 
 	private final AppConfig config;
 	private final Path configPath;
@@ -102,7 +109,7 @@ public final class BrightSide {
 	private volatile boolean unattended;
 	/** Launched with --unlock: come up in the tray (minimised without one), not as a window. Event thread. */
 	private boolean startQuiet;
-	/** Launched with --takeover: a Brightside found running is taken over without asking. */
+	/** Launched with --takeover: a Brightside found running is taken over, and a remembered passphrase used, without asking. */
 	private volatile boolean takeoverAllowed;
 	/** Rewrites the token for local tools while the owner keeps one ({@link ToolToken}). */
 	private final java.util.concurrent.ScheduledExecutorService toolTokens =
@@ -221,6 +228,11 @@ public final class BrightSide {
 	 * fails, ends the process with an error instead. An instance already
 	 * running is left alone unless {@link Launch#takeover} says to take over
 	 * from it, which is then done without asking.
+	 * <p>
+	 * Otherwise someone is there. {@link Launch#takeover}, or the owner's
+	 * startup settings, take over without asking and press Unlock with the
+	 * remembered passphrase; the dialog still shows the progress, and takes
+	 * the passphrase by hand if the remembered one fails.
 	 */
 	void start(Launch launch) {
 		boolean unlock = launch.unlock();
@@ -269,8 +281,8 @@ public final class BrightSide {
 				System.exit(0);
 				return;
 			}
-			if (takeoverAllowed) {
-				log.info("--takeover: taking over from the instance on port {} without asking", config.port());
+			if (takeOverUnasked()) {
+				log.info("Taking over from the instance on port {} without asking", config.port());
 			} else if (!confirmTakeover()) {
 				log.info("Another Brightside instance is running and takeover was declined; exiting");
 				System.exit(0);
@@ -290,7 +302,13 @@ public final class BrightSide {
 					}
 					case UNLOCK -> {
 						if (passphrase == null) {
-							showUnlockDialog(RememberedPassphrase.load(config.home()));
+							char[] prefill = RememberedPassphrase.load(config.home());
+							boolean unlockNow = prefill != null && (takeoverAllowed || unlockWithoutAsking());
+							showUnlockDialog(prefill);
+							if (unlockNow) {
+								log.info("Unlocking with the remembered passphrase without asking");
+								unlockDialog.unlockNow();
+							}
 						} else {
 							// Started from a command line: nothing on screen. A failure ends the process.
 							log.info("--unlock: unlocking with the remembered passphrase");
@@ -586,7 +604,7 @@ public final class BrightSide {
 						log.warn("Could not store the remembered passphrase: {}", e.getMessage());
 					}
 				} else {
-					RememberedPassphrase.clear(home);
+					forgetRememberedPassphrase();
 				}
 				this.vault = v;
 				this.venueSeedHex = seedHex;
@@ -710,7 +728,7 @@ public final class BrightSide {
 				// can't be read now; drop it (keys can be re-entered in Settings). The
 				// venue store itself is keyed to the seed, so it stays and reopens intact.
 				Files.deleteIfExists(home.resolve(Vault.KEYS_FILE));
-				RememberedPassphrase.clear(home);
+				forgetRememberedPassphrase();
 				// Like the remembered passphrase, the tool token is something to opt back into.
 				prefs.setBool("toolToken.keep", false);
 				ToolToken.clear(home);
@@ -1335,7 +1353,7 @@ public final class BrightSide {
 	 */
 	private boolean takeOver(int port, Path store) throws Exception {
 		// Already agreed at startup; otherwise the instance appeared since, so ask now.
-		if (!takeoverApproved && !takeoverAllowed && !confirmTakeover()) return false;
+		if (!takeoverApproved && !takeOverUnasked() && !confirmTakeover()) return false;
 		takeoverApproved = false;
 		progress("Taking over from the running Brightside…");
 		// Who is it? A Brightside holding our identity answers brightside:info
@@ -1392,11 +1410,14 @@ public final class BrightSide {
 				Object[] options = { "Take Over", "Cancel" };
 				java.awt.Component parent = (unlockDialog != null && unlockDialog.isShowing()) ? unlockDialog
 					: (window != null && window.isShowing()) ? window : null;
-				int choice = JOptionPane.showOptionDialog(parent,
-					"Brightside is already running on this computer.\n\nTake over from it?",
+				// Remembered where the choice is made, undone in Settings → General → Startup.
+				javax.swing.JCheckBox always = new javax.swing.JCheckBox("Always take over without asking");
+				Object[] message = { "Brightside is already running on this computer.\n\nTake over from it?", always };
+				int choice = JOptionPane.showOptionDialog(parent, message,
 					APP_NAME, JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE,
 					null, options, options[0]);
 				takeOver[0] = (choice == JOptionPane.OK_OPTION);
+				if (takeOver[0] && always.isSelected()) setTakeOverWithoutAsking(true);
 			});
 		} catch (Exception e) {
 			log.warn("Takeover prompt failed; cancelling", e);
@@ -2182,6 +2203,37 @@ public final class BrightSide {
 		renewToolToken();
 	}
 
+	/**
+	 * Whether the owner has a Brightside found running at launch taken over
+	 * without asking (default false). Never for {@code --unlock}: a launch
+	 * nobody is sitting at leaves a running instance alone unless
+	 * {@code --takeover} says otherwise.
+	 */
+	public boolean takeOverWithoutAsking() {
+		return prefs.getBool(PREF_TAKE_OVER, false);
+	}
+
+	public void setTakeOverWithoutAsking(boolean value) {
+		prefs.setBool(PREF_TAKE_OVER, value);
+	}
+
+	/** Whether to take over without asking: {@code --takeover}, or the owner's setting. */
+	private boolean takeOverUnasked() {
+		return takeoverAllowed || takeOverWithoutAsking();
+	}
+
+	/**
+	 * Whether a launch unlocks with the remembered passphrase without waiting
+	 * for Unlock (default false). Only at launch: Lock always asks.
+	 */
+	public boolean unlockWithoutAsking() {
+		return prefs.getBool(PREF_UNLOCK, false);
+	}
+
+	public void setUnlockWithoutAsking(boolean value) {
+		prefs.setBool(PREF_UNLOCK, value);
+	}
+
 	/** Keeps the tool token fresh from the moment the venue is up. Once. */
 	private void startToolTokens() {
 		if (toolTokensStarted.compareAndSet(false, true)) {
@@ -2343,9 +2395,14 @@ public final class BrightSide {
 		return RememberedPassphrase.load(config.home());
 	}
 
-	/** Delete the remembered passphrase from this computer. */
+	/**
+	 * Delete the remembered passphrase from this computer. Unlocking with it
+	 * without asking goes too: remembering a passphrase again is not consent to
+	 * that, so it is something to opt back into.
+	 */
 	public void forgetRememberedPassphrase() {
 		RememberedPassphrase.clear(config.home());
+		prefs.setBool(PREF_UNLOCK, false);
 	}
 
 	/** Opens the Auth section of Settings, once the venue is up. */

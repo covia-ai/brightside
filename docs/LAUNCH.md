@@ -30,9 +30,13 @@ See [stdio setup](CONFIGURATION.md#from-a-stdio-mcp-client).
    first screen at once: the onboarding wizard in the main window when no
    vault exists; otherwise the **unlock dialog** (`UnlockDialog`) on its own,
    pre-filled if the owner chose *Remember me*. The main window is built but
-   stays hidden until the passphrase is accepted. *Lock* (Settings → General)
-   hides the window and brings the dialog back; the tray's *Show* brings back
-   whichever is current.
+   stays hidden until the passphrase is accepted. With *Unlock with my stored
+   passphrase, without asking* (Settings → General → Startup), a launch
+   presses Unlock itself: the dialog shows only its progress, and takes a
+   passphrase by hand if the stored one fails. Forgetting the passphrase turns
+   that off. *Lock* (Settings → General) hides the window and brings the
+   dialog back, and always asks; the tray's *Show* brings back whichever is
+   current.
 
    `--unlock` on the command line (`java -jar brightside.jar --unlock`) is for
    a launch nobody is sitting at, such as one from Claude Code: it unlocks at
@@ -44,9 +48,12 @@ See [stdio setup](CONFIGURATION.md#from-a-stdio-mcp-client).
    error too, as does a launch that fails after it, since nobody is there to
    read a dialog. Once it is up it is an ordinary session: a later
    Lock asks for the passphrase as usual. If an instance is already running it
-   is left alone and the launch exits, unless `--takeover` is given as well.
+   is left alone and the launch exits, unless `--takeover` is given as well;
+   the startup settings never apply to it.
    `--takeover`, with or without `--unlock`, takes over from a running
-   Brightside without asking (below).
+   Brightside without asking (below). On its own it is a launch someone is
+   sitting at, as from an IDE: it also unlocks with the stored passphrase
+   without asking, as the setting above does, and the window comes up as usual.
 3. Unlock or onboarding opens the vault, yields the identity seed and secures
    the venue config with it (seed plus the Etch v3 store key). `launchVenueWith`
    then runs on a background thread while the unlock dialog stays up showing
@@ -84,8 +91,9 @@ Two processes cannot share `venue.etch`; the second fails on the file lock. So
   something is running; only a refused connection means nothing is. (A private
   venue answers `401` to strangers; that still counts.)
 - A returning owner is asked *Take Over / Cancel* at startup, before the unlock
-  dialog — Cancel exits without a passphrase ever being typed; `--takeover`
-  answers *Take Over* in advance. The unlock
+  dialog — Cancel exits without a passphrase ever being typed. `--takeover`
+  answers *Take Over* in advance, as does *Always take over without asking*,
+  ticked on that question or in Settings → General → Startup. The unlock
   dialog then notes that the running instance will hand over once unlocked.
   (An instance that appears only later is asked about at launch time instead.)
 - A new install is told to quit the running Brightside first, and exits. It

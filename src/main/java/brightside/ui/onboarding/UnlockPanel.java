@@ -139,7 +139,8 @@ public final class UnlockPanel extends JPanel {
 		status.setText(" ");
 	}
 
-	private void submit() {
+	/** Presses Unlock: the passphrase typed or pre-filled, nothing if the field is empty. */
+	void submit() {
 		char[] pw = field.getPassword();
 		if (pw.length == 0) return;
 		field.setText("");
