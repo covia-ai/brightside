@@ -110,7 +110,7 @@ public final class FileBrowser extends JPanel {
 	private final FileActions actions = new FileActions(this);
 	private final JTextField filter = new JTextField();
 	private final JPanel breadcrumbs = panel(new MigLayout("insets 0, gap 0, aligny center", "", ""));
-	/** The line along the bottom: how many items, and any warning the listing carries. */
+	/** The line under the list: how many items, and any warning the listing carries. */
 	private final JLabel status = Labels.small(" ");
 	/** What the folder area shows instead of the list: loading, empty, or why it can't be read. */
 	private final JPanel empty = panel(new java.awt.GridBagLayout());
@@ -141,7 +141,7 @@ public final class FileBrowser extends JPanel {
 		this.storageSettings = storageSettings;
 		tree.setRootVisible(false);
 		tree.setShowsRootHandles(true);
-		tree.setRowHeight(UIScale.scale(32));
+		tree.setRowHeight(UIScale.scale(26));
 		tree.setBorder(BorderFactory.createEmptyBorder(4, 6, 12, 8));
 		tree.putClientProperty(FlatClientProperties.TREE_WIDE_SELECTION, true);
 		Styles.classes(tree, "files");
@@ -203,7 +203,8 @@ public final class FileBrowser extends JPanel {
 		directory.setBorder(BorderFactory.createEmptyBorder(4, 12, 8, 12));
 		files.setCellRenderer(new FileRenderer());
 		files.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
-		files.setFixedCellHeight(UIScale.scale(56));
+		// Every row is as tall as this one; the list measures it again when the theme changes.
+		files.setPrototypeCellValue(new Entry("Prototype", "file", 1, 1));
 		files.setOpaque(false);
 		files.getAccessibleContext().setAccessibleName("Folder contents");
 		ToolTipManager.sharedInstance().registerComponent(files);
@@ -240,6 +241,9 @@ public final class FileBrowser extends JPanel {
 		contents.add(list, "files");
 		contents.add(empty, "empty");
 		directory.add(contents, BorderLayout.CENTER);
+		// How many items, under the list they count, its left edge on the rows' icons.
+		status.setBorder(BorderFactory.createEmptyBorder(6, 10, 0, 10));
+		directory.add(status, BorderLayout.SOUTH);
 		directory.setMinimumSize(new Dimension(UIScale.scale(200), UIScale.scale(180)));
 		detail.setMinimumSize(new Dimension(UIScale.scale(220), UIScale.scale(140)));
 		folderSplit = split(directory, detail, 0.55);
@@ -249,9 +253,6 @@ public final class FileBrowser extends JPanel {
 		JSplitPane layout = split(sidebar, workspace, 0);
 		layout.setDividerLocation(UIScale.scale(230));
 		add(layout, BorderLayout.CENTER);
-		status.setBorder(BorderFactory.createCompoundBorder(Borders.hairlineTop(),
-			BorderFactory.createEmptyBorder(6, 18, 7, 18)));
-		add(status, BorderLayout.SOUTH);
 		addComponentListener(new ComponentAdapter() {
 			@Override public void componentResized(ComponentEvent e) { responsive(); }
 		});
@@ -860,7 +861,7 @@ public final class FileBrowser extends JPanel {
 				setToolTipText(node.location.root().name() + "/" + node.location.path());
 			} else { setIcon(null); setToolTipText(null); }
 			if (!selected) setForeground(value instanceof Directory ? Theme.foreground() : Theme.muted());
-			setIconTextGap(UIScale.scale(8));
+			setIconTextGap(UIScale.scale(6));
 			return this;
 		}
 	}
@@ -876,16 +877,17 @@ public final class FileBrowser extends JPanel {
 		private final Map<FileKind, Icon> icons = new EnumMap<>(FileKind.class);
 		private final Icon chevron = Lucide.icon("chevron-right", 16, Theme::muted);
 		FileRenderer() {
-			setLayout(new BorderLayout(12, 0));
-			setBorder(BorderFactory.createEmptyBorder(10, 12, 10, 12));
-			JPanel labels = panel(new BorderLayout(0, 4));
+			setLayout(new BorderLayout(10, 0));
+			setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
+			// The name and what it is, one line straight under the other.
+			JPanel labels = panel(new BorderLayout());
 			labels.add(name, BorderLayout.NORTH);
 			labels.add(meta, BorderLayout.SOUTH);
 			add(icon, BorderLayout.WEST);
 			add(labels, BorderLayout.CENTER);
 			add(trailing, BorderLayout.EAST);
 			for (FileKind k : FileKind.values()) {
-				icons.put(k, Lucide.icon(k.icon, 24, (k == FileKind.FOLDER) ? Theme::accentText : Theme::muted));
+				icons.put(k, Lucide.icon(k.icon, 20, (k == FileKind.FOLDER) ? Theme::accentText : Theme::muted));
 			}
 		}
 		@Override public Component getListCellRendererComponent(JList<? extends Entry> list, Entry entry,
