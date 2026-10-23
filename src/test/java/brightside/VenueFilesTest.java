@@ -67,6 +67,11 @@ class VenueFilesTest {
 		files.copyFile(drive, "plan.txt", folder, "changes-plan.txt");
 		assertEquals("go", Files.readString(folder.local().resolve("changes-plan.txt")), "a copy can go to another place");
 		files.delete(folder, "changes-plan.txt");
+		files.add(folder, "changes-in.txt", new ByteArrayInputStream("in".getBytes(StandardCharsets.UTF_8)));
+		assertEquals("in", files.preview(folder, "changes-in.txt").text());
+		assertThrows(Exception.class, () -> files.add(folder, "changes-in.txt", InputStream.nullInputStream()));
+		files.delete(folder, "changes-in.txt");
+		assertFalse(Files.exists(folder.local().resolve("changes-in.txt")));
 		files.delete(drive, "Trip");
 		assertFalse(Files.exists(folder.local().resolve("changes-plan.txt")));
 		assertTrue(files.list(drive, "").entries().stream().noneMatch(e -> e.name().equals("Trip")));

@@ -519,15 +519,29 @@ one in the contents view (Enter works too). Click a breadcrumb to return to an
 ancestor, or use Back and Up. The filter searches names in the current folder.
 
 Select a file for details and a literal UTF-8 text preview, limited to the
-first 64 KiB. The preview sits beside the contents in wide windows and below
+first 64 KiB; select several with Ctrl or Shift and the preview says what they
+come to. The preview sits beside the contents in wide windows and below
 them in narrow ones; its eye button hides it to make more room. Very small
 windows show the directory or the preview, switched with the eye button.
 Refresh (F5)
 re-reads storage, restoring the open tree branches and current location.
 Browsing creates no jobs or model calls and performs no background scan.
-The browser is read-only; file edits, external opening and archive browsing
-are outside its scope. **Storage settings** opens the page for adding folders
-and drives.
+
+Right-click a file or folder to open it, show it in the system's file
+manager, save a copy, rename it (F2) or delete it (Delete). Right-click
+elsewhere in a folder, or a folder in the sidebar, to make a folder
+(Ctrl+Shift+N) or add files. Opening a file in its own app and showing it in
+the file manager are offered for folders on this computer; a personal drive's
+files are saved out instead. Drag items onto a folder in the list or the
+sidebar: within one place a drag moves them, or copies with Ctrl held, and
+between places it copies. Files and folders dropped in from the computer are
+copied in; the originals stay. Nothing is replaced: a copy takes the next free
+name, such as `report (2).pdf`. Each change runs as one of your file
+operations, so it leaves a job, and a folder copy leaves one for each folder
+and file in it. Deleting is permanent, with no bin. A read-only folder offers
+no changes. Dragging out of the app and archive browsing are outside the
+browser's scope. **Storage settings** opens the page for adding folders and
+drives.
 
 *Settings → Files* manages two kinds of storage:
 

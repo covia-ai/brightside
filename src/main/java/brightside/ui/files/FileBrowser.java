@@ -577,7 +577,13 @@ public final class FileBrowser extends JPanel {
 		reloadTree(outcome.changed());
 		if (current == null) return;
 		Location away = null;
-		for (Location gone : outcome.gone()) if (current.within(gone)) away = gone.parent();
+		for (Location gone : outcome.gone()) {
+			if (!current.within(gone)) continue;
+			// One folder renamed or moved is followed to where it is now; one deleted leaves its parent open.
+			boolean followed = into != null && outcome.gone().size() == 1 && outcome.done().size() == 1;
+			away = followed ? new Location(into.root(), into.child(outcome.done().get(0)).path()
+				+ current.path().substring(gone.path().length())) : gone.parent();
+		}
 		if (away != null) navigate(away, false);
 		else if (outcome.changed().contains(current)) relist(current.equals(into) ? outcome.done() : List.of());
 		else counts();

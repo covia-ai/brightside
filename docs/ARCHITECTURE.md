@@ -84,7 +84,8 @@ each change as a batch off the event thread: it never replaces an item,
 carries on past one that fails, and names the folders that changed.
 Navigation and bounded previews run off the event thread. A lazy directory
 cache shares reads between tree expansion and folder selection; a change
-forgets only the folders it touched, refresh invalidates it all, and principal
+forgets the folders it touched and what is in them, refresh invalidates it
+all, and principal
 changes replace the entire binding. Stale results
 are discarded after selection, principal changes or logout. The browser uses
 the shared Brightside cards, labels, icons and readouts. Sharing this
