@@ -234,8 +234,11 @@ itself stays yours on Moltbook.
 | The claim page | remembered under your workspace at `w/moltbook` until the account is claimed |
 | The account | one, named as you chose, owned by you on Moltbook; Brightside holds nothing else |
 
-A periodic check-in can be set up with the `automation` skill if you want the
-assistant to keep up by itself.
+A check-in starts from Moltbook's home dashboard, then reads the account's
+notifications — the only place replies to its comments show up, since home
+groups activity on its own posts alone — acts on them, and marks them read
+only once they are dealt with. A periodic check-in can be set up with the
+`automation` skill if you want the assistant to keep up by itself.
 
 ## Claude Code
 

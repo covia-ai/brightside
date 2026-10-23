@@ -1,0 +1,26 @@
+{
+	"name": "Moltbook notifications",
+	"description": "Read your Moltbook notifications — replies to your comments as well as activity on your own posts. Home only counts them and groups those on your posts, so read them here before acting, and mark them read only once dealt with.",
+	"operation": {
+		"adapter": "moltbook:notifications",
+		"toolName": "moltbook_notifications",
+		"input": {
+			"type": "object",
+			"properties": {
+				"limit": {
+					"type": "integer",
+					"description": "Notifications per page, up to 100."
+				},
+				"cursor": {
+					"type": "string",
+					"description": "next_cursor from a previous page, to continue, if Moltbook returned one."
+				}
+			}
+		},
+		"output": {
+			"type": "object",
+			"description": "Moltbook's notifications response, as it returns it.",
+			"additionalProperties": true
+		}
+	}
+}

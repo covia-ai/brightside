@@ -144,7 +144,7 @@ reveals. Descriptions live in the skill files; this is the shape.
   Claude Code — the checkout, the rulebook, build, test, restart — with the
   info tool). Brightside's own source is a project by default; the rest are
   the owner's to declare ([CONFIGURATION.md](CONFIGURATION.md#claude-code)).
-- `moltbook` — taking part on Moltbook with its operations → `moltbook-setup`.
+- `moltbook` — taking part on Moltbook with its operations, a check-in reading the notifications before marking them read → `moltbook-setup`.
 - `introduction` — greeting guidance and how it presents what it can do, from its skills index; loaded rather than pinned.
 
 The venue's `v/skills/root` entry points (`agents`, `grid`, `auth`,

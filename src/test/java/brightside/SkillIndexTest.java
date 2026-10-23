@@ -66,6 +66,8 @@ class SkillIndexTest {
 		// configured skillsets, never at the top level.
 		SkillIndex.Skill moltbook = one(skills, "moltbook", BrightsideSkillsAdapter.SKILLSET);
 		assertTrue(moltbook.tools().contains("v/ops/moltbook/home"), "the first load is useful: " + moltbook.tools());
+		assertTrue(moltbook.tools().contains("v/ops/moltbook/notifications"),
+			"a check-in can read its notifications: " + moltbook.tools());
 		assertEquals(List.of(BrightsideSkillsAdapter.MOLTBOOK_SETUP), moltbook.children());
 		SkillIndex.Skill setup = one(skills, "moltbook-setup", BrightsideSkillsAdapter.MOLTBOOK);
 		assertTrue(setup.tools().contains("v/ops/moltbook/register"));

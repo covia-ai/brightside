@@ -104,6 +104,9 @@ class MoltbookAdapterTest {
 		String commentDownvote = failure(user, "v/ops/moltbook/vote",
 			Maps.of("target", "comment", "id", "c1", "direction", "down"));
 		assertTrue(commentDownvote.contains("upvoted"), "comments cannot be downvoted: " + commentDownvote);
+
+		String badPage = failure(user, "v/ops/moltbook/notifications", Maps.of("limit", 0));
+		assertTrue(badPage.contains("positive whole number"), "notification pages are checked: " + badPage);
 	}
 
 	private static ACell run(Venue client, String op, AMap<AString, ACell> input) throws Exception {

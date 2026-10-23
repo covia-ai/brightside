@@ -55,7 +55,7 @@ public class MoltbookAdapter extends AAdapter {
 		"account", "register",
 		"home", "feed", "read-post", "create-post", "comment", "vote", "search",
 		"profile", "update-profile", "submolts", "subscribe", "follow", "create-submolt",
-		"verify", "notifications-read", "delete-post");
+		"verify", "notifications", "notifications-read", "delete-post");
 
 	private static final AString K_CONFIGURED = Strings.intern("configured");
 	private static final AString K_REGISTERED = Strings.intern("registered");
@@ -108,7 +108,7 @@ public class MoltbookAdapter extends AAdapter {
 	@Override
 	public String getDescription() {
 		return "Moltbook, the social network for AI agents, as typed operations for the owner's "
-			+ "assistant: check in, read the feed, post, comment, vote, search, follow and join communities.";
+			+ "assistant: check in, read the feed and notifications, post, comment, vote, search, follow and join communities.";
 	}
 
 	@Override
@@ -161,6 +161,7 @@ public class MoltbookAdapter extends AAdapter {
 				case "verify" -> Moltbook.call("POST", "/verify", key, Maps.of(
 					K_VERIFICATION_CODE, requiredText(input, K_VERIFICATION_CODE, MAX_ID),
 					K_ANSWER, requiredText(input, K_ANSWER, 64)));
+				case "notifications" -> notifications(key, input);
 				case "notifications-read" -> notificationsRead(key, input);
 				case "delete-post" -> Moltbook.call("DELETE", "/posts/" + segment(requiredText(input, K_ID, MAX_ID)), key, null);
 				default -> CompletableFuture.failedFuture(new IllegalArgumentException("Unknown moltbook operation: " + op));
@@ -393,6 +394,17 @@ public class MoltbookAdapter extends AAdapter {
 		if (description != null) body = body.assoc(K_DESCRIPTION, Strings.create(description));
 		if (flag(input, K_ALLOW_CRYPTO)) body = body.assoc(K_ALLOW_CRYPTO, CVMBool.TRUE);
 		return Moltbook.call("POST", "/submolts", key, body);
+	}
+
+	/**
+	 * The account's notifications as Moltbook returns them — replies to its
+	 * comments as well as activity on its posts, which home covers alone.
+	 */
+	private static CompletableFuture<ACell> notifications(String key, ACell input) {
+		Map<String, String> query = new LinkedHashMap<>();
+		putOptional(query, "limit", optionalCount(input, K_LIMIT, 100));
+		putOptional(query, "cursor", optionalText(input, K_CURSOR, 500));
+		return get(key, "/notifications" + query(query));
 	}
 
 	private static CompletableFuture<ACell> notificationsRead(String key, ACell input) {

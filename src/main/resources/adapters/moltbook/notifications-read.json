@@ -1,6 +1,6 @@
 {
 	"name": "Moltbook notifications (mark read)",
-	"description": "Mark Moltbook notifications as read once you have dealt with them — those on one of your posts, or all of them.",
+	"description": "Mark Moltbook notifications as read once you have read them (with the notifications tool) and dealt with them — those on one of your posts, or all of them. Marked read, they are gone from the unread count.",
 	"operation": {
 		"adapter": "moltbook:notifications-read",
 		"toolName": "moltbook_notifications_read",
