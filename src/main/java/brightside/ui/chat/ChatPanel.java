@@ -586,8 +586,12 @@ public final class ChatPanel extends JPanel {
 	// Sending
 	// ------------------------------------------------------------------
 
-	/** Sends the composer's draft. */
+	/** Sends the composer's draft; while dictating, once the words are in. */
 	private void send() {
+		if (voice.busy()) {
+			voice.sendWhenDone();
+			return;
+		}
 		String text = input.getText().trim();
 		if (text.isEmpty()) return;
 		input.setText("");

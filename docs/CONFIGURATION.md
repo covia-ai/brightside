@@ -177,13 +177,16 @@ echoes.
 ## Voice typing
 
 The microphone beside *Send* lets you speak a message instead of typing it.
-Press it and speak, press it again to stop, and what you said is written into
-the message box at the cursor for you to read, correct and send. To send it
-straight away, end with *"Go"* on its own: pause, say "go", then press the
-microphone. It works like Enter and is not written into the message. Only a
-"go" that the transcript gives a sentence of its own counts, so *"Let's go"*
-and *"Okay, go"* stay part of the message. *Esc* discards a recording, or the
-transcription under way. A recording stops by itself after three minutes.
+Press it and speak: your words appear in the message box at the cursor as you
+say them. They firm up at each pause, and the last few may change as you go
+on. Press it again to stop, and the message is yours to read, correct and send;
+the box takes no typing while the microphone is on. To send straight away, end
+with *"Go"* on its own: pause, say "go", then press the microphone, or press
+*Enter* instead. "Go" works like Enter and is not written into the message.
+Only a "go" that the transcript gives a sentence of its own counts, so *"Let's
+go"* and *"Okay, go"* stay part of the message. *Esc* discards a recording, or
+the transcription under way, and puts the message back as it was. A recording
+stops by itself after three minutes.
 
 By default it all happens on this computer, so what you say never leaves it:
 Covia's `covia-speech` adapter runs inside Brightside's venue (registered
@@ -225,6 +228,9 @@ The local models are `parakeet-tdt-v3` (the default), `parakeet-tdt-v2`
 (English), `moonshine-base` and `moonshine-tiny` (English, smaller and
 faster). The OpenAI engine uses your own key (`s/OPENAI_API_KEY`, entered
 under *Settings → Model*), and the microphone says so if there is none.
+Words appear as you speak only with the engine on this computer, where
+hearing them again as they grow costs nothing; with any other, the whole
+message is written in when you stop.
 Everything else the adapter accepts — models, timeouts, an operator-held key —
 is in Covia's own documentation of the speech module (`venue/docs/CONFIG.md`
 in the Covia repository). A mistake in the block leaves voice typing out for

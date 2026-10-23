@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -14,9 +15,10 @@ import org.junit.jupiter.api.Test;
 
 /**
  * A recording reads its source on a thread of its own: stopping keeps
- * everything heard up to then and frees the source, and a recording that
- * reaches its limit stops listening by itself and says so. A stand-in source
- * plays the microphone, so no audio device is needed.
+ * everything heard up to then and frees the source, a listener hears it all
+ * once however late it joins, and a recording that reaches its limit stops
+ * listening by itself and says so. A stand-in source plays the microphone, so
+ * no audio device is needed.
  */
 class MicrophoneTest {
 
@@ -40,6 +42,19 @@ class MicrophoneTest {
 		assertEquals(0.25, clip.seconds());
 		assertEquals(1, released.get(), "the source is freed once");
 		assertEquals(0, limits.get(), "a short recording is nowhere near its limit");
+	}
+
+	@Test
+	void aListenerHearsEverythingOnceWhenEverItJoins() throws Exception {
+		byte[] pcm = new byte[32_000];
+		for (int i = 0; i < pcm.length; i++) pcm[i] = (byte) (i * 7);
+		Microphone.Recording recording = new Microphone.Recording(source(pcm, 16_000), 16_000, 10,
+			() -> { }, () -> { }, () -> { });
+		ByteArrayOutputStream heard = new ByteArrayOutputStream();
+		recording.onAudio(chunk -> heard.write(chunk, 0, chunk.length));
+
+		recording.stop();
+		assertArrayEquals(pcm, heard.toByteArray(), "what came before it joined, then the rest, nothing twice");
 	}
 
 	@Test

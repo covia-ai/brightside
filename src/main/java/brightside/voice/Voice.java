@@ -4,9 +4,11 @@ import java.util.Base64;
 import java.util.concurrent.CompletableFuture;
 
 import convex.core.data.ACell;
+import convex.core.data.AMap;
 import convex.core.data.AString;
 import convex.core.data.AVector;
 import convex.core.data.Maps;
+import convex.core.data.Strings;
 import convex.core.data.prim.CVMBool;
 import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
@@ -19,13 +21,16 @@ import covia.grid.Venue;
  * its model is fetched only once the owner agrees, through {@link #prepare}.
  * Every call is a read — the speech operations are read-only — so no recording
  * or transcript is left in a job record, and the recording travels inline,
- * stored nowhere.
+ * stored nowhere. The in-process engine also hears as the owner speaks
+ * ({@link #listen}, {@link #hear}; {@link LiveDictation} drives them).
  */
 public final class Voice {
 
 	static final String OP_ENGINES = "v/ops/speech/engines";
 	static final String OP_PREPARE = "v/ops/speech/prepare";
 	static final String OP_TRANSCRIBE = "v/ops/speech/transcribe";
+	static final String OP_LISTEN = "v/ops/speech/listen";
+	static final String OP_HEAR = "v/ops/speech/hear";
 	/** The speech adapter's name for its in-process engine. */
 	static final String IN_PROCESS = "local";
 
@@ -52,6 +57,18 @@ public final class Voice {
 		/** A provider elsewhere that no key of the owner's (or the venue's) reaches. */
 		public boolean needsKey() {
 			return !local && !keyed;
+		}
+
+		/** Whether it hears as the owner speaks ({@link #listen}): the in-process engine does. */
+		public boolean live() {
+			return IN_PROCESS.equals(name);
+		}
+	}
+
+	/** What a live dictation has heard: the words up to its last pause, which stay, then those still being spoken. */
+	public record Heard(String settled, String partial) {
+		public String text() {
+			return settled.isEmpty() ? partial : partial.isEmpty() ? settled : settled + " " + partial;
 		}
 	}
 
@@ -86,6 +103,24 @@ public final class Voice {
 				AString text = RT.ensureString(RT.getIn(out, "text"));
 				return (text == null) ? "" : text.toString().strip();
 			});
+	}
+
+	/** Opens a live dictation of raw PCM at {@code sampleRate}; completes with its id, for {@link #hear}. */
+	public CompletableFuture<String> listen(int sampleRate) {
+		return venue.run(OP_LISTEN, Maps.of("sampleRate", sampleRate))
+			.thenApply(out -> RT.ensureString(RT.getIn(out, "id")).toString());
+	}
+
+	/** More of a live dictation's audio, and what it has heard so far; {@code end} settles the rest and closes it. */
+	public CompletableFuture<Heard> hear(String id, byte[] pcm, boolean end) {
+		AMap<AString, ACell> input = Maps.of("id", id, "end", CVMBool.create(end));
+		if (pcm.length > 0) input = input.assoc(Strings.create("bytes"), Strings.create(Base64.getEncoder().encodeToString(pcm)));
+		return venue.run(OP_HEAR, input).thenApply(out -> new Heard(text(RT.getIn(out, "settled")), text(RT.getIn(out, "partial"))));
+	}
+
+	private static String text(ACell cell) {
+		String s = str(cell);
+		return (s == null) ? "" : s.strip();
 	}
 
 	/** The first engine of a {@code speech:engines} result. */

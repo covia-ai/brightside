@@ -15,6 +15,8 @@ import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.Document;
 import javax.swing.text.JTextComponent;
 
 import brightside.ui.components.Buttons;
@@ -26,6 +28,7 @@ import brightside.ui.components.Styles;
 import brightside.ui.components.Theme;
 import brightside.ui.components.Tone;
 import brightside.voice.Dictation;
+import brightside.voice.LiveDictation;
 import brightside.voice.Microphone;
 import brightside.voice.Voice;
 
@@ -34,8 +37,14 @@ import brightside.voice.Voice;
  * above the composer while it is at work. Press to speak, press again to stop;
  * what was said goes into the draft at the caret for the owner to read, correct
  * and send. Ending with "go" as a sentence of its own sends the draft as Enter
- * would ({@link Dictation}); nothing else does. Escape discards the recording
- * or the transcription under way.
+ * would ({@link Dictation}), and so does Enter itself while dictating; nothing
+ * else does. Escape discards the recording or the transcription under way.
+ *
+ * <p>While the microphone is on, the draft is its: the place the words go — the
+ * selection when it began — is held, and the engine that hears as the owner
+ * speaks ({@link LiveDictation}) writes there as they are said; when it stops,
+ * the settled words take their place. An engine that hears only whole
+ * recordings writes them there once, at the end.
  *
  * <p>The first press while the speech model is not on this computer asks before
  * downloading it, then shows the download until voice typing is ready. The
@@ -69,8 +78,15 @@ final class VoiceInput {
 	/** Bumped whenever an attempt is abandoned, so whatever it finishes later is dropped. */
 	private long attempt;
 	private Microphone.Recording recording;
+	private LiveDictation live;
+	/** Enter came while the words were still being written: send once they are. */
+	private boolean sendWhenDone;
 	private StatusLabel listening;
 	private Loading preparing;
+	/** The held place in the draft — where it starts, how long it is, what it held before — or -1 when none is. */
+	private int anchor = -1;
+	private int shown;
+	private String original = "";
 
 	/** @param send sends the draft, as Enter does */
 	VoiceInput(JTextComponent input, Runnable send) {
@@ -124,10 +140,16 @@ final class VoiceInput {
 		showLine(null);
 	}
 
+	/** Enter while dictating: stop, and send once the words are in. */
+	void sendWhenDone() {
+		if (phase == Phase.RECORDING) finish(true);
+		else if (phase == Phase.TRANSCRIBING) sendWhenDone = true;
+	}
+
 	private void press() {
 		switch (phase) {
 			case IDLE -> check();
-			case RECORDING -> finish();
+			case RECORDING -> finish(false);
 			default -> {
 				// Getting ready or writing it down: the button is not pressable then.
 			}
@@ -154,7 +176,7 @@ final class VoiceInput {
 				idle();
 				if (confirmDownload(engine) && phase == Phase.IDLE && voice == v) prepare(v);
 			} else {
-				listen(mine);
+				listen(mine, engine.live());
 			}
 		}));
 	}
@@ -197,11 +219,11 @@ final class VoiceInput {
 		}));
 	}
 
-	/** Opens the microphone and starts listening. */
-	private void listen(long mine) {
+	/** Opens the microphone and starts listening; with {@code heardLive}, the words show as they are said. */
+	private void listen(long mine, boolean heardLive) {
 		CompletableFuture.supplyAsync(() -> {
 			try {
-				return Microphone.record(() -> onEdt(mine, this::finish));
+				return Microphone.record(() -> onEdt(mine, () -> finish(false)));
 			} catch (LineUnavailableException e) {
 				throw new CompletionException(e);
 			}
@@ -218,12 +240,25 @@ final class VoiceInput {
 			}
 			recording = opened;
 			phase = Phase.RECORDING;
+			hold();
+			if (heardLive) hearLive(mine, opened);
 			listening = new StatusLabel(listeningText(0), "mic", Tone.ERROR);
 			Styles.classes(listening, Styles.SMALL);
 			showLine(listening);
 			ticker.start();
 			update();
 		}));
+	}
+
+	/** Opens the engine's live dictation and gives it the recording as it comes; its words go to the held place. */
+	private void hearLive(long mine, Microphone.Recording r) {
+		Voice v = voice;
+		CompletableFuture<String> id = v.listen(r.sampleRate());
+		live = new LiveDictation((pcm, end) -> id.thenCompose(i -> v.hear(i, pcm, end)), r.sampleRate(),
+			heard -> onEdt(mine, () -> {
+				if (busy()) show(heard.text());
+			}));
+		r.onAudio(live::hear);
 	}
 
 	private void tick() {
@@ -236,13 +271,20 @@ final class VoiceInput {
 		return String.format("Listening… %d:%02d", s / 60, s % 60);
 	}
 
-	/** Stops listening and writes down what was said. */
-	private void finish() {
+	/**
+	 * Stops listening and writes down what was said: the live dictation's settled
+	 * words, or, without one or should it fail, the whole recording transcribed.
+	 * With {@code thenSend}, the draft is sent once they are in, as Enter would.
+	 */
+	private void finish(boolean thenSend) {
 		if (phase != Phase.RECORDING) return;
 		Microphone.Recording r = recording;
+		LiveDictation l = live;
 		Voice v = voice;
 		long mine = attempt;
 		recording = null;
+		live = null;
+		sendWhenDone = thenSend;
 		ticker.stop();
 		phase = Phase.TRANSCRIBING;
 		showLine(new Loading("Transcribing…"));
@@ -253,35 +295,73 @@ final class VoiceInput {
 			} catch (IOException e) {
 				throw new CompletionException(e);
 			}
-		}, OFF_EDT).thenCompose(v::transcribe).whenComplete((text, failure) -> onEdt(mine, () -> {
+		}, OFF_EDT).thenCompose(clip -> (l == null) ? v.transcribe(clip) : l.finish().exceptionallyCompose(f -> {
+			log.info("Live dictation failed, so the whole recording is transcribed: {}", ChatPanel.describe(ChatPanel.unwrap(f)));
+			return v.transcribe(clip);
+		})).whenComplete((text, failure) -> onEdt(mine, () -> {
+			boolean go = sendWhenDone;
+			sendWhenDone = false;
 			if (failure != null) {
+				release("");
 				fail("That couldn't be transcribed", failure);
 				return;
 			}
 			idle();
 			Dictation said = Dictation.of(text);
-			if (said.text().isEmpty() && !said.send()) {
+			release(said.text());
+			if (said.text().isEmpty() && !said.send() && !go) {
 				note("Nothing was heard — check the microphone and try again", "circle-alert", Tone.WARNING);
 				return;
 			}
 			showLine(null);
-			if (!said.text().isEmpty()) insert(said.text());
-			if (said.send()) send.run();
+			if (said.send() || go) send.run();
 		}));
 	}
 
-	/** Puts {@code text} in the draft in place of its selection, spaced from the words either side. */
-	private void insert(String text) {
-		String draft = input.getText();
-		int start = input.getSelectionStart();
-		int end = input.getSelectionEnd();
-		if (start > 0 && !Character.isWhitespace(draft.charAt(start - 1))) text = " " + text;
-		if (end < draft.length() && !Character.isWhitespace(draft.charAt(end))) text = text + " ";
-		input.replaceSelection(text);
-		input.requestFocusInWindow();
+	/** Holds the place the words go — the selection — and keeps the owner's typing out of it meanwhile. */
+	private void hold() {
+		anchor = input.getSelectionStart();
+		String selected = input.getSelectedText();
+		original = (selected == null) ? "" : selected;
+		shown = original.length();
+		input.setEditable(false);
 	}
 
-	/** Drops whatever is under way: a recording is discarded, a late result ignored. */
+	/** {@code words} in the held place, spaced from the words either side; none puts back what it held. */
+	private void show(String words) {
+		if (anchor < 0) return;
+		Document doc = input.getDocument();
+		int length = doc.getLength();
+		anchor = Math.min(anchor, length);
+		shown = Math.min(shown, length - anchor);
+		String text = original;
+		if (!words.isEmpty()) {
+			String draft = input.getText();
+			int end = anchor + shown;
+			text = words;
+			if (anchor > 0 && !Character.isWhitespace(draft.charAt(anchor - 1))) text = " " + text;
+			if (end < draft.length() && !Character.isWhitespace(draft.charAt(end))) text = text + " ";
+		}
+		try {
+			doc.remove(anchor, shown);
+			doc.insertString(anchor, text, null);
+			shown = text.length();
+		} catch (BadLocationException e) {
+			log.warn("Could not write the dictation into the draft", e);
+		}
+	}
+
+	/** Lets go of the held place with {@code words} in it, and gives the draft back to the owner's typing. */
+	private void release(String words) {
+		if (anchor < 0) return;
+		show(words);
+		input.setEditable(true);
+		input.setCaretPosition(Math.min(anchor + shown, input.getDocument().getLength()));
+		input.requestFocusInWindow();
+		anchor = -1;
+	}
+
+	/** Drops whatever is under way: a recording is discarded, a late result ignored, the draft as it was. */
 	private void abandon() {
 		attempt++;
 		ticker.stop();
@@ -289,6 +369,11 @@ final class VoiceInput {
 		Microphone.Recording r = recording;
 		recording = null;
 		if (r != null) OFF_EDT.execute(r::discard);
+		LiveDictation l = live;
+		live = null;
+		if (l != null) OFF_EDT.execute(l::discard);
+		sendWhenDone = false;
+		release("");
 		idle();
 	}
 

@@ -113,14 +113,16 @@ the shared Swing components install no application styling. The owner's own
 words stay as typed.
 
 **Voice typing writes into the draft, and sends only when told.**
-`ui/chat/VoiceInput` is the composer's microphone; `voice/Microphone` records
-off the event thread, `voice/Voice` transcribes through Covia's speech adapter
-as the owner, and `voice/Dictation` recognises a closing "go", said as its own
-sentence, as Enter. The
-engine is the venue's, configured as data, and by default runs on this
-computer; its model is fetched only once the owner agrees. Transcription is a
-read: the recording travels inline and is stored nowhere
-([CONFIGURATION](CONFIGURATION.md#voice-typing)).
+`ui/chat/VoiceInput` is the composer's microphone, holding its place in the
+draft while it is on; `voice/Microphone` records off the event thread,
+`voice/Voice` transcribes through Covia's speech adapter as the owner,
+`voice/LiveDictation` streams the recording to the in-process engine's live
+dictation so the words show as they are said, and `voice/Dictation` recognises
+a closing "go", said as its own sentence, as Enter. Finding pauses and
+decoding belong to the engine, not the app. The engine is the venue's,
+configured as data, and by default runs on this computer; its model is fetched
+only once the owner agrees. Transcription is a read: the recording travels
+inline and is stored nowhere ([CONFIGURATION](CONFIGURATION.md#voice-typing)).
 
 **In-flight activity shows facts only.** The thinking bubble presents what
 Brightside has been told: preparing, running, elapsed time, and tool calls as

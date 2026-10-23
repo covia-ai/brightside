@@ -2,6 +2,8 @@ package brightside.voice;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.function.Consumer;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
@@ -71,6 +73,8 @@ public final class Microphone {
 		private volatile boolean ending;
 		private volatile int recorded;
 		private volatile IOException failure;
+		/** Who hears the audio as it comes, if anyone; guarded by {@link #pcm}. */
+		private Consumer<byte[]> listener;
 
 		/**
 		 * @param halt    stops the source, so a read waiting on it returns
@@ -93,8 +97,11 @@ public final class Microphone {
 				while (true) {
 					int n = in.read(buffer, 0, Math.min(buffer.length, limit - pcm.size()));
 					if (n < 0 || (n == 0 && ending)) break;
-					pcm.write(buffer, 0, n);
-					recorded = pcm.size();
+					synchronized (pcm) {
+						pcm.write(buffer, 0, n);
+						recorded = pcm.size();
+						if (listener != null && n > 0) listener.accept(Arrays.copyOf(buffer, n));
+					}
 					if (pcm.size() >= limit) {
 						halt.run();
 						onLimit.run();
@@ -111,6 +118,23 @@ public final class Microphone {
 			return recorded / (2.0 * rate);
 		}
 
+		/** The rate the microphone records at. */
+		public int sampleRate() {
+			return rate;
+		}
+
+		/**
+		 * Hands {@code listener} the audio as it comes, on the recording's thread,
+		 * starting with everything heard so far, so none is missed or heard twice.
+		 * It must be quick: the next tenth of a second waits for it.
+		 */
+		public void onAudio(Consumer<byte[]> listener) {
+			synchronized (pcm) {
+				if (pcm.size() > 0) listener.accept(pcm.toByteArray());
+				this.listener = listener;
+			}
+		}
+
 		/** Stops listening and returns what was heard. */
 		public Clip stop() throws IOException {
 			end();
@@ -121,7 +145,9 @@ public final class Microphone {
 		/** Stops listening and keeps nothing. */
 		public void discard() {
 			end();
-			pcm.reset();
+			synchronized (pcm) {
+				pcm.reset();
+			}
 		}
 
 		private void end() {
