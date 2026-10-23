@@ -102,6 +102,8 @@ public final class AppConfig {
 			// plus confined files and code (writable) and logs (read-only) roots.
 			// Claude Code projects go under "adapters": {"claudecode": {"projects":
 			// {...}}} here; Brightside's own source is one by default (docs/CONFIGURATION.md).
+			// Voice typing transcribes on this computer; "adapters": {"speech": {...}}
+			// can choose another engine or model (docs/CONFIGURATION.md).
 			"venue": {
 				"name": "Brightside",
 				"port": 8085
@@ -236,7 +238,15 @@ public final class AppConfig {
 					Config.READ_ONLY, true,
 					"description", "Brightside operational logs (read-only)"))),
 			// MCP endpoint so local agent tooling can connect to the venue.
-			Fields.MCP, Maps.of());
+			Fields.MCP, Maps.of(),
+			// Voice typing transcribes on this computer, so what the owner says
+			// never leaves it. The venue may fetch sherpa-onnx's pinned native
+			// libraries with the model; neither is fetched until the owner agrees
+			// to the download (brightside.voice).
+			Config.ADAPTERS, Maps.of(
+				"speech", Maps.of(
+					"engine", "local",
+					"local", Maps.of("fetchNatives", true))));
 	}
 
 	/** Creates an app-owned file root without making configuration failure fatal. */

@@ -53,12 +53,13 @@ import brightside.ui.components.SelectableText;
 import brightside.ui.components.Styles;
 import brightside.ui.components.TextArea;
 import brightside.ui.components.Theme;
+import brightside.voice.Voice;
 import covia.venue.AgentEvents;
 
 /**
  * The chat: a scrolling {@link MessageColumn} of message components above a
- * rounded input box, an accent Send button and a small menu for the
- * conversation as a whole. Each transcript item is rendered by its own
+ * rounded input box, a microphone for {@linkplain VoiceInput voice typing}, an
+ * accent Send button and a small menu for the conversation as a whole. Each transcript item is rendered by its own
  * component — a {@link Bubble} for a user/assistant message, an
  * {@link ExpandableActivity} chip for a turn's tool use, a {@link CompactedFold}
  * where a compacted stretch was — kept as separate components (in this
@@ -118,6 +119,7 @@ public final class ChatPanel extends JPanel {
 	private final JScrollPane inputScroll;
 	private final JButton send = Buttons.primary("Send");
 	private final JButton more = Buttons.icon(Lucide.icon("ellipsis", 18, Theme::muted), "Conversation options");
+	private final VoiceInput voice = new VoiceInput(input);
 	private Host host;
 
 	private final List<SessionHistory.Item> displayed = new ArrayList<>();
@@ -163,6 +165,20 @@ public final class ChatPanel extends JPanel {
 				send();
 			}
 		});
+		// Escape discards voice typing under way; otherwise it is not this field's to take.
+		input.getInputMap(JComponent.WHEN_FOCUSED)
+			.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "discardVoice");
+		input.getActionMap().put("discardVoice", new AbstractAction() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				voice.discard();
+			}
+
+			@Override
+			public boolean isEnabled() {
+				return voice.busy();
+			}
+		});
 		// The input keeps focus, so Ctrl/Cmd+C lands here: copy the input's own
 		// selection, or fall back to the last bubble the user selected in.
 		KeyStroke copyKey = KeyStroke.getKeyStroke(KeyEvent.VK_C,
@@ -206,12 +222,20 @@ public final class ChatPanel extends JPanel {
 		Dimension moreSize = new Dimension(more.getPreferredSize().width + 6, defaultComposerHeight);
 		more.setPreferredSize(moreSize);
 		more.setMinimumSize(moreSize);
+		// Voice typing: the same quiet icon button, just before Send.
+		JButton mic = voice.button();
+		Dimension micSize = new Dimension(mic.getPreferredSize().width + 6, defaultComposerHeight);
+		mic.setPreferredSize(micSize);
+		mic.setMinimumSize(micSize);
 
 		JPanel bottom = new JPanel(new BorderLayout(8, 0));
 		bottom.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
+		bottom.add(voice.statusLine(), BorderLayout.NORTH);
 		bottom.add(inputScroll, BorderLayout.CENTER);
-		// Send and the menu sit on the composer's baseline as it grows.
+		// The microphone, Send and the menu sit on the composer's baseline as it grows.
 		Box actions = Box.createHorizontalBox();
+		actions.add(mic);
+		actions.add(Box.createHorizontalStrut(2));
 		actions.add(send);
 		actions.add(Box.createHorizontalStrut(2));
 		actions.add(more);
@@ -261,6 +285,7 @@ public final class ChatPanel extends JPanel {
 		deliveryTail = CompletableFuture.completedFuture(null);
 		hideThinking();
 		setStartingUp(false);
+		voice.bind(new Voice(session.venue()));
 		setInputEnabled(true);
 		focusInput();
 	}
@@ -387,6 +412,7 @@ public final class ChatPanel extends JPanel {
 		acceptedSession = null;
 		deliveryTail = CompletableFuture.completedFuture(null);
 		hideThinking();
+		voice.bind(null);
 		input.setText("");
 		lastSelectedBubble = null;
 		clearMessages();
@@ -478,6 +504,7 @@ public final class ChatPanel extends JPanel {
 		input.setEnabled(on);
 		send.setEnabled(on);
 		more.setEnabled(on);
+		voice.setEnabled(on);
 	}
 
 	// ------------------------------------------------------------------
@@ -706,12 +733,12 @@ public final class ChatPanel extends JPanel {
 		scrollToBottom();
 	}
 
-	private static String describe(Throwable t) {
+	static String describe(Throwable t) {
 		String m = t.getMessage();
 		return (m == null || m.isBlank()) ? t.toString() : m;
 	}
 
-	private static Throwable unwrap(Throwable t) {
+	static Throwable unwrap(Throwable t) {
 		Throwable current = t;
 		while ((current instanceof CompletionException || current instanceof ExecutionException)
 				&& current.getCause() != null && current.getCause() != current) {

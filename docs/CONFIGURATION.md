@@ -33,6 +33,7 @@ hand-edited file and its comments stay intact.
 | `~/.brightside/files/` | Brightside-managed local files; exposed to the assistant as the confined writable `files` root. |
 | `~/.brightside/code/` | Source checkouts the assistant works on, as the writable `code` root; `code/brightside` is Brightside's own source, a [Claude Code](#claude-code) project by default. |
 | `~/.brightside/logs/` | Plaintext rolling logs; exposed to the assistant as the server-enforced read-only `logs` root. |
+| `~/.brightside/cache/speech/` | The speech model and engine libraries [voice typing](#voice-typing) downloads once you agree; safe to delete. |
 
 To reset Brightside completely, remove the whole data directory while
 Brightside is stopped.
@@ -172,6 +173,59 @@ For an offline smoke test with no key at all, set:
 
 — the venue's echo test LLM. The app works end to end; the replies are just
 echoes.
+
+## Voice typing
+
+The microphone beside *Send* lets you speak a message instead of typing it.
+Press it and speak, press it again to stop, and what you said is written into
+the message box at the cursor for you to read, correct and send; it is never
+sent by itself. *Esc* discards a recording, or the transcription under way. A
+recording stops by itself after three minutes.
+
+By default it all happens on this computer, so what you say never leaves it:
+Covia's `covia-speech` adapter runs inside Brightside's venue (registered
+in-process, like Discord) and transcribes with sherpa-onnx and NVIDIA's
+Parakeet TDT v3 model, which understands 25 European languages. The first time
+you press the microphone, Brightside asks before downloading the model (about
+670 MB) and the engine's libraries, then shows the download until voice typing
+is ready. Both are fetched at pinned versions and checked against their
+SHA-256 before use. The model is loaded when you first speak, holds about a
+gigabyte of memory, and is let go after five minutes unused.
+
+| What | Where |
+|---|---|
+| The recording | in memory only, sent inline to the engine and stored nowhere; transcription is a read, so no job record keeps it or the words |
+| The model and libraries | `~/.brightside/cache/speech/`; delete it to reclaim the space, and the next press asks again |
+| The microphone | the computer's default recording device, under the system's own microphone permission |
+
+Another engine is a choice in `config.json`, under the venue's adapter block:
+
+```json5
+"venue": {
+	"adapters": {
+		"speech": {
+			// a smaller, English-only model on this computer
+			"local": { "transcribeModel": "moonshine-base" }
+
+			// or OpenAI's Whisper, with the OpenAI key from Settings → Model;
+			// your recordings then go to OpenAI
+			// "engine": "openai"
+
+			// or a speech server of your own on this computer
+			// "engine": "openai", "baseUrl": "http://127.0.0.1:8000/v1"
+		}
+	}
+}
+```
+
+The local models are `parakeet-tdt-v3` (the default), `parakeet-tdt-v2`
+(English), `moonshine-base` and `moonshine-tiny` (English, smaller and
+faster). The OpenAI engine uses your own key (`s/OPENAI_API_KEY`, entered
+under *Settings → Model*), and the microphone says so if there is none.
+Everything else the adapter accepts — models, timeouts, an operator-held key —
+is in Covia's own documentation of the speech module (`venue/docs/CONFIG.md`
+in the Covia repository). A mistake in the block leaves voice typing out for
+that launch and says why in the log.
 
 ## Discord
 

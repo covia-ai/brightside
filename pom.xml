@@ -78,6 +78,17 @@
 			<version>${covia.version}</version>
 		</dependency>
 
+		<!-- Covia's speech module, likewise registered in-process: voice typing
+		     in the chat transcribes through its speech adapter, on this computer
+		     by default (sherpa-onnx, whose native libraries and model the venue
+		     fetches, pinned, once the owner agrees). Concentus, a pure-Java Opus
+		     decoder, comes in transitively. -->
+		<dependency>
+			<groupId>ai.covia</groupId>
+			<artifactId>covia-speech</artifactId>
+			<version>${covia.version}</version>
+		</dependency>
+
 		<!-- The embedded venue: Engine, VenueServer, LocalVenue and every
 		     built-in adapter. Pulls in Convex, Javalin, LangChain4j, MCP, A2A. -->
 		<dependency>

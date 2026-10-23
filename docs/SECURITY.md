@@ -139,6 +139,7 @@ The data home is the directory holding `config.json`, by default
 | `config.json`, `model.txt`, `prefs.properties`, `file-roots.json` | plaintext, no secrets; folder overrides include local paths and access choices | Back up when customised |
 | `skills/`, `files/`, `code/` | plaintext, the owner's own | Outside the encrypted store; back up if they matter. Treat third-party skills as executable authority; `code/brightside` is a checkout Claude Code works in without asking (auto mode), as your OS user ([CONFIGURATION.md](CONFIGURATION.md#claude-code)) |
 | `logs/` | plaintext, rotated | Not needed; may contain operational detail |
+| `cache/speech/` | public downloads, each pinned by SHA-256: the speech model and sherpa-onnx's native libraries, which load into the process | Not needed; fetched again only once the owner agrees ([CONFIGURATION.md](CONFIGURATION.md#voice-typing)) |
 
 Sensitive files are set to mode `0600` where the filesystem supports it; on
 Windows they inherit the user's directory ACL. The seed and derived store key

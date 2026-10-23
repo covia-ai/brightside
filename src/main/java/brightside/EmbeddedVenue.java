@@ -81,6 +81,16 @@ public final class EmbeddedVenue implements AutoCloseable {
 				log.warn("Claude Code is not available this launch — check venue.adapters.claudecode in config.json: {}",
 					e.getMessage());
 			}
+			// Covia's speech module, for voice typing in the chat (see
+			// brightside.voice). Brightside's default runs it on this computer;
+			// config.json may point it elsewhere, and a mistake there leaves
+			// voice out of this launch rather than failing it.
+			try {
+				engine.registerAdapter(new covia.adapter.speech.SpeechAdapter());
+			} catch (IllegalArgumentException | IllegalStateException e) {
+				log.warn("Voice typing is not available this launch — check venue.adapters.speech in config.json: {}",
+					e.getMessage());
+			}
 			// Registration is synchronous: nothing asynchronous for the venue to await.
 			return CompletableFuture.completedFuture(null);
 		});

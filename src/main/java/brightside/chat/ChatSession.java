@@ -164,6 +164,11 @@ public final class ChatSession {
 		return config;
 	}
 
+	/** The in-process client this conversation acts through, bound to the acting user. */
+	public Venue venue() {
+		return venue;
+	}
+
 	/**
 	 * The name the agent goes by — what the agents pane, agent info and other
 	 * venues show — written to its record as {@code config.name} by the next
