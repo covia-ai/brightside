@@ -31,6 +31,7 @@ import brightside.ui.components.Tone;
 import brightside.voice.Dictation;
 import brightside.voice.LiveDictation;
 import brightside.voice.Microphone;
+import brightside.voice.Relay;
 import brightside.voice.Voice;
 import convex.core.data.ACell;
 import convex.core.data.Strings;
@@ -50,6 +51,13 @@ import convex.core.data.Strings;
  * speaks ({@link LiveDictation}) writes there as they are said; when it stops,
  * the settled words take their place. An engine that hears only whole
  * recordings writes them there once, at the end.
+ *
+ * <p>With the engine that hears as the owner speaks, sending does not close the
+ * microphone: only the owner does, with the microphone or Escape. When "go", a
+ * long pause or Enter sends a message, its dictation (a {@link Take}) settles and
+ * goes, and the next message's begins on the same recording, the audio meanwhile
+ * held by a {@link Relay} so the two never run together. A minute without a word
+ * closes the microphone by itself, saying so, so it never runs on unnoticed.
  *
  * <p>The first press while the speech model is not on this computer asks before
  * downloading it, then shows the download until voice typing is ready. The
@@ -87,7 +95,14 @@ final class VoiceInput {
 	/** Bumped whenever an attempt is abandoned, so whatever it finishes later is dropped. */
 	private long attempt;
 	private Microphone.Recording recording;
-	private LiveDictation live;
+	/** The audio of a recording heard as it is spoken, to one message's dictation after another. */
+	private Relay relay;
+	/** The message being dictated now, or null between messages. */
+	private Take take;
+	/** A message is settling and going while the microphone stays open for the next. */
+	private boolean handingOver;
+	/** The owner stopped during a hand-over: once that message is sent, listen no more. */
+	private boolean stopAfterHandOver;
 	/** Enter came while the words were still being written: send once they are. */
 	private boolean sendWhenDone;
 	private StatusLabel listening;
@@ -97,7 +112,7 @@ final class VoiceInput {
 	private int shown;
 	private String original = "";
 
-	/** @param send sends the draft, as Enter does */
+	/** @param send sends the draft as it stands, even while the microphone is open */
 	VoiceInput(JTextComponent input, Runnable send) {
 		this.input = input;
 		this.send = send;
@@ -153,9 +168,14 @@ final class VoiceInput {
 		showLine(null);
 	}
 
-	/** Enter while dictating: stop, and send once the words are in. */
+	/**
+	 * Enter while dictating: send once the words are in. With the engine that hears
+	 * as the owner speaks, the microphone stays open for the next message, as after
+	 * "go"; otherwise it stops.
+	 */
 	void sendWhenDone() {
-		if (phase == Phase.RECORDING) finish(true);
+		if (phase == Phase.RECORDING && relay != null) handOver();
+		else if (phase == Phase.RECORDING) finish(true);
 		else if (phase == Phase.TRANSCRIBING) sendWhenDone = true;
 	}
 
@@ -275,21 +295,94 @@ final class VoiceInput {
 
 	/** Opens the engine's live dictation and gives it the recording as it comes; its words go to the held place. */
 	private void hearLive(long mine, Microphone.Recording r) {
+		relay = new Relay();
+		take = new Take(mine, r);
+		relay.to(take.dictation::hear);
+		r.onAudio(relay);
+	}
+
+	/** One message's dictation, on a recording that may outlast it. */
+	private final class Take {
+		final LiveDictation dictation;
+		final long started = System.nanoTime();
+
+		Take(long mine, Microphone.Recording r) {
+			Voice v = voice;
+			CompletableFuture<String> id = v.listen(r.sampleRate());
+			dictation = new LiveDictation((pcm, end) -> id.thenCompose(i -> v.hear(i, pcm, end)), r.sampleRate(),
+				heard -> onEdt(mine, () -> heard(this, heard)));
+		}
+
+		double seconds() {
+			return (System.nanoTime() - started) / 1e9;
+		}
+	}
+
+	/** What a message's dictation has heard: shown, and acted on while the microphone is open. */
+	private void heard(Take t, Voice.Heard heard) {
+		if (t != take || !busy()) return;
+		show(heard.text());
+		if (phase != Phase.RECORDING) return;
+		if (Dictation.saidGo(heard) || Dictation.pausedToSend(heard)) {
+			handOver();
+		} else if (Dictation.idle(heard, t.seconds())) {
+			abandon();
+			note("Stopped listening after a minute without a word", "circle-pause", Tone.MUTED);
+		} else if (t.dictation.seconds() >= Microphone.MAX_SECONDS) {
+			finish(false);
+		}
+	}
+
+	/**
+	 * Sends the message being dictated once its words settle, and listens on for the
+	 * next: the microphone stays open, its audio held meanwhile, so nothing said in
+	 * between is lost or added to the message that went.
+	 */
+	private void handOver() {
+		Take t = take;
+		Microphone.Recording r = recording;
 		Voice v = voice;
-		CompletableFuture<String> id = v.listen(r.sampleRate());
-		live = new LiveDictation((pcm, end) -> id.thenCompose(i -> v.hear(i, pcm, end)), r.sampleRate(),
-			heard -> onEdt(mine, () -> {
-				if (!busy()) return;
-				show(heard.text());
-				// Said something, then quiet long enough to mean finished: stop and send.
-				if (phase == Phase.RECORDING && Dictation.pausedToSend(heard)) finish(true);
-			}));
-		r.onAudio(live::hear);
+		long mine = attempt;
+		if (t == null || handingOver) return;
+		handingOver = true;
+		relay.hold();
+		take = null;
+		tick();
+		t.dictation.finish().exceptionallyCompose(f -> {
+			log.info("Live dictation failed, so the message is transcribed whole: {}", ChatPanel.describe(ChatPanel.unwrap(f)));
+			return v.transcribe(t.dictation.clip());
+		}).whenComplete((text, failure) -> onEdt(mine, () -> {
+			handingOver = false;
+			if (failure != null) {
+				abandon();
+				fail("That couldn't be transcribed", failure);
+				return;
+			}
+			release(Dictation.of(text).text());
+			send.run();
+			if (stopAfterHandOver || phase != Phase.RECORDING) {
+				stopAfterHandOver = false;
+				idle();
+				showLine(null);
+				return;
+			}
+			take = new Take(mine, r);
+			hold();
+			relay.to(take.dictation::hear);
+			tick();
+		}));
 	}
 
 	private void tick() {
+		if (listening == null) return;
+		if (handingOver) {
+			listening.setText("Sending… still listening");
+			return;
+		}
+		Take t = take;
 		Microphone.Recording r = recording;
-		if (r != null && listening != null) listening.setText(listeningText(r.seconds()));
+		if (t != null) listening.setText(listeningText(t.seconds()));
+		else if (r != null) listening.setText(listeningText(r.seconds()));
 	}
 
 	private static String listeningText(double seconds) {
@@ -305,25 +398,34 @@ final class VoiceInput {
 	private void finish(boolean thenSend) {
 		if (phase != Phase.RECORDING) return;
 		Microphone.Recording r = recording;
-		LiveDictation l = live;
+		Take t = take;
 		Voice v = voice;
 		long mine = attempt;
 		recording = null;
-		live = null;
-		sendWhenDone = thenSend;
+		take = null;
+		if (relay != null) relay.drop();
+		relay = null;
 		ticker.stop();
 		phase = Phase.TRANSCRIBING;
-		showLine(new Loading("Transcribing…"));
 		update();
+		if (handingOver) {
+			// Stopped while a message was going: it still goes, and then nothing more is heard.
+			stopAfterHandOver = true;
+			OFF_EDT.execute(r::discard);
+			showLine(new Loading("Sending…"));
+			return;
+		}
+		sendWhenDone = thenSend;
+		showLine(new Loading("Transcribing…"));
 		CompletableFuture.supplyAsync(() -> {
 			try {
 				return r.stop();
 			} catch (IOException e) {
 				throw new CompletionException(e);
 			}
-		}, OFF_EDT).thenCompose(clip -> (l == null) ? v.transcribe(clip) : l.finish().exceptionallyCompose(f -> {
+		}, OFF_EDT).thenCompose(clip -> (t == null) ? v.transcribe(clip) : t.dictation.finish().exceptionallyCompose(f -> {
 			log.info("Live dictation failed, so the whole recording is transcribed: {}", ChatPanel.describe(ChatPanel.unwrap(f)));
-			return v.transcribe(clip);
+			return v.transcribe(t.dictation.clip());
 		})).whenComplete((text, failure) -> onEdt(mine, () -> {
 			boolean go = sendWhenDone;
 			sendWhenDone = false;
@@ -402,9 +504,13 @@ final class VoiceInput {
 		Microphone.Recording r = recording;
 		recording = null;
 		if (r != null) OFF_EDT.execute(r::discard);
-		LiveDictation l = live;
-		live = null;
-		if (l != null) OFF_EDT.execute(l::discard);
+		Take t = take;
+		take = null;
+		if (t != null) OFF_EDT.execute(t.dictation::discard);
+		if (relay != null) relay.drop();
+		relay = null;
+		handingOver = false;
+		stopAfterHandOver = false;
 		sendWhenDone = false;
 		release("");
 		idle();

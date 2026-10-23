@@ -17,9 +17,31 @@ public record Dictation(String text, boolean send) {
 	/** How long a pause after speech ends a dictation and sends it: longer than a breath or a thought. */
 	public static final double LONG_PAUSE_SECONDS = 3;
 
+	/** How long an open microphone may hear no words before it closes by itself. */
+	public static final double IDLE_SECONDS = 60;
+
 	/** Whether the owner has said something and then been quiet long enough to mean they have finished. */
 	public static boolean pausedToSend(Voice.Heard heard) {
 		return !heard.text().isBlank() && heard.quiet() >= LONG_PAUSE_SECONDS;
+	}
+
+	/**
+	 * Whether "go" has been said as a sentence of its own while the dictation is
+	 * still listening. Only settled words count — those before a pause — since words
+	 * still being spoken may yet change: "Go" may become "Go ahead and book it".
+	 */
+	public static boolean saidGo(Voice.Heard heard) {
+		return of(heard.settled()).send();
+	}
+
+	/**
+	 * Whether a message's dictation, {@code seconds} long, has heard no words for so
+	 * long that nobody is speaking to it: the microphone should close rather than run
+	 * on unnoticed.
+	 */
+	public static boolean idle(Voice.Heard heard, double seconds) {
+		if (!heard.text().isBlank()) return false;
+		return ((heard.quiet() >= 0) ? heard.quiet() : seconds) >= IDLE_SECONDS;
 	}
 	/** What may close a sentence, and what may stand after that inside it (a closing quote or bracket). */
 	private static final String TERMINATORS = ".!?…";

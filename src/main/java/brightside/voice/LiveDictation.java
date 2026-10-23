@@ -24,10 +24,13 @@ public final class LiveDictation {
 	static final double SEND_SECONDS = 0.5;
 
 	private final Ear ear;
+	private final int rate;
 	private final int threshold;
 	private final Consumer<Voice.Heard> onHeard;
 	private final CompletableFuture<String> done = new CompletableFuture<>();
 	private final ByteArrayOutputStream pending = new ByteArrayOutputStream();
+	/** Everything it was given, should the whole of it need transcribing after all. */
+	private final ByteArrayOutputStream heard = new ByteArrayOutputStream();
 	private boolean sending;
 	private boolean ending;
 	private boolean endSent;
@@ -37,6 +40,7 @@ public final class LiveDictation {
 	/** @param sampleRate the rate of the raw PCM {@link #hear} is given */
 	public LiveDictation(Ear ear, int sampleRate, Consumer<Voice.Heard> onHeard) {
 		this.ear = ear;
+		this.rate = sampleRate;
 		this.threshold = (int) (sampleRate * 2 * SEND_SECONDS);
 		this.onHeard = onHeard;
 	}
@@ -46,8 +50,19 @@ public final class LiveDictation {
 		synchronized (this) {
 			if (ending) return;
 			pending.write(pcm, 0, pcm.length);
+			heard.write(pcm, 0, pcm.length);
 		}
 		pump();
+	}
+
+	/** How much of the recording it has been given. */
+	public synchronized double seconds() {
+		return heard.size() / (2.0 * rate);
+	}
+
+	/** All of the recording it was given, to be transcribed whole should the live words fail. */
+	public synchronized Microphone.Clip clip() {
+		return new Microphone.Clip(heard.toByteArray(), rate);
 	}
 
 	/**
@@ -69,6 +84,7 @@ public final class LiveDictation {
 			ending = true;
 			discarded = true;
 			pending.reset();
+			heard.reset();
 		}
 		pump();
 	}

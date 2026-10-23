@@ -185,8 +185,15 @@ with *"Go"* on its own (pause, then say "go"), stay quiet for three seconds,
 or press *Enter*. "Go" works like Enter and is not written into the message;
 only a "go" said as a sentence of its own counts, so *"Let's go"* and *"Okay,
 go"* stay part of the message. *Esc* discards a recording, or the
-transcription under way, and puts the message back as it was. A recording
+transcription under way, and puts the message back as it was. A message
 stops by itself after three minutes.
+
+Sending that way does not close the microphone: it stays open for your next
+message, which starts in an empty box, until you press the microphone or
+*Esc*. The line above the box shows *Listening* the whole time it is open
+(*Sending… still listening* while a message goes), and the microphone shows a
+stop square. Nothing is sent without words, and a minute without a word closes
+the microphone by itself, saying so.
 
 A message with spoken words in it tells the assistant so, the way a Discord
 message says where it came from: it carries `via` provenance with the channel
@@ -237,7 +244,8 @@ faster). The OpenAI engine uses your own key (`s/OPENAI_API_KEY`, entered
 under *Settings → Model*), and the microphone says so if there is none.
 Words appear as you speak only with the engine on this computer, where
 hearing them again as they grow costs nothing; with any other, the whole
-message is written in when you stop, and a pause does not send it.
+message is written in when you stop, a pause does not send it, and the
+microphone closes with each message sent.
 Everything else the adapter accepts — models, timeouts, an operator-held key —
 is in Covia's own documentation of the speech module (`venue/docs/CONFIG.md`
 in the Covia repository). A mistake in the block leaves voice typing out for

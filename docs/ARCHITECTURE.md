@@ -120,7 +120,9 @@ draft while it is on; `voice/Microphone` records off the event thread,
 dictation so the words show as they are said, and `voice/Dictation` recognises
 a closing "go", said as its own sentence, or a long pause, as Enter. Finding
 pauses and decoding belong to the engine, not the app: it says how long the
-speaker has been quiet. A message with spoken words goes to the agent as a
+speaker has been quiet. Sending does not close the microphone: each message is
+a dictation of its own on one open recording, and `voice/Relay` holds the
+audio between them so no word lands in the wrong message. A message with spoken words goes to the agent as a
 structured `{text, via}` message, as a channel's does, so the agent knows it
 was heard rather than typed from the message itself, not from prompt text.
 The engine is the venue's,

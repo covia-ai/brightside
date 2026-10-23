@@ -18,7 +18,9 @@ import javax.sound.sampled.TargetDataLine;
  * nothing on the Swing event thread waits for audio. It records at 16 kHz, the
  * rate speech models hear at, when the microphone offers it, and otherwise at the
  * first common rate it does, which the venue resamples. A recording ends when it
- * is stopped, discarded or {@link #MAX_SECONDS} long; nothing is written anywhere.
+ * is stopped or discarded; one heard whole at the end also at {@link #MAX_SECONDS},
+ * while one {@linkplain Recording#onAudio streamed} as it comes runs until stopped.
+ * Nothing is written anywhere.
  */
 public final class Microphone {
 
@@ -29,7 +31,7 @@ public final class Microphone {
 		}
 	}
 
-	/** The longest dictation: three minutes, inside what one transcription takes at any of {@link #RATES}. */
+	/** The longest message dictated: three minutes, inside what one transcription takes at any of {@link #RATES}. */
 	public static final int MAX_SECONDS = 180;
 	/** The rates asked for, in order: speech's own first, then what microphones commonly offer. */
 	static final float[] RATES = { 16_000f, 48_000f, 44_100f, 32_000f, 22_050f };
@@ -71,7 +73,7 @@ public final class Microphone {
 		private final ByteArrayOutputStream pcm = new ByteArrayOutputStream();
 		private final Thread reader;
 		private volatile boolean ending;
-		private volatile int recorded;
+		private volatile long recorded;
 		private volatile IOException failure;
 		/** Who hears the audio as it comes, if anyone; guarded by {@link #pcm}. */
 		private Consumer<byte[]> listener;
@@ -95,18 +97,26 @@ public final class Microphone {
 			byte[] buffer = new byte[rate / 10 * 2];
 			try {
 				while (true) {
-					int n = in.read(buffer, 0, Math.min(buffer.length, limit - pcm.size()));
+					int room;
+					synchronized (pcm) {
+						room = (listener != null) ? buffer.length : Math.min(buffer.length, limit - pcm.size());
+					}
+					int n = in.read(buffer, 0, room);
 					if (n < 0 || (n == 0 && ending)) break;
 					synchronized (pcm) {
+						recorded += n;
+						// Streamed audio is the listener's to keep; only a recording heard
+						// whole at the end keeps it here, up to its limit.
+						if (listener != null) {
+							if (n > 0) listener.accept(Arrays.copyOf(buffer, n));
+							continue;
+						}
 						pcm.write(buffer, 0, n);
-						recorded = pcm.size();
-						if (listener != null && n > 0) listener.accept(Arrays.copyOf(buffer, n));
+						if (pcm.size() < limit) continue;
 					}
-					if (pcm.size() >= limit) {
-						halt.run();
-						onLimit.run();
-						break;
-					}
+					halt.run();
+					onLimit.run();
+					break;
 				}
 			} catch (IOException e) {
 				failure = e;
@@ -124,22 +134,28 @@ public final class Microphone {
 		}
 
 		/**
-		 * Hands {@code listener} the audio as it comes, on the recording's thread,
-		 * starting with everything heard so far, so none is missed or heard twice.
-		 * It must be quick: the next tenth of a second waits for it.
+		 * Streams the audio to {@code listener} as it comes, on the recording's
+		 * thread, starting with everything heard so far, so none is missed or heard
+		 * twice. From then on the listener keeps what it needs: the recording keeps
+		 * nothing more and has no limit of its own, so it can stay open across many
+		 * messages, and {@link #stop()} returns no audio. The listener must be
+		 * quick: the next tenth of a second waits for it.
 		 */
 		public void onAudio(Consumer<byte[]> listener) {
 			synchronized (pcm) {
 				if (pcm.size() > 0) listener.accept(pcm.toByteArray());
+				pcm.reset();
 				this.listener = listener;
 			}
 		}
 
-		/** Stops listening and returns what was heard. */
+		/** Stops listening and returns what was heard, or nothing once it was {@linkplain #onAudio streamed}. */
 		public Clip stop() throws IOException {
 			end();
 			if (failure != null) throw failure;
-			return new Clip(pcm.toByteArray(), rate);
+			synchronized (pcm) {
+				return new Clip(pcm.toByteArray(), rate);
+			}
 		}
 
 		/** Stops listening and keeps nothing. */

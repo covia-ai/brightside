@@ -121,7 +121,7 @@ public final class ChatPanel extends JPanel {
 	private final JScrollPane inputScroll;
 	private final JButton send = Buttons.primary("Send");
 	private final JButton more = Buttons.icon(Lucide.icon("ellipsis", 18, Theme::muted), "Conversation options");
-	private final VoiceInput voice = new VoiceInput(input, () -> send(false));
+	private final VoiceInput voice = new VoiceInput(input, () -> sendDraft(false));
 	private Host host;
 
 	private final List<SessionHistory.Item> displayed = new ArrayList<>();
@@ -590,19 +590,19 @@ public final class ChatPanel extends JPanel {
 
 	/** Sends the composer's draft, as Enter and Send do; while dictating, once the words are in. */
 	private void send() {
-		send(true);
-	}
-
-	/**
-	 * Sends the composer's draft. {@code reviewed}: the owner sent it themselves,
-	 * rather than voice typing sending it the moment the words were in — which a
-	 * spoken message tells the agent.
-	 */
-	private void send(boolean reviewed) {
 		if (voice.busy()) {
 			voice.sendWhenDone();
 			return;
 		}
+		sendDraft(true);
+	}
+
+	/**
+	 * Sends the composer's draft as it stands. {@code reviewed}: the owner sent it
+	 * themselves, rather than voice typing sending it the moment the words were in —
+	 * which a spoken message tells the agent.
+	 */
+	private void sendDraft(boolean reviewed) {
 		String text = input.getText().trim();
 		if (text.isEmpty()) return;
 		ACell message = voice.message(text, reviewed);

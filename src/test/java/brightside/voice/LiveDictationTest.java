@@ -66,6 +66,9 @@ class LiveDictationTest {
 		assertEquals("Remind me to call Sam. At four.", words.get());
 		assertEquals(List.of(first, second, last), told, "every answer, in order");
 		assertEquals(3, requests.size());
+		assertEquals(3 * HALF_SECOND + 100, dictation.clip().pcm().length,
+			"it keeps all it was given, to be heard whole should the live words fail");
+		assertEquals((3 * HALF_SECOND + 100) / (2.0 * RATE), dictation.seconds());
 	}
 
 	@Test

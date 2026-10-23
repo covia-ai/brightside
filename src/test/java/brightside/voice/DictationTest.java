@@ -36,6 +36,23 @@ class DictationTest {
 	}
 
 	@Test
+	void goSendsWhileListeningOnlyOnceItHasSettled() {
+		assertTrue(Dictation.saidGo(new Voice.Heard("Remind me to call Sam. Go.", "", 0.6)));
+		assertFalse(Dictation.saidGo(new Voice.Heard("Remind me to call Sam.", "Go", 0)),
+			"words still being spoken may yet become \"Go ahead\"");
+	}
+
+	@Test
+	void anOpenMicrophoneHearingNoWordsClosesItself() {
+		assertTrue(Dictation.idle(new Voice.Heard("", "", -1), Dictation.IDLE_SECONDS), "nobody has said anything");
+		assertTrue(Dictation.idle(new Voice.Heard("", "", Dictation.IDLE_SECONDS), 90),
+			"a noise, then a minute without a word");
+		assertFalse(Dictation.idle(new Voice.Heard("", "", 5), 90), "something was just heard");
+		assertFalse(Dictation.idle(new Voice.Heard("", "", -1), 30), "not yet a minute");
+		assertFalse(Dictation.idle(new Voice.Heard("Remind me", "", 120), 120), "words are waiting to be sent");
+	}
+
+	@Test
 	void goInsideASentenceIsOnlyAWord() {
 		for (String words : new String[] { "Let's go.", "Okay, go.", "I want to go. Then home.", "Go go.",
 				"Remind me to call Sam go", "Going.", "Ago." }) {
