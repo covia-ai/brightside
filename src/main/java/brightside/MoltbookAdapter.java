@@ -18,7 +18,6 @@ import convex.core.data.prim.CVMBool;
 import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
 import covia.adapter.AAdapter;
-import covia.adapter.CoviaAdapter;
 import covia.api.Abilities;
 import covia.venue.Engine.UserPathTarget;
 import covia.venue.RequestContext;
@@ -280,7 +279,7 @@ public class MoltbookAdapter extends AAdapter {
 
 	private void writeRecord(RequestContext ctx, AMap<AString, ACell> record) {
 		UserPathTarget target = engine.requireUserPath(ctx, Strings.create(Moltbook.RECORD_PATH), Capability.CRUD_WRITE, true);
-		CoviaAdapter.writePathToCursor(target.user().workspaceRoot(), target.pathKeys(), record);
+		target.user().workspaceRoot().write(target.pathKeys(), record);
 	}
 
 	// ------------------------------------------------------------------
