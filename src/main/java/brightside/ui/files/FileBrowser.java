@@ -604,7 +604,7 @@ public final class FileBrowser extends JPanel {
 		}));
 	}
 
-	/** Folders in the sidebar whose contents changed show them afresh: now if open, when next opened if not. */
+	/** Folders in the sidebar whose contents changed are read again, so their folders and arrows stay true. */
 	private void reloadTree(Set<Location> changed) {
 		List<Directory> nodes = new java.util.ArrayList<>();
 		for (var e = treeRoot.breadthFirstEnumeration(); e.hasMoreElements();) {
@@ -616,15 +616,7 @@ public final class FileBrowser extends JPanel {
 			node.generation++;
 			node.pending = null;
 			node.loaded = false;
-			if (expanded.contains(node.location)) {
-				load(node);
-			} else {
-				selectingTree = true;
-				node.removeAllChildren();
-				node.add(new DefaultMutableTreeNode("Loading…", false));
-				treeModel.nodeStructureChanged(node);
-				selectingTree = false;
-			}
+			load(node);
 		}
 		if (current != null) for (Directory node : rootNodes()) if (node.location.root().equals(current.root())) reveal(node, current, navigation);
 	}
@@ -840,6 +832,10 @@ public final class FileBrowser extends JPanel {
 		return String.format(Locale.ROOT, "%.1f MB", bytes / (1024.0 * 1024));
 	}
 
+	/**
+	 * A folder in the sidebar. It has no arrow until it has been read and found
+	 * to hold folders: knowing sooner would mean reading every folder shown.
+	 */
 	private static final class Directory extends DefaultMutableTreeNode {
 		final Location location;
 		boolean loaded;
@@ -849,7 +845,6 @@ public final class FileBrowser extends JPanel {
 		Directory(Location location) {
 			super(location.name());
 			this.location = location;
-			add(new DefaultMutableTreeNode("Loading…", false));
 		}
 	}
 

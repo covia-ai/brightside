@@ -514,7 +514,8 @@ expires; for a different port, edit the URL.
 
 The **Files** tab browses the running installation's folders and the acting
 user's personal drives. The sidebar groups them into an expandable directory
-tree; folders load on demand. Select a directory in the tree or double-click
+tree; folders load on demand, and a folder gains its arrow once it has been
+opened and found to hold folders. Select a directory in the tree or double-click
 one in the contents view (Enter works too). Click a breadcrumb to return to an
 ancestor, or use Back and Up. The filter searches names in the current folder.
 
