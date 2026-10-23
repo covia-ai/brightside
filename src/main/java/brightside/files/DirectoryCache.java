@@ -1,5 +1,6 @@
 package brightside.files;
 
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +24,14 @@ public final class DirectoryCache {
 			return new Location(root, slash < 0 ? "" : path.substring(0, slash));
 		}
 		public String name() { return path.isEmpty() ? root.name() : path.substring(path.lastIndexOf('/') + 1); }
+		/** Whether this is {@code folder} or somewhere inside it. */
+		public boolean within(Location folder) {
+			return root.equals(folder.root) && (folder.path.isEmpty() || path.equals(folder.path) || path.startsWith(folder.path + "/"));
+		}
+		/** Where this is on this computer, or null when its root lives elsewhere. */
+		public Path local() {
+			return (root.local() == null) ? null : path.isEmpty() ? root.local() : root.local().resolve(path);
+		}
 	}
 
 	private static final Executor IO = Executors.newVirtualThreadPerTaskExecutor();
@@ -50,6 +59,9 @@ public final class DirectoryCache {
 
 	/** Old completions cannot repopulate a refreshed cache. */
 	public synchronized void clear() { listings.clear(); }
+
+	/** After a change: {@code folder} and everything inside it are read again when next asked for. */
+	public synchronized void forget(Location folder) { listings.keySet().removeIf(l -> l.within(folder)); }
 
 	private <T> CompletableFuture<T> read(Callable<T> task) {
 		return CompletableFuture.supplyAsync(() -> {

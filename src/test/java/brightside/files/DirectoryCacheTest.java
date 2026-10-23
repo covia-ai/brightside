@@ -59,6 +59,24 @@ class DirectoryCacheTest {
 		assertEquals(2, source.calls);
 	}
 
+	@Test void forgettingAFolderRereadsItAndWhatIsInsideItOnly() {
+		Queue executor = new Queue();
+		DirectoryCache cache = new DirectoryCache(new Source(), executor);
+		Location notes = HOME.child("Notes");
+		Location notesmore = HOME.child("Notes more");
+		var home = cache.list(HOME);
+		var inside = cache.list(notes.child("Old"));
+		var sibling = cache.list(notesmore);
+		cache.forget(notes);
+		assertSame(home, cache.list(HOME));
+		assertSame(sibling, cache.list(notesmore), "a name that merely starts the same is another folder");
+		assertNotSame(inside, cache.list(notes.child("Old")));
+		assertTrue(notes.child("Old").within(notes));
+		assertTrue(notes.within(HOME));
+		assertFalse(notesmore.within(notes));
+		assertNull(HOME.local(), "a drive has no place on this computer");
+	}
+
 	@Test void failedReadsCanBeRetried() {
 		Queue executor = new Queue();
 		Source source = new Source();
@@ -90,6 +108,11 @@ class DirectoryCacheTest {
 			if (fail) throw new IOException("Unavailable");
 			return new Listing(List.of(new Entry("Notes", "directory", 0, 0)), "");
 		}
-		@Override public Preview preview(Root root, String path) { return new Preview("", false, false); }
+		@Override public java.io.InputStream open(Root root, String path) { return java.io.InputStream.nullInputStream(); }
+		@Override public void createFolder(Root root, String path) { throw new UnsupportedOperationException(); }
+		@Override public void move(Root root, String from, String to) { throw new UnsupportedOperationException(); }
+		@Override public void copyFile(Root from, String path, Root to, String target) { throw new UnsupportedOperationException(); }
+		@Override public void delete(Root root, String path) { throw new UnsupportedOperationException(); }
+		@Override public void add(Root root, String path, java.io.InputStream content) { throw new UnsupportedOperationException(); }
 	}
 }

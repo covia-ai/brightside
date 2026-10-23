@@ -76,10 +76,16 @@ and restart behaviour.
 
 **The file browser separates presentation from storage.** `ui/files/FileBrowser`
 uses the small, provider-independent `files/FileSource` boundary; `VenueFiles`
-reads through Covia's running file and DLFS adapters with their access checks.
+works through Covia's running file and DLFS adapters with their access checks.
+Reads are job-free. Changes run as the person's own file operations, so each
+leaves a record; bytes brought in from the computer or saved out to it stream
+through the adapters' content API under the same checks. `FileChanges` runs
+each change as a batch off the event thread: it never replaces an item,
+carries on past one that fails, and names the folders that changed.
 Navigation and bounded previews run off the event thread. A lazy directory
-cache shares reads between tree expansion and folder selection; refresh
-invalidates it, and principal changes replace the entire binding. Stale results
+cache shares reads between tree expansion and folder selection; a change
+forgets only the folders it touched, refresh invalidates it all, and principal
+changes replace the entire binding. Stale results
 are discarded after selection, principal changes or logout. The browser uses
 the shared Brightside cards, labels, icons and readouts. Sharing this
 component with Convex GUI is future work; the first implementation lives in

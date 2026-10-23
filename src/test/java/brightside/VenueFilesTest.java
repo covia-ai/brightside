@@ -2,6 +2,9 @@ package brightside;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.concurrent.TimeUnit;
 
@@ -40,6 +43,39 @@ class VenueFilesTest {
 		assertThrows(IllegalArgumentException.class, () -> browser.preview(root, "archive.zip!/secret"));
 		assertThrows(Exception.class, () -> browser.list(new FileSource.Root("file:missing", "", ""), ""));
 		assertEquals(jobs, RecordedJobs.of(venue, did), "browser reads must create no durable jobs");
+	}
+
+	@Test void changesRunAsThePersonsOwnOperations() throws Exception {
+		EmbeddedVenue venue = shared.venue();
+		String did = Identity.of("browser-changes").userDID(venue.did());
+		new PersonalDrives(venue, did).initialise();
+		VenueFiles files = new VenueFiles(venue, did);
+		var roots = files.roots();
+		var folder = roots.stream().filter(r -> r.id().equals("file:files")).findFirst().orElseThrow();
+		var drive = roots.stream().filter(r -> r.id().equals("dlfs:personal")).findFirst().orElseThrow();
+		assertFalse(folder.readOnly());
+		assertTrue(Files.isDirectory(folder.local()), "a folder root says where it is on this computer");
+		assertNull(drive.local());
+
+		long jobs = RecordedJobs.of(venue, did);
+		files.createFolder(drive, "Trip");
+		files.add(drive, "Trip/plan.txt", new ByteArrayInputStream("go".getBytes(StandardCharsets.UTF_8)));
+		assertThrows(Exception.class, () -> files.add(drive, "Trip/plan.txt", InputStream.nullInputStream()),
+			"bringing a file in never replaces one");
+		files.move(drive, "Trip/plan.txt", "plan.txt");
+		assertEquals("go", files.preview(drive, "plan.txt").text());
+		files.copyFile(drive, "plan.txt", folder, "changes-plan.txt");
+		assertEquals("go", Files.readString(folder.local().resolve("changes-plan.txt")), "a copy can go to another place");
+		files.delete(folder, "changes-plan.txt");
+		files.delete(drive, "Trip");
+		assertFalse(Files.exists(folder.local().resolve("changes-plan.txt")));
+		assertTrue(files.list(drive, "").entries().stream().noneMatch(e -> e.name().equals("Trip")));
+		assertTrue(RecordedJobs.of(venue, did) > jobs, "changes leave a record");
+
+		String other = Identity.of("browser-changes-other").userDID(venue.did());
+		new PersonalDrives(venue, other).initialise();
+		new VenueFiles(venue, other).delete(drive, "plan.txt");
+		assertEquals("go", files.preview(drive, "plan.txt").text(), "another person's changes reach only their own drive");
 	}
 
 	@Test void personalContentsAreBoundToTheCapturedUser() throws Exception {
