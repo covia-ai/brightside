@@ -97,7 +97,7 @@ conversation in place and surface the failure; message wording never decides
 recovery. The code contract belongs to [Covia Jobs](https://github.com/covia-ai/covia/blob/develop/venue/docs/JOBS.md).
 
 **A reply has no deadline.** A turn takes as long as its model and tool calls
-take, and the venue bounds each of those itself.
+take; each tool call may run for up to an hour ([CONFIGURATION](CONFIGURATION.md#chat)).
 
 **The assistant writes Markdown.** Assistant bubbles render through
 Covia Workbench's `covia.gui.markdown`: commonmark-java's AST becomes a styled

@@ -137,10 +137,11 @@ and across configuration changes.
 | `systemPrompt` | The assistant's identity, role and tone. Dynamic owner/model context comes from Brightside's read-only context operation; task detail belongs in on-demand skills. |
 
 A reply has no time limit. A turn takes as long as its model and tool calls
-take — the venue bounds each of those itself — and a turn that runs long shows
-a stop control in the chat. Stopping cancels the chat job, not the agent: you
-can carry on at once, and anything the assistant still finishes appears in the
-conversation.
+take: the venue bounds each model call, and Brightside lets each tool call run
+for up to an hour, so delegated work such as a Claude Code turn comes back with
+its result. A turn that runs long shows a stop control in the chat. Stopping
+cancels the chat job, not the agent: you can carry on at once, and anything the
+assistant still finishes appears in the conversation.
 
 ## Model API keys
 

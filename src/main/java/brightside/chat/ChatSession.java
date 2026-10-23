@@ -58,6 +58,13 @@ public final class ChatSession {
 
 	/** Time allowed for agent management calls (create/update/info). */
 	private static final long ADMIN_TIMEOUT_SECONDS = 30;
+	/**
+	 * How long one of the assistant's tool calls may run: an hour, the venue's
+	 * own ceiling for an authenticated MCP call, not the agent loop's default
+	 * five minutes. Delegated work such as a Claude Code turn routinely takes
+	 * longer than that, and a call that times out loses its result.
+	 */
+	static final long TOOL_CALL_TIMEOUT_MS = 3_600_000L;
 
 	/** The assistant's private memory lives in its scratch namespace. */
 	public static final String MEMORY_PATH = "n/memory";
@@ -250,6 +257,7 @@ public final class ChatSession {
 			// skillsets below — so authority stays deliberate rather than always-on.
 			"tools", Vectors.of(Strings.create(INSPECT_OP), Strings.create(MEMORY_OP),
 				Strings.create(SKILL_FEEDBACK_OP), Strings.create(COMPACT_TOOL)),
+			"toolCallTimeoutMs", TOOL_CALL_TIMEOUT_MS,
 			// Pin the assistant's memory (n/memory) into every turn's context,
 			// through the read-only recall op; the memory tool above is for edits.
 			"context", Vectors.of(Maps.of(

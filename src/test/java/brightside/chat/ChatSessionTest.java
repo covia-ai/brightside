@@ -39,6 +39,7 @@ import convex.core.data.prim.CVMBool;
 import convex.core.lang.RT;
 import covia.adapter.AgentAdapter;
 import covia.adapter.TestAdapter;
+import covia.adapter.agent.AbstractLLMAdapter;
 import covia.api.Fields;
 import covia.exception.JobFailedException;
 import covia.grid.Asset;
@@ -80,6 +81,19 @@ class ChatSessionTest {
 
 		assertNull(s.sessionId());
 		assertTrue(SessionHistory.listSessions(venue, "bs-empty-home").isEmpty());
+	}
+
+	@Test
+	void toolCallsMayRunAsLongAsDelegatedWork() throws Exception {
+		String agentId = "bs-tool-budget";
+		new ChatSession(venue, echoChat(agentId)).ensureAgent();
+
+		// What the agent loop resolves from the stored configuration, by Covia's own rule.
+		@SuppressWarnings("unchecked")
+		AMap<AString, ACell> config = (AMap<AString, ACell>) RT.getIn(agentInfo(agentId), Fields.CONFIG);
+		assertEquals(ChatSession.TOOL_CALL_TIMEOUT_MS, AbstractLLMAdapter.resolveToolCallTimeoutMs(config));
+		assertTrue(ChatSession.TOOL_CALL_TIMEOUT_MS > AbstractLLMAdapter.DEFAULT_TOOL_CALL_TIMEOUT_MS,
+			"longer than the agent loop's default");
 	}
 
 	@Test
