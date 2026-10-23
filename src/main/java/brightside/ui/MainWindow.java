@@ -33,7 +33,6 @@ import brightside.ui.inspect.SessionViews;
 import brightside.ui.settings.AuthPanel;
 import brightside.ui.settings.DiscordPanel;
 import brightside.ui.settings.GeneralPanel;
-import brightside.ui.settings.FilesPanel;
 import brightside.ui.settings.IntegrationsPanel;
 import brightside.ui.settings.ModelPanel;
 import brightside.ui.settings.MoltbookPanel;
@@ -452,12 +451,8 @@ public final class MainWindow extends JFrame {
 		});
 		VaultPanel vaultPanel = new VaultPanel(app::forgetRememberedPassphrase);
 		AuthPanel authPanel = new AuthPanel(app::mintAccessToken, app::keepToolToken, app::setKeepToolToken);
-		FilesPanel filesPanel = new FilesPanel(new FilesPanel.Host() {
-			@Override public brightside.FileRoots folders() { return app.fileRoots(); }
-			@Override public brightside.PersonalDrives drives() { return app.personalDrives(); }
-		});
 		settingsScreen = new SettingsScreen(generalPanel, themePanel, modelPanel, profilePanel, integrationsPanel,
-			schedulePanel, secretsPanel, vaultPanel, authPanel, filesPanel);
+			schedulePanel, secretsPanel, vaultPanel, authPanel);
 
 		mainDeck = new JPanel(mainCards);
 		mainDeck.add(split, MAIN_CHAT);
@@ -477,7 +472,30 @@ public final class MainWindow extends JFrame {
 
 		skillsScreen = new brightside.ui.skills.SkillsScreen();
 		mainDeck.add(skillsScreen, MAIN_SKILLS);
-		fileBrowser = new brightside.ui.files.FileBrowser(() -> showSettings(SettingsScreen.Tab.FILES));
+		// Where files live is managed where they are browsed: folders on this
+		// computer apply on the next start, personal drives at once.
+		fileBrowser = new brightside.ui.files.FileBrowser(new brightside.ui.files.Places() {
+			@Override public java.util.Map<String, Boolean> savedFolders() throws Exception {
+				java.util.Map<String, Boolean> folders = new java.util.LinkedHashMap<>();
+				for (brightside.FileRoots.Root root : app.fileRoots().list()) folders.put(root.name(), root.readOnly());
+				return folders;
+			}
+			@Override public void addFolder(String name, java.nio.file.Path folder, boolean readOnly) throws Exception {
+				app.fileRoots().add(name, folder, readOnly);
+			}
+			@Override public void setReadOnly(String name, boolean readOnly) throws Exception {
+				app.fileRoots().setReadOnly(name, readOnly);
+			}
+			@Override public void removeFolder(String name) throws Exception { app.fileRoots().remove(name); }
+			@Override public void createDrive(String name) throws Exception {
+				brightside.PersonalDrives drives = app.personalDrives();
+				if (drives == null) throw new IllegalStateException("Unlock Brightside to make a drive.");
+				drives.create(name);
+			}
+			@Override public String folderNameProblem(String name) { return brightside.FileRoots.nameProblem(name); }
+			@Override public String driveNameProblem(String name) { return brightside.PersonalDrives.nameProblem(name); }
+			@Override public String suggestFolderName(java.nio.file.Path folder) { return brightside.FileRoots.suggestName(folder); }
+		});
 		mainDeck.add(fileBrowser, MAIN_FILES);
 
 		// Your venue, live from the embedded venue, among sample venues: nothing on the wire.
@@ -626,7 +644,6 @@ public final class MainWindow extends JFrame {
 		settingsScreen.integrations().clearSensitive();
 		settingsScreen.schedule().clear();
 		settingsScreen.secrets().clearSensitive();
-		settingsScreen.files().clear();
 		fileBrowser.clear();
 		filesOwner = null;
 		filesVenue = null;
@@ -764,7 +781,6 @@ public final class MainWindow extends JFrame {
 		app.refreshMoltbookStatus(); // likewise, through showMoltbookStatus
 		app.refreshSchedule(); // answers through showSchedule, off the event thread
 		settingsScreen.secrets().refresh(app.listSecretNames());
-		settingsScreen.files().refresh();
 		settingsScreen.vault().refresh(app.hasRememberedPassphrase());
 	}
 

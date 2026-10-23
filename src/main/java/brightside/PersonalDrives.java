@@ -48,10 +48,15 @@ public final class PersonalDrives {
 		}
 	}
 
+	/** Why {@code name} can't name a drive, or null when it can. */
+	public static String nameProblem(String name) {
+		return (name == null || name.isBlank() || name.length() > 64 || name.matches(".*[/\\\\:].*"))
+			? "Use a drive name of 1–64 characters without slashes or colons." : null;
+	}
+
 	public void create(String name) throws Exception {
-		if (name == null || name.isBlank() || name.length() > 64 || name.matches(".*[/\\\\:].*")) {
-			throw new IllegalArgumentException("Use a drive name of 1–64 characters without slashes or colons.");
-		}
+		String problem = nameProblem(name);
+		if (problem != null) throw new IllegalArgumentException(problem);
 		if (list().contains(name)) throw new IllegalArgumentException("That drive already exists.");
 		venue.clientAs(did).run("v/ops/dlfs/create-drive", Maps.of("name", name)).get(5, TimeUnit.SECONDS);
 	}

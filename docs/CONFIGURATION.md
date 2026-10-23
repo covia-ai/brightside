@@ -21,7 +21,7 @@ hand-edited file and its comments stay intact.
 | Path | What it is |
 |---|---|
 | `~/.brightside/config.json` | Settings (JSON5 — comments allowed). Hand-edited. |
-| `~/.brightside/file-roots.json` | Folder access overrides saved by Settings → Files; applied over configured roots on restart. |
+| `~/.brightside/file-roots.json` | Folder access overrides saved from the Files screen; applied over configured roots on restart. |
 | `~/.brightside/identity.json` | Your name, stable slug and full Covia user DID, kept apart so identity changes never rewrite settings. |
 | `~/.brightside/venue.etch` | The encrypted lattice store: conversations, memory, skills, agent state and personal drives. |
 | `~/.brightside/venue.etch.unclean-<stamp>` | The store as it was before a launch-time repair ([LAUNCH.md](LAUNCH.md)); delete once the repaired store has proved itself. |
@@ -627,35 +627,35 @@ name, such as `report (2).pdf`. Each change runs as one of your file
 operations, so it leaves a job, and a folder copy leaves one for each folder
 and file in it. Deleting is permanent, with no bin. A read-only folder offers
 no changes. Dragging out of the app and archive browsing are outside the
-browser's scope. **Storage settings** opens the page for adding folders and
-drives.
+browser's scope.
 
-*Settings → Files* manages two kinds of storage:
+The places files live are managed in the same screen. The **+** beside
+Locations adds one of two kinds:
 
-- **Folders on this computer** are named directories available through the
+- **A folder on this computer** is a named directory available through the
   assistant's file tools. Choose a folder, give it a short name, and choose
-  read-only or writable access. Existing roots are listed too. Removing a
-  root removes file-tool access; it does not delete its files or change other
-  integrations such as a Claude Code project using that directory.
-- **Personal drives** are the acting user's DLFS drives, stored in the encrypted
-  venue store. List them or create another by name; creation takes effect
-  immediately and the assistant's DLFS skill can use it. A user without any
-  drives receives a `personal` drive when first opened. Setup is remembered,
-  so later launches do not recreate an absent drive. Existing drives are kept.
+  read-only or writable access. Right-click a folder in Locations to change its
+  access or remove it from Brightside; removing it takes away file-tool access,
+  but does not delete its files or change other integrations, such as a Claude
+  Code project using that directory.
+- **A personal drive** is one of the acting user's DLFS drives, stored in the
+  encrypted venue store. Name it and it opens at once; the assistant's DLFS
+  skill can use it straight away. A user without any drives receives a
+  `personal` drive when first opened. Setup is remembered, so later launches do
+  not recreate an absent drive. Existing drives are kept.
 
 Folder roots are installation-wide, while drives belong to the acting user
 and are shared by that user's agents. Folder edits are saved in
 `file-roots.json`, leaving comments and other configuration in `config.json`
 intact. On restart these overrides replace individual roots under
 `venue.file.roots`; a null entry suppresses a root, including a built-in default.
-The file adapter does not reload roots live, so both adding access and revoking
-it require a restart. Settings shows the saved configuration for the next
-launch; running assistants keep their current roots until then.
-The Files browser shows those currently active roots too, rather than the
-pending settings.
+The file adapter does not reload roots live, so adding, changing and removing a
+folder all wait for a restart: until then Locations shows the folders the
+running assistants have, says beneath them that changes are waiting, and the
+right-click menu shows each folder's saved access.
 
-Drive deletion is not offered in Settings while Covia's deletion can be undone
-by a root save in flight ([covia#589](https://github.com/covia-ai/covia/issues/589)).
+Drive deletion is not offered while Covia's deletion can be undone by a root
+save in flight ([covia#589](https://github.com/covia-ai/covia/issues/589)).
 
 ## Schedule
 

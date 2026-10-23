@@ -39,7 +39,7 @@ public final class SettingsScreen extends JPanel {
 		PROFILE("Identity", "user-round", false), GENERAL("General", "sliders-horizontal", false),
 		THEME("Theme", "palette", false),
 		// What the assistant runs on and reaches.
-		MODEL("Model", "sparkles", true), INTEGRATIONS("Integrations", "plug", false), FILES("Files", "folder", false),
+		MODEL("Model", "sparkles", true), INTEGRATIONS("Integrations", "plug", false),
 		SCHEDULE("Schedule", "calendar-clock", false),
 		// Keys and access.
 		SECRETS("Secrets", "key-round", true), VAULT("Vault", "lock", false), AUTH("Auth", "ticket", false);
@@ -71,14 +71,13 @@ public final class SettingsScreen extends JPanel {
 	private final ProfilePanel profile;
 	private final IntegrationsPanel integrations;
 	private final SchedulePanel schedule;
-	private final FilesPanel files;
 	private final SecretsPanel secrets;
 	private final VaultPanel vault;
 	private final AuthPanel auth;
 
 	public SettingsScreen(GeneralPanel general, ThemePanel theme, ModelPanel model, ProfilePanel profile,
 			IntegrationsPanel integrations, SchedulePanel schedule, SecretsPanel secrets, VaultPanel vault,
-			AuthPanel auth, FilesPanel files) {
+			AuthPanel auth) {
 		super(new BorderLayout());
 		this.general = general;
 		this.theme = theme;
@@ -86,7 +85,6 @@ public final class SettingsScreen extends JPanel {
 		this.profile = profile;
 		this.integrations = integrations;
 		this.schedule = schedule;
-		this.files = files;
 		this.secrets = secrets;
 		this.vault = vault;
 		this.auth = auth;
@@ -98,7 +96,6 @@ public final class SettingsScreen extends JPanel {
 		content.add(model, Tab.MODEL.name());
 		content.add(integrations, Tab.INTEGRATIONS.name());
 		content.add(schedule, Tab.SCHEDULE.name());
-		content.add(files, Tab.FILES.name());
 		content.add(secrets, Tab.SECRETS.name());
 		content.add(vault, Tab.VAULT.name());
 		content.add(auth, Tab.AUTH.name());
@@ -170,10 +167,6 @@ public final class SettingsScreen extends JPanel {
 
 	public SecretsPanel secrets() {
 		return secrets;
-	}
-
-	public FilesPanel files() {
-		return files;
 	}
 
 	public VaultPanel vault() {

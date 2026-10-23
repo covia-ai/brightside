@@ -38,6 +38,7 @@ import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTextField;
@@ -120,7 +121,10 @@ public final class FileBrowser extends JPanel {
 	private final JButton up = iconButton("arrow-up", "Parent folder (Alt+Up)");
 	private final JButton refresh = iconButton("refresh-cw", "Refresh files (F5)");
 	private final EyeButton previewToggle = new EyeButton("Show file preview", "Hide file preview", 18);
-	private final Runnable storageSettings;
+	private final JPanel sidebar = panel(new BorderLayout());
+	/** Under the sidebar: folder changes saved here wait for the next start. */
+	private final JLabel restart = Labels.html(Labels.escape("Folder changes apply when Brightside restarts."), 180, javax.swing.SwingConstants.LEFT);
+	private final PlaceActions placeActions;
 	private final JSplitPane folderSplit;
 	private final ArrayDeque<Location> history = new ArrayDeque<>();
 	private final Set<Location> expanded = new HashSet<>();
@@ -128,6 +132,10 @@ public final class FileBrowser extends JPanel {
 	private FileChanges changes;
 	private Location current;
 	private Listing listing;
+	/** The places the sidebar shows, as last read. */
+	private List<Root> roots = List.of();
+	/** A place to open once the next refresh has read the places: one just made. */
+	private String opening;
 	private long epoch;
 	private long navigation;
 	private long previewVersion;
@@ -136,9 +144,9 @@ public final class FileBrowser extends JPanel {
 	private boolean previewShown = true;
 	private boolean wasCompact;
 
-	public FileBrowser(Runnable storageSettings) {
+	public FileBrowser(Places places) {
 		super(new BorderLayout());
-		this.storageSettings = storageSettings;
+		placeActions = new PlaceActions(this, places);
 		tree.setRootVisible(false);
 		tree.setShowsRootHandles(true);
 		tree.setRowHeight(UIScale.scale(26));
@@ -166,12 +174,19 @@ public final class FileBrowser extends JPanel {
 				if (e.getPath().getLastPathComponent() instanceof Directory node) expanded.remove(node.location);
 			}
 		});
-		JPanel sidebar = panel(new BorderLayout());
 		sidebar.setBorder(Borders.hairlineRight());
-		JLabel locations = Labels.overline("Locations");
-		locations.setBorder(BorderFactory.createEmptyBorder(12, 18, 8, 12));
-		sidebar.add(locations, BorderLayout.NORTH);
+		// The places files live, with + to add one: a folder on this computer or a personal drive.
+		JPanel header = panel(new MigLayout("insets 6 18 2 8, fillx, aligny center", "[grow]4[]", ""));
+		header.add(Labels.overline("Locations"));
+		JButton add = iconButton("plus", "Add a folder or a drive");
+		add.addActionListener(e -> placeActions.addMenu().show(add, 0, add.getHeight()));
+		header.add(add);
+		sidebar.add(header, BorderLayout.NORTH);
 		sidebar.add(Scrolls.both(tree), BorderLayout.CENTER);
+		Styles.classes(restart, Styles.SMALL, Styles.MUTED);
+		restart.setBorder(BorderFactory.createEmptyBorder(8, 18, 10, 12));
+		restart.setVisible(false);
+		sidebar.add(restart, BorderLayout.SOUTH);
 		sidebar.setMinimumSize(new Dimension(UIScale.scale(150), 0));
 
 		// One toolbar over the folder: where you are on the left, the filter and
@@ -194,9 +209,6 @@ public final class FileBrowser extends JPanel {
 		tools.add(refresh);
 		previewToggle.setShown(previewShown);
 		tools.add(previewToggle);
-		JButton settings = iconButton("settings", "Storage settings");
-		settings.addActionListener(e -> storageSettings.run());
-		tools.add(settings);
 		toolbar.add(tools, BorderLayout.EAST);
 
 		JPanel directory = panel(new BorderLayout());
@@ -283,6 +295,7 @@ public final class FileBrowser extends JPanel {
 		current = null;
 		listing = null;
 		refreshing = false;
+		roots = List.of();
 		history.clear();
 		expanded.clear();
 		treeRoot.removeAllChildren();
@@ -307,9 +320,11 @@ public final class FileBrowser extends JPanel {
 		resetPreview();
 		loading("Loading your storage…");
 		buttons();
+		placeActions.reload();
 		reads.roots().whenComplete((roots, failure) -> SwingUtilities.invokeLater(() -> {
 			if (version != epoch) return;
 			refreshing = false;
+			this.roots = (failure == null) ? roots : List.of();
 			buttons();
 			if (failure != null) {
 				treeRoot.removeAllChildren();
@@ -338,11 +353,16 @@ public final class FileBrowser extends JPanel {
 				history.clear();
 				breadcrumbs.removeAll();
 				show(new EmptyState("hard-drive", Tone.ACCENT, "No storage yet",
-					"Add a folder on this computer, or a personal drive.").bare().action("Storage settings", storageSettings));
+					"Add a folder on this computer, or make a personal drive with + beside Locations.")
+					.bare().action("Add a folder…", placeActions::addFolder));
 				status(null);
 				buttons();
 			} else {
-				if (current == null || !roots.contains(current.root())) {
+				Root made = roots.stream().filter(r -> r.id().equals(opening)).findFirst().orElse(null);
+				opening = null;
+				if (made != null) {
+					current = new Location(made, "");
+				} else if (current == null || !roots.contains(current.root())) {
 					history.clear();
 					current = rootNodes().get(0).location;
 				}
@@ -350,6 +370,23 @@ public final class FileBrowser extends JPanel {
 			}
 		}));
 	}
+
+	/** Reads the places again and opens the one with {@code rootId} — a drive just made. */
+	void refreshTo(String rootId) {
+		opening = rootId;
+		refresh();
+	}
+
+	/** The places the sidebar shows. */
+	List<Root> roots() { return roots; }
+
+	/** A folder change was saved: the sidebar says it waits for the next start. */
+	void restartPending() {
+		restart.setVisible(true);
+		sidebar.revalidate();
+	}
+
+	void sidebarToast(String text) { Toast.show(sidebar, text, "check", Tone.SUCCESS); }
 
 	private List<Directory> rootNodes() {
 		java.util.ArrayList<Directory> nodes = new java.util.ArrayList<>();
@@ -541,7 +578,11 @@ public final class FileBrowser extends JPanel {
 		TreePath path = tree.getClosestPathForLocation(e.getX(), e.getY());
 		Rectangle row = (path == null) ? null : tree.getPathBounds(path);
 		if (row == null || e.getY() < row.y || e.getY() >= row.y + row.height) return;
-		if (path.getLastPathComponent() instanceof Directory node) actions.folderMenu(node.location, true).show(tree, e.getX(), e.getY());
+		if (!(path.getLastPathComponent() instanceof Directory node)) return;
+		JPopupMenu menu = actions.folderMenu(node.location, true);
+		// A place itself — a folder on this computer — also says what access Brightside has to it.
+		if (node.location.path().isEmpty()) placeActions.extend(menu, node.location.root());
+		menu.show(tree, e.getX(), e.getY());
 	}
 
 	FileChanges changes() { return changes; }

@@ -71,6 +71,16 @@ class FileRootsTest {
 	}
 
 	@Test
+	void suggestedNamesAreOnesARootCanHave() {
+		for (String folder : new String[] {"My Documents", "Q3 report!", "__drafts", "日本語", ".config"}) {
+			String name = FileRoots.suggestName(Path.of("C:/x", folder));
+			assertNull(FileRoots.nameProblem(name), folder + " → " + name);
+		}
+		assertEquals("my-documents", FileRoots.suggestName(Path.of("My Documents")));
+		assertNotNull(FileRoots.nameProblem("-leading"));
+	}
+
+	@Test
 	void editsPreserveOtherRootOptionsAndMalformedOverridesAreNotIgnored() throws Exception {
 		AMap<AString, ACell> base = Maps.of("file", Maps.of("roots", Maps.of("drive", Maps.of(
 			"dlfs", "archive", "subpath", "reports", "description", "Existing alias"))));

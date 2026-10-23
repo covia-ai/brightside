@@ -58,10 +58,22 @@ public final class FileRoots {
 		return List.copyOf(result);
 	}
 
+	/** Why {@code name} can't name a folder root, or null when it can. */
+	public static String nameProblem(String name) {
+		return (name != null && name.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")) ? null
+			: "Use 1–64 letters, digits, dots, dashes or underscores, starting with a letter or digit.";
+	}
+
+	/** A name for a root at {@code directory}, from its own name, as {@link #nameProblem} allows. */
+	public static String suggestName(Path directory) {
+		String base = (directory.getFileName() == null) ? "" : directory.getFileName().toString();
+		String name = base.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9._-]+", "-").replaceAll("^[^a-z0-9]+", "");
+		return name.isEmpty() ? "folder" : name.substring(0, Math.min(name.length(), 64));
+	}
+
 	public void add(String name, Path directory, boolean readOnly) throws IOException {
-		if (name == null || !name.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")) {
-			throw new IllegalArgumentException("Use 1–64 letters, digits, dots, dashes or underscores for the name.");
-		}
+		String problem = nameProblem(name);
+		if (problem != null) throw new IllegalArgumentException(problem);
 		Path real = directory.toRealPath();
 		if (!Files.isDirectory(real)) throw new IllegalArgumentException("Choose an existing folder.");
 		synchronized (LOCK) {
