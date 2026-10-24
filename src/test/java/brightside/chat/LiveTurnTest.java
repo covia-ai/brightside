@@ -106,19 +106,23 @@ class LiveTurnTest {
 		LiveTurn t = new LiveTurn();
 		t.apply(event("tool:start", Maps.of("id", "c5", "name", "invoke_tool",
 			"detail", Maps.of("input", Maps.of("name", "claudecode_run", "input", Maps.empty())))), "Run Claude Code");
-		assertTrue(t.apply(event("tool:progress", Maps.of("id", "c5", "name", "invoke_tool",
-			"detail", Maps.of("progress", Maps.of("lastTool", "Bash: Run the speech tests", "toolCalls", 3L)))), null));
+		assertTrue(t.apply(progress("c5", "Bash: Run the speech tests"), null));
 		assertEquals("Run Claude Code · Bash: Run the speech tests", t.status());
-		assertTrue(t.apply(event("tool:progress", Maps.of("id", "c5", "name", "invoke_tool",
-			"detail", Maps.of("progress", Maps.of("text", "Writing the code now.\nThen tests.")))), null));
-		assertEquals("Run Claude Code · Writing the code now.", t.status(), "with no step yet, the first line of what it said");
+		assertTrue(t.apply(progress("c5", "Writing the code now.\nThen tests."), null));
+		assertEquals("Run Claude Code · Writing the code now.", t.status(), "one line of it");
+		assertFalse(t.apply(event("tool:progress", Maps.of("id", "c5", "name", "invoke_tool",
+			"detail", Maps.of("progress", Maps.of("data", Maps.of("percent", 40L))))), null), "detail alone says nothing to a person");
 		assertEquals(1, t.activity().steps().size(), "progress is not a step of its own");
 
 		t.apply(event("tool:result", Maps.of("id", "c5", "name", "invoke_tool", "detail", Maps.of("result", "Done."))), null);
-		assertFalse(t.apply(event("tool:progress", Maps.of("id", "c5", "name", "invoke_tool",
-			"detail", Maps.of("progress", Maps.of("lastTool", "Bash: late")))), null), "a finished call reports nothing more");
-		assertFalse(t.apply(event("tool:progress", Maps.of("id", "c9", "name", "covia_read",
-			"detail", Maps.of("progress", Maps.of("lastTool", "unseen")))), null), "nor one never seen starting");
+		assertFalse(t.apply(progress("c5", "Bash: late"), null), "a finished call reports nothing more");
+		assertFalse(t.apply(progress("c9", "unseen"), null), "nor one never seen starting");
+	}
+
+	/** A tool:progress as the venue's tap emits it: the operation's line on top, its record under detail. */
+	private static AgentEvents.Event progress(String id, String message) {
+		return event("tool:progress", Maps.of("id", id, "name", "invoke_tool", "message", message,
+			"detail", Maps.of("progress", Maps.of("message", message))));
 	}
 
 	@Test

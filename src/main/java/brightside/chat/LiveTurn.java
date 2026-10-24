@@ -111,19 +111,16 @@ public final class LiveTurn {
 	}
 
 	/**
-	 * What a running tool's operation is doing, as it reports it — Claude
-	 * Code's latest step, else the first line of what it last said — after the
-	 * tool's own label. Not a step of its own: the stored turn has none. Only
-	 * for a call seen starting and not yet finished.
+	 * What a running tool's operation is doing, in its own words — the
+	 * progress message, Claude Code's latest step say — after the tool's own
+	 * label. Not a step of its own: the stored turn has none. Only for a call
+	 * seen starting and not yet finished.
 	 */
 	private boolean toolProgressed(AMap<AString, ACell> data) {
 		String label = labels.get(str(RT.getIn(data, "id")));
-		if (label == null) return false;
-		ACell progress = RT.getIn(data, "detail", "progress");
-		String step = str(RT.getIn(progress, "lastTool"));
-		if (step == null || step.isBlank()) step = str(RT.getIn(progress, "text"));
-		if (step == null || step.isBlank()) return false;
-		return setStatus(oneLine(label + " · " + oneLine(step)));
+		String doing = str(RT.getIn(data, "message"));
+		if (label == null || doing == null || doing.isBlank()) return false;
+		return setStatus(oneLine(label + " · " + oneLine(doing)));
 	}
 
 	/**
