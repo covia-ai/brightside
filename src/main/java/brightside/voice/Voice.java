@@ -1,6 +1,7 @@
 package brightside.voice;
 
 import java.util.Base64;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
 import convex.core.data.ACell;
@@ -96,15 +97,29 @@ public final class Voice {
 	}
 
 	/**
+	 * What sent a spoken message: the owner, with Enter or Send; "Go", said as a
+	 * sentence of its own at the end; or a long pause after speaking, with nobody
+	 * choosing to send at all — the one that may carry half a thought, or words
+	 * never meant for the agent.
+	 */
+	public enum Sent {
+		OWNER, GO, PAUSE;
+
+		String key() {
+			return name().toLowerCase(Locale.ROOT);
+		}
+	}
+
+	/**
 	 * A message the owner spoke, for the agent: its {@code text} with {@code via}
 	 * provenance, as a channel's message carries where it came from. The agent
 	 * learns it was heard rather than typed, by which model and whether on this
-	 * computer, and whether the owner read it before it went ({@code reviewed}),
-	 * so it can allow for a word misheard. Facts about the message, never
-	 * instructions in it.
+	 * computer, whether the owner read it before it went ({@code reviewed}), so
+	 * it can allow for a word misheard, and what {@code sent} it. Facts about
+	 * the message, never instructions in it.
 	 */
-	public static AMap<AString, ACell> spoken(String text, Engine engine, boolean reviewed) {
-		AMap<AString, ACell> via = Maps.of("channel", "voice", "reviewed", CVMBool.create(reviewed));
+	public static AMap<AString, ACell> spoken(String text, Engine engine, boolean reviewed, Sent sent) {
+		AMap<AString, ACell> via = Maps.of("channel", "voice", "sent", sent.key(), "reviewed", CVMBool.create(reviewed));
 		if (engine != null) {
 			AMap<AString, ACell> transcribed = Maps.of("onThisComputer", CVMBool.create(engine.local()));
 			if (engine.model() != null) transcribed = transcribed.assoc(Strings.create("model"), Strings.create(engine.model()));

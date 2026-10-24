@@ -7,6 +7,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.function.Consumer;
+import java.util.function.IntSupplier;
 
 import javax.sound.sampled.LineUnavailableException;
 import javax.swing.BorderFactory;
@@ -42,9 +44,10 @@ import convex.core.data.Strings;
  * above the composer while it is at work. Press to speak, press again to stop;
  * what was said goes into the draft at the caret for the owner to read, correct
  * and send. Ending with "go" as a sentence of its own sends the draft as Enter
- * would ({@link Dictation}), as do a long pause after speaking and Enter itself
- * while dictating; nothing else does. A draft holding spoken words goes to the
- * agent as a {@linkplain Voice#spoken spoken message}, so it knows it was heard.
+ * would ({@link Dictation}), as do a pause after speaking, as long as the owner
+ * chose, and Enter itself while dictating; nothing else does. A draft holding
+ * spoken words goes to the agent as a {@linkplain Voice#spoken spoken message},
+ * so it knows it was heard, and what sent it.
  * Escape discards the recording or the transcription under way.
  *
  * <p>While the microphone is on, the draft is its: the place the words go — the
@@ -79,7 +82,9 @@ final class VoiceInput {
 		Thread.ofVirtual().name("brightside-voice-", 0).factory());
 
 	private final JTextComponent input;
-	private final Runnable send;
+	private final Consumer<Voice.Sent> send;
+	/** How long a pause after speaking sends the message, in seconds; 0 for only "go" and Enter. */
+	private IntSupplier pause = () -> Dictation.LONG_PAUSE_SECONDS;
 	/** Replies read aloud: the microphone hears silence while one plays. */
 	private final Speaker speaker;
 	private final JButton button = Buttons.icon(Lucide.icon("mic", 18, Theme::muted), null);
@@ -116,10 +121,10 @@ final class VoiceInput {
 	private String original = "";
 
 	/**
-	 * @param send    sends the draft as it stands, even while the microphone is open
+	 * @param send    sends the draft as it stands, even while the microphone is open, saying what sent it
 	 * @param speaker what reads replies aloud, which the microphone must not hear
 	 */
-	VoiceInput(JTextComponent input, Runnable send, Speaker speaker) {
+	VoiceInput(JTextComponent input, Consumer<Voice.Sent> send, Speaker speaker) {
 		this.input = input;
 		this.send = send;
 		this.speaker = speaker;
@@ -144,6 +149,11 @@ final class VoiceInput {
 	/** The line that says what voice typing is doing, for above the composer; hidden while it does nothing. */
 	JComponent statusLine() {
 		return line;
+	}
+
+	/** The owner's choice of how long a pause sends the message, in seconds (0: never), read as each pause is heard. */
+	void sendAfterPause(IntSupplier seconds) {
+		pause = seconds;
 	}
 
 	/** Voice typing as the owner of {@code voice}, or none at all with null; anything under way is dropped. */
@@ -181,7 +191,7 @@ final class VoiceInput {
 	 * "go"; otherwise it stops.
 	 */
 	void sendWhenDone() {
-		if (phase == Phase.RECORDING && relay != null) handOver();
+		if (phase == Phase.RECORDING && relay != null) handOver(Voice.Sent.OWNER);
 		else if (phase == Phase.RECORDING) finish(true);
 		else if (phase == Phase.TRANSCRIBING) sendWhenDone = true;
 	}
@@ -189,10 +199,11 @@ final class VoiceInput {
 	/**
 	 * What to send for {@code text}: a {@linkplain Voice#spoken spoken} message when
 	 * the draft holds dictated words, else just the text. {@code reviewed}: the owner
-	 * sent it themselves once the words were in, rather than by voice or mid-dictation.
+	 * sent it themselves once the words were in, rather than by voice or mid-dictation;
+	 * {@code sent}: what sent it.
 	 */
-	ACell message(String text, boolean reviewed) {
-		return dictated ? Voice.spoken(text, engine, reviewed) : Strings.create(text);
+	ACell message(String text, boolean reviewed, Voice.Sent sent) {
+		return dictated ? Voice.spoken(text, engine, reviewed, sent) : Strings.create(text);
 	}
 
 	private void press() {
@@ -334,8 +345,10 @@ final class VoiceInput {
 		if (t != take || !busy()) return;
 		show(heard.text());
 		if (phase != Phase.RECORDING) return;
-		if (Dictation.saidGo(heard) || Dictation.pausedToSend(heard)) {
-			handOver();
+		if (Dictation.saidGo(heard)) {
+			handOver(Voice.Sent.GO);
+		} else if (Dictation.pausedToSend(heard, pause.getAsInt())) {
+			handOver(Voice.Sent.PAUSE);
 		} else if (Dictation.idle(heard, t.seconds())) {
 			abandon();
 			note("Stopped listening after a minute without a word", "circle-pause", Tone.MUTED);
@@ -347,9 +360,9 @@ final class VoiceInput {
 	/**
 	 * Sends the message being dictated once its words settle, and listens on for the
 	 * next: the microphone stays open, its audio held meanwhile, so nothing said in
-	 * between is lost or added to the message that went.
+	 * between is lost or added to the message that went. {@code sent}: what sent it.
 	 */
-	private void handOver() {
+	private void handOver(Voice.Sent sent) {
 		Take t = take;
 		Microphone.Recording r = recording;
 		Voice v = voice;
@@ -370,7 +383,7 @@ final class VoiceInput {
 				return;
 			}
 			release(Dictation.of(text).text());
-			send.run();
+			send.accept(sent);
 			if (stopAfterHandOver || phase != Phase.RECORDING) {
 				stopAfterHandOver = false;
 				idle();
@@ -453,7 +466,8 @@ final class VoiceInput {
 				return;
 			}
 			showLine(null);
-			if (said.send() || go) send.run();
+			if (go) send.accept(Voice.Sent.OWNER);
+			else if (said.send()) send.accept(Voice.Sent.GO);
 		}));
 	}
 

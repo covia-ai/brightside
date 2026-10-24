@@ -181,8 +181,12 @@ Press it and speak: your words appear in the message box at the cursor as you
 say them. They firm up at each pause, and the last few may change as you go
 on. Press it again to stop, and the message is yours to read, correct and send;
 the box takes no typing while the microphone is on. To send straight away, end
-with *"Go"* on its own (pause, then say "go"), stay quiet for three seconds,
-or press *Enter*. "Go" works like Enter and is not written into the message;
+with *"Go"* on its own (pause, then say "go"), stay quiet for a few seconds,
+or press *Enter*. How long a pause sends is *Send when I pause* under
+*Settings → General → Voice*: three seconds on a fresh install, from two to
+eight, or never, so that only "Go" and Enter send (remembered in
+`prefs.properties` as `voice.sendAfterPauseSeconds`, 0 for never). "Go" works
+like Enter and is not written into the message;
 only a "go" said as a sentence of its own counts, so *"Let's go"* and *"Okay,
 go"* stay part of the message. *Esc* discards a recording, or the
 transcription under way, and puts the message back as it was. A message
@@ -197,10 +201,12 @@ the microphone by itself, saying so.
 
 A message with spoken words in it tells the assistant so, the way a Discord
 message says where it came from: it carries `via` provenance with the channel
-`voice`, the model that heard it and whether that was on this computer, and
+`voice`, the model that heard it and whether that was on this computer,
 whether you read it before it went (`reviewed` is false when "Go", a pause or
-Enter mid-dictation sent it). The assistant can then allow for a misheard word,
-and the conversation shows the message as *via Voice*.
+Enter mid-dictation sent it), and what `sent` it: `owner` for Enter or *Send*,
+`go`, or `pause`. The assistant can then allow for a misheard word, and for a
+pause catching half a thought, and the conversation shows the message as *via
+Voice*.
 
 By default it all happens on this computer, so what you say never leaves it:
 Covia's `covia-speech` adapter runs inside Brightside's venue (registered

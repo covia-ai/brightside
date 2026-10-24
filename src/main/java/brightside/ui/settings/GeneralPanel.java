@@ -1,7 +1,11 @@
 package brightside.ui.settings;
 
+import java.util.stream.IntStream;
+
+import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
@@ -39,6 +43,9 @@ public final class GeneralPanel extends SettingsPage {
 		/** Read each reply aloud, or not; turning it on may ask to download the voice first. */
 		void setReadRepliesAloud(boolean value);
 
+		/** How long a pause after speaking sends the message, in seconds; 0 for only "Go" or Enter. */
+		void setSendAfterPause(int seconds);
+
 		void hideToTray();
 
 		void openDashboard();
@@ -63,6 +70,9 @@ public final class GeneralPanel extends SettingsPage {
 	private final JCheckBox takeOver = new JCheckBox("Take over a Brightside that is already running, without asking");
 	private final JCheckBox unlock = new JCheckBox("Unlock with my stored passphrase, without asking");
 	private final JLabel unlockNote = Labels.small("Store your passphrase on the unlock screen to use this.");
+	/** The pauses offered, in seconds, before "never". */
+	private static final int[] PAUSES = { 2, 3, 5, 8 };
+	private final JComboBox<Pause> pause = new JComboBox<>();
 	private final JCheckBox readAloud = new JCheckBox("Read replies aloud");
 	private final JLabel readAloudNote = Labels.small(
 		"Off: right-click a reply and choose Read aloud to hear just that one. Esc stops it.");
@@ -109,7 +119,13 @@ public final class GeneralPanel extends SettingsPage {
 		readAloud.addActionListener(e -> {
 			if (!syncing) host.setReadRepliesAloud(readAloud.isSelected());
 		});
+		pause.addActionListener(e -> {
+			if (!syncing && pause.getSelectedItem() instanceof Pause p) host.setSendAfterPause(p.seconds());
+		});
 		group("Voice");
+		addField("Send when I pause",
+			"While the microphone is on, a pause this long after you speak sends what you said. Saying “Go” or pressing Enter always sends.",
+			pause);
 		addSpan(readAloud);
 		addSpan(readAloudNote);
 
@@ -177,11 +193,29 @@ public final class GeneralPanel extends SettingsPage {
 		unlockNote.setVisible(!passphraseStored);
 	}
 
-	/** Refreshes the voice preferences. */
-	public void refreshVoice(boolean readRepliesAloud) {
+	/**
+	 * Refreshes the voice preferences. A pause set by hand to one not offered is
+	 * shown among them, in its place.
+	 */
+	public void refreshVoice(boolean readRepliesAloud, int sendAfterPause) {
 		syncing = true;
 		readAloud.setSelected(readRepliesAloud);
+		DefaultComboBoxModel<Pause> pauses = new DefaultComboBoxModel<>();
+		IntStream.concat(IntStream.of(PAUSES), IntStream.of(sendAfterPause)).filter(s -> s > 0).distinct().sorted()
+			.forEach(s -> pauses.addElement(new Pause(s)));
+		pauses.addElement(new Pause(0));
+		pauses.setSelectedItem(new Pause(sendAfterPause));
+		pause.setModel(pauses);
 		syncing = false;
+	}
+
+	/** A choice of how long a pause after speaking sends the message; 0 never does. */
+	private record Pause(int seconds) {
+		@Override
+		public String toString() {
+			if (seconds == 0) return "Never: I'll say “Go”";
+			return "After " + seconds + ((seconds == 1) ? " second" : " seconds");
+		}
 	}
 
 	/** The row the current section's buttons go in. */

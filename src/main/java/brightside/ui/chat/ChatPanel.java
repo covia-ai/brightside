@@ -124,7 +124,7 @@ public final class ChatPanel extends JPanel {
 	private final JButton more = Buttons.icon(Lucide.icon("ellipsis", 18, Theme::muted), "Conversation options");
 	/** Replies read aloud, one at a time; shared with voice typing, whose microphone must not hear it. */
 	private final Speaker speaker = new Speaker();
-	private final VoiceInput voice = new VoiceInput(input, () -> sendDraft(false), speaker);
+	private final VoiceInput voice = new VoiceInput(input, sent -> sendDraft(false, sent), speaker);
 	private final ReadAloud readAloud = new ReadAloud(speaker, this);
 	private Host host;
 
@@ -408,6 +408,11 @@ public final class ChatPanel extends JPanel {
 		readAloud.repliesOnWhen(on);
 	}
 
+	/** Where the owner's choice of how long a pause sends a spoken message lives, in seconds (0: never); read as each pause is heard. */
+	public void sendAfterPause(java.util.function.IntSupplier seconds) {
+		voice.sendAfterPause(seconds);
+	}
+
 	/**
 	 * Gets the voice ready to read replies aloud, asking before any download;
 	 * completes, on the event thread, with whether it is.
@@ -621,18 +626,18 @@ public final class ChatPanel extends JPanel {
 			voice.sendWhenDone();
 			return;
 		}
-		sendDraft(true);
+		sendDraft(true, Voice.Sent.OWNER);
 	}
 
 	/**
 	 * Sends the composer's draft as it stands. {@code reviewed}: the owner sent it
-	 * themselves, rather than voice typing sending it the moment the words were in —
-	 * which a spoken message tells the agent.
+	 * themselves, rather than voice typing sending it the moment the words were in;
+	 * {@code sent}: what sent it — both of which a spoken message tells the agent.
 	 */
-	private void sendDraft(boolean reviewed) {
+	private void sendDraft(boolean reviewed, Voice.Sent sent) {
 		String text = input.getText().trim();
 		if (text.isEmpty()) return;
-		ACell message = voice.message(text, reviewed);
+		ACell message = voice.message(text, reviewed, sent);
 		input.setText("");
 		deliver(text, message);
 	}

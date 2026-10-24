@@ -240,13 +240,14 @@ class SessionHistoryTest {
 		ChatSession s = new ChatSession(client, chat, "Speaker");
 		Voice.Engine engine = new Voice.Engine("local", true, "parakeet-tdt-v3", "ready", 0, 0, false, null);
 
-		ChatSession.Reply reply = s.send(Voice.spoken("remind me to call Sam at four", engine, false), sid -> {
+		ChatSession.Reply reply = s.send(Voice.spoken("remind me to call Sam at four", engine, false, Voice.Sent.PAUSE), sid -> {
 		});
 		// The echo model hands back what the model was given: the words, and that they were heard.
 		ACell given = JSON.parse(reply.text());
 		assertEquals("remind me to call Sam at four", String.valueOf(RT.getIn(given, "text")));
 		assertEquals("voice", String.valueOf(RT.getIn(given, "via", "channel")));
 		assertEquals(CVMBool.FALSE, RT.getIn(given, "via", "reviewed"), "sent by voice, not read first");
+		assertEquals("pause", String.valueOf(RT.getIn(given, "via", "sent")), "by a pause, nobody choosing to send");
 		assertEquals("parakeet-tdt-v3", String.valueOf(RT.getIn(given, "via", "transcribed", "model")));
 
 		SessionHistory.Snapshot conv = SessionHistory.loadLatest(client, "spoken-agent");

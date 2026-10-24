@@ -2184,6 +2184,28 @@ public final class BrightSide {
 		prefs.setBool(PREF_READ_ALOUD, value);
 	}
 
+	/** Remembered in prefs.properties: how long a pause after speaking sends the message, in whole seconds. */
+	static final String PREF_SEND_AFTER_PAUSE = "voice.sendAfterPauseSeconds";
+
+	/**
+	 * How long a pause after speaking sends a spoken message, in seconds (default
+	 * {@link brightside.voice.Dictation#LONG_PAUSE_SECONDS}); 0: never, only "Go"
+	 * or Enter sends.
+	 */
+	public int sendAfterPauseSeconds() {
+		try {
+			int seconds = Integer.parseInt(prefs.getString(PREF_SEND_AFTER_PAUSE, "").strip());
+			if (seconds >= 0) return seconds;
+		} catch (NumberFormatException e) {
+			// unset, or not a number: the default
+		}
+		return brightside.voice.Dictation.LONG_PAUSE_SECONDS;
+	}
+
+	public void setSendAfterPauseSeconds(int seconds) {
+		prefs.setString(PREF_SEND_AFTER_PAUSE, Integer.toString(Math.max(0, seconds)));
+	}
+
 	/** Whether closing the window keeps Brightside running in the tray (default false). */
 	public boolean keepInTray() {
 		return prefs.getBool("tray.keepOpen", false);

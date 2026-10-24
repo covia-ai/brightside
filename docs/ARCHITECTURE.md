@@ -118,7 +118,8 @@ draft while it is on; `voice/Microphone` records off the event thread,
 `voice/Voice` transcribes through Covia's speech adapter as the owner,
 `voice/LiveDictation` streams the recording to the in-process engine's live
 dictation so the words show as they are said, and `voice/Dictation` recognises
-a closing "go", said as its own sentence, or a long pause, as Enter. Finding
+a closing "go", said as its own sentence, or a pause as long as the owner
+chose, as Enter. Finding
 pauses and decoding belong to the engine, not the app: it says how long the
 speaker has been quiet. Sending does not close the microphone: each message is
 a dictation of its own on one open recording, and `voice/Relay` holds the

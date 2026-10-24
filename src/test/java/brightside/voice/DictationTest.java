@@ -26,13 +26,23 @@ class DictationTest {
 
 	@Test
 	void aLongPauseAfterWordsSends() {
-		assertTrue(Dictation.pausedToSend(new Voice.Heard("Remind me to call Sam.", "", Dictation.LONG_PAUSE_SECONDS)));
-		assertTrue(Dictation.pausedToSend(new Voice.Heard("", "Remind me", Dictation.LONG_PAUSE_SECONDS + 1)),
+		int pause = Dictation.LONG_PAUSE_SECONDS;
+		assertTrue(Dictation.pausedToSend(new Voice.Heard("Remind me to call Sam.", "", pause), pause));
+		assertTrue(Dictation.pausedToSend(new Voice.Heard("", "Remind me", pause + 1), pause),
 			"words not yet settled count too");
-		assertFalse(Dictation.pausedToSend(new Voice.Heard("Remind me to call Sam.", "", Dictation.LONG_PAUSE_SECONDS - 0.5)),
+		assertFalse(Dictation.pausedToSend(new Voice.Heard("Remind me to call Sam.", "", pause - 0.5), pause),
 			"a breath or a thought is not the end");
-		assertFalse(Dictation.pausedToSend(new Voice.Heard("", "", 30)), "silence alone sends nothing");
-		assertFalse(Dictation.pausedToSend(new Voice.Heard("Remind me", "", 0)), "while still speaking");
+		assertFalse(Dictation.pausedToSend(new Voice.Heard("", "", 30), pause), "silence alone sends nothing");
+		assertFalse(Dictation.pausedToSend(new Voice.Heard("Remind me", "", 0), pause), "while still speaking");
+	}
+
+	@Test
+	void thePauseIsTheOwnersToChoose() {
+		Voice.Heard thinking = new Voice.Heard("Remind me to call Sam.", "", 4);
+		assertFalse(Dictation.pausedToSend(thinking, 5), "a slower speaker's longer pause");
+		assertTrue(Dictation.pausedToSend(thinking, 2));
+		assertFalse(Dictation.pausedToSend(new Voice.Heard("Remind me to call Sam.", "", 600), 0),
+			"only \"Go\" or Enter sends, however long the quiet");
 	}
 
 	@Test

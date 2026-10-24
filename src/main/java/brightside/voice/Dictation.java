@@ -8,21 +8,25 @@ package brightside.voice;
  * itself written. "Let's go." and "Okay, go." are only words; so is a
  * transcript with no punctuation at all, since a pause cannot be told from it.
  * A long pause once something has been said sends too, as the owner finishing
- * ({@link #pausedToSend}).
+ * ({@link #pausedToSend}), unless the owner has chosen to send only by "Go".
  */
 public record Dictation(String text, boolean send) {
 
 	/** The spoken command, as a sentence by itself. */
 	static final String GO = "go";
-	/** How long a pause after speech ends a dictation and sends it: longer than a breath or a thought. */
-	public static final double LONG_PAUSE_SECONDS = 3;
+	/** How long a pause after speech ends a dictation and sends it, unless the owner chooses otherwise: longer than a breath or a thought. */
+	public static final int LONG_PAUSE_SECONDS = 3;
 
 	/** How long an open microphone may hear no words before it closes by itself. */
 	public static final double IDLE_SECONDS = 60;
 
-	/** Whether the owner has said something and then been quiet long enough to mean they have finished. */
-	public static boolean pausedToSend(Voice.Heard heard) {
-		return !heard.text().isBlank() && heard.quiet() >= LONG_PAUSE_SECONDS;
+	/**
+	 * Whether the owner has said something and then been quiet for {@code pause}
+	 * seconds, long enough to mean they have finished; never when {@code pause} is
+	 * 0, for an owner who sends only by "Go".
+	 */
+	public static boolean pausedToSend(Voice.Heard heard, int pause) {
+		return pause > 0 && !heard.text().isBlank() && heard.quiet() >= pause;
 	}
 
 	/**
