@@ -25,6 +25,7 @@ import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.Blob;
 import convex.core.data.Maps;
+import convex.core.data.Strings;
 import convex.core.data.Vectors;
 import convex.core.data.prim.CVMBool;
 import convex.core.lang.RT;
@@ -254,6 +255,28 @@ class SessionHistoryTest {
 		assertTrue(conv.items().stream().anyMatch(it -> it instanceof SessionHistory.Message m && "user".equals(m.role())
 			&& "remind me to call Sam at four".equals(m.text()) && "Voice".equals(m.origin())),
 			"the transcript shows the words, said by voice: " + conv.items());
+	}
+
+	@Test
+	void aMessageWhoseReplyIsReadAloudSaysSo() throws Exception {
+		String userDID = Identity.of("listener").userDID(venue.did());
+		Venue client = venue.clientAs(userDID);
+		AppConfig.Chat chat = new AppConfig.Chat("listening-agent",
+			AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo the user.");
+		ChatSession s = new ChatSession(client, chat, "Listener");
+
+		ChatSession.Reply reply = s.send(Voice.replyReadAloud(Strings.create("when does my train leave")), sid -> {
+		});
+		ACell given = JSON.parse(reply.text());
+		assertEquals("when does my train leave", String.valueOf(RT.getIn(given, "text")));
+		assertEquals(CVMBool.TRUE, RT.getIn(given, "replyReadAloud"), "the model knows its reply will be heard");
+
+		SessionHistory.Snapshot conv = SessionHistory.loadLatest(client, "listening-agent");
+		assertTrue(conv.items().stream().anyMatch(it -> it instanceof SessionHistory.Message m && "user".equals(m.role())
+			&& "when does my train leave".equals(m.text()) && m.origin() == null),
+			"the transcript shows the words, typed here: " + conv.items());
+		assertEquals(CVMBool.TRUE, RT.getIn(Voice.replyReadAloud(Voice.spoken("and the platform", null, true,
+			Voice.Sent.OWNER)), "replyReadAloud"), "a spoken message is marked beside its provenance");
 	}
 
 	@Test

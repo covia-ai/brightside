@@ -280,6 +280,12 @@ is being read, an open microphone hears silence, so the reply is never typed
 back in as your words; the time still passes, so a minute of reading counts
 towards the minute without a word that closes the microphone.
 
+While every reply is read aloud, each message you send tells the assistant so
+(`replyReadAloud`, beside the text), so it writes the reply to be heard:
+answer first, plain sentences, nothing that matters left in a table or a
+link. A message sent while a reply is still coming is not marked, since its
+reply is not read.
+
 Like voice typing, it all happens on this computer by default: the venue's
 speech adapter speaks with sherpa-onnx and the VITS LJSpeech voice (English),
 and nothing you hear is stored or kept in a job record (`v/ops/speech/say` is a

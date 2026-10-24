@@ -109,13 +109,16 @@ reveals. Descriptions live in the skill files; this is the shape.
   compacting past conversations. An ordinary summary leaves history unchanged;
   Covia's summarisation operation can save a separate, reusable result. Only an
   explicit request to shrink stored history calls for compaction.
-- `speech` — talking with the owner by voice: misheard words, a pause that
-  caught half a thought or words not said to it, which it may let pass by
-  ending its turn without a reply, replies they may hear, and how voice works
-  in the app; with the speech module's engines, transcribe and speak tools
-  for recordings and audio. Shadows the module's own `speech` skill, which is
-  written for messaging bots. The context line says what a spoken message's
-  `via` means, since the first one arrives before any load.
+- `voice` and `speaking` — listening to the owner and speaking to them,
+  separate because voice typing and reading aloud are separate choices.
+  `voice`: misheard words, a pause that caught half a thought or words not
+  said to it, which it may let pass by ending its turn without a reply,
+  recordings, and voice typing in the app, with the speech module's engines
+  and transcribe tools. `speaking`: replies written to be heard, audio
+  versions, and reading aloud in the app, with engines and speak. Together
+  they stand in for the module's own `speech` skill, which is written for
+  messaging bots. The context line says what a spoken message's `via` means
+  and what `replyReadAloud` marks, since either arrives before any load.
 - `skills` — how it grows and surveys skills → `skill-authoring` (the write
   and delete tools for `w/skills`), Covia's `skill-import`.
 - `lattice` — structured data and its scopes, with the edit tools → Covia's

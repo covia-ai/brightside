@@ -50,9 +50,14 @@ final class ReadAloud {
 		repliesOn = on;
 	}
 
+	/** Whether the reply the chat waits for will be read aloud: the owner has replies read, and has not put off the voice. */
+	boolean readsReplies() {
+		return repliesOn.getAsBoolean() && !declined;
+	}
+
 	/** A reply the chat waited for has landed: read it if the owner has replies read aloud. */
 	void reply(String markdown) {
-		if (repliesOn.getAsBoolean() && !declined) read(markdown, false);
+		if (readsReplies()) read(markdown, false);
 	}
 
 	/** The owner asked to hear this one. */
