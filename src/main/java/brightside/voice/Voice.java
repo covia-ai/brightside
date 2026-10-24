@@ -128,18 +128,6 @@ public final class Voice {
 		return Maps.of("text", text, "via", via);
 	}
 
-	/**
-	 * {@code message} marked as one whose reply will be read aloud to the owner
-	 * ({@code replyReadAloud}), so the agent can write that reply to be heard: a
-	 * fact about the message beside its text and any provenance. Plain text
-	 * becomes {@code {text, replyReadAloud}}.
-	 */
-	public static AMap<AString, ACell> replyReadAloud(ACell message) {
-		AMap<AString, ACell> m = (message instanceof AString s) ? Maps.of("text", s) : RT.ensureMap(message);
-		if (m == null) throw new IllegalArgumentException("A chat message is text or a map");
-		return m.assoc(Strings.create("replyReadAloud"), CVMBool.TRUE);
-	}
-
 	private final Venue venue;
 
 	/** @param venue an in-process client bound to the owner */

@@ -117,8 +117,10 @@ reveals. Descriptions live in the skill files; this is the shape.
   and transcribe tools. `speaking`: replies written to be heard, audio
   versions, and reading aloud in the app, with engines and speak. Together
   they stand in for the module's own `speech` skill, which is written for
-  messaging bots. The context line says what a spoken message's `via` means
-  and what `replyReadAloud` marks, since either arrives before any load.
+  messaging bots. Neither is needed for voice to work: reading aloud works on
+  any reply, and what a spoken message's `via` means — allow for mishearing,
+  and a pause-sent fragment may go unanswered — is in the context line, which
+  reaches the agent without a load and so without tool calling.
 - `skills` — how it grows and surveys skills → `skill-authoring` (the write
   and delete tools for `w/skills`), Covia's `skill-import`.
 - `lattice` — structured data and its scopes, with the edit tools → Covia's

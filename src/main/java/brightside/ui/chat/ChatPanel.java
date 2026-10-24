@@ -658,9 +658,6 @@ public final class ChatPanel extends JPanel {
 			return;
 		}
 
-		// The reply waited for is read aloud when the owner has chosen so: the
-		// message says as much, for the agent to write it to be heard.
-		ACell sent = readAloud.readsReplies() ? Voice.replyReadAloud(message) : message;
 		busy = true;
 		CompletableFuture<String> accepted = new CompletableFuture<>();
 		acceptedSession = accepted;
@@ -670,7 +667,7 @@ public final class ChatPanel extends JPanel {
 		new SwingWorker<ChatSession.Reply, Void>() {
 			@Override
 			protected ChatSession.Reply doInBackground() throws Exception {
-				return s.send(sent, sid -> {
+				return s.send(message, sid -> {
 					accepted.complete(sid);
 					SwingUtilities.invokeLater(() -> {
 						if (session == s && bindingVersion == version && liveTurn != null && liveTurn.accepted()) {
