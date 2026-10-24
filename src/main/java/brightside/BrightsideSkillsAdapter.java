@@ -36,9 +36,12 @@ import covia.venue.RequestContext;
  *   <li><b>conversations</b> — how it talks with the user and reviews past
  *       conversations; grants the past-session tools ({@code agent:sessions},
 	 *       {@code agent:session-read}, {@code agent:summarise}, {@code agent:compact-session}).</li>
- *   <li><b>voice</b> — talking with the owner by voice: words misheard on the
+ *   <li><b>speech</b> — talking with the owner by voice: words misheard on the
  *       way, half a thought or words not said to it, which it may let pass,
- *       and replies the owner may hear; no tools.</li>
+ *       replies the owner may hear, and how voice works in the app; grants the
+ *       speech module's engines, transcribe and speak tools for recordings and
+ *       audio. Brightside's judgement over the operations the module's own
+ *       {@code speech} skill grants, which it shadows.</li>
  *   <li><b>skills</b> — how it grows new abilities; grants the read-only
  *       skills list/read tools for surveying skillsets, and reveals
  *       <b>skill-authoring</b> plus Covia's {@code skill-import}.</li>
@@ -121,8 +124,8 @@ public class BrightsideSkillsAdapter extends AAdapter {
 	public static final String INTRODUCTION = SKILLSET + "/introduction";
 	/** On demand: how it talks with the user and reviews past conversations (grants the session tools). */
 	public static final String CONVERSATIONS = SKILLSET + "/conversations";
-	/** On demand: talking with the owner by voice — misheard words, half a thought, words not said to it, replies heard (no tools). */
-	public static final String VOICE = SKILLSET + "/voice";
+	/** On demand: talking by voice and working with speech, with the speech tools; shadows the speech module's own skill. */
+	public static final String SPEECH = SKILLSET + "/speech";
 	/** On demand: how the assistant grows new abilities; reveals skill-authoring. */
 	public static final String SKILLS = SKILLSET + "/skills";
 	/** Child: how to author a skill, and the write tool to do it. */
@@ -206,7 +209,7 @@ public class BrightsideSkillsAdapter extends AAdapter {
 	public static final String MOLTBOOK_SETUP = MOLTBOOK + "/moltbook-setup";
 	/** Every shipped skill path, in install order (parents before children) — the single list others derive from. */
 	public static final java.util.List<String> SHIPPED =
-		java.util.List.of(INTRODUCTION, CONVERSATIONS, VOICE, SKILLS, SKILL_AUTHORING,
+		java.util.List.of(INTRODUCTION, CONVERSATIONS, SPEECH, SKILLS, SKILL_AUTHORING,
 			LATTICE, FILES, VAULT, DLFS,
 			DIAGNOSTICS, SESSIONS, BRIGHTSIDE_LOGS,
 			HARNESS, ETCH, CONVEX_LATTICE,
