@@ -392,6 +392,26 @@ class SessionHistoryTest {
 	}
 
 	@Test
+	void aTurnEndedWithoutAReplyShowsAsSuch() {
+		// The venue records the turn as the assistant's, with nothing said.
+		ACell conversation = Vectors.of(
+			Maps.of("role", "user", "content", Maps.of("text", "So I was thinking we could",
+				"via", Maps.of("channel", "voice", "sent", "pause")), "ts", 1000L),
+			Maps.of("role", "assistant", "ts", 1001L),
+			Maps.of("role", "user", "content", "book the trip for Friday", "ts", 1002L),
+			Maps.of("role", "assistant", "content", "Booked.", "ts", 1003L));
+		ACell record = Maps.of("sessions", Maps.of(Blob.fromHex("0d01"),
+			Maps.of("frames", Vectors.of(Maps.of("conversation", conversation)))));
+		List<SessionHistory.Item> items = SessionHistory.snapshotOf(record, "0d01").items();
+		assertEquals(List.of(
+			new SessionHistory.Message("user", "So I was thinking we could", "Voice"),
+			new SessionHistory.Message("assistant", ""),
+			new SessionHistory.Message("user", "book the trip for Friday"),
+			new SessionHistory.Message("assistant", "Booked.")), items);
+		assertTrue(SessionHistory.plainText(items).contains("Brightside: (no reply)"), SessionHistory.plainText(items));
+	}
+
+	@Test
 	void aToolASkillAddedShowsAsItselfNotTheDispatcher() {
 		// A loaded skill's tools run through invoke_tool, the real tool named in its input.
 		ACell inner = Maps.of("project", "brightside", "prompt", "Add speech output");

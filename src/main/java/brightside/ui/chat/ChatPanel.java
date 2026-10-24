@@ -476,9 +476,7 @@ public final class ChatPanel extends JPanel {
 	}
 
 	private Component rowFor(SessionHistory.Item it) {
-		if (it instanceof SessionHistory.Message m) {
-			return bubbleRow(m.text(), "user".equals(m.role()), caption(m.origin(), m.waiting()));
-		}
+		if (it instanceof SessionHistory.Message m) return messageRow(m.role(), m.text(), caption(m.origin(), m.waiting()));
 		if (it instanceof SessionHistory.Activity a) return activityRow(a);
 		if (it instanceof SessionHistory.Summary s) {
 			// The assistant's context, not its words: folded, a click from view.
@@ -791,7 +789,7 @@ public final class ChatPanel extends JPanel {
 		// doesn't re-render our own turns.
 		displayed.add(new SessionHistory.Message(role, text, origin, waiting));
 		hideEmptyState();
-		column.add(bubbleRow(text, "user".equals(role), caption(origin, waiting)));
+		column.add(messageRow(role, text, caption(origin, waiting)));
 		column.revalidate();
 		scrollToBottom();
 	}
@@ -937,6 +935,23 @@ public final class ChatPanel extends JPanel {
 
 	private Component bubbleRow(String text, boolean user) {
 		return bubbleRow(text, user, null);
+	}
+
+	/**
+	 * A message's row: its bubble, or, for a turn the assistant ended without a
+	 * reply, a quiet line saying so where the reply would be.
+	 */
+	private Component messageRow(String role, String text, String caption) {
+		boolean user = "user".equals(role);
+		if (user || !text.isBlank()) return bubbleRow(text, user, caption);
+		JLabel none = Labels.small("No reply");
+		none.setToolTipText("The assistant let this pass; what you say next is read together with it");
+		JPanel row = new JPanel(new BorderLayout());
+		row.setOpaque(false);
+		row.setBorder(BorderFactory.createEmptyBorder(0, 14, 4, 2));
+		row.add(none, BorderLayout.WEST);
+		row.setAlignmentX(Component.LEFT_ALIGNMENT);
+		return row;
 	}
 
 	/**

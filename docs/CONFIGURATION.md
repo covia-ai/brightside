@@ -208,6 +208,14 @@ Enter mid-dictation sent it), and what `sent` it: `owner` for Enter or *Send*,
 pause catching half a thought, and the conversation shows the message as *via
 Voice*.
 
+A pause can catch half a sentence, or words never meant for the assistant:
+you talking to someone in the room, or the television. When a message sent by
+a pause seems so, the assistant may let it pass, ending its turn without a
+reply: the conversation shows *No reply* under it, nothing is read aloud, and
+what you say next is read together with it. What you send yourself, with
+Enter, *Send* or "Go", always gets an answer. If each pause costing a model
+call matters, set *Send when I pause* to never.
+
 By default it all happens on this computer, so what you say never leaves it:
 Covia's `covia-speech` adapter runs inside Brightside's venue (registered
 in-process, like Discord) and transcribes with sherpa-onnx and NVIDIA's

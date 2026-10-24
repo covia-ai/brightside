@@ -68,7 +68,8 @@ public final class SessionHistory {
 	 * {@code origin} names where an inbound message arrived from when it was not
 	 * this app (e.g. {@code "Discord · #general · quark"}), else null.
 	 * {@code waiting}: the venue holds it for the assistant's next turn, behind
-	 * one still running, and it is not yet in the conversation.
+	 * one still running, and it is not yet in the conversation. An assistant
+	 * message with empty text is a turn it ended without a reply.
 	 */
 	public record Message(String role, String text, String origin, boolean waiting) implements Item {
 		public Message(String role, String text) {
@@ -398,7 +399,8 @@ public final class SessionHistory {
 			if (it instanceof Message m) {
 				String who = ROLE_USER.equals(m.role())
 					? (m.origin() != null ? m.origin() : "You") : "Brightside";
-				sb.append(who).append(": ").append(m.text()).append("\n\n");
+				String text = m.text().isBlank() ? "(no reply)" : m.text();
+				sb.append(who).append(": ").append(text).append("\n\n");
 			} else if (it instanceof Summary s) {
 				sb.append("Earlier conversation summarised: ").append(s.text()).append("\n\n");
 			}
@@ -576,7 +578,8 @@ public final class SessionHistory {
 						recordToolCalls(turn, calls);
 					} else {
 						flush(items, pending);
-						if (notBlank(content)) items.add(new Message(ROLE_ASSISTANT, content));
+						// Nothing said: the assistant ended its turn without a reply, which shows as such.
+						items.add(new Message(ROLE_ASSISTANT, notBlank(content) ? content : ""));
 					}
 				}
 				case ROLE_TOOL -> {

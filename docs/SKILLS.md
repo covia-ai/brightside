@@ -109,6 +109,11 @@ reveals. Descriptions live in the skill files; this is the shape.
   compacting past conversations. An ordinary summary leaves history unchanged;
   Covia's summarisation operation can save a separate, reusable result. Only an
   explicit request to shrink stored history calls for compaction.
+- `voice` — talking with the owner by voice: misheard words, a pause that
+  caught half a thought or words not said to it, which it may let pass by
+  ending its turn without a reply, and replies they may hear. No tools; the
+  context line says what a spoken message's `via` means, since the first one
+  arrives before any load.
 - `skills` — how it grows and surveys skills → `skill-authoring` (the write
   and delete tools for `w/skills`), Covia's `skill-import`.
 - `lattice` — structured data and its scopes, with the edit tools → Covia's
