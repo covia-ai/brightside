@@ -130,6 +130,16 @@ configured as data, and by default runs on this computer; its model is fetched
 only once the owner agrees. Transcription is a read: the recording travels
 inline and is stored nowhere ([CONFIGURATION](CONFIGURATION.md#voice-typing)).
 
+**Replies are read aloud only when the owner chooses.** `ui/chat/ReadAloud`
+reads a reply the chat waited for when the owner's `voice.readRepliesAloud`
+preference is on (off by default), and any reply they ask to hear.
+`voice/SpokenText` keeps the prose of the Markdown, `voice/Voice` has it said
+through the speech adapter's `say` — a read, so neither words nor audio are
+kept — and `voice/Speaker` plays the WAV off the event thread, one reply at a
+time. While it plays, `voice/Microphone` hears silence, so an open dictation
+never takes the reply for the owner's words
+([CONFIGURATION](CONFIGURATION.md#reading-replies-aloud)).
+
 **In-flight activity shows facts only.** The thinking bubble presents what
 Brightside has been told: preparing, running, elapsed time, and tool calls as
 the venue reports them.

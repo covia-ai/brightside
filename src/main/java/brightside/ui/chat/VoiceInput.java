@@ -32,6 +32,7 @@ import brightside.voice.Dictation;
 import brightside.voice.LiveDictation;
 import brightside.voice.Microphone;
 import brightside.voice.Relay;
+import brightside.voice.Speaker;
 import brightside.voice.Voice;
 import convex.core.data.ACell;
 import convex.core.data.Strings;
@@ -79,6 +80,8 @@ final class VoiceInput {
 
 	private final JTextComponent input;
 	private final Runnable send;
+	/** Replies read aloud: the microphone hears silence while one plays. */
+	private final Speaker speaker;
 	private final JButton button = Buttons.icon(Lucide.icon("mic", 18, Theme::muted), null);
 	private final JPanel line = new JPanel(new BorderLayout());
 	private final Timer ticker = new Timer(TICK_MS, e -> tick());
@@ -112,10 +115,14 @@ final class VoiceInput {
 	private int shown;
 	private String original = "";
 
-	/** @param send sends the draft as it stands, even while the microphone is open */
-	VoiceInput(JTextComponent input, Runnable send) {
+	/**
+	 * @param send    sends the draft as it stands, even while the microphone is open
+	 * @param speaker what reads replies aloud, which the microphone must not hear
+	 */
+	VoiceInput(JTextComponent input, Runnable send, Speaker speaker) {
 		this.input = input;
 		this.send = send;
+		this.speaker = speaker;
 		// An emptied draft — sent, cleared — holds nothing spoken any more.
 		Documents.onChange(input, () -> {
 			if (input.getDocument().getLength() == 0) dictated = false;
@@ -190,7 +197,11 @@ final class VoiceInput {
 
 	private void press() {
 		switch (phase) {
-			case IDLE -> check();
+			case IDLE -> {
+				// The owner means to speak: a reply being read aloud gives way.
+				speaker.stop();
+				check();
+			}
 			case RECORDING -> finish(false);
 			default -> {
 				// Getting ready or writing it down: the button is not pressable then.
@@ -266,7 +277,7 @@ final class VoiceInput {
 	private void listen(long mine, boolean heardLive) {
 		CompletableFuture.supplyAsync(() -> {
 			try {
-				return Microphone.record(() -> onEdt(mine, () -> finish(false)));
+				return Microphone.record(() -> onEdt(mine, () -> finish(false)), speaker::speaking);
 			} catch (LineUnavailableException e) {
 				throw new CompletionException(e);
 			}

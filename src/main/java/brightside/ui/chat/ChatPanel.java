@@ -53,6 +53,7 @@ import brightside.ui.components.SelectableText;
 import brightside.ui.components.Styles;
 import brightside.ui.components.TextArea;
 import brightside.ui.components.Theme;
+import brightside.voice.Speaker;
 import brightside.voice.Voice;
 import convex.core.data.ACell;
 import convex.core.data.Strings;
@@ -121,7 +122,10 @@ public final class ChatPanel extends JPanel {
 	private final JScrollPane inputScroll;
 	private final JButton send = Buttons.primary("Send");
 	private final JButton more = Buttons.icon(Lucide.icon("ellipsis", 18, Theme::muted), "Conversation options");
-	private final VoiceInput voice = new VoiceInput(input, () -> sendDraft(false));
+	/** Replies read aloud, one at a time; shared with voice typing, whose microphone must not hear it. */
+	private final Speaker speaker = new Speaker();
+	private final VoiceInput voice = new VoiceInput(input, () -> sendDraft(false), speaker);
+	private final ReadAloud readAloud = new ReadAloud(speaker, this);
 	private Host host;
 
 	private final List<SessionHistory.Item> displayed = new ArrayList<>();
@@ -167,18 +171,20 @@ public final class ChatPanel extends JPanel {
 				send();
 			}
 		});
-		// Escape discards voice typing under way; otherwise it is not this field's to take.
+		// Escape stops a reply being read aloud, else discards voice typing under
+		// way; otherwise it is not this field's to take.
 		input.getInputMap(JComponent.WHEN_FOCUSED)
 			.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "discardVoice");
 		input.getActionMap().put("discardVoice", new AbstractAction() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				voice.discard();
+				if (readAloud.speaking()) readAloud.stop();
+				else voice.discard();
 			}
 
 			@Override
 			public boolean isEnabled() {
-				return voice.busy();
+				return readAloud.speaking() || voice.busy();
 			}
 		});
 		// The input keeps focus, so Ctrl/Cmd+C lands here: copy the input's own
@@ -287,7 +293,9 @@ public final class ChatPanel extends JPanel {
 		deliveryTail = CompletableFuture.completedFuture(null);
 		hideThinking();
 		setStartingUp(false);
-		voice.bind(new Voice(session.venue()));
+		Voice v = new Voice(session.venue());
+		voice.bind(v);
+		readAloud.bind(v);
 		setInputEnabled(true);
 		focusInput();
 	}
@@ -395,6 +403,24 @@ public final class ChatPanel extends JPanel {
 		return -1;
 	}
 
+	/** Where the owner's "read replies aloud" preference lives (default off); read as each reply lands. */
+	public void readRepliesAloudWhen(java.util.function.BooleanSupplier on) {
+		readAloud.repliesOnWhen(on);
+	}
+
+	/**
+	 * Gets the voice ready to read replies aloud, asking before any download;
+	 * completes, on the event thread, with whether it is.
+	 */
+	public CompletableFuture<Boolean> getReadyToReadAloud() {
+		return readAloud.getReady();
+	}
+
+	/** Stops a reply being read aloud, if one is. */
+	public void stopReadingAloud() {
+		readAloud.stop();
+	}
+
 	/** Called after a successful send has committed and returned its session id. */
 	public void setConversationCommittedListener(Consumer<String> listener) {
 		conversationCommitted = (listener != null) ? listener : ignored -> {
@@ -415,6 +441,7 @@ public final class ChatPanel extends JPanel {
 		deliveryTail = CompletableFuture.completedFuture(null);
 		hideThinking();
 		voice.bind(null);
+		readAloud.bind(null);
 		input.setText("");
 		lastSelectedBubble = null;
 		clearMessages();
@@ -665,6 +692,7 @@ public final class ChatPanel extends JPanel {
 				hideThinking();
 				if (failure == null) {
 					addTurn("assistant", reply.text());
+					readAloud.reply(reply.text());
 					conversationCommitted.accept(reply.sessionId());
 				} else if (failure instanceof CancellationException) {
 					// The user stopped waiting. The turn may still finish on the
@@ -870,9 +898,22 @@ public final class ChatPanel extends JPanel {
 		return ta != null && ta.getSelectionStart() != ta.getSelectionEnd();
 	}
 
-	/** Right-click menu on a bubble: copy its selection/message, or the whole conversation. */
-	private void showBubbleMenu(JTextComponent ta, String messageText, Component invoker, int x, int y) {
+	/**
+	 * Right-click menu on a bubble: copy its selection/message, or the whole
+	 * conversation; on a reply, read it aloud, or stop the one being read.
+	 */
+	private void showBubbleMenu(JTextComponent ta, String messageText, boolean user, Component invoker, int x, int y) {
 		JPopupMenu menu = new JPopupMenu();
+		if (!user) {
+			JMenuItem read = new JMenuItem(readAloud.speaking() ? "Stop reading aloud" : "Read aloud");
+			boolean stopping = readAloud.speaking();
+			read.addActionListener(e -> {
+				if (stopping) readAloud.stop();
+				else readAloud.readAloud(messageText);
+			});
+			menu.add(read);
+			menu.addSeparator();
+		}
 		JMenuItem copy = new JMenuItem("Copy message");
 		copy.addActionListener(e -> {
 			String sel = ta.getSelectedText();
@@ -911,12 +952,12 @@ public final class ChatPanel extends JPanel {
 		MouseAdapter popup = new MouseAdapter() {
 			@Override
 			public void mousePressed(MouseEvent e) {
-				if (e.isPopupTrigger()) showBubbleMenu(ta, text, ta, e.getX(), e.getY());
+				if (e.isPopupTrigger()) showBubbleMenu(ta, text, user, ta, e.getX(), e.getY());
 			}
 
 			@Override
 			public void mouseReleased(MouseEvent e) {
-				if (e.isPopupTrigger()) showBubbleMenu(ta, text, ta, e.getX(), e.getY());
+				if (e.isPopupTrigger()) showBubbleMenu(ta, text, user, ta, e.getX(), e.getY());
 			}
 		};
 		ta.addMouseListener(popup);

@@ -3,6 +3,7 @@ package brightside.voice;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
 import javax.sound.sampled.AudioFormat;
@@ -46,6 +47,15 @@ public final class Microphone {
 	 * listening by itself; {@link Recording#stop()} then returns what it heard.
 	 */
 	public static Recording record(Runnable onLimit) throws LineUnavailableException {
+		return record(onLimit, () -> false);
+	}
+
+	/**
+	 * Starts recording, hearing silence whenever {@code hushed} says so: while a
+	 * reply is read aloud ({@link Speaker#speaking()}), so it is never heard as the
+	 * owner's words. The time still passes, so a pause is still a pause.
+	 */
+	public static Recording record(Runnable onLimit, BooleanSupplier hushed) throws LineUnavailableException {
 		for (float rate : RATES) {
 			AudioFormat format = new AudioFormat(rate, 16, 1, true, false);
 			DataLine.Info info = new DataLine.Info(TargetDataLine.class, format);
@@ -54,7 +64,7 @@ public final class Microphone {
 				TargetDataLine line = (TargetDataLine) AudioSystem.getLine(info);
 				line.open(format);
 				line.start();
-				return new Recording(new AudioInputStream(line), (int) rate, MAX_SECONDS, line::stop, line::close, onLimit);
+				return new Recording(new AudioInputStream(line), (int) rate, MAX_SECONDS, line::stop, line::close, onLimit, hushed);
 			} catch (IllegalArgumentException e) {
 				// No line in this format after all: try the next rate.
 			}
@@ -70,6 +80,7 @@ public final class Microphone {
 		private final int limit;
 		private final Runnable halt;
 		private final Runnable release;
+		private final BooleanSupplier hushed;
 		private final ByteArrayOutputStream pcm = new ByteArrayOutputStream();
 		private final Thread reader;
 		private volatile boolean ending;
@@ -83,7 +94,14 @@ public final class Microphone {
 		 * @param release frees the source once reading is over
 		 */
 		Recording(AudioInputStream in, int rate, int maxSeconds, Runnable halt, Runnable release, Runnable onLimit) {
+			this(in, rate, maxSeconds, halt, release, onLimit, () -> false);
+		}
+
+		/** @param hushed whether what is heard now is to be silence instead */
+		Recording(AudioInputStream in, int rate, int maxSeconds, Runnable halt, Runnable release, Runnable onLimit,
+				BooleanSupplier hushed) {
 			this.in = in;
+			this.hushed = hushed;
 			this.rate = rate;
 			this.limit = rate * 2 * maxSeconds;
 			this.halt = halt;
@@ -103,6 +121,7 @@ public final class Microphone {
 					}
 					int n = in.read(buffer, 0, room);
 					if (n < 0 || (n == 0 && ending)) break;
+					if (n > 0 && hushed.getAsBoolean()) Arrays.fill(buffer, 0, n, (byte) 0);
 					synchronized (pcm) {
 						recorded += n;
 						// Streamed audio is the listener's to keep; only a recording heard

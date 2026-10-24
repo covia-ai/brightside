@@ -2169,6 +2169,21 @@ public final class BrightSide {
 		if (minimiseToTray() && tray != null) hideToTray();
 	}
 
+	/** Remembered in prefs.properties: whether each reply is read aloud. */
+	static final String PREF_READ_ALOUD = "voice.readRepliesAloud";
+
+	/**
+	 * Whether each reply the chat waits for is read aloud (default false: a fresh
+	 * install is silent). Off, a reply is read only when the owner asks.
+	 */
+	public boolean readRepliesAloud() {
+		return prefs.getBool(PREF_READ_ALOUD, false);
+	}
+
+	public void setReadRepliesAloud(boolean value) {
+		prefs.setBool(PREF_READ_ALOUD, value);
+	}
+
 	/** Whether closing the window keeps Brightside running in the tray (default false). */
 	public boolean keepInTray() {
 		return prefs.getBool("tray.keepOpen", false);

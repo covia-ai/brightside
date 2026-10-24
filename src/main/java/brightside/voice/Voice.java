@@ -23,7 +23,9 @@ import covia.grid.Venue;
  * Every call is a read — the speech operations are read-only — so no recording
  * or transcript is left in a job record, and the recording travels inline,
  * stored nowhere. The in-process engine also hears as the owner speaks
- * ({@link #listen}, {@link #hear}; {@link LiveDictation} drives them).
+ * ({@link #listen}, {@link #hear}; {@link LiveDictation} drives them). It also
+ * speaks replies ({@link #say}), a read too, with the voice fetched only once
+ * the owner agrees ({@link #prepareSpeaking}).
  */
 public final class Voice {
 
@@ -32,6 +34,7 @@ public final class Voice {
 	static final String OP_TRANSCRIBE = "v/ops/speech/transcribe";
 	static final String OP_LISTEN = "v/ops/speech/listen";
 	static final String OP_HEAR = "v/ops/speech/hear";
+	static final String OP_SAY = "v/ops/speech/say";
 	/** The speech adapter's name for its in-process engine. */
 	static final String IN_PROCESS = "local";
 
@@ -64,6 +67,20 @@ public final class Voice {
 		/** Whether it hears as the owner speaks ({@link #listen}): the in-process engine does. */
 		public boolean live() {
 			return IN_PROCESS.equals(name);
+		}
+	}
+
+	/**
+	 * The engine that speaks, as the venue reports it: whether it is on this
+	 * computer, its {@code model}, and for the in-process engine that model's
+	 * {@code state} ({@code ready}, {@code downloaded}, {@code downloading},
+	 * {@code not downloaded}) with its size and how much of it is here.
+	 */
+	public record Speaking(boolean local, String model, String state, long bytes, long downloaded, String reason) {
+
+		/** The voice is not on this computer and nothing is fetching it: fetching it is the owner's call. */
+		public boolean needsDownload() {
+			return local && "not downloaded".equals(state);
 		}
 	}
 
@@ -117,6 +134,25 @@ public final class Voice {
 		return venue.run(OP_PREPARE, Maps.empty()).thenApply(Voice::engine);
 	}
 
+	/** The engine that speaks as it stands, or null when none does. */
+	public CompletableFuture<Speaking> speaking() {
+		return venue.run(OP_ENGINES, Maps.empty()).thenApply(Voice::speaking);
+	}
+
+	/** Gets the voice ready: for the in-process engine, fetches it if it is not here yet. */
+	public CompletableFuture<Speaking> prepareSpeaking() {
+		return venue.run(OP_PREPARE, Maps.of("for", "speak")).thenApply(Voice::speaking);
+	}
+
+	/**
+	 * {@code text} spoken, as WAV. A read: the words and the audio travel inline,
+	 * and nothing is stored or kept in a job record.
+	 */
+	public CompletableFuture<byte[]> say(String text) {
+		return venue.run(OP_SAY, Maps.of("text", text, "format", "wav"))
+			.thenApply(out -> Base64.getDecoder().decode(RT.ensureString(RT.getIn(out, "bytes")).toString()));
+	}
+
 	/** What was said in {@code clip}, or an empty string for silence. */
 	public CompletableFuture<String> transcribe(Microphone.Clip clip) {
 		return venue.run(OP_TRANSCRIBE, Maps.of(
@@ -157,6 +193,20 @@ public final class Voice {
 			str(RT.getIn(e, "state")),
 			number(RT.getIn(e, "model", "bytes")), number(RT.getIn(e, "model", "downloaded")), flag(RT.getIn(e, "keyed")),
 			str(RT.getIn(e, "reason")));
+	}
+
+	/** The engine of a {@code speech:engines} result that speaks, or null when none does. */
+	static Speaking speaking(ACell out) {
+		AVector<?> engines = RT.ensureVector(RT.getIn(out, "engines"));
+		if (engines == null) return null;
+		for (long i = 0; i < engines.count(); i++) {
+			ACell e = (ACell) engines.get(i);
+			if (!flag(RT.getIn(e, "speaks"))) continue;
+			return new Speaking(flag(RT.getIn(e, "local")), str(RT.getIn(e, "speakModel")), str(RT.getIn(e, "voiceState")),
+				number(RT.getIn(e, "voiceModel", "bytes")), number(RT.getIn(e, "voiceModel", "downloaded")),
+				str(RT.getIn(e, "voiceReason")));
+		}
+		return null;
 	}
 
 	private static String str(ACell cell) {

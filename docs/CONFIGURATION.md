@@ -33,7 +33,7 @@ hand-edited file and its comments stay intact.
 | `~/.brightside/files/` | Brightside-managed local files; exposed to the assistant as the confined writable `files` root. |
 | `~/.brightside/code/` | Source checkouts the assistant works on, as the writable `code` root; `code/brightside` is Brightside's own source, a [Claude Code](#claude-code) project by default. |
 | `~/.brightside/logs/` | Plaintext rolling logs; exposed to the assistant as the server-enforced read-only `logs` root. |
-| `~/.brightside/cache/speech/` | The speech model and engine libraries [voice typing](#voice-typing) downloads once you agree; safe to delete. |
+| `~/.brightside/cache/speech/` | The speech models and engine libraries [voice typing](#voice-typing) and [reading aloud](#reading-replies-aloud) download once you agree; safe to delete. |
 
 To reset Brightside completely, remove the whole data directory while
 Brightside is stopped.
@@ -250,6 +250,31 @@ Everything else the adapter accepts — models, timeouts, an operator-held key �
 is in Covia's own documentation of the speech module (`venue/docs/CONFIG.md`
 in the Covia repository). A mistake in the block leaves voice typing out for
 that launch and says why in the log.
+
+## Reading replies aloud
+
+Brightside is silent unless you ask it to speak. Right-click a reply and
+choose *Read aloud* to hear that one; to hear every reply as it arrives, turn
+on *Read replies aloud* under *Settings → General → Voice* (off on a fresh
+install; remembered in `prefs.properties` as `voice.readRepliesAloud`). *Esc*
+in the message box, *Stop reading aloud* on a reply, or pressing the
+microphone stops it; a new reply takes the place of one still being read.
+
+What is read is the reply's prose: code blocks, tables, images and raw HTML
+are left out, and a link is read by its text, never its address. While a reply
+is being read, an open microphone hears silence, so the reply is never typed
+back in as your words; the time still passes, so a minute of reading counts
+towards the minute without a word that closes the microphone.
+
+Like voice typing, it all happens on this computer by default: the venue's
+speech adapter speaks with sherpa-onnx and the VITS LJSpeech voice (English),
+and nothing you hear is stored or kept in a job record (`v/ops/speech/say` is a
+read). A word the voice does not know, such as an unusual name, is spelled out
+letter by letter rather than skipped. The first time, Brightside asks before
+downloading the voice (about 115 MB), into
+the same `~/.brightside/cache/speech/`. To have a provider speak instead while
+keeping your voice on this computer, set `"speakEngine": "openai"` in the
+venue's speech block; your replies' text then goes to that provider.
 
 ## Discord
 

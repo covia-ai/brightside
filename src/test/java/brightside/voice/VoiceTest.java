@@ -1,5 +1,6 @@
 package brightside.voice;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -60,6 +61,8 @@ class VoiceTest {
 	private static HttpServer provider;
 	private static final BlockingQueue<byte[]> heard = new LinkedBlockingQueue<>();
 	private static volatile String reply;
+	private static final BlockingQueue<String> asked = new LinkedBlockingQueue<>();
+	private static final byte[] SPOKEN = "RIFF-a-spoken-reply".getBytes(StandardCharsets.US_ASCII);
 
 	@BeforeAll
 	static void boot() throws IOException {
@@ -74,6 +77,14 @@ class VoiceTest {
 			exchange.sendResponseHeaders(200, body.length);
 			try (OutputStream out = exchange.getResponseBody()) {
 				out.write(body);
+			}
+		});
+		provider.createContext("/v1/audio/speech", exchange -> {
+			asked.add(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+			exchange.getResponseHeaders().add("Content-Type", "audio/wav");
+			exchange.sendResponseHeaders(200, SPOKEN.length);
+			try (OutputStream out = exchange.getResponseBody()) {
+				out.write(SPOKEN);
 			}
 		});
 		provider.start();
@@ -98,6 +109,11 @@ class VoiceTest {
 		assertTrue(engine.needsDownload(), "the model is not here, and nothing is fetching it");
 		assertTrue(engine.bytes() > 0, "its size is known, to ask the owner about");
 		assertFalse(engine.needsKey());
+
+		Voice.Speaking speaking = voice.speaking().get();
+		assertTrue(speaking.local(), "replies are spoken on this computer too");
+		assertTrue(speaking.needsDownload(), "the voice is not here, and nothing is fetching it");
+		assertTrue(speaking.bytes() > 0, "its size is known, to ask the owner about");
 		assertFalse(Files.exists(cache), "asking fetched nothing");
 	}
 
@@ -127,6 +143,21 @@ class VoiceTest {
 		Voice.Engine engine = voice.engine().get();
 		assertFalse(engine.needsDownload());
 		assertTrue(engine.local() && !engine.needsKey(), "a server on this computer needs no key");
+	}
+
+	@Test
+	void aReplyIsSpokenInlineAndLeavesNoRecord() throws Exception {
+		venue.engine().configureAdapter(SPEECH.toString(), Maps.of("engine", "openai",
+			"baseUrl", "http://127.0.0.1:" + provider.getAddress().getPort() + "/v1"));
+		asked.clear();
+		long jobs = jobs();
+
+		assertArrayEquals(SPOKEN, voice.say("Your train leaves at four.").get(), "the audio itself, inline");
+		assertEquals(jobs, jobs(), "a read: no job record holds the words or the audio");
+		String request = asked.take();
+		assertTrue(request.contains("Your train leaves at four."), request);
+		assertTrue(request.contains("\"wav\""), "asked for WAV, which the computer plays: " + request);
+		assertFalse(voice.speaking().get().needsDownload(), "a provider needs nothing fetched");
 	}
 
 	private static long jobs() {

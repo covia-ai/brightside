@@ -88,4 +88,18 @@ class MicrophoneTest {
 		assertEquals(1.0, recording.seconds(), "one second at 8 kHz");
 		assertEquals(16_000, recording.stop().pcm().length, "and nothing past it");
 	}
+
+	@Test
+	void whileAReplyIsReadAloudTheMicrophoneHearsSilenceForAsLong() throws Exception {
+		byte[] pcm = new byte[8_000];
+		for (int i = 0; i < pcm.length; i++) pcm[i] = (byte) (i | 1);
+		Microphone.Recording recording = new Microphone.Recording(source(pcm, 16_000), 16_000, 10,
+			() -> { }, () -> { }, () -> { }, () -> true);
+		ByteArrayOutputStream heard = new ByteArrayOutputStream();
+		recording.onAudio(chunk -> heard.write(chunk, 0, chunk.length));
+
+		recording.stop();
+		assertArrayEquals(new byte[pcm.length], heard.toByteArray(),
+			"nothing of what was playing is heard, and the time it took still passes");
+	}
 }

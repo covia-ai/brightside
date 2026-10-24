@@ -148,6 +148,9 @@ public final class MainWindow extends JFrame {
 			}
 		});
 
+		// Replies are read aloud only when the owner has chosen it (Settings → General).
+		chatPanel.readRepliesAloudWhen(app::readRepliesAloud);
+
 		// The conversation menu beside Send acts on the conversation on screen.
 		chatPanel.setHost(new ChatPanel.Host() {
 			@Override
@@ -285,6 +288,20 @@ public final class MainWindow extends JFrame {
 			@Override
 			public void setUnlockWithoutAsking(boolean value) {
 				app.setUnlockWithoutAsking(value);
+			}
+
+			@Override
+			public void setReadRepliesAloud(boolean value) {
+				if (!value) {
+					app.setReadRepliesAloud(false);
+					chatPanel.stopReadingAloud();
+					return;
+				}
+				// On only once the voice is here, or the owner has agreed to fetch it.
+				chatPanel.getReadyToReadAloud().thenAccept(ready -> {
+					app.setReadRepliesAloud(ready);
+					settingsScreen.general().refreshVoice(ready);
+				});
 			}
 
 			@Override
@@ -775,6 +792,7 @@ public final class MainWindow extends JFrame {
 			identity != null, venue != null);
 		settingsScreen.general().refreshStartup(app.takeOverWithoutAsking(), app.unlockWithoutAsking(),
 			app.hasRememberedPassphrase());
+		settingsScreen.general().refreshVoice(app.readRepliesAloud());
 		settingsScreen.theme().refresh(app.mode(), app.theme(), app.accent());
 		settingsScreen.model().preselect(app.currentModelOp());
 		settingsScreen.profile().refresh(name, userDid, venueDid, app.publicKeyHex(), app.canRevealPrivateSeed(),

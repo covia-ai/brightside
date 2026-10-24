@@ -36,6 +36,9 @@ public final class GeneralPanel extends SettingsPage {
 
 		void setUnlockWithoutAsking(boolean value);
 
+		/** Read each reply aloud, or not; turning it on may ask to download the voice first. */
+		void setReadRepliesAloud(boolean value);
+
 		void hideToTray();
 
 		void openDashboard();
@@ -60,6 +63,9 @@ public final class GeneralPanel extends SettingsPage {
 	private final JCheckBox takeOver = new JCheckBox("Take over a Brightside that is already running, without asking");
 	private final JCheckBox unlock = new JCheckBox("Unlock with my stored passphrase, without asking");
 	private final JLabel unlockNote = Labels.small("Store your passphrase on the unlock screen to use this.");
+	private final JCheckBox readAloud = new JCheckBox("Read replies aloud");
+	private final JLabel readAloudNote = Labels.small(
+		"Off: right-click a reply and choose Read aloud to hear just that one. Esc stops it.");
 	private final JButton hideToTray;
 	private final JButton dashboard;
 	private boolean syncing;
@@ -97,6 +103,15 @@ public final class GeneralPanel extends SettingsPage {
 		addSpan(unlock);
 		unlockNote.setVisible(false); // until refreshStartup says nothing is stored
 		addSpan(unlockNote);
+
+		readAloud.setOpaque(false);
+		readAloud.setToolTipText("Spoken on this computer: nothing it says leaves it");
+		readAloud.addActionListener(e -> {
+			if (!syncing) host.setReadRepliesAloud(readAloud.isSelected());
+		});
+		group("Voice");
+		addSpan(readAloud);
+		addSpan(readAloudNote);
 
 		keepInTray.setOpaque(false);
 		minimiseToTray.setOpaque(false);
@@ -160,6 +175,13 @@ public final class GeneralPanel extends SettingsPage {
 		syncing = false;
 		unlock.setEnabled(passphraseStored);
 		unlockNote.setVisible(!passphraseStored);
+	}
+
+	/** Refreshes the voice preferences. */
+	public void refreshVoice(boolean readRepliesAloud) {
+		syncing = true;
+		readAloud.setSelected(readRepliesAloud);
+		syncing = false;
 	}
 
 	/** The row the current section's buttons go in. */
