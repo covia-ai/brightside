@@ -201,4 +201,5 @@ files that only a repair by hand can open, and the launch stops rather than
 repairing the wrong one (`StoreRepair.isInterruptedCollection`), telling the
 owner to keep every `venue.etch` file as it is. The window is the collection
 itself, well under a second for a store of tens of megabytes. Putting it right needs
-Convex's `etch` tools; doing it at launch belongs in Convex and Covia.
+Convex's `etch` tools; doing it at launch belongs in Convex and Covia
+([covia-ai/covia#614](https://github.com/covia-ai/covia/issues/614)).
