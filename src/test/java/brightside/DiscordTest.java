@@ -79,8 +79,8 @@ class DiscordTest {
 
 		Discord.configure(user, "Brightside", "not-a-real-token", List.of("123456789012345678", " @mike "));
 
-		ACell record = venue.resolve(venue.did(), Discord.recordPath(userDID));
-		assertNotNull(record, "the adapter persisted the bot under its own workspace");
+		ACell record = Discord.record(venue, userDID);
+		assertNotNull(record, "the adapter persisted the bot in its own state");
 		assertEquals(Strings.create("s/" + Discord.TOKEN_SECRET), RT.getIn(record, "token"),
 			"the record holds a secret reference, never the token");
 		assertEquals(Strings.create("Brightside"), RT.getIn(record, "agent"));
@@ -95,7 +95,7 @@ class DiscordTest {
 		// A second configure replaces the bot rather than duplicating it.
 		Discord.configure(user, "Brightside", null, List.of("@mike"));
 		assertEquals(List.of("@mike"),
-			Discord.status(user, venue.resolve(venue.did(), Discord.recordPath(userDID))).allows());
+			Discord.status(user, Discord.record(venue, userDID)).allows());
 
 		// Another user sees no bot of theirs and cannot remove the owner's.
 		String otherDID = Identity.of("someone-else").userDID(venue.did());

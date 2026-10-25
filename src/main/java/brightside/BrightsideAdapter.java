@@ -149,12 +149,12 @@ public class BrightsideAdapter extends AAdapter {
 	 * writes them in-process, so arranging the map leaves no job records.
 	 */
 	public ACell mapSettings(AString userDID) {
-		return adapterWorkspace().read(adapterWorkspace().userPath(userDID, MAP_SETTINGS));
+		return adapterState().read(adapterState().userPath(userDID, MAP_SETTINGS));
 	}
 
 	/** Stores a person's Peers map settings, replacing any. */
 	public void saveMapSettings(AString userDID, ACell settings) {
-		adapterWorkspace().write(adapterWorkspace().userPath(userDID, MAP_SETTINGS), settings);
+		adapterState().write(adapterState().userPath(userDID, MAP_SETTINGS), settings);
 	}
 
 	@Override

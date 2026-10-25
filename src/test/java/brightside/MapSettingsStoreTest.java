@@ -41,7 +41,8 @@ class MapSettingsStoreTest {
 		// Kept with the venue's adapter records, not in the person's own namespace.
 		assertNull(venue.resolve(alice, "w/peers-map"));
 		assertNull(RT.getIn(venue.resolve(alice, "w"), "adapters"));
-		assertEquals(arranged, MapSettings.fromCell(venue.resolve(venue.did(),
-			"w/adapters/brightside/users/" + alice + "/" + BrightsideAdapter.MAP_SETTINGS)));
+		covia.venue.AdapterState state = venue.engine().adapterState("brightside");
+		assertEquals(arranged, MapSettings.fromCell(state.read(state.userPath(
+			convex.core.data.Strings.create(alice), BrightsideAdapter.MAP_SETTINGS))));
 	}
 }

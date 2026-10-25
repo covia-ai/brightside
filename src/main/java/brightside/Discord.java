@@ -15,6 +15,7 @@ import convex.core.data.prim.CVMBool;
 import convex.core.lang.RT;
 import covia.grid.Job;
 import covia.grid.Venue;
+import covia.venue.AdapterState;
 
 /**
  * The owner's assistant on Discord: one bot, owned by the user, answering as
@@ -99,7 +100,7 @@ public final class Discord {
 	 * The owner's bot as the adapter sees it, or null when there is none. A
 	 * read — the op is declared readOnly, so visiting Settings leaves no job
 	 * record. {@code record} is the persisted bot record (for the allow-list),
-	 * read in-process by the operator from the adapter's workspace, or null.
+	 * read in-process by the operator from the adapter's state, or null.
 	 */
 	public static Bot status(Venue user, ACell record) throws Exception {
 		ACell out = read(user, OP_BOTS, Maps.empty());
@@ -113,9 +114,10 @@ public final class Discord {
 		return null;
 	}
 
-	/** Where the adapter keeps the owner's runtime bot record — under the venue's own workspace. */
-	public static String recordPath(String userDID) {
-		return "w/adapters/discord/users/" + userDID + "/bots/" + BOT;
+	/** The owner's runtime bot record, as the adapter keeps it in its own state, or null. */
+	public static ACell record(EmbeddedVenue venue, String userDID) {
+		AdapterState state = venue.engine().adapterState("discord");
+		return state.read(state.userPath(Strings.create(userDID), "bots/" + BOT));
 	}
 
 	private static List<String> allows(ACell record) {
