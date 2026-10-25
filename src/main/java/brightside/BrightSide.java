@@ -511,7 +511,6 @@ public final class BrightSide {
 				SwingUtilities.invokeLater(() -> window.showSystemMessage(notice));
 			}
 			if (compacted != null) {
-				log.info("Store compaction at start: {}", compacted.summary());
 				String notice = compacted.notice();
 				SwingUtilities.invokeLater(() -> window.showSystemMessage(notice));
 			}

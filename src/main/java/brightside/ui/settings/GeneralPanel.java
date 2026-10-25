@@ -164,7 +164,7 @@ public final class GeneralPanel extends SettingsPage {
 		});
 		group("Data store");
 		addValueRow("On disk",
-			"Your conversations, assistants and settings. The store only grows: compacting drops what it no longer refers to.",
+			"Your conversations, memory, skills, assistants and personal drives. The store only grows: compacting drops what it no longer refers to.",
 			storeSize);
 		addSpan(compact);
 		addSpan(keptNote);

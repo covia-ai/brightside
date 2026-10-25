@@ -10,6 +10,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import convex.etch.EtchConfig;
 import convex.etch.EtchStore;
 import covia.venue.Config;
@@ -36,6 +39,8 @@ import covia.venue.server.VenueServer;
  * part of compacting.</p>
  */
 public final class StoreSpace {
+
+	private static final Logger log = LoggerFactory.getLogger(StoreSpace.class);
 
 	/** What the request's name adds to the store's. */
 	static final String REQUEST = ".compact";
@@ -97,6 +102,8 @@ public final class StoreSpace {
 	 * ({@link VenueServer#collectAtStartup}), for the venue to launch on. A
 	 * collection that fails before it cuts over leaves the store as it was,
 	 * which is then what the venue gets. The caller owns the returned store.
+	 * The outcome is logged here, as soon as the store has changed, whatever
+	 * becomes of the launch after it.
 	 */
 	public Compacted compact(Config config) throws IOException {
 		EtchConfig etch = config.getEtchConfig();
@@ -110,11 +117,17 @@ public final class StoreSpace {
 			opened.close();
 			throw e;
 		}
-		if (running == opened) return new Compacted(running, before, before, false, false);
-		// Where the platform still pins the old file, Covia runs on the
-		// compacted one under its own name and swaps them at the next start.
-		boolean oldFileWaits = !running.getFile().toPath().toAbsolutePath().equals(store);
-		return new Compacted(running, before, running.getEtch().getDataLength(), true, oldFileWaits);
+		Compacted compacted;
+		if (running == opened) {
+			compacted = new Compacted(running, before, before, false, false);
+		} else {
+			// Where the platform still pins the old file, Covia runs on the
+			// compacted one under its own name and swaps them at the next start.
+			boolean oldFileWaits = !running.getFile().toPath().toAbsolutePath().equals(store);
+			compacted = new Compacted(running, before, running.getEtch().getDataLength(), true, oldFileWaits);
+		}
+		log.info("Store compaction at start: {}", compacted.summary());
+		return compacted;
 	}
 
 	/**
