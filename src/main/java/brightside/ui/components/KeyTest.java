@@ -75,21 +75,26 @@ public final class KeyTest extends JPanel {
 		});
 	}
 
+	/** {@code text} broken at spaces into lines no wider than {@code room}; a single overlong word stands alone. */
+	static java.util.List<String> lines(String text, java.awt.FontMetrics fm, int room) {
+		java.util.List<String> out = new java.util.ArrayList<>();
+		StringBuilder line = new StringBuilder();
+		for (String word : text.trim().split("\\s+")) {
+			String candidate = (line.length() == 0) ? word : line + " " + word;
+			if (line.length() > 0 && fm.stringWidth(candidate) > room) {
+				out.add(line.toString());
+				line = new StringBuilder(word);
+			} else {
+				line = new StringBuilder(candidate);
+			}
+		}
+		if (line.length() > 0) out.add(line.toString());
+		return out;
+	}
+
 	private void rewrap() {
 		answer.render();
 		hint.render();
-	}
-
-	/**
-	 * The width the answer may use: from this panel's left edge to the inner
-	 * right edge of the container holding it. Measured on the container, not on
-	 * this panel, because this panel grows to fit what it holds — measuring
-	 * it would let a long line widen the panel past what is visible.
-	 */
-	int room() {
-		Container outer = getParent();
-		if (outer == null || outer.getWidth() <= 0) return -1;
-		return outer.getWidth() - getX() - outer.getInsets().right;
 	}
 
 	/** Enables the button, unless a test is already running. */
@@ -136,10 +141,10 @@ public final class KeyTest extends JPanel {
 
 	/**
 	 * One line of the answer, its icon right beside the text and both in a tone
-	 * that follows the theme. Text wider than the room it has wraps: the room
-	 * is what is visible beside the panel ({@link KeyTest#room()}), capped at
-	 * {@code width}. The text is always
-	 * escaped, so HTML is used only to wrap.
+	 * that follows the theme. Text wider than the room it has is broken into
+	 * lines here, by this label's own font, so no line can be wider than the
+	 * row: the room is the width the layout gives the panel (capped at
+	 * {@code width}). HTML only carries the line breaks; the text is escaped.
 	 */
 	private static final class Answer extends JLabel {
 
@@ -168,29 +173,36 @@ public final class KeyTest extends JPanel {
 		void render() {
 			setIcon(iconName == null ? null : Lucide.icon(iconName, 14, () -> this.tone.colour()));
 			if (text == null || text.isBlank()) {
+				Labels.plain(this);
 				setText(" ");
 			} else {
-				int room = room();
-				if (getFontMetrics(getFont()).stringWidth(text) <= room) {
+				java.util.List<String> lines = KeyTest.lines(text, getFontMetrics(getFont()), room());
+				if (lines.size() == 1) {
 					Labels.plain(this);
 					setText(text);
 				} else {
 					putClientProperty("html.disable", null);
-					int unscaled = Math.max(120, Math.round(room / UIScale.getUserScaleFactor()));
-					setText(Labels.wrap(Labels.escape(text), unscaled, align));
+					StringBuilder html = new StringBuilder("<html><div style='text-align:")
+						.append(align == SwingConstants.CENTER ? "center" : "left").append("'>");
+					for (int i = 0; i < lines.size(); i++) {
+						if (i > 0) html.append("<br>");
+						html.append(Labels.escape(lines.get(i)));
+					}
+					setText(html.append("</div></html>").toString());
 				}
 			}
 			revalidate();
 			repaint();
 		}
 
-		/** Pixels the text may take: the visible room less the icon, capped at {@code width}. */
+		/** Pixels a line may take: the panel's width less the icon, capped at {@code width}. */
 		private int room() {
 			int cap = UIScale.scale(width);
-			int visible = (getParent() instanceof KeyTest k) ? k.room() : -1;
-			if (visible <= 0) return cap;
+			Container p = getParent();
+			int given = (p != null && p.getWidth() > 0) ? p.getWidth() : cap;
 			int icon = (getIcon() != null) ? getIcon().getIconWidth() + getIconTextGap() : 0;
-			return Math.max(UIScale.scale(120), Math.min(cap, visible - icon - UIScale.scale(8)));
+			// A little slack: HTML lays text out a hair wider than FontMetrics measures it.
+			return Math.max(UIScale.scale(120), Math.min(cap, given) - icon - UIScale.scale(12));
 		}
 
 		@Override
