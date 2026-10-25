@@ -86,7 +86,7 @@ restores the identity only.
   `config.json` and applies on the next message; the key goes to the venue's
   secret stores at once and never to `config.json`. *Test* checks the selected
   model with the key in the field, or the stored key when the field is blank,
-  as the owner and without saving anything. Stored values are viewable,
+  as the owner, without saving the key or changing the settings. Stored values are viewable,
   passphrase-gated, under *Settings → Secrets* (a passphrase remembered on
   this computer passes the gate unasked).
 - **Identity** — name, DIDs, public key, the seed behind the passphrase, and

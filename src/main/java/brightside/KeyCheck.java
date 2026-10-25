@@ -14,6 +14,8 @@ import convex.core.data.Strings;
 import convex.core.data.Vectors;
 import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
+import covia.exception.JobPollingFailedException;
+import covia.grid.Job;
 import covia.grid.Venue;
 import covia.venue.Engine;
 import covia.venue.LocalVenue;
@@ -48,7 +50,11 @@ public final class KeyCheck {
 	/** How long a test waits for the model's reply. */
 	static final long TIMEOUT_SECONDS = 20;
 
-	/** Enough room for a reply even on models that always think first. */
+	/**
+	 * Room for a one-word reply. Covia applies {@code maxTokens} to Anthropic
+	 * only, where models that always think first need the headroom; the other
+	 * providers ignore it, and the one-word prompt keeps their reply short.
+	 */
 	static final long MAX_TOKENS = 256;
 
 	static final String PROMPT = "Reply with the single word OK.";
@@ -89,8 +95,12 @@ public final class KeyCheck {
 		if (key != null) input = input.assoc(Strings.create("apiKey"), Strings.create(key));
 		if (url != null) input = input.assoc(Strings.create("url"), Strings.create(url));
 		long start = System.nanoTime();
+		long deadline = start + TimeUnit.SECONDS.toNanos(TIMEOUT_SECONDS);
+		Job job = null;
 		try {
-			ACell out = client.run(modelOp, input).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+			job = client.invoke(modelOp, input).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+			long left = Math.max(1, TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime()));
+			ACell out = job.awaitResult(left);
 			long millis = elapsed(start);
 			// An operation may refuse before calling anyone (a URL the venue's
 			// SSRF guard blocks, say) by returning a failure status as its
@@ -98,7 +108,13 @@ public final class KeyCheck {
 			String refused = inBandFailure(out);
 			if (refused != null) return fromError(modelOp, refused, key, millis);
 			return new Result(Outcome.WORKS, worksMessage(modelOp, millis), null, millis);
-		} catch (TimeoutException e) {
+		} catch (TimeoutException | JobPollingFailedException e) {
+			// The owner has been told it timed out: stop the call rather than
+			// leave it running on in the background.
+			if (job != null) job.cancel("Key test timed out");
+			if (Thread.currentThread().isInterrupted()) {
+				return failure(modelOp, Outcome.FAILED, "The test was interrupted.", key, elapsed(start));
+			}
 			return failure(modelOp, Outcome.UNREACHABLE,
 				"No reply within " + TIMEOUT_SECONDS + " seconds.", key, elapsed(start));
 		} catch (InterruptedException e) {
@@ -173,47 +189,58 @@ public final class KeyCheck {
 			case UNREACHABLE -> ProviderHints.Problem.UNREACHABLE;
 			case WORKS, FAILED, PROVIDER_ERROR -> null;
 		};
-		String next = (problem == null) ? null : ProviderHints.forProblem(providerId, problem, detail);
+		String next = (problem == null) ? null : ProviderHints.forProblem(providerId, problem, detail, modelId(modelOp));
 		return (next == null) ? null : mask(next, key);
 	}
 
-	// Most specific first: a 429 that says "insufficient_quota" is no credit,
-	// not a rate limit, and a 401 mentioning billing is still a refused key.
-	// The model client's exception names count too: with no network the
-	// venue may report nothing but "UnresolvedModelServerException".
+	// Most specific first. A per-minute limit can carry "exceeded your current
+	// quota … billing" (Gemini's free tier does), so it is read as a rate limit
+	// before anything says no credit; an explicit 401/403 is a refused key even
+	// when its text mentions billing; a provider-side 5xx is the provider's
+	// fault before any generic "timed out" blames the owner's network. The model
+	// client's exception names count too: with no network the venue may report
+	// nothing but "UnresolvedModelServerException".
 	private static final Pattern NO_KEY = Pattern.compile(
 		"(api.?key|secret).{0,40}(missing|required|not (set|found|provided|configured))|no api.?key|missing (api.?key|credentials)");
+	private static final Pattern RATE_PER_PERIOD = Pattern.compile(
+		"rate.?limit (reached|exceeded)|per.?minute|per.?day limit|retry in \\d|retry after|requests per|tokens per");
+	private static final Pattern REFUSED = Pattern.compile(
+		"\\b40[13]\\b|authenticationexception|unauthori[sz]ed");
 	private static final Pattern NO_CREDIT = Pattern.compile(
-		"\\b402\\b|insufficient[_ ](quota|balance|credits?|funds)|credit balance|out of credits?|billing|payment required|exceeded your current quota");
+		"\\b402\\b|insufficient[_ ](quota|balance|credits?|funds)|credit balance|out of credits?|payment required|exceeded your current quota|set up billing|billing (is )?not (set up|enabled|active)|billing hard limit");
 	private static final Pattern BAD_KEY = Pattern.compile(
-		"\\b40[13]\\b|authenticationexception|unauthori[sz]ed|invalid.{0,12}(api.?key|x-api-key|token|credentials)|incorrect api.?key|api.?key (is )?(not valid|invalid)|authentication|permission denied|forbidden");
+		"invalid.{0,12}(api.?key|x-api-key|token|credentials)|incorrect api.?key|api.?key (is )?(not valid|invalid)"
+		+ "|api.?key.{0,20}(expired|revoked|disabled)|(expired|revoked|disabled).{0,20}api.?key"
+		+ "|authentication|permission denied|forbidden");
 	private static final Pattern RATE_LIMITED = Pattern.compile(
 		"\\b429\\b|\\b529\\b|ratelimitexception|rate.?limit|too many requests|overloaded");
 	private static final Pattern MODEL_UNAVAILABLE = Pattern.compile(
 		"\\b404\\b|modelnotfoundexception|model.{0,30}(not found|does not exist|not available|unknown|unsupported)|not_found_error|no such model|unknown model");
+	private static final Pattern PROVIDER_ERROR = Pattern.compile(
+		"\\b50[0-4]\\b|internalserverexception|internal server error|service unavailable|bad gateway|gateway time-?out");
 	private static final Pattern UNREACHABLE = Pattern.compile(
 		"unknownhost|unknown host|unresolvedmodelserver|(cannot|could not|unable to) resolve (host|hostname|address)|unresolvedaddress|connect(ion)? (refused|reset|timed out)|connectexception|timeoutexception|timed? ?out|unreachable|no route to host|network is unreachable|failed to connect");
-	private static final Pattern PROVIDER_ERROR = Pattern.compile(
-		"\\b50[0-4]\\b|internalserverexception|internal server error|service unavailable|bad gateway");
 
 	/** Which outcome a provider's error text describes; {@link Outcome#FAILED} when unclear. */
 	static Outcome classify(String error) {
 		if (error == null) return Outcome.FAILED;
 		String e = error.toLowerCase(Locale.ROOT);
 		if (NO_KEY.matcher(e).find()) return Outcome.NO_KEY;
+		if (RATE_PER_PERIOD.matcher(e).find()) return Outcome.RATE_LIMITED;
+		if (REFUSED.matcher(e).find()) return Outcome.BAD_KEY;
 		if (NO_CREDIT.matcher(e).find()) return Outcome.NO_CREDIT;
 		if (BAD_KEY.matcher(e).find()) return Outcome.BAD_KEY;
 		if (RATE_LIMITED.matcher(e).find()) return Outcome.RATE_LIMITED;
 		if (MODEL_UNAVAILABLE.matcher(e).find()) return Outcome.MODEL_UNAVAILABLE;
-		if (UNREACHABLE.matcher(e).find()) return Outcome.UNREACHABLE;
 		if (PROVIDER_ERROR.matcher(e).find()) return Outcome.PROVIDER_ERROR;
+		if (UNREACHABLE.matcher(e).find()) return Outcome.UNREACHABLE;
 		return Outcome.FAILED;
 	}
 
 	private static final Pattern KEY_SHAPED = Pattern.compile("\\b(sk|xai|gsk|AIza)[-_A-Za-z0-9]{12,}");
 
 	/** {@code text} with {@code key}, and anything shaped like a provider key, masked. */
-	static String mask(String text, String key) {
+	public static String mask(String text, String key) {
 		if (text == null) return "";
 		String out = text;
 		if (key != null && key.length() >= 4) out = out.replace(key, "•••");
@@ -232,13 +259,21 @@ public final class KeyCheck {
 			case BAD_KEY -> provider + " didn't accept this key. Check it was copied in full.";
 			case NO_CREDIT -> "The key works, but the " + provider + " account has no credit or billing set up.";
 			case RATE_LIMITED -> provider + " is busy or limiting this key. Try again in a minute.";
-			case MODEL_UNAVAILABLE -> "The key works, but " + modelLabel(modelOp) + " isn't available to it. Try another model.";
+			case MODEL_UNAVAILABLE -> local
+				? "Ollama doesn't have " + modelLabel(modelOp) + " on this computer yet."
+				: provider + " couldn't find " + modelLabel(modelOp) + " for this key. Try another model.";
 			case UNREACHABLE -> local
 				? "Couldn't reach Ollama on this computer. Is it running?"
 				: "Couldn't reach " + provider + ". Check your internet connection.";
 			case PROVIDER_ERROR -> provider + " had a problem on its side. This isn't about your key; try again shortly.";
 			case FAILED, WORKS -> "The test call failed: " + shorten(detail);
 		};
+	}
+
+	/** The model id inside {@code v/models/<provider>/<id>}, or the operation itself. */
+	private static String modelId(String modelOp) {
+		String prefix = "v/models/" + Providers.providerOf(modelOp) + "/";
+		return modelOp.startsWith(prefix) ? modelOp.substring(prefix.length()) : modelOp;
 	}
 
 	private static String modelLabel(String modelOp) {
@@ -266,7 +301,8 @@ public final class KeyCheck {
 	 */
 	static String detail(Throwable t) {
 		java.util.LinkedHashSet<String> parts = new java.util.LinkedHashSet<>();
-		for (Throwable c = t; c != null && parts.size() < 6; c = (c.getCause() == c) ? null : c.getCause()) {
+		Throwable c = t;
+		for (int depth = 0; c != null && depth < 8; depth++, c = c.getCause()) {
 			String m = c.getMessage();
 			String type = c.getClass().getSimpleName();
 			parts.add((m == null || m.isBlank()) ? type : (m.contains(type) ? m : type + ": " + m));

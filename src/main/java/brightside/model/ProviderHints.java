@@ -69,6 +69,11 @@ public final class ProviderHints {
 	 * the few cases where it says more than the problem does.
 	 */
 	public static String forProblem(String providerId, Problem problem, String error) {
+		return forProblem(providerId, problem, error, null);
+	}
+
+	/** As {@link #forProblem(String, Problem, String)}, naming {@code modelId} where it helps (Ollama). */
+	public static String forProblem(String providerId, Problem problem, String error, String modelId) {
 		String e = (error == null) ? "" : error.toLowerCase(Locale.ROOT);
 		String id = (providerId == null) ? "" : providerId;
 		return switch (problem) {
@@ -78,7 +83,7 @@ public final class ProviderHints {
 				case "openai" -> "Check the key at platform.openai.com/api-keys. A project key stops working if its project is archived.";
 				case "xai" -> "Check the key in console.x.ai under API Keys.";
 				case "gemini" -> "Check the key at aistudio.google.com/app/apikey. In Google Cloud it may be restricted to other APIs.";
-				case "openrouter" -> "Check the key at openrouter.ai/settings/keys: it may be disabled or past its spending limit.";
+				case "openrouter" -> "Check the key at openrouter.ai/keys: it may be disabled or past its spending limit.";
 				case "deepseek" -> "Check the key at platform.deepseek.com/api_keys.";
 				case "mistral" -> "Check the key at console.mistral.ai/api-keys. A new Mistral key can take a few minutes to start working.";
 				default -> null;
@@ -103,7 +108,7 @@ public final class ProviderHints {
 				yield switch (id) {
 					case "openai" -> "Some newer OpenAI models need your organisation verified (platform.openai.com/settings/organization/general). Or choose another model.";
 					case "openrouter" -> "OpenRouter model names include the vendor, such as anthropic/claude-sonnet-5. Choose another from the list.";
-					case "ollama" -> "Download it first with: ollama pull <model>";
+					case "ollama" -> "Download it first with: ollama pull " + (modelId != null ? modelId : "<model>");
 					default -> "The model may have been renamed or retired. Choose another from the list.";
 				};
 			}
@@ -154,7 +159,7 @@ public final class ProviderHints {
 			case "openrouter" -> " (it starts sk-or-)";
 			case "xai" -> " (it starts xai-)";
 			case "gemini" -> " (it starts AIza)";
-			case "openai" -> " (it starts sk-proj-)";
+			case "openai" -> " (it starts sk-proj- or sk-svcacct-)";
 			default -> "";
 		};
 	}

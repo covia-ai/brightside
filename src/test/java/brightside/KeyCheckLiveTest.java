@@ -36,7 +36,13 @@ class KeyCheckLiveTest {
 		assertEquals(Outcome.WORKS, ok.outcome(), ok.message());
 		Result bad = KeyCheck.checkStandalone(modelOp, spoiled(key));
 		assertEquals(Outcome.BAD_KEY, bad.outcome(), bad.message());
-		assertTrue(!bad.message().contains(key) && (bad.hint() == null || !bad.hint().contains(key)));
+		// Neither the key nor the spoiled key actually sent may come back, whole
+		// or as a long prefix.
+		String sent = spoiled(key);
+		String prefix = sent.substring(0, Math.min(sent.length(), 16));
+		for (String shown : new String[] { bad.message(), bad.hint() == null ? "" : bad.hint() }) {
+			assertTrue(!shown.contains(key) && !shown.contains(sent) && !shown.contains(prefix), "key leaked: " + shown);
+		}
 	}
 
 	@Test

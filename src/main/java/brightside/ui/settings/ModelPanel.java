@@ -21,7 +21,8 @@ import brightside.ui.components.Styles;
  * stores, which model calls read each time. The <b>Save</b> action stays
  * disabled until something changes. <b>Test</b> checks the selected model with
  * the key typed in the field, or the stored key when the field is blank,
- * without saving anything.
+ * without saving the key or changing the settings (the call itself is kept in
+ * the owner's job history, key hidden, like any other).
  */
 @SuppressWarnings("serial")
 public final class ModelPanel extends SettingsPage {

@@ -37,6 +37,12 @@ import covia.venue.RequestContext;
  * owner is told for each kind of provider reply, and what actually left the
  * machine: which key, in which header, how many calls, and that the key is
  * kept out of the venue's job records.
+ *
+ * <p>The class launches a venue of its own, an exception to AGENTS.md's rule
+ * of taking one from {@code SharedVenue}: its SSRF guard must allow the stub's
+ * loopback address, which no other test should share. A few cases spend about
+ * a second in the model client's built-in retry backoff (429, 500, refused
+ * connection); Covia exposes no per-call retry setting to turn that off.</p>
  */
 class KeyCheckEndToEndTest {
 
@@ -284,7 +290,9 @@ class KeyCheckEndToEndTest {
 		}
 		Result r = KeyCheck.check(client("e2e-unreachable"), GPT, OPENAI_KEY, closed);
 		assertEquals(Outcome.UNREACHABLE, r.outcome(), r.message());
-		assertTrue(r.millis() < 10_000, "well inside the 10 s target: " + r.millis() + " ms");
+		// Not a timing test (the suite never waits on a clock): only that the
+		// refusal was reported as such, not left to the 20 s test timeout.
+		assertTrue(r.millis() < KeyCheck.TIMEOUT_SECONDS * 1000, "reported before the test timeout: " + r.millis() + " ms");
 	}
 
 	@Test

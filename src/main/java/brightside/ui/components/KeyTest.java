@@ -37,6 +37,8 @@ public final class KeyTest extends JPanel {
 	private final Supplier<Supplier<KeyCheck.Result>> prepare;
 	private boolean wanted = true;
 	private boolean running;
+	/** Bumped whenever the key or model changes, so a result for the old ones is dropped. */
+	private int generation;
 
 	/**
 	 * {@code width}: the widest the answer runs before wrapping, in unscaled
@@ -51,7 +53,7 @@ public final class KeyTest extends JPanel {
 		int align = centred ? SwingConstants.CENTER : SwingConstants.LEFT;
 		answer = new Answer(width, align);
 		hint = Styles.classes(new Answer(width, align), Styles.SMALL);
-		button.setToolTipText("Send one tiny request to check the key and model work (costs a fraction of a cent)");
+		button.setToolTipText("Send one tiny request to check the key and model work (usually costs a fraction of a cent)");
 		button.addActionListener(e -> run());
 		for (JComponent c : new JComponent[] { button, answer, hint }) c.setAlignmentX(x);
 		add(button);
@@ -103,15 +105,20 @@ public final class KeyTest extends JPanel {
 		button.setEnabled(on && !running);
 	}
 
-	/** Clears the last answer: the key or model it described has changed. */
+	/**
+	 * Clears the last answer: the key or model it described has changed. A test
+	 * still running is abandoned, not shown: its answer would describe the old
+	 * key or model under the new one.
+	 */
 	public void reset() {
-		if (running) return;
+		generation++;
 		answer.show(null, Tone.MUTED, null);
 		hint.show(null, Tone.MUTED, null);
 	}
 
 	private void run() {
 		Supplier<KeyCheck.Result> test = prepare.get();
+		int asked = ++generation;
 		running = true;
 		button.setEnabled(false);
 		answer.show("Testing…", Tone.MUTED, "loader-circle");
@@ -126,11 +133,12 @@ public final class KeyTest extends JPanel {
 			protected void done() {
 				running = false;
 				button.setEnabled(wanted);
+				if (asked != generation) return; // the key or model changed meanwhile
 				KeyCheck.Result r;
 				try {
 					r = get();
 				} catch (Exception e) {
-					answer.show("The test couldn't run: " + e.getMessage(), Tone.ERROR, "circle-alert");
+					answer.show("The test couldn't run: " + KeyCheck.mask(e.getMessage(), null), Tone.ERROR, "circle-alert");
 					return;
 				}
 				answer.show(r.message(), r.ok() ? Tone.SUCCESS : Tone.ERROR, r.ok() ? "circle-check" : "circle-alert");

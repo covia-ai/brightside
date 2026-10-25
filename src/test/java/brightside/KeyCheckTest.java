@@ -79,6 +79,16 @@ class KeyCheckTest {
 		assertEquals(Outcome.FAILED, KeyCheck.classify("Cannot resolve operation: v/models/x/y"));
 		assertEquals(Outcome.FAILED, KeyCheck.classify("something unexpected"));
 		assertEquals(Outcome.FAILED, KeyCheck.classify(null));
+		// From the review: Gemini's free-tier per-minute limit says "quota … billing",
+		// but it is a rate limit, not an account with no credit.
+		assertEquals(Outcome.RATE_LIMITED, KeyCheck.classify("429 RESOURCE_EXHAUSTED: You exceeded your current quota, "
+			+ "please check your plan and billing details. Quota exceeded for metric: "
+			+ "generate_content_free_tier_requests, limit: 15 per minute. Please retry in 31s."));
+		assertEquals(Outcome.BAD_KEY, KeyCheck.classify("401 Unauthorized: this key's billing account is closed"));
+		assertEquals(Outcome.NO_CREDIT, KeyCheck.classify("Please set up billing to use this model"));
+		assertEquals(Outcome.PROVIDER_ERROR, KeyCheck.classify("504 Gateway Timeout"), "the provider's timeout, not the owner's network");
+		assertEquals(Outcome.BAD_KEY, KeyCheck.classify("400 API key expired. Please renew the API key."));
+		assertEquals(Outcome.BAD_KEY, KeyCheck.classify("This API key has been revoked"));
 	}
 
 	@Test
@@ -133,5 +143,24 @@ class KeyCheckTest {
 		assertEquals(Outcome.UNREACHABLE, r.outcome());
 		assertEquals("Couldn't reach Anthropic. Check your internet connection.", r.message());
 		assertTrue(r.hint().contains("VPN"), r.hint());
+	}
+
+	@Test
+	void aLoopingCauseChainStillEnds() {
+		RuntimeException a = new RuntimeException("first");
+		RuntimeException b = new RuntimeException("second", a);
+		a.initCause(b); // a → b → a …
+		String d = KeyCheck.detail(b);
+		assertTrue(d.contains("second") && d.contains("first"), d);
+	}
+
+	@Test
+	void aMissingModelIsNotClaimedAsAWorkingKey() {
+		Result r = KeyCheck.fromError(SONNET, "404 Not Found", KEY + "0123456789abcdefghij", 5);
+		assertEquals(Outcome.MODEL_UNAVAILABLE, r.outcome());
+		assertFalse(r.message().contains("The key works"), r.message());
+		Result local = KeyCheck.fromError("v/models/ollama/qwen", "404 model 'qwen' not found", null, 5);
+		assertTrue(local.message().startsWith("Ollama doesn't have"), local.message());
+		assertTrue(local.hint().contains("ollama pull qwen"), local.hint());
 	}
 }
