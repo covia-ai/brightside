@@ -162,6 +162,17 @@ class KeyCheckEndToEndTest {
 		assertFalse(recorded.contains(ANTHROPIC_KEY), "the key is a declared secret field, never recorded");
 	}
 
+	@Test
+	void aKeyWithoutAnthropicsUsualStartIsNamedWhenRefused() throws Exception {
+		// F-07 follow-up, end to end: an "sk-…" key with Anthropic chosen, refused.
+		try (StubProvider stub = StubProvider.replying(401,
+				StubProvider.anthropicError("authentication_error", "invalid x-api-key"))) {
+			Result r = KeyCheck.check(client("e2e-sk-on-anthropic"), SONNET, "sk-" + "0123456789abcdef".repeat(2), stub.anthropicUrl());
+			assertEquals(Outcome.BAD_KEY, r.outcome(), r.message());
+			assertTrue(r.hint().startsWith("Anthropic keys usually start sk-ant-"), r.hint());
+		}
+	}
+
 	// ---------------- OpenAI-compatible wire format ----------------
 
 	@Test

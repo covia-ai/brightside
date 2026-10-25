@@ -106,7 +106,22 @@ class ProviderHintsTest {
 	}
 
 	@Test
+	void aKeyWithoutTheProvidersUsualStartIsNamed() {
+		// F-07 follow-up: an "sk-…" key pasted with Anthropic chosen.
+		String hint = ProviderHints.forKey("anthropic", DEEPSEEK);
+		assertTrue(hint.startsWith("Anthropic keys usually start sk-ant-. This one doesn't"), hint);
+		assertTrue(hint.contains("OpenAI and DeepSeek keys start sk-"), hint);
+		assertTrue(ProviderHints.forKey("openrouter", MISTRAL).startsWith("OpenRouter keys usually start sk-or-"));
+		assertTrue(ProviderHints.forKey("xai", MISTRAL).startsWith("Grok (xAI) keys usually start xai-"));
+		assertTrue(ProviderHints.forKey("gemini", MISTRAL).startsWith("Gemini (Google) keys usually start AIza"));
+		// Providers whose keys share a shape (OpenAI, DeepSeek: sk-) get no such hint.
+		String shared = ProviderHints.forKey("openai", DEEPSEEK);
+		assertTrue(shared == null || !shared.contains("usually start"), shared);
+	}
+
+	@Test
 	void keysForProvidersNotOfferedAreNamed() {
+		assertTrue(ProviderHints.forKey("anthropic", "gsk_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789abcdefghij").contains("Groq"));
 		assertTrue(ProviderHints.forKey("openai", "gsk_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789abcdefghij").contains("Groq"));
 		assertTrue(ProviderHints.forKey("openai", "pplx-AbCdEfGhIjKlMnOpQrStUvWxYz0123456789abcdefghij").contains("Perplexity"));
 	}

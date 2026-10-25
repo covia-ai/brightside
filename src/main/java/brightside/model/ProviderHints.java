@@ -51,6 +51,11 @@ public final class ProviderHints {
 		}
 		if (looksLike == null && k.startsWith("gsk_")) return "This looks like a Groq key. Groq isn't one of the providers here yet; OpenRouter can reach many of the same models.";
 		if (looksLike == null && k.startsWith("pplx-")) return "This looks like a Perplexity key. Perplexity isn't one of the providers here.";
+		String expected = distinctivePrefix(providerId);
+		if (expected != null && chosen != null && !k.startsWith(expected)) {
+			return chosen.label() + " keys usually start " + expected + ". This one doesn't, so it may be from another provider"
+				+ (k.startsWith("sk-") ? " (OpenAI and DeepSeek keys start sk-)" : "") + ".";
+		}
 		Integer min = minimumLength(providerId);
 		if (min != null && k.length() < min && chosen != null) {
 			return "That's short for " + article(chosen.label()) + " " + chosen.label() + " key. It may have been cut off when you copied it.";
@@ -116,6 +121,17 @@ public final class ProviderHints {
 		if (k.startsWith("AIza")) return "gemini";
 		if (k.startsWith("sk-proj-") || k.startsWith("sk-svcacct-")) return "openai";
 		return null;
+	}
+
+	/** The start every key of this provider has, where it is distinctive; null when keys share a shape. */
+	private static String distinctivePrefix(String providerId) {
+		return switch (providerId == null ? "" : providerId) {
+			case "anthropic" -> "sk-ant-";
+			case "openrouter" -> "sk-or-";
+			case "xai" -> "xai-";
+			case "gemini" -> "AIza";
+			default -> null;
+		};
 	}
 
 	/** Tokens that look like keys but can't call models. */
