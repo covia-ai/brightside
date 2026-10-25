@@ -59,14 +59,37 @@ public final class KeyTest extends JPanel {
 		add(answer);
 		add(Box.createVerticalStrut(4));
 		add(hint);
-		// Wrap to the space actually given, again whenever it changes.
+		// Wrap to the space actually given, again whenever it, or anything
+		// around it, changes size.
 		addComponentListener(new ComponentAdapter() {
 			@Override
 			public void componentResized(ComponentEvent e) {
-				answer.render();
-				hint.render();
+				rewrap();
 			}
 		});
+		addHierarchyBoundsListener(new java.awt.event.HierarchyBoundsAdapter() {
+			@Override
+			public void ancestorResized(java.awt.event.HierarchyEvent e) {
+				rewrap();
+			}
+		});
+	}
+
+	private void rewrap() {
+		answer.render();
+		hint.render();
+	}
+
+	/**
+	 * The width the answer may use: from this panel's left edge to the inner
+	 * right edge of the container holding it. Measured on the container, not on
+	 * this panel, because this panel grows to fit what it holds — measuring
+	 * it would let a long line widen the panel past what is visible.
+	 */
+	int room() {
+		Container outer = getParent();
+		if (outer == null || outer.getWidth() <= 0) return -1;
+		return outer.getWidth() - getX() - outer.getInsets().right;
 	}
 
 	/** Enables the button, unless a test is already running. */
@@ -114,7 +137,8 @@ public final class KeyTest extends JPanel {
 	/**
 	 * One line of the answer, its icon right beside the text and both in a tone
 	 * that follows the theme. Text wider than the room it has wraps: the room
-	 * is the panel's width, capped at {@code width}. The text is always
+	 * is what is visible beside the panel ({@link KeyTest#room()}), capped at
+	 * {@code width}. The text is always
 	 * escaped, so HTML is used only to wrap.
 	 */
 	private static final class Answer extends JLabel {
@@ -160,13 +184,13 @@ public final class KeyTest extends JPanel {
 			repaint();
 		}
 
-		/** Pixels the text may take: the panel's width less the icon, capped at {@code width}. */
+		/** Pixels the text may take: the visible room less the icon, capped at {@code width}. */
 		private int room() {
 			int cap = UIScale.scale(width);
-			Container p = getParent();
-			if (p == null || p.getWidth() <= 0) return cap;
+			int visible = (getParent() instanceof KeyTest k) ? k.room() : -1;
+			if (visible <= 0) return cap;
 			int icon = (getIcon() != null) ? getIcon().getIconWidth() + getIconTextGap() : 0;
-			return Math.max(UIScale.scale(120), Math.min(cap, p.getWidth() - icon - UIScale.scale(8)));
+			return Math.max(UIScale.scale(120), Math.min(cap, visible - icon - UIScale.scale(8)));
 		}
 
 		@Override
