@@ -39,7 +39,7 @@ public final class ModelPanel extends SettingsPage {
 	private final Handler handler;
 	private final ModelSelector modelSelector = new ModelSelector();
 	private final JPasswordField keyField = Fields.secret(new JPasswordField(24));
-	private final KeyTest keyTest = new KeyTest(this::keyTestCall, 360, false);
+	private final KeyTest keyTest = new KeyTest(this::keyTestCall, 640, false);
 
 	private String baselineProvider;
 	private String baselineModel;

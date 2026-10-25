@@ -2,6 +2,9 @@ package brightside.ui.components;
 
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Container;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.util.function.Supplier;
 
 import javax.swing.Box;
@@ -35,7 +38,11 @@ public final class KeyTest extends JPanel {
 	private boolean wanted = true;
 	private boolean running;
 
-	/** {@code width}: where the answer wraps, in unscaled pixels; {@code centred} for a centred column. */
+	/**
+	 * {@code width}: the widest the answer runs before wrapping, in unscaled
+	 * pixels; narrower when the space it is given is narrower. {@code centred}
+	 * for a centred column.
+	 */
 	public KeyTest(Supplier<Supplier<KeyCheck.Result>> prepare, int width, boolean centred) {
 		this.prepare = prepare;
 		setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
@@ -52,6 +59,14 @@ public final class KeyTest extends JPanel {
 		add(answer);
 		add(Box.createVerticalStrut(4));
 		add(hint);
+		// Wrap to the space actually given, again whenever it changes.
+		addComponentListener(new ComponentAdapter() {
+			@Override
+			public void componentResized(ComponentEvent e) {
+				answer.render();
+				hint.render();
+			}
+		});
 	}
 
 	/** Enables the button, unless a test is already running. */
@@ -98,14 +113,17 @@ public final class KeyTest extends JPanel {
 
 	/**
 	 * One line of the answer, its icon right beside the text and both in a tone
-	 * that follows the theme. Text too wide for {@code width} wraps; the text is
-	 * always escaped, so HTML is used only to wrap.
+	 * that follows the theme. Text wider than the room it has wraps: the room
+	 * is the panel's width, capped at {@code width}. The text is always
+	 * escaped, so HTML is used only to wrap.
 	 */
 	private static final class Answer extends JLabel {
 
 		private final int width;
 		private final int align;
 		private Tone tone = Tone.MUTED;
+		private String text;
+		private String iconName;
 
 		Answer(int width, int align) {
 			super(" ");
@@ -117,18 +135,38 @@ public final class KeyTest extends JPanel {
 
 		/** {@code text} null or blank: an empty line that keeps its height. */
 		void show(String text, Tone tone, String icon) {
+			this.text = text;
 			this.tone = tone;
-			setIcon(icon == null ? null : Lucide.icon(icon, 14, () -> this.tone.colour()));
+			this.iconName = icon;
+			render();
+		}
+
+		void render() {
+			setIcon(iconName == null ? null : Lucide.icon(iconName, 14, () -> this.tone.colour()));
 			if (text == null || text.isBlank()) {
 				setText(" ");
-			} else if (getFontMetrics(getFont()).stringWidth(text) <= UIScale.scale(width)) {
-				Labels.plain(this);
-				setText(text);
 			} else {
-				putClientProperty("html.disable", null);
-				setText(Labels.wrap(Labels.escape(text), width, align));
+				int room = room();
+				if (getFontMetrics(getFont()).stringWidth(text) <= room) {
+					Labels.plain(this);
+					setText(text);
+				} else {
+					putClientProperty("html.disable", null);
+					int unscaled = Math.max(120, Math.round(room / UIScale.getUserScaleFactor()));
+					setText(Labels.wrap(Labels.escape(text), unscaled, align));
+				}
 			}
+			revalidate();
 			repaint();
+		}
+
+		/** Pixels the text may take: the panel's width less the icon, capped at {@code width}. */
+		private int room() {
+			int cap = UIScale.scale(width);
+			Container p = getParent();
+			if (p == null || p.getWidth() <= 0) return cap;
+			int icon = (getIcon() != null) ? getIcon().getIconWidth() + getIconTextGap() : 0;
+			return Math.max(UIScale.scale(120), Math.min(cap, p.getWidth() - icon - UIScale.scale(8)));
 		}
 
 		@Override
