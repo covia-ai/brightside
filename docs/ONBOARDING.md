@@ -46,10 +46,15 @@ the wizard and unlock both run before it. The code is `OnboardingWizard`,
    a raw seed. The seed is then derived and written encrypted, and the venue's
    DID is fixed.
 4. **Model** — provider and model from the venue's catalogue, an API key with
-   a link to that provider's console, an optional test call, and a keyless
-   "use the offline echo bot" escape so the app works end to end without a
-   key. The key is staged encrypted and moved into the venue's secret stores at
-   first launch.
+   a link to that provider's console, an optional **Test** button, and a
+   keyless "use the offline echo bot" escape so the app works end to end
+   without a key. *Test* sends one tiny request to the chosen model and says,
+   in plain words, that it works and how fast, or why not: a key the provider
+   refuses, no credit, rate-limited, a model the key can't use, or the
+   provider out of reach. The home venue doesn't exist yet, so the test runs
+   on a temporary in-memory engine through the same model operation a chat
+   uses, and the key is never shown or stored by it. The key is staged
+   encrypted and moved into the venue's secret stores at first launch.
 5. **Name** — "What should I call you?", then straight into the chat.
 
 ## Unlock
@@ -75,7 +80,9 @@ restores the identity only.
 
 - **Model** — provider, model and key. The model choice persists in
   `config.json` and applies on the next message; the key goes to the venue's
-  secret stores at once and never to `config.json`. Stored values are viewable,
+  secret stores at once and never to `config.json`. *Test* checks the selected
+  model with the key in the field, or the stored key when the field is blank,
+  as the owner and without saving anything. Stored values are viewable,
   passphrase-gated, under *Settings → Secrets* (a passphrase remembered on
   this computer passes the gate unasked).
 - **Identity** — name, DIDs, public key, the seed behind the passphrase, and

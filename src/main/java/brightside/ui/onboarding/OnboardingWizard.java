@@ -8,6 +8,7 @@ import java.awt.Dimension;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.util.Random;
+import java.util.function.Supplier;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -26,11 +27,13 @@ import javax.swing.SwingConstants;
 import com.formdev.flatlaf.FlatClientProperties;
 
 import brightside.Identity;
+import brightside.KeyCheck;
 import brightside.model.Providers;
 import brightside.ui.Icons;
 import brightside.ui.components.Buttons;
 import brightside.ui.components.Clipboard;
 import brightside.ui.components.Documents;
+import brightside.ui.components.KeyTest;
 import brightside.ui.components.Labels;
 import brightside.ui.components.Links;
 import brightside.ui.components.ModelSelector;
@@ -94,6 +97,7 @@ public final class OnboardingWizard extends JPanel {
 	private final PressButton keyLink = Buttons.link("Get an API key →", Providers.defaultProvider().consoleUrl());
 	private final JRadioButton useKey = new JRadioButton("Use my own model provider", true);
 	private final JRadioButton useOffline = new JRadioButton("Skip for now — use the offline echo bot");
+	private final KeyTest keyTest = new KeyTest(this::keyTestCall, COPY_WIDTH - 80, true);
 
 	private Step step = Step.WELCOME;
 
@@ -316,6 +320,10 @@ public final class OnboardingWizard extends JPanel {
 		keyBox.add(Box.createVerticalStrut(6));
 		keyLink.setAlignmentX(CENTER_ALIGNMENT);
 		keyBox.add(keyLink);
+		keyBox.add(Box.createVerticalStrut(10));
+		keyTest.setAlignmentX(CENTER_ALIGNMENT);
+		keyBox.add(keyTest);
+		Documents.onChange(keyField, this::onKeyEdited);
 
 		useKey.addActionListener(e -> setKeyEnabled(true));
 		useOffline.addActionListener(e -> setKeyEnabled(false));
@@ -520,6 +528,23 @@ public final class OnboardingWizard extends JPanel {
 		if (useKey.isSelected()) setKeyEnabled(true);
 		keyField.setVisible(needsKey);
 		keyLink.setVisible(needsKey);
+		onKeyEdited();
+	}
+
+	/** The key or model changed: the last test no longer describes it. */
+	private void onKeyEdited() {
+		Providers.Provider p = modelSelector.selectedProvider();
+		keyTest.reset();
+		keyTest.setTestEnabled(useKey.isSelected() && p != null
+			&& (!p.needsApiKey() || keyField.getPassword().length > 0));
+	}
+
+	/** Read on the event thread when Test is pressed; the call runs on a temporary engine. */
+	private Supplier<KeyCheck.Result> keyTestCall() {
+		Providers.Model m = modelSelector.selectedModel();
+		String op = Providers.modelOp(providerId(), (m != null) ? m.id() : null);
+		String key = new String(keyField.getPassword());
+		return () -> KeyCheck.checkStandalone(op, key);
 	}
 
 	private void setKeyEnabled(boolean on) {
@@ -529,6 +554,7 @@ public final class OnboardingWizard extends JPanel {
 		modelSelector.setEnabled(on);
 		keyField.setVisible(needsKey);
 		keyLink.setVisible(needsKey);
+		onKeyEdited();
 	}
 
 	private String providerId() {

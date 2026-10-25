@@ -154,6 +154,12 @@ The default model operation needs a provider key. Two supported ways to supply i
    and takes effect immediately. A key entered at onboarding is staged
    briefly in `keys.enc` and moved into the stores at first launch.
 
+Both places have a **Test** button: one tiny request to the selected model
+(a fraction of a cent) through the venue's own `v/models/<provider>/<id>`
+operation, answered in plain words: it works and how fast, or why not.
+In Settings it uses the key in the field, or your stored key when the field
+is blank, and saves nothing. The key is never shown in the answer.
+
 Each user's agents resolve that user's key (`s/ANTHROPIC_API_KEY` from their
 own store), so different users on the venue can use different keys; manage
 yours under *Settings → Secrets*. Do not put API keys in `config.json`.
