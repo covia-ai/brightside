@@ -1,0 +1,47 @@
+agent notes
+session 000001a173aeb1400000000000000003 | hello from a discord channel | 1792942190920
+  message user | hello from a discord channel | Discord · #general · quark
+  message assistant | {"text":"hello from a discord channel","via":{"chat":{"type":"TEXT","id":"456","name":"general"},"from":{"username":"quark","id":"123"},"channel":"discord"}} | -
+  message user | and typed right here | -
+  message assistant | and typed right here | -
+  raw user | {\n  "text": "hello from a discord channel",\n  "via": {\n           "chat": {\n                     "type": "TEXT",\n                     "id": "456",\n                     "name": "general"\n                   },\n           "from": {\n                     "username": "quark",\n                     "id": "123"\n                   },\n           "channel": "discord"\n         }\n} | - | false | chat · job 01a173aeb1…
+  raw system | [Pinned context: Your private memory of the user — edit with path n/memory]\nThe declared source is absent. | - | false | transition
+  raw assistant | {"text":"hello from a discord channel","via":{"chat":{"type":"TEXT","id":"456","name":"general"},"from":{"username":"quark","id":"123"},"channel":"discord"}} | - | false | transition · 9810 tok
+  raw user | and typed right here | - | false | chat · job 01a173aeb1…
+  raw assistant | and typed right here | - | false | transition · 9850 tok
+session 000001a173aeb1390000000000000002 | A named chat | 1792942190909
+  message user | a chat worth naming | -
+  message assistant | a chat worth naming | -
+  raw user | a chat worth naming | - | false | chat · job 01a173aeb1…
+  raw system | [Pinned context: Your private memory of the user — edit with path n/memory]\nThe declared source is absent. | - | false | transition
+  raw assistant | a chat worth naming | - | false | transition · 9534 tok
+session 000001a173aeb1240000000000000001 | an opening topic | 1792942190905
+  summary 8 | We covered the topic, then a new direction.
+  message user | after both summaries | -
+  message assistant | after both summaries | -
+  raw compacted | We covered the topic, then a new direction. | - | false | 8 turns archived
+  raw user | after both summaries | - | false | chat · job 01a173aeb1…
+  raw system | [Pinned context: Your private memory of the user — edit with path n/memory]\nThe declared source is absent. | - | false | transition
+  raw assistant | after both summaries | - | false | transition · 9600 tok
+session 000001a173aeb0f50000000000000000 | the first question | 1792942190883
+  message user | the first question | -
+  message assistant | the first question | -
+  message user | the second question | -
+  message assistant | the second question | -
+  raw user | the first question | - | false | chat · job 01a173aeb0…
+  raw system | [Pinned context: Your private memory of the user — edit with path n/memory]\nThe declared source is absent. | - | false | transition
+  raw assistant | the first question | - | false | transition · 9532 tok
+  raw user | the second question | - | false | chat · job 01a173aeb1…
+  raw assistant | the second question | - | false | transition · 9570 tok
+agent tools
+session 000001a173aeb14b0000000000000004 | look something up | 1792942190931
+  message user | look something up | -
+  activity
+    step true | v/test/ops/echo | {\n  "echo": "look something up"\n} | false | {\n  "echo": "look something up"\n}
+  message assistant | Tool returned: {"echo":"look something up"} | -
+  raw user | look something up | - | false | chat · job 01a173aeb1…
+  raw system | [Pinned context: Your private memory of the user — edit with path n/memory]\nThe declared source is absent. | - | false | transition
+  raw assistant | - | - | false | transition · 9555 tok
+    call v/test/ops/echo | call_1 | {\n  "echo": "look something up"\n}
+  raw tool | - | {\n  "echo": "look something up"\n} | false | tool
+  raw assistant | Tool returned: {"echo":"look something up"} | - | false | transition · 9570 tok

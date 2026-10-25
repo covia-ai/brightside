@@ -188,6 +188,18 @@ the compacted one under its own name and Etch swaps them at the next start.
 How much disk comes back depends on how much was garbage: Etch grows a file in
 steps as it writes, so a small store stays near the size of its last step.
 
+## Opening a store an older build wrote
+
+The venue runs inside the process, so a new build upgrades the store it opens
+and nothing else needs upgrading first. Covia migrates the venue's own state
+to its current version before anything else touches it; a conversation is
+converted to Covia's append-only history only when its session next runs, so
+one left alone keeps its older form, and both read the same. A store written
+by a newer Covia than the build supports is refused, unchanged. A build from
+before Covia versioned its state does not check, so do not go back to one
+once a newer build has opened the store. `CoviaMigrationTest` upgrades an
+install written by such a build and reads it at every step.
+
 ## When launch fails
 
 `Venue failed to start` in the log names the cause. `File lock failed on
