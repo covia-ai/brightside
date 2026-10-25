@@ -13,9 +13,11 @@ import convex.core.data.Maps;
 import convex.core.data.Strings;
 import convex.core.data.Vectors;
 import convex.core.data.prim.CVMLong;
+import convex.core.lang.RT;
 import covia.grid.Venue;
 import covia.venue.Engine;
 import covia.venue.LocalVenue;
+import brightside.model.ProviderHints;
 import brightside.model.Providers;
 
 /**
@@ -32,6 +34,11 @@ import brightside.model.Providers;
  * stored key as a chat would. Onboarding runs before the home venue exists, so
  * it tests on a temporary in-memory engine that is closed straight after
  * ({@link #checkStandalone}).</p>
+ *
+ * <p>Beside the answer goes a {@link ProviderHints hint} when there's a likely
+ * cause worth naming: the key's own shape (a stray space, another provider's
+ * key, an admin token) or, after a failure, where on that provider's site to
+ * look next.</p>
  *
  * <p>The key never appears in a result: any copy of it in a provider's error
  * text is masked before the text is shown.</p>
@@ -55,8 +62,8 @@ public final class KeyCheck {
 		}
 	}
 
-	/** The outcome, a sentence for the owner, and how long the call took. */
-	public record Result(Outcome outcome, String message, long millis) {
+	/** The outcome, a sentence for the owner, a likely cause or next step (or null), and how long it took. */
+	public record Result(Outcome outcome, String message, String hint, long millis) {
 		public boolean ok() {
 			return outcome.ok();
 		}
@@ -70,22 +77,33 @@ public final class KeyCheck {
 	 * {@code apiKey} is a key typed but not saved, or null to use the stored one.
 	 */
 	public static Result check(Venue client, String modelOp, String apiKey) {
+		return check(client, modelOp, apiKey, null);
+	}
+
+	/** As {@link #check(Venue, String, String)}, against {@code url} instead of the provider's own endpoint. */
+	static Result check(Venue client, String modelOp, String apiKey, String url) {
 		String key = (apiKey == null || apiKey.isBlank()) ? null : apiKey.trim();
 		AMap<AString, ACell> input = Maps.of(
 			"messages", Vectors.of(Maps.of("role", "user", "content", PROMPT)),
 			"maxTokens", CVMLong.create(MAX_TOKENS));
 		if (key != null) input = input.assoc(Strings.create("apiKey"), Strings.create(key));
+		if (url != null) input = input.assoc(Strings.create("url"), Strings.create(url));
 		long start = System.nanoTime();
 		try {
-			client.run(modelOp, input).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+			ACell out = client.run(modelOp, input).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 			long millis = elapsed(start);
-			return new Result(Outcome.WORKS, worksMessage(modelOp, millis), millis);
+			// An operation may refuse before calling anyone (a URL the venue's
+			// SSRF guard blocks, say) by returning a failure status as its
+			// result rather than failing the job.
+			String refused = inBandFailure(out);
+			if (refused != null) return fromError(modelOp, refused, key, millis);
+			return new Result(Outcome.WORKS, worksMessage(modelOp, millis), null, millis);
 		} catch (TimeoutException e) {
 			return failure(modelOp, Outcome.UNREACHABLE,
-				"No reply within " + TIMEOUT_SECONDS + " seconds.", elapsed(start));
+				"No reply within " + TIMEOUT_SECONDS + " seconds.", key, elapsed(start));
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
-			return failure(modelOp, Outcome.FAILED, "The test was interrupted.", elapsed(start));
+			return failure(modelOp, Outcome.FAILED, "The test was interrupted.", key, elapsed(start));
 		} catch (ExecutionException e) {
 			Throwable cause = (e.getCause() != null) ? e.getCause() : e;
 			return fromError(modelOp, detail(cause), key, elapsed(start));
@@ -99,26 +117,64 @@ public final class KeyCheck {
 	 * the home venue exists. Nothing is stored and the engine is closed after.
 	 */
 	public static Result checkStandalone(String modelOp, String apiKey) {
-		Engine engine = Engine.createTemp(null);
+		return checkStandalone(modelOp, apiKey, null, null);
+	}
+
+	/** As {@link #checkStandalone(String, String)}, against {@code url}, on an engine with {@code config}. */
+	static Result checkStandalone(String modelOp, String apiKey, String url, AMap<AString, ACell> config) {
+		Engine engine = Engine.createTemp(config);
 		try {
 			// The built-in adapters and their v/ catalogue, model operations included;
 			// a temporary engine starts without them.
 			Engine.addDemoAssets(engine);
 			LocalVenue client = LocalVenue.create(engine);
 			client.setUser(engine.getDIDString().toString());
-			return check(client, modelOp, apiKey);
+			return check(client, modelOp, apiKey, url);
 		} finally {
 			engine.close();
 		}
 	}
 
-	static Result fromError(String modelOp, String error, String key, long millis) {
-		String shown = mask(error, key);
-		return failure(modelOp, classify(shown), shown, millis);
+	/** The message of a {@code Status} failure returned as a result; null for a reply. */
+	static String inBandFailure(ACell out) {
+		AString status = RT.ensureString(RT.getIn(out, "status"));
+		if (status == null) return null;
+		String s = status.toString();
+		if (!s.equals("FAILED") && !s.equals("REJECTED") && !s.equals("CANCELLED")) return null;
+		AString message = RT.ensureString(RT.getIn(out, "message"));
+		return (message != null) ? message.toString() : s;
 	}
 
-	private static Result failure(String modelOp, Outcome outcome, String detail, long millis) {
-		return new Result(outcome, failureMessage(outcome, modelOp, detail), millis);
+	static Result fromError(String modelOp, String error, String key, long millis) {
+		String shown = mask(error, key);
+		return failure(modelOp, classify(shown), shown, key, millis);
+	}
+
+	private static Result failure(String modelOp, Outcome outcome, String detail, String key, long millis) {
+		return new Result(outcome, failureMessage(outcome, modelOp, detail), hint(modelOp, outcome, detail, key), millis);
+	}
+
+	/**
+	 * The key's own shape first — it explains a refusal better than any page
+	 * does — then the provider's next step for this outcome.
+	 */
+	static String hint(String modelOp, Outcome outcome, String detail, String key) {
+		String providerId = Providers.providerOf(modelOp);
+		String aboutKey = ProviderHints.forKey(providerId, key);
+		if (aboutKey != null && (outcome == Outcome.BAD_KEY || outcome == Outcome.FAILED || outcome == Outcome.NO_KEY)) {
+			return mask(aboutKey, key);
+		}
+		ProviderHints.Problem problem = switch (outcome) {
+			case NO_KEY -> ProviderHints.Problem.NO_KEY;
+			case BAD_KEY -> ProviderHints.Problem.BAD_KEY;
+			case NO_CREDIT -> ProviderHints.Problem.NO_CREDIT;
+			case RATE_LIMITED -> ProviderHints.Problem.RATE_LIMITED;
+			case MODEL_UNAVAILABLE -> ProviderHints.Problem.MODEL_UNAVAILABLE;
+			case UNREACHABLE -> ProviderHints.Problem.UNREACHABLE;
+			case WORKS, FAILED -> null;
+		};
+		String next = (problem == null) ? null : ProviderHints.forProblem(providerId, problem, detail);
+		return (next == null) ? null : mask(next, key);
 	}
 
 	// Most specific first: a 429 that says "insufficient_quota" is no credit,

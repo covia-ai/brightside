@@ -863,7 +863,7 @@ public final class BrightSide {
 		EmbeddedVenue v = venue;
 		Identity id = identity;
 		if (v == null || id == null) {
-			return new KeyCheck.Result(KeyCheck.Outcome.FAILED, "Brightside is still starting. Try again in a moment.", 0);
+			return new KeyCheck.Result(KeyCheck.Outcome.FAILED, "Brightside is still starting. Try again in a moment.", null, 0);
 		}
 		return KeyCheck.check(ownerClient(v, id), Providers.modelOp(providerId, modelId), apiKey);
 	}

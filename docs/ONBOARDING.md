@@ -51,7 +51,11 @@ the wizard and unlock both run before it. The code is `OnboardingWizard`,
    without a key. *Test* sends one tiny request to the chosen model and says,
    in plain words, that it works and how fast, or why not: a key the provider
    refuses, no credit, rate-limited, a model the key can't use, or the
-   provider out of reach. The home venue doesn't exist yet, so the test runs
+   provider out of reach. A line below names the likely cause when there is
+   one, from what each provider's keys and errors look like: "Bearer " or
+   quotes pasted in, another provider's key, an admin or subscription token
+   that can't call models, or that provider's keys or billing page. These
+   are suggestions; the provider's reply decides. The home venue doesn't exist yet, so the test runs
    on a temporary in-memory engine through the same model operation a chat
    uses, and the key is never shown or stored by it. The key is staged
    encrypted and moved into the venue's secret stores at first launch.

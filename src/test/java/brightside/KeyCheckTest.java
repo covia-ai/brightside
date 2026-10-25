@@ -79,4 +79,30 @@ class KeyCheckTest {
 		assertFalse(other.message().contains("sk-proj-AAAABBBBCCCCDDDD1234"), other.message());
 		assertTrue(other.message().contains("•••"), other.message());
 	}
+
+	@Test
+	void theKeysOwnShapeExplainsARefusalFirst() {
+		String router = "sk-or-v1-0123456789abcdef0123456789abcdef0123456789abcdef";
+		String hint = KeyCheck.hint(SONNET, Outcome.BAD_KEY, "401 invalid x-api-key", router);
+		assertTrue(hint.startsWith("This looks like an OpenRouter key"), hint);
+		assertFalse(hint.contains(router));
+		// A good-looking key that was refused points at the provider's key page instead.
+		assertTrue(KeyCheck.hint(SONNET, Outcome.BAD_KEY, "401", KEY + "0123456789abcdefghij").contains("console.anthropic.com/settings/keys"));
+	}
+
+	@Test
+	void eachOutcomeGetsItsNextStep() {
+		assertTrue(KeyCheck.hint(SONNET, Outcome.NO_CREDIT, "credit balance is too low", null).contains("billing"));
+		assertTrue(KeyCheck.hint(SONNET, Outcome.RATE_LIMITED, "529 overloaded", null).contains("isn't about your key"));
+		assertTrue(KeyCheck.hint("v/models/ollama/qwen", Outcome.UNREACHABLE, "Connection refused", null).contains("ollama serve"));
+		assertEquals(null, KeyCheck.hint(SONNET, Outcome.FAILED, "something odd", null));
+	}
+
+	@Test
+	void aFailureReturnedAsAResultIsAFailure() {
+		assertEquals("blocked", KeyCheck.inBandFailure(convex.core.data.Maps.of("status", "FAILED", "message", "blocked")));
+		assertEquals("REJECTED", KeyCheck.inBandFailure(convex.core.data.Maps.of("status", "REJECTED")));
+		assertEquals(null, KeyCheck.inBandFailure(convex.core.data.Maps.of("role", "assistant", "content", "OK")));
+		assertEquals(null, KeyCheck.inBandFailure(null));
+	}
 }

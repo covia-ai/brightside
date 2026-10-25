@@ -1,44 +1,57 @@
 package brightside.ui.components;
 
 import java.awt.Color;
-import java.awt.FlowLayout;
+import java.awt.Component;
 import java.util.function.Supplier;
 
+import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingWorker;
+
+import com.formdev.flatlaf.util.UIScale;
 
 import brightside.KeyCheck;
 
 /**
  * A <b>Test</b> button beside an API key, and the answer under it: one tiny
  * model call ({@link KeyCheck}) run off the event thread, then "Works: … replied
- * in 0.8 s" or the reason it doesn't, in plain words. What to test — which
- * model, which key — the owner's {@code prepare} reads from its fields on the
- * event thread when the button is pressed, and returns the call to make off it.
+ * in 0.8 s" or the reason it doesn't, in plain words, with any likely cause or
+ * next step on the line below. What to test — which model, which key — the
+ * owner's {@code prepare} reads from its fields on the event thread when the
+ * button is pressed, and returns the call to make off it.
  */
 @SuppressWarnings("serial")
 public final class KeyTest extends JPanel {
 
 	private final JButton button = Buttons.small("Test");
 	private final Answer answer;
+	private final Answer hint;
 	private final Supplier<Supplier<KeyCheck.Result>> prepare;
 	private boolean wanted = true;
 	private boolean running;
 
 	/** {@code width}: where the answer wraps, in unscaled pixels; {@code centred} for a centred column. */
 	public KeyTest(Supplier<Supplier<KeyCheck.Result>> prepare, int width, boolean centred) {
-		super(new FlowLayout(centred ? FlowLayout.CENTER : FlowLayout.LEFT, 0, 0));
 		this.prepare = prepare;
-		this.answer = new Answer(width, centred ? SwingConstants.CENTER : SwingConstants.LEFT);
+		setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 		setOpaque(false);
+		float x = centred ? Component.CENTER_ALIGNMENT : Component.LEFT_ALIGNMENT;
+		int align = centred ? SwingConstants.CENTER : SwingConstants.LEFT;
+		answer = new Answer(width, align);
+		hint = Styles.classes(new Answer(width, align), Styles.SMALL);
 		button.setToolTipText("Send one tiny request to check the key and model work (costs a fraction of a cent)");
 		button.addActionListener(e -> run());
+		for (JComponent c : new JComponent[] { button, answer, hint }) c.setAlignmentX(x);
 		add(button);
-		add(javax.swing.Box.createHorizontalStrut(10));
+		add(Box.createVerticalStrut(8));
 		add(answer);
+		add(Box.createVerticalStrut(4));
+		add(hint);
 	}
 
 	/** Enables the button, unless a test is already running. */
@@ -49,7 +62,9 @@ public final class KeyTest extends JPanel {
 
 	/** Clears the last answer: the key or model it described has changed. */
 	public void reset() {
-		if (!running) answer.show(" ", Tone.MUTED, null);
+		if (running) return;
+		answer.show(null, Tone.MUTED, null);
+		hint.show(null, Tone.MUTED, null);
 	}
 
 	private void run() {
@@ -57,6 +72,7 @@ public final class KeyTest extends JPanel {
 		running = true;
 		button.setEnabled(false);
 		answer.show("Testing…", Tone.MUTED, "loader-circle");
+		hint.show(null, Tone.MUTED, null);
 		new SwingWorker<KeyCheck.Result, Void>() {
 			@Override
 			protected KeyCheck.Result doInBackground() {
@@ -74,13 +90,17 @@ public final class KeyTest extends JPanel {
 					answer.show("The test couldn't run: " + e.getMessage(), Tone.ERROR, "circle-alert");
 					return;
 				}
-				if (r.ok()) answer.show(r.message(), Tone.SUCCESS, "circle-check");
-				else answer.show(r.message(), Tone.ERROR, "circle-alert");
+				answer.show(r.message(), r.ok() ? Tone.SUCCESS : Tone.ERROR, r.ok() ? "circle-check" : "circle-alert");
+				hint.show(r.hint(), Tone.MUTED, null);
 			}
 		}.execute();
 	}
 
-	/** The answer: wrapped text and an icon, both in a tone that follows the theme. */
+	/**
+	 * One line of the answer, its icon right beside the text and both in a tone
+	 * that follows the theme. Text too wide for {@code width} wraps; the text is
+	 * always escaped, so HTML is used only to wrap.
+	 */
 	private static final class Answer extends JLabel {
 
 		private final int width;
@@ -91,14 +111,23 @@ public final class KeyTest extends JPanel {
 			super(" ");
 			this.width = width;
 			this.align = align;
-			// HTML only to wrap: the text itself is always escaped (show()).
+			setHorizontalAlignment(align);
 			setIconTextGap(6);
 		}
 
+		/** {@code text} null or blank: an empty line that keeps its height. */
 		void show(String text, Tone tone, String icon) {
 			this.tone = tone;
 			setIcon(icon == null ? null : Lucide.icon(icon, 14, () -> this.tone.colour()));
-			setText(" ".equals(text) ? " " : Labels.wrap(Labels.escape(text), width, align));
+			if (text == null || text.isBlank()) {
+				setText(" ");
+			} else if (getFontMetrics(getFont()).stringWidth(text) <= UIScale.scale(width)) {
+				Labels.plain(this);
+				setText(text);
+			} else {
+				putClientProperty("html.disable", null);
+				setText(Labels.wrap(Labels.escape(text), width, align));
+			}
 			repaint();
 		}
 
