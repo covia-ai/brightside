@@ -66,6 +66,17 @@ class KeyCheckTest {
 		assertEquals(Outcome.UNREACHABLE, KeyCheck.classify("java.net.ConnectException: Connection refused"));
 		assertEquals(Outcome.UNREACHABLE, KeyCheck.classify("java.net.UnknownHostException: api.x.ai"));
 		assertEquals(Outcome.NO_KEY, KeyCheck.classify("API key is required for provider anthropic"));
+		// The model client's exception names, which may be all the venue reports.
+		assertEquals(Outcome.UNREACHABLE, KeyCheck.classify("UnresolvedModelServerException"));
+		assertEquals(Outcome.UNREACHABLE, KeyCheck.classify("dev.langchain4j.exception.TimeoutException: request timed out"));
+		assertEquals(Outcome.BAD_KEY, KeyCheck.classify("AuthenticationException"));
+		assertEquals(Outcome.MODEL_UNAVAILABLE, KeyCheck.classify("ModelNotFoundException"));
+		assertEquals(Outcome.RATE_LIMITED, KeyCheck.classify("RateLimitException"));
+		assertEquals(Outcome.PROVIDER_ERROR, KeyCheck.classify("InternalServerException"));
+		assertEquals(Outcome.PROVIDER_ERROR, KeyCheck.classify("500 Internal Server Error"));
+		assertEquals(Outcome.PROVIDER_ERROR, KeyCheck.classify("503 Service Unavailable"));
+		// Not the network: a missing operation is just a failure.
+		assertEquals(Outcome.FAILED, KeyCheck.classify("Cannot resolve operation: v/models/x/y"));
 		assertEquals(Outcome.FAILED, KeyCheck.classify("something unexpected"));
 		assertEquals(Outcome.FAILED, KeyCheck.classify(null));
 	}
@@ -104,5 +115,23 @@ class KeyCheckTest {
 		assertEquals("REJECTED", KeyCheck.inBandFailure(convex.core.data.Maps.of("status", "REJECTED")));
 		assertEquals(null, KeyCheck.inBandFailure(convex.core.data.Maps.of("role", "assistant", "content", "OK")));
 		assertEquals(null, KeyCheck.inBandFailure(null));
+	}
+
+	@Test
+	void theWholeCauseChainIsRead() {
+		Throwable dns = new RuntimeException(null, new java.net.UnknownHostException("api.anthropic.com"));
+		String d = KeyCheck.detail(dns);
+		assertTrue(d.contains("UnknownHostException: api.anthropic.com"), d);
+		assertEquals(Outcome.UNREACHABLE, KeyCheck.classify(d));
+		assertEquals("IllegalStateException", KeyCheck.detail(new IllegalStateException()));
+	}
+
+	@Test
+	void noNetworkReadsAsUnreachableWithTheNetworkHintNotTheKeys() {
+		// F-09: Wi-Fi off, a short test key typed. The network is the cause to name.
+		Result r = KeyCheck.fromError(SONNET, "UnresolvedModelServerException", "sk-short", 40);
+		assertEquals(Outcome.UNREACHABLE, r.outcome());
+		assertEquals("Couldn't reach Anthropic. Check your internet connection.", r.message());
+		assertTrue(r.hint().contains("VPN"), r.hint());
 	}
 }

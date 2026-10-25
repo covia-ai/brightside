@@ -55,7 +55,7 @@ public final class KeyCheck {
 
 	/** What the test found. */
 	public enum Outcome {
-		WORKS, NO_KEY, BAD_KEY, NO_CREDIT, RATE_LIMITED, MODEL_UNAVAILABLE, UNREACHABLE, FAILED;
+		WORKS, NO_KEY, BAD_KEY, NO_CREDIT, RATE_LIMITED, MODEL_UNAVAILABLE, UNREACHABLE, PROVIDER_ERROR, FAILED;
 
 		public boolean ok() {
 			return this == WORKS;
@@ -171,7 +171,7 @@ public final class KeyCheck {
 			case RATE_LIMITED -> ProviderHints.Problem.RATE_LIMITED;
 			case MODEL_UNAVAILABLE -> ProviderHints.Problem.MODEL_UNAVAILABLE;
 			case UNREACHABLE -> ProviderHints.Problem.UNREACHABLE;
-			case WORKS, FAILED -> null;
+			case WORKS, FAILED, PROVIDER_ERROR -> null;
 		};
 		String next = (problem == null) ? null : ProviderHints.forProblem(providerId, problem, detail);
 		return (next == null) ? null : mask(next, key);
@@ -179,18 +179,22 @@ public final class KeyCheck {
 
 	// Most specific first: a 429 that says "insufficient_quota" is no credit,
 	// not a rate limit, and a 401 mentioning billing is still a refused key.
+	// The model client's exception names count too: with no network the
+	// venue may report nothing but "UnresolvedModelServerException".
 	private static final Pattern NO_KEY = Pattern.compile(
 		"(api.?key|secret).{0,40}(missing|required|not (set|found|provided|configured))|no api.?key|missing (api.?key|credentials)");
 	private static final Pattern NO_CREDIT = Pattern.compile(
 		"\\b402\\b|insufficient[_ ](quota|balance|credits?|funds)|credit balance|out of credits?|billing|payment required|exceeded your current quota");
 	private static final Pattern BAD_KEY = Pattern.compile(
-		"\\b40[13]\\b|unauthori[sz]ed|invalid.{0,12}(api.?key|x-api-key|token|credentials)|incorrect api.?key|api.?key (is )?(not valid|invalid)|authentication|permission denied|forbidden");
+		"\\b40[13]\\b|authenticationexception|unauthori[sz]ed|invalid.{0,12}(api.?key|x-api-key|token|credentials)|incorrect api.?key|api.?key (is )?(not valid|invalid)|authentication|permission denied|forbidden");
 	private static final Pattern RATE_LIMITED = Pattern.compile(
-		"\\b429\\b|\\b529\\b|rate.?limit|too many requests|overloaded");
+		"\\b429\\b|\\b529\\b|ratelimitexception|rate.?limit|too many requests|overloaded");
 	private static final Pattern MODEL_UNAVAILABLE = Pattern.compile(
-		"\\b404\\b|model.{0,30}(not found|does not exist|not available|unknown|unsupported)|not_found_error|no such model|unknown model");
+		"\\b404\\b|modelnotfoundexception|model.{0,30}(not found|does not exist|not available|unknown|unsupported)|not_found_error|no such model|unknown model");
 	private static final Pattern UNREACHABLE = Pattern.compile(
-		"unknownhost|unknown host|connect(ion)? (refused|reset|timed out)|connectexception|timed? ?out|unreachable|no route to host|network is unreachable|failed to connect");
+		"unknownhost|unknown host|unresolvedmodelserver|(cannot|could not|unable to) resolve (host|hostname|address)|unresolvedaddress|connect(ion)? (refused|reset|timed out)|connectexception|timeoutexception|timed? ?out|unreachable|no route to host|network is unreachable|failed to connect");
+	private static final Pattern PROVIDER_ERROR = Pattern.compile(
+		"\\b50[0-4]\\b|internalserverexception|internal server error|service unavailable|bad gateway");
 
 	/** Which outcome a provider's error text describes; {@link Outcome#FAILED} when unclear. */
 	static Outcome classify(String error) {
@@ -202,6 +206,7 @@ public final class KeyCheck {
 		if (RATE_LIMITED.matcher(e).find()) return Outcome.RATE_LIMITED;
 		if (MODEL_UNAVAILABLE.matcher(e).find()) return Outcome.MODEL_UNAVAILABLE;
 		if (UNREACHABLE.matcher(e).find()) return Outcome.UNREACHABLE;
+		if (PROVIDER_ERROR.matcher(e).find()) return Outcome.PROVIDER_ERROR;
 		return Outcome.FAILED;
 	}
 
@@ -231,6 +236,7 @@ public final class KeyCheck {
 			case UNREACHABLE -> local
 				? "Couldn't reach Ollama on this computer. Is it running?"
 				: "Couldn't reach " + provider + ". Check your internet connection.";
+			case PROVIDER_ERROR -> provider + " had a problem on its side. This isn't about your key; try again shortly.";
 			case FAILED, WORKS -> "The test call failed: " + shorten(detail);
 		};
 	}
@@ -253,9 +259,19 @@ public final class KeyCheck {
 		return (p != null) ? p.label() : "The provider";
 	}
 
-	private static String detail(Throwable t) {
-		String m = t.getMessage();
-		return (m == null || m.isBlank()) ? t.getClass().getSimpleName() : m;
+	/**
+	 * Everything the failure says, outermost first: each cause's type and
+	 * message (the type can be all there is, or say more than the message:
+	 * an UnknownHostException's message is just the host).
+	 */
+	static String detail(Throwable t) {
+		java.util.LinkedHashSet<String> parts = new java.util.LinkedHashSet<>();
+		for (Throwable c = t; c != null && parts.size() < 6; c = (c.getCause() == c) ? null : c.getCause()) {
+			String m = c.getMessage();
+			String type = c.getClass().getSimpleName();
+			parts.add((m == null || m.isBlank()) ? type : (m.contains(type) ? m : type + ": " + m));
+		}
+		return String.join(" — ", parts);
 	}
 
 	private static String shorten(String s) {

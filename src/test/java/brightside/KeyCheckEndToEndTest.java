@@ -277,6 +277,23 @@ class KeyCheckEndToEndTest {
 	}
 
 	@Test
+	void aHostThatDoesntResolveIsUnreachable() {
+		// As with no network: the provider's name can't be looked up (.invalid never resolves).
+		Result r = KeyCheck.check(client("e2e-dns"), SONNET, ANTHROPIC_KEY, "http://brightside-key-test.invalid/v1/");
+		assertEquals(Outcome.UNREACHABLE, r.outcome(), r.message());
+		assertTrue(r.hint().contains("VPN"), r.hint());
+	}
+
+	@Test
+	void aProviderSideErrorIsNotBlamedOnTheKey() throws Exception {
+		try (StubProvider stub = StubProvider.replying(500, StubProvider.anthropicError("api_error", "Internal server error"))) {
+			Result r = KeyCheck.check(client("e2e-500"), SONNET, ANTHROPIC_KEY, stub.anthropicUrl());
+			assertEquals(Outcome.PROVIDER_ERROR, r.outcome(), r.message());
+			assertTrue(r.message().contains("isn't about your key"), r.message());
+		}
+	}
+
+	@Test
 	void onboardingsStandaloneTestReachesTheProviderToo() throws Exception {
 		try (StubProvider stub = StubProvider.replying(200, StubProvider.ANTHROPIC_OK)) {
 			Result r = KeyCheck.checkStandalone(SONNET, ANTHROPIC_KEY, stub.anthropicUrl(), LOOPBACK_ALLOWED);
