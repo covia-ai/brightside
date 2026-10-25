@@ -24,7 +24,8 @@ hand-edited file and its comments stay intact.
 | `~/.brightside/file-roots.json` | Folder access overrides saved from the Files screen; applied over configured roots on restart. |
 | `~/.brightside/identity.json` | Your name, stable slug and full Covia user DID, kept apart so identity changes never rewrite settings. |
 | `~/.brightside/venue.etch` | The encrypted lattice store: conversations, memory, skills, agent state and personal drives. |
-| `~/.brightside/venue.etch.unclean-<stamp>` | The store as it was before a launch-time repair ([LAUNCH.md](LAUNCH.md)); delete once the repaired store has proved itself. |
+| `~/.brightside/venue.etch.unclean-<stamp>` | The store as it was before a launch-time repair ([LAUNCH.md](LAUNCH.md)); remove it once the repaired store has proved itself, under [Data store space](#data-store-space). |
+| `~/.brightside/venue.etch.compact` | Present when compaction is asked for; the next launch compacts the store and removes it ([Data store space](#data-store-space)). |
 | `~/.brightside/vault.salt` | The non-secret salt for passphrase hardening. |
 | `~/.brightside/identity.enc` | The AES-GCM-encrypted Ed25519 identity seed. |
 | `~/.brightside/keys.enc` | Transient: stages an onboarding API key until the first launch moves it into the venue's encrypted secret stores; absent afterwards. |
@@ -289,6 +290,24 @@ downloading the voice (about 115 MB), into
 the same `~/.brightside/cache/speech/`. To have a provider speak instead while
 keeping your voice on this computer, set `"speakEngine": "openai"` in the
 venue's speech block; your replies' text then goes to that provider.
+
+## Data store space
+
+*Settings → General → Data store* shows how much disk `venue.etch` takes.
+The store only grows: a value replaced or deleted stays in the file until the
+store is compacted, which keeps everything still in use and drops the rest.
+*Compact it the next time Brightside starts* asks for that; the next launch
+does it before the venue opens, once, and the chat says what the store held
+before and after. Clear the box to withdraw it. Nothing compacts the store
+unasked. Why it waits for a start is in [LAUNCH.md](LAUNCH.md#compacting-the-store).
+
+The same section lists the files kept from earlier repairs, when there are
+any, and *Remove kept files…* deletes them after asking; keep them if
+anything has seemed missing since a repair.
+
+Odin can do both for the owner's assistants through `brightside:storage`
+([ODIN.md](ODIN.md)); his judgement puts anything hard to undo, such as
+removing the kept files, to the owner first.
 
 ## Discord
 

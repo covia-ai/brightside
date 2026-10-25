@@ -1,6 +1,6 @@
 {
 	"name": "Run an administrative operation",
-	"description": "Executes one operator operation with the venue's authority. Odin only. Without `user`: one of the venue operations — v/ops/venue/adapters, v/ops/venue/adapter/enable|disable|configure, v/ops/venue/module/load|unload, v/ops/user/create|list|info, v/ops/ucan/issue (for venue-controlled resources). With `user`: runs the operation inside that user's namespace on their behalf (user:sudo, this venue's own users only) — one of v/ops/covia/read|list|inspect|write|delete, v/ops/agent/list|info|update|resume|sessions|delete-session|delete, v/ops/skills/list|read. Anything else is refused. Every run is a recorded job.",
+	"description": "Executes one operator operation with the venue's authority. Odin only. Without `user`: one of the venue operations — v/ops/venue/adapters, v/ops/venue/adapter/enable|disable|configure, v/ops/venue/module/load|unload, v/ops/user/create|list|info, v/ops/ucan/issue (for venue-controlled resources), v/ops/brightside/storage (the data store's disk: compaction at the next start, originals kept by repairs). With `user`: runs the operation inside that user's namespace on their behalf (user:sudo, this venue's own users only) — one of v/ops/covia/read|list|inspect|write|delete, v/ops/agent/list|info|update|resume|sessions|delete-session|delete, v/ops/skills/list|read. Anything else is refused. Every run is a recorded job.",
 	"operation": {
 		"adapter": "brightside:odin-run",
 		"toolName": "odin_run",

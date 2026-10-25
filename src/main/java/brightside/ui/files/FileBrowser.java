@@ -62,6 +62,7 @@ import javax.swing.tree.TreeSelectionModel;
 import com.formdev.flatlaf.FlatClientProperties;
 import com.formdev.flatlaf.util.UIScale;
 
+import brightside.Sizes;
 import brightside.files.DirectoryCache;
 import brightside.files.DirectoryCache.Location;
 import brightside.files.FileChanges;
@@ -725,7 +726,7 @@ public final class FileBrowser extends JPanel {
 		name.setToolTipText(entry.name());
 		h.add(name, "wmin 0, wrap");
 		StringBuilder meta = new StringBuilder(kind(entry));
-		if (!entry.directory()) meta.append("  ·  ").append(displaySize(entry.size()));
+		if (!entry.directory()) meta.append("  ·  ").append(Sizes.of(entry.size()));
 		if (entry.modified() > 0) meta.append("  ·  ").append(DATE.format(Instant.ofEpochMilli(entry.modified())));
 		h.add(Labels.small(meta.toString()), "wmin 0");
 		return h;
@@ -739,7 +740,7 @@ public final class FileBrowser extends JPanel {
 		List<Entry> plain = selected.stream().filter(e -> !e.directory()).toList();
 		if (!plain.isEmpty()) {
 			parts.add(plain.size() + (plain.size() == 1 ? " file, " : " files, ")
-				+ displaySize(plain.stream().mapToLong(Entry::size).sum()));
+				+ Sizes.of(plain.stream().mapToLong(Entry::size).sum()));
 		}
 		return new EmptyState("files", Tone.MUTED, selected.size() + " items selected", String.join("  ·  ", parts)).bare();
 	}
@@ -868,11 +869,6 @@ public final class FileBrowser extends JPanel {
 	private static String kind(Entry entry) {
 		return (entry.directory() || "file".equals(entry.type())) ? FileKind.of(entry.name(), entry.directory()).word : entry.type();
 	}
-	private static String displaySize(long bytes) {
-		if (bytes < 1024) return bytes + " B";
-		if (bytes < 1024 * 1024) return String.format(Locale.ROOT, "%.1f KB", bytes / 1024.0);
-		return String.format(Locale.ROOT, "%.1f MB", bytes / (1024.0 * 1024));
-	}
 
 	/**
 	 * A folder in the sidebar. It has no arrow until it has been read and found
@@ -934,7 +930,7 @@ public final class FileBrowser extends JPanel {
 		@Override public Component getListCellRendererComponent(JList<? extends Entry> list, Entry entry,
 				int index, boolean selected, boolean focus) {
 			name.setText(entry.name());
-			meta.setText((entry.directory() ? "Folder" : displaySize(entry.size()))
+			meta.setText((entry.directory() ? "Folder" : Sizes.of(entry.size()))
 				+ (entry.modified() > 0 ? "  ·  " + DATE.format(Instant.ofEpochMilli(entry.modified())) : ""));
 			icon.setIcon(icons.get(FileKind.of(entry.name(), entry.directory())));
 			trailing.setIcon(entry.directory() ? chevron : null);

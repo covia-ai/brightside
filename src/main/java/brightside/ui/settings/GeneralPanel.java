@@ -9,6 +9,8 @@ import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
+import brightside.Sizes;
+import brightside.StoreSpace;
 import brightside.ui.components.Buttons;
 import brightside.ui.components.Labels;
 import brightside.ui.components.Styles;
@@ -46,6 +48,12 @@ public final class GeneralPanel extends SettingsPage {
 		/** How long a pause after speaking sends the message, in seconds; 0 for only "Go" or Enter. */
 		void setSendAfterPause(int seconds);
 
+		/** Compact the data store the next time Brightside starts, or not. */
+		void setCompactAtNextStart(boolean value);
+
+		/** Delete the originals earlier repairs kept, once the owner confirms. */
+		void removeKeptOriginals();
+
 		void hideToTray();
 
 		void openDashboard();
@@ -76,6 +84,10 @@ public final class GeneralPanel extends SettingsPage {
 	private final JCheckBox readAloud = new JCheckBox("Read replies aloud");
 	private final JLabel readAloudNote = Labels.small(
 		"Off: right-click a reply and choose Read aloud to hear just that one. Esc stops it.");
+	private final JLabel storeSize = new JLabel(" ");
+	private final JCheckBox compact = new JCheckBox("Compact it the next time Brightside starts");
+	private final JLabel keptNote = Labels.small(" ");
+	private final JPanel keptRow;
 	private final JButton hideToTray;
 	private final JButton dashboard;
 	private boolean syncing;
@@ -145,6 +157,23 @@ public final class GeneralPanel extends SettingsPage {
 		JPanel tray = buttons();
 		hideToTray = action(tray, "Hide to tray", "Hide this window and keep Brightside running", host::hideToTray);
 
+		compact.setOpaque(false);
+		compact.setToolTipText("Starting takes a little longer that once; nothing in use is lost");
+		compact.addActionListener(e -> {
+			if (!syncing) host.setCompactAtNextStart(compact.isSelected());
+		});
+		group("Data store");
+		addValueRow("On disk",
+			"Your conversations, assistants and settings. The store only grows: compacting drops what it no longer refers to.",
+			storeSize);
+		addSpan(compact);
+		addSpan(keptNote);
+		keptRow = buttons();
+		action(keptRow, "Remove kept files…", "Delete the files kept from earlier repairs; this can't be undone",
+			host::removeKeptOriginals);
+		keptNote.setVisible(false); // until refreshStore finds any
+		keptRow.setVisible(false);
+
 		group("Advanced");
 		JPanel advanced = buttons();
 		dashboard = action(advanced, "Open dashboard", "The embedded venue's web dashboard, in your browser",
@@ -207,6 +236,26 @@ public final class GeneralPanel extends SettingsPage {
 		pauses.setSelectedItem(new Pause(sendAfterPause));
 		pause.setModel(pauses);
 		syncing = false;
+	}
+
+	/**
+	 * Refreshes the data store's size and whether compaction is asked for, and
+	 * offers to remove the originals repairs kept when there are any. Null when
+	 * the store is not a file, as in a test venue.
+	 */
+	public void refreshStore(StoreSpace.Report report) {
+		syncing = true;
+		compact.setSelected(report != null && report.compactAtNextStart());
+		syncing = false;
+		compact.setEnabled(report != null);
+		storeSize.setText((report != null) ? Sizes.of(report.storeBytes()) : "Not kept on disk");
+		int kept = (report != null) ? report.keptOriginals().size() : 0;
+		if (kept > 0) {
+			keptNote.setText(((kept == 1) ? "A file kept from an earlier repair takes "
+				: kept + " files kept from earlier repairs take ") + Sizes.of(report.keptBytes()) + ".");
+		}
+		keptNote.setVisible(kept > 0);
+		keptRow.setVisible(kept > 0);
 	}
 
 	/** A choice of how long a pause after speaking sends the message; 0 never does. */

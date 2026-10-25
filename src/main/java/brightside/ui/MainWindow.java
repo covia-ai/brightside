@@ -1,5 +1,6 @@
 package brightside.ui;
 
+import java.io.IOException;
 import java.util.List;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
@@ -23,6 +24,8 @@ import brightside.BrightSide;
 import brightside.EmbeddedVenue;
 import brightside.Identity;
 import brightside.SessionHistory;
+import brightside.Sizes;
+import brightside.StoreSpace;
 import brightside.chat.ChatSession;
 import brightside.ui.chat.ChatPanel;
 import brightside.ui.chat.ConversationList;
@@ -308,6 +311,34 @@ public final class MainWindow extends JFrame {
 			@Override
 			public void setSendAfterPause(int seconds) {
 				app.setSendAfterPauseSeconds(seconds);
+			}
+
+			@Override
+			public void setCompactAtNextStart(boolean value) {
+				try {
+					app.setCompactAtNextStart(value);
+				} catch (IOException e) {
+					Dialogs.warn(MainWindow.this, "Data store", "Brightside couldn't save that: " + e.getMessage());
+				}
+				settingsScreen.general().refreshStore(app.storeReport());
+			}
+
+			@Override
+			public void removeKeptOriginals() {
+				StoreSpace.Report report = app.storeReport();
+				if (report == null || report.keptOriginals().isEmpty()) return;
+				int n = report.keptOriginals().size();
+				if (Dialogs.confirmDanger(MainWindow.this, "Remove kept files",
+						"Delete " + ((n == 1) ? "the file" : "the " + n + " files") + " kept from earlier repairs ("
+							+ Sizes.of(report.keptBytes()) + ")?\nKeep them if anything has seemed missing since a repair."
+							+ " This can't be undone.")) {
+					try {
+						app.removeKeptOriginals();
+					} catch (IOException e) {
+						Dialogs.warn(MainWindow.this, "Data store", "Brightside couldn't remove them: " + e.getMessage());
+					}
+				}
+				settingsScreen.general().refreshStore(app.storeReport());
 			}
 
 			@Override
@@ -799,6 +830,7 @@ public final class MainWindow extends JFrame {
 		settingsScreen.general().refreshStartup(app.takeOverWithoutAsking(), app.unlockWithoutAsking(),
 			app.hasRememberedPassphrase());
 		settingsScreen.general().refreshVoice(app.readRepliesAloud(), app.sendAfterPauseSeconds());
+		settingsScreen.general().refreshStore(app.storeReport());
 		settingsScreen.theme().refresh(app.mode(), app.theme(), app.accent());
 		settingsScreen.model().preselect(app.currentModelOp());
 		settingsScreen.profile().refresh(name, userDid, venueDid, app.publicKeyHex(), app.canRevealPrivateSeed(),

@@ -12,6 +12,8 @@ how it stops. Code: `BrightSide`, `Takeover`, `EmbeddedVenue`, `TrayManager`.
   waits for it to release the store before opening it.
 - **Closing the window quits** unless the owner opts into the tray; quitting
   always flushes state, and waits for a launch in progress first.
+- **The store is compacted only when asked**, at the start of the next
+  launch, before the venue holds it.
 
 ## Startup
 
@@ -59,7 +61,9 @@ See [stdio setup](CONFIGURATION.md#from-a-stdio-mcp-client).
    then runs on a background thread while the unlock dialog stays up showing
    progress ("Starting the venue…"); the main window appears only once the
    venue is actually ready, so it never shows without live data behind it.
-4. `EmbeddedVenue.launch` starts the `VenueServer` on loopback with public
+4. When compaction was asked for, `StoreSpace` opens the store first and has
+   Covia collect it, then hands it to the venue (below).
+   `EmbeddedVenue.launch` starts the `VenueServer` on loopback with public
    access disabled, registering `BrightsideAdapter`, `BrightsideSkillsAdapter`,
    Moltbook, Discord and Claude Code in Covia's pre-start hook: after the
    built-in adapters are installed and configured secrets provisioned, before
@@ -162,6 +166,28 @@ so there is never no store at all. `"repairStore": false` in `config.json`
 stops the launch instead, for an owner who would rather restore a backup by
 hand ([CONFIGURATION.md](CONFIGURATION.md)).
 
+## Compacting the store
+
+Etch only appends, so a value replaced or deleted stays in `venue.etch` until
+the store is collected: everything the lattice root still reaches is copied
+into a fresh file and the rest dropped. Covia can collect a running venue, but
+the store then spans two files until the venue next closes cleanly, and a
+crash in that time leaves files the launch-time repair cannot put right. The
+start is the safe point: nothing holds the store and nothing writes to it.
+
+So compaction is asked for, from Settings → General → Data store or by Odin
+(`brightside:storage`), and leaves a `venue.etch.compact` request beside the
+store. The next launch spends the request before anything else, so a
+compaction cut short is not tried again at every start; `StoreSpace` then
+opens the store, runs Covia's start-up collection on it and launches the venue
+on the result, and the chat opens with a note of what it held before and
+after. A collection that fails before it cuts over leaves the store as it was,
+and the note says so. Where Windows still pins the old file, the venue runs on
+the compacted one under its own name and Etch swaps them at the next start.
+
+How much disk comes back depends on how much was garbage: Etch grows a file in
+steps as it writes, so a small store stays near the size of its last step.
+
 ## When launch fails
 
 `Venue failed to start` in the log names the cause. `File lock failed on
@@ -169,3 +195,10 @@ venue.etch` means another process still holds the store without answering on
 the port — one stopped dead mid-exit, or a different tool holding the file:
 wait a moment, or quit it. A wrong passphrase is reported on the unlock screen,
 not in the log.
+
+**Known limit:** a crash part-way through a compaction leaves the store in
+files that only a repair by hand can open, and the launch stops rather than
+repairing the wrong one (`StoreRepair.isInterruptedCollection`), telling the
+owner to keep every `venue.etch` file as it is. The window is the collection
+itself, well under a second for a store of tens of megabytes. Putting it right needs
+Convex's `etch` tools; doing it at launch belongs in Convex and Covia.

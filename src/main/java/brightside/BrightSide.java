@@ -85,6 +85,8 @@ public final class BrightSide {
 	private final Path configPath;
 	private final Prefs prefs;
 	private volatile EmbeddedVenue venue;
+	/** The disk the running venue's store takes; null until it is up, or for a store that is not a file. */
+	private volatile StoreSpace storeSpace;
 	private volatile ChatSession chat;
 	private volatile LatticeWatcher inboxWatcher; // event thread; the owner's h/ inbox
 	private final java.util.Set<String> notifiedRequests = java.util.concurrent.ConcurrentHashMap.newKeySet();
@@ -448,13 +450,27 @@ public final class BrightSide {
 					return;
 				}
 			}
-			// The slow part: opening the encrypted store, adapters, provisioning.
-			progress("Starting the venue…");
+			// The slow part: opening the encrypted store, adapters, provisioning;
+			// and compacting the store first, when that was asked for.
+			covia.venue.Config storeConfig = new covia.venue.Config(venueConfig);
+			StoreSpace space = StoreSpace.of(storeConfig);
+			storeSpace = space;
+			boolean compacting = space != null && space.takeRequest();
+			progress(compacting ? "Compacting the data store…" : "Starting the venue…");
 			EmbeddedVenue v;
 			StoreRepair.Outcome repaired = null;
+			StoreSpace.Compacted compacted = null;
 			try {
-				v = EmbeddedVenue.launch(venueConfig, this::exit);
-			} catch (RuntimeException e) {
+				if (compacting) compacted = space.compact(storeConfig);
+				v = launchOn(venueConfig, compacted);
+			} catch (RuntimeException | IOException e) {
+				if (StoreRepair.isInterruptedCollection(e)) {
+					log.error("The store was left part-way through a collection", e);
+					startupFailed("Brightside was stopped part-way through compacting its data store, and can't open"
+						+ " it until that is put right by hand. Nothing has been lost: keep every venue.etch file in "
+						+ space.store().getParent() + " as it is; putting it right needs Convex's etch tools.");
+					return;
+				}
 				// A store left open by a crash (or a launch stopped dead) is refused
 				// by Etch v3 until it is repaired into a fresh file. Do that here,
 				// where the key is in hand, unless the owner has switched it off.
@@ -475,8 +491,9 @@ public final class BrightSide {
 					return;
 				}
 				log.warn("Store repaired — {}", repaired.summary());
-				progress("Starting the venue…");
-				v = EmbeddedVenue.launch(venueConfig, this::exit);
+				progress(compacting ? "Compacting the data store…" : "Starting the venue…");
+				if (compacting) compacted = space.compact(storeConfig);
+				v = launchOn(venueConfig, compacted);
 			}
 			venue = v;
 			log.info("Venue '{}' ready at {} as {}", v.name(), v.url(), v.did());
@@ -493,6 +510,11 @@ public final class BrightSide {
 				String notice = repaired.notice();
 				SwingUtilities.invokeLater(() -> window.showSystemMessage(notice));
 			}
+			if (compacted != null) {
+				log.info("Store compaction at start: {}", compacted.summary());
+				String notice = compacted.notice();
+				SwingUtilities.invokeLater(() -> window.showSystemMessage(notice));
+			}
 		} catch (Throwable t) {
 			log.error("Venue failed to start", t);
 			closeVenue();
@@ -503,6 +525,12 @@ public final class BrightSide {
 			launchThread = null;
 			done.countDown();
 		}
+	}
+
+	/** Launches the venue on the store {@code compacted} opened, or else on the one the config names. */
+	private EmbeddedVenue launchOn(AMap<AString, ACell> venueConfig, StoreSpace.Compacted compacted) {
+		return (compacted != null) ? EmbeddedVenue.launch(venueConfig, compacted.store(), this::exit)
+			: EmbeddedVenue.launch(venueConfig, this::exit);
 	}
 
 	/** The persistent store {@code venueConfig} names, or null for a temp or memory store. */
@@ -2204,6 +2232,30 @@ public final class BrightSide {
 
 	public void setSendAfterPauseSeconds(int seconds) {
 		prefs.setString(PREF_SEND_AFTER_PAUSE, Integer.toString(Math.max(0, seconds)));
+	}
+
+	/** The data store's size, compaction request and kept originals; null when it is not a file or can't be read. */
+	public StoreSpace.Report storeReport() {
+		StoreSpace space = storeSpace;
+		if (space == null) return null;
+		try {
+			return space.report();
+		} catch (IOException e) {
+			log.warn("Could not read the data store's size: {}", e.toString());
+			return null;
+		}
+	}
+
+	/** Compacts the data store the next time Brightside starts, or withdraws that. */
+	public void setCompactAtNextStart(boolean value) throws IOException {
+		StoreSpace space = storeSpace;
+		if (space != null) space.compactAtNextStart(value);
+	}
+
+	/** Deletes the originals repairs kept beside the store, once the owner has confirmed. */
+	public void removeKeptOriginals() throws IOException {
+		StoreSpace space = storeSpace;
+		if (space != null) space.removeKeptOriginals();
 	}
 
 	/** Whether closing the window keeps Brightside running in the tray (default false). */

@@ -35,6 +35,10 @@ public final class StoreRepair {
 
 	/** How Etch words its refusal; the only signal a caller gets. */
 	static final String UNCLEAN = "not cleanly closed";
+	/** How Etch refuses a store a crash caught mid-collection, which a repair of one file cannot put right. */
+	static final String INTERRUPTED_COLLECTION = "GC recovery requires a cleanly closed file";
+	/** What a kept original's name adds to the store's, before its date. */
+	static final String KEPT = ".unclean-";
 	private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 	private static final int MOVE_ATTEMPTS = 10;
 
@@ -72,6 +76,20 @@ public final class StoreRepair {
 	}
 
 	/**
+	 * Whether {@code t}, or a cause beneath it, is Etch refusing a store that a
+	 * crash caught part-way through a collection. The store then spans more than
+	 * one file, and repairing the one the launch names would lose what the others
+	 * hold, so this is never repaired here: the files stay as they are for a
+	 * repair by hand.
+	 */
+	public static boolean isInterruptedCollection(Throwable t) {
+		for (Throwable c = t; c != null; c = c.getCause()) {
+			if (c.getMessage() != null && c.getMessage().contains(INTERRUPTED_COLLECTION)) return true;
+		}
+		return false;
+	}
+
+	/**
 	 * Repairs the persistent store {@code venueConfig} names (with its Etch
 	 * policy and key) into a fresh file and installs it, keeping the old file
 	 * beside it. Fails, leaving the old file untouched, when the last synced
@@ -84,7 +102,7 @@ public final class StoreRepair {
 		EtchConfig etch = c.getEtchConfig();
 		String stamp = STAMP.format(LocalDateTime.now());
 		Path fresh = store.resolveSibling(store.getFileName() + ".repair-" + stamp);
-		Path kept = store.resolveSibling(store.getFileName() + ".unclean-" + stamp);
+		Path kept = store.resolveSibling(store.getFileName() + KEPT + stamp);
 
 		// The fresh file keeps the old one's policy — cipher, hint, mapping — and
 		// its key, which the resolved policy carries when the old file's did.

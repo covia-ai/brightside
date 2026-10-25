@@ -1,0 +1,23 @@
+{
+	"name": "Brightside data store space",
+	"description": "Reports and reclaims the disk Brightside's data store takes. With no input, reports the store's size, whether compaction is asked for, and the originals earlier repairs kept beside it. compact: true asks for the store to be compacted the next time Brightside starts: only what the store no longer refers to is dropped, nothing in use is lost, and the space comes back then. compact: false withdraws the request. Nothing happens until Brightside next starts, and this operation never starts or stops it. removeKeptOriginals: true deletes the originals earlier repairs kept, which cannot be undone. Venue-operator only.",
+	"operation": {
+		"adapter": "brightside:storage",
+		"input": {
+			"type": "object",
+			"properties": {
+				"compact": { "type": "boolean", "description": "true asks for compaction at the next start; false withdraws the request." },
+				"removeKeptOriginals": { "type": "boolean", "description": "true deletes the originals earlier repairs kept beside the store. Cannot be undone." }
+			}
+		},
+		"output": {
+			"type": "object",
+			"properties": {
+				"storeBytes": { "type": "integer", "description": "The store file's size on disk." },
+				"compactAtNextStart": { "type": "boolean", "description": "Whether the store is compacted the next time Brightside starts." },
+				"keptOriginals": { "type": "array", "description": "The originals earlier repairs kept: name, bytes, and modified (ISO-8601)." },
+				"removed": { "type": "array", "description": "With removeKeptOriginals: the originals deleted, as in keptOriginals." }
+			}
+		}
+	}
+}

@@ -11,6 +11,7 @@ import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
 import convex.core.data.Strings;
+import convex.core.store.AStore;
 import covia.grid.Venue;
 import covia.venue.Engine;
 import covia.venue.LocalVenue;
@@ -61,40 +62,52 @@ public final class EmbeddedVenue implements AutoCloseable {
 	 * exception reaches us, so nothing is left holding the port or the store.
 	 */
 	public static EmbeddedVenue launch(AMap<AString, ACell> config, Runnable onShutdown) {
-		VenueServer server = VenueServer.launch(config, List.of(), engine -> {
-			// Brightside's venue adapters: operations, and the default skill library.
-			engine.registerAdapter(new BrightsideAdapter(onShutdown));
-			engine.registerAdapter(new BrightsideSkillsAdapter());
-			// Moltbook as typed operations; idle until the owner connects an account.
-			engine.registerAdapter(new MoltbookAdapter());
-			// Covia's Discord module, in-process rather than as a loaded module jar:
-			// the same adapter, on Brightside's own classpath. With no bots it costs
-			// nothing; the owner's bot is created from Settings (see Discord).
-			engine.registerAdapter(new covia.adapter.discord.DiscordAdapter());
-			// Covia's Claude Code module, the same way: the owner declares the
-			// project directories in config.json (see ClaudeCode). A mistake in
-			// that block is not worth a failed launch — it is logged and Claude
-			// Code sits this one out.
-			try {
-				engine.registerAdapter(new covia.adapter.claudecode.ClaudeCodeAdapter());
-			} catch (IllegalArgumentException | IllegalStateException e) {
-				log.warn("Claude Code is not available this launch — check venue.adapters.claudecode in config.json: {}",
-					e.getMessage());
-			}
-			// Covia's speech module, for voice typing in the chat (see
-			// brightside.voice). Brightside's default runs it on this computer;
-			// config.json may point it elsewhere, and a mistake there leaves
-			// voice out of this launch rather than failing it.
-			try {
-				engine.registerAdapter(new covia.adapter.speech.SpeechAdapter());
-			} catch (IllegalArgumentException | IllegalStateException e) {
-				log.warn("Voice typing is not available this launch — check venue.adapters.speech in config.json: {}",
-					e.getMessage());
-			}
-			// Registration is synchronous: nothing asynchronous for the venue to await.
-			return CompletableFuture.completedFuture(null);
-		});
-		return new EmbeddedVenue(server);
+		return new EmbeddedVenue(VenueServer.launch(config, List.of(), engine -> install(engine, onShutdown)));
+	}
+
+	/**
+	 * As {@link #launch(AMap, Runnable)}, on a store the caller has already
+	 * opened rather than the one {@code config} names — as {@link StoreSpace}
+	 * opens it to compact it first. The venue owns the store from here, and
+	 * closes it on failure as on {@link #close}.
+	 */
+	public static EmbeddedVenue launch(AMap<AString, ACell> config, AStore store, Runnable onShutdown) {
+		return new EmbeddedVenue(VenueServer.launch(config, store, List.of(), engine -> install(engine, onShutdown)));
+	}
+
+	/** Brightside's part of the launch, in Covia's pre-start hook (see {@link #launch(AMap, Runnable)}). */
+	private static CompletableFuture<Void> install(Engine engine, Runnable onShutdown) {
+		// Brightside's venue adapters: operations, and the default skill library.
+		engine.registerAdapter(new BrightsideAdapter(onShutdown));
+		engine.registerAdapter(new BrightsideSkillsAdapter());
+		// Moltbook as typed operations; idle until the owner connects an account.
+		engine.registerAdapter(new MoltbookAdapter());
+		// Covia's Discord module, in-process rather than as a loaded module jar:
+		// the same adapter, on Brightside's own classpath. With no bots it costs
+		// nothing; the owner's bot is created from Settings (see Discord).
+		engine.registerAdapter(new covia.adapter.discord.DiscordAdapter());
+		// Covia's Claude Code module, the same way: the owner declares the
+		// project directories in config.json (see ClaudeCode). A mistake in
+		// that block is not worth a failed launch — it is logged and Claude
+		// Code sits this one out.
+		try {
+			engine.registerAdapter(new covia.adapter.claudecode.ClaudeCodeAdapter());
+		} catch (IllegalArgumentException | IllegalStateException e) {
+			log.warn("Claude Code is not available this launch — check venue.adapters.claudecode in config.json: {}",
+				e.getMessage());
+		}
+		// Covia's speech module, for voice typing in the chat (see
+		// brightside.voice). Brightside's default runs it on this computer;
+		// config.json may point it elsewhere, and a mistake there leaves
+		// voice out of this launch rather than failing it.
+		try {
+			engine.registerAdapter(new covia.adapter.speech.SpeechAdapter());
+		} catch (IllegalArgumentException | IllegalStateException e) {
+			log.warn("Voice typing is not available this launch — check venue.adapters.speech in config.json: {}",
+				e.getMessage());
+		}
+		// Registration is synchronous: nothing asynchronous for the venue to await.
+		return CompletableFuture.completedFuture(null);
 	}
 
 	public Engine engine() {

@@ -4,6 +4,7 @@ import java.util.concurrent.CompletableFuture;
 
 import brightside.model.Providers;
 
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -48,6 +49,9 @@ import covia.venue.UcanJwtValidator;
  *   <li>{@code brightside:shutdown} — clean process shutdown, venue-operator
  *       only, so a newly launched instance can take over (see
  *       {@link brightside.Takeover}).</li>
+ *   <li>{@code brightside:storage} — the disk the store takes
+ *       ({@link StoreSpace}): compaction at the next start, and the originals
+ *       repairs kept; venue-operator only, so Odin's to run.</li>
  *   <li>Two bridges for each of the {@link Gods}: its ask bridge
  *       ({@code brightside:ask-odin}, {@code brightside:alert-thor}) — an
  *       assistant's request to that god, submitted as the calling user with a
@@ -104,6 +108,14 @@ public class BrightsideAdapter extends AAdapter {
 	private static final AString K_REPORT = Strings.intern("report");
 	private static final AString K_ADDRESS = Strings.intern("address");
 	private static final AString K_SEED = Strings.intern("seed");
+	private static final AString K_COMPACT = Strings.intern("compact");
+	private static final AString K_REMOVE_KEPT = Strings.intern("removeKeptOriginals");
+	private static final AString K_STORE_BYTES = Strings.intern("storeBytes");
+	private static final AString K_COMPACT_AT_NEXT_START = Strings.intern("compactAtNextStart");
+	private static final AString K_KEPT_ORIGINALS = Strings.intern("keptOriginals");
+	private static final AString K_REMOVED = Strings.intern("removed");
+	private static final AString K_BYTES = Strings.intern("bytes");
+	private static final AString K_MODIFIED = Strings.intern("modified");
 	private static final String OP_GENERATE_KEY = "v/ops/convex/generate-key";
 	private static final String OP_AGENT_REQUEST = "v/ops/agent/request";
 	private static final String OP_USER_SUDO = "v/ops/user/sudo";
@@ -163,6 +175,7 @@ public class BrightsideAdapter extends AAdapter {
 		installAsset("brightside/delete-skill", "/adapters/brightside/delete-skill.json");
 		installAsset("brightside/report-skill-feedback", "/adapters/brightside/report-skill-feedback.json");
 		installAsset("brightside/shutdown", "/adapters/brightside/shutdown.json");
+		installAsset("brightside/storage", "/adapters/brightside/storage.json");
 		for (God god : Gods.ALL) {
 			installAsset("brightside/" + god.ask(), "/adapters/brightside/" + god.ask() + ".json");
 			installAsset("brightside/" + god.run(), "/adapters/brightside/" + god.run() + ".json");
@@ -186,6 +199,9 @@ public class BrightsideAdapter extends AAdapter {
 		}
 		if ("shutdown".equals(op)) {
 			return handleShutdown(ctx);
+		}
+		if ("storage".equals(op)) {
+			return handleStorage(ctx, input);
 		}
 		God god = Gods.byBridge(op);
 		if (god != null) {
@@ -397,9 +413,7 @@ public class BrightsideAdapter extends AAdapter {
 	 * after acknowledging, so the caller gets a clean response before we exit.
 	 */
 	private CompletableFuture<ACell> handleShutdown(RequestContext ctx) {
-		AString caller = (ctx != null) ? ctx.getCallerDID() : null;
-		AString venueDID = engine.getDIDString();
-		if (caller == null || venueDID == null || !caller.equals(venueDID)) {
+		if (!isOperator(ctx)) {
 			return CompletableFuture.failedFuture(
 				new IllegalStateException("brightside:shutdown requires venue operator authority"));
 		}
@@ -416,6 +430,57 @@ public class BrightsideAdapter extends AAdapter {
 			t.start();
 		}
 		return CompletableFuture.completedFuture(Maps.of(K_ACCEPTED, CVMBool.TRUE));
+	}
+
+	/** Whether the caller is the venue itself, as its own operations and Odin's bridge run. */
+	private boolean isOperator(RequestContext ctx) {
+		AString caller = (ctx != null) ? ctx.getCallerDID() : null;
+		AString venueDID = engine.getDIDString();
+		return caller != null && venueDID != null && caller.equals(venueDID);
+	}
+
+	/**
+	 * The disk the store takes ({@link StoreSpace}): a report, compaction asked
+	 * for at the next start or withdrawn, and the originals repairs kept removed.
+	 * Venue-operator only; Odin reaches it through his bridge. It never starts or
+	 * stops anything: when Brightside starts stays the owner's.
+	 */
+	private CompletableFuture<ACell> handleStorage(RequestContext ctx, ACell input) {
+		try {
+			if (!isOperator(ctx)) throw new IllegalStateException("brightside:storage requires venue operator authority");
+			StoreSpace space = StoreSpace.of(engine.config());
+			if (space == null) throw new IllegalStateException("This venue's store is not a file, so it takes no disk to reclaim");
+			Boolean compact = optionalBool(input, K_COMPACT);
+			if (compact != null) space.compactAtNextStart(compact);
+			List<StoreSpace.KeptOriginal> removed = Boolean.TRUE.equals(optionalBool(input, K_REMOVE_KEPT))
+				? space.removeKeptOriginals() : null;
+			StoreSpace.Report report = space.report();
+			AMap<AString, ACell> out = Maps.of(
+				K_STORE_BYTES, CVMLong.create(report.storeBytes()),
+				K_COMPACT_AT_NEXT_START, CVMBool.create(report.compactAtNextStart()),
+				K_KEPT_ORIGINALS, keptCells(report.keptOriginals()));
+			if (removed != null) out = out.assoc(K_REMOVED, keptCells(removed));
+			return CompletableFuture.completedFuture(out);
+		} catch (Exception e) {
+			return CompletableFuture.failedFuture(e);
+		}
+	}
+
+	private static AVector<ACell> keptCells(List<StoreSpace.KeptOriginal> kept) {
+		AVector<ACell> out = Vectors.empty();
+		for (StoreSpace.KeptOriginal k : kept) {
+			out = out.conj(Maps.of(K_NAME, Strings.create(k.name()), K_BYTES, CVMLong.create(k.bytes()),
+				K_MODIFIED, Strings.create(k.modified().toString())));
+		}
+		return out;
+	}
+
+	/** An optional boolean field: null when absent, refused when it is anything else. */
+	private static Boolean optionalBool(ACell input, AString key) {
+		ACell value = RT.getIn(input, key);
+		if (value == null) return null;
+		if (value instanceof CVMBool b) return b.booleanValue();
+		throw new IllegalArgumentException(key + " must be true or false");
 	}
 
 	// ------------------------------------------------------------------

@@ -43,6 +43,20 @@ class StoreRepairTest {
 		}
 	}
 
+	/** Starts collecting the store, writes into the cycle and dies: a crash part-way through a compaction. */
+	public static final class CrashMidCollection {
+		public static void main(String[] args) throws Exception {
+			Config c = new Config(venueConfig(Path.of(args[0]), args[1]));
+			EtchStore store = EtchStore.create(new File(c.getStore()), c.getEtchConfig());
+			store.setRootData(Strings.create("saved"));
+			store.close();
+			store = EtchStore.create(new File(c.getStore()), c.getEtchConfig());
+			store.startGC();
+			store.setRootData(Strings.create("written during the collection"));
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
 	static AMap<AString, ACell> venueConfig(Path store, String keyHex) {
 		return Maps.of(
 			Config.STORE, store.toString(),
@@ -82,11 +96,33 @@ class StoreRepairTest {
 		}
 	}
 
+	@Test
+	void aStoreACrashCaughtMidCollectionIsLeftAsItIs() throws Exception {
+		try (StoreTestDirectory directory = new StoreTestDirectory()) {
+			Path store = directory.path().resolve("venue.etch");
+			String keyHex = HexFormat.of().formatHex(new byte[32]);
+			AMap<AString, ACell> venueConfig = venueConfig(store, keyHex);
+			crash(CrashMidCollection.class, store, keyHex);
+
+			// The store now spans files a one-file repair would get wrong, and the
+			// launch tells that apart from an unclean close, so it repairs nothing.
+			IOException refused = assertThrows(IOException.class,
+				() -> EtchStore.create(store.toFile(), new Config(venueConfig).getEtchConfig()).close());
+			RuntimeException launch = new RuntimeException("Failed to create venue engine", refused);
+			assertTrue(StoreRepair.isInterruptedCollection(launch), refused.getMessage());
+			assertFalse(StoreRepair.isUncleanClose(launch), refused.getMessage());
+		}
+	}
+
 	/** Runs {@link Crash} in its own JVM, so the halt is a real one. */
 	private static void crash(Path store, String keyHex) throws Exception {
+		crash(Crash.class, store, keyHex);
+	}
+
+	private static void crash(Class<?> writer, Path store, String keyHex) throws Exception {
 		String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
 		Process p = new ProcessBuilder(java, "-cp", System.getProperty("java.class.path"),
-			Crash.class.getName(), store.toString(), keyHex).inheritIO().start();
+			writer.getName(), store.toString(), keyHex).inheritIO().start();
 		assertTrue(p.waitFor(60, TimeUnit.SECONDS), "the crashing writer finished");
 		assertEquals(0, p.exitValue(), "the writer halted as intended");
 		assertTrue(Files.size(store) > 0, "the crash left a store behind");
