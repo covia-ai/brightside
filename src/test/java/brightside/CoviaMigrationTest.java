@@ -108,6 +108,7 @@ class CoviaMigrationTest {
 						"converted, " + agentId + " reads the same");
 					Map<String, AMap<AString, ACell>> before = rootFrames(record), after = rootFrames(migrated);
 					for (String sid : before.keySet()) {
+						assertNotNull(before.get(sid).get(RENDERED_CONTEXT), "the old build cached its model context");
 						assertEquals(before.get(sid).get(RENDERED_CONTEXT), after.get(sid).get(RENDERED_CONTEXT),
 							"the model's cached context is untouched");
 					}
