@@ -148,7 +148,7 @@ watcher, hides the window, removes the tray icon and closes
 the `VenueServer` on a background thread before `System.exit`. A launch still
 in progress is waited for first (bounded), so a quit from the unlock dialog
 mid-boot still ends with a cleanly closed store. A Convex `Shutdown` hook at
-`SERVER - 10` does the same on Ctrl-C and SIGTERM. `EmbeddedVenue.close()` is
+`SERVICE`, the level Covia gives embedders, does the same on Ctrl-C and SIGTERM. `EmbeddedVenue.close()` is
 idempotent.
 
 ## When the store was not closed cleanly

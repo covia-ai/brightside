@@ -323,9 +323,9 @@ public final class BrightSide {
 		} catch (Exception e) {
 			throw new IllegalStateException("Could not create the main window", e);
 		}
-		// Flush venue state on any JVM exit (Ctrl-C, SIGTERM) ahead of Convex's
-		// own store shutdown — the same ordering MainVenue uses.
-		Shutdown.addHook(Shutdown.SERVER - 10, this::closeVenue);
+		// Close the venue on any JVM exit (Ctrl-C, SIGTERM) at the level Covia
+		// documents for embedders, before Convex closes its servers and stores.
+		Shutdown.addHook(Shutdown.SERVICE, this::closeVenue);
 	}
 
 	/** New installs onboard into an encrypted vault; returning installs must unlock one. */
