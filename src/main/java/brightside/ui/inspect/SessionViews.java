@@ -12,6 +12,8 @@ import java.util.function.Supplier;
 
 import javax.swing.JComponent;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
 import javax.swing.JTabbedPane;
 import javax.swing.SwingUtilities;
 
@@ -27,9 +29,14 @@ import brightside.ui.chat.ActivityLabels;
 import brightside.ui.chat.ChatPanel;
 import brightside.ui.chat.SessionFeed;
 import brightside.ui.components.Clipboard;
+import brightside.ui.components.Dialogs;
+import brightside.ui.components.Labels;
+import brightside.ui.components.SelectableText;
+import brightside.ui.components.Toast;
 import convex.core.data.Maps;
 import convex.core.data.ACell;
 import convex.core.data.Strings;
+import convex.core.lang.RT;
 import covia.grid.Venue;
 import brightside.ui.components.EmptyState;
 import brightside.ui.components.Loading;
@@ -267,6 +274,71 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 			if (Objects.equals(id, sessionId)) newConversation();
 			refresh();
 		});
+	}
+
+	/**
+	 * Shows the assistant's saved summary of a conversation, through Covia's
+	 * {@code agent:summarise}: written the first time, written again only once
+	 * the conversation has new turns, and never added to the conversation.
+	 */
+	public void summariseSession(String id) {
+		summarise(id, summary -> Dialogs.info(this, "Summary", scrolled(new SelectableText(summary).wrapAt(520))));
+	}
+
+	/**
+	 * Compacts a conversation under a summary; every message stays beneath it.
+	 * The open conversation asks the assistant, which writes the summary with
+	 * its own compact control. Another is summarised first; the owner reads
+	 * the summary, and may edit it, before the venue compacts that idle
+	 * conversation under it ({@code agent:compact-session}).
+	 */
+	public void compactSession(String id) {
+		if (session == null) return;
+		if (Objects.equals(id, sessionId)) {
+			chat.confirmCompact();
+			return;
+		}
+		String agentId = session.config().agentId();
+		summarise(id, summary -> {
+			JTextArea text = new JTextArea(summary, 12, 48);
+			text.setLineWrap(true);
+			text.setWrapStyleWord(true);
+			JPanel form = Panels.column();
+			form.add(Labels.small("<html>Brightside will carry this conversation on from this summary, which you can edit."
+				+ "<br>Every message is kept beneath it.</html>"));
+			form.add(new JScrollPane(text));
+			if (!Dialogs.form(this, "Compact this conversation?", form)) return;
+			String chosen = text.getText().strip();
+			if (chosen.isEmpty()) return;
+			run("v/ops/agent/compact-session", Maps.of("agentId", agentId, "sessionId", id, "summary", chosen), this::refresh);
+		});
+	}
+
+	/** Has the assistant summarise a conversation, then hands the summary to {@code show} on the event thread. */
+	private void summarise(String id, java.util.function.Consumer<String> show) {
+		SessionFeed bound = feed;
+		Venue caller = client;
+		if (bound == null || caller == null || session == null) return;
+		ACell input = Maps.of("agentId", session.config().agentId(), "sessionId", id);
+		Toast.show(this, "Brightside is summarising the conversation…", "sparkles", Tone.MUTED);
+		caller.run("v/ops/agent/summarise", input).orTimeout(5, TimeUnit.MINUTES).whenComplete((out, e) -> {
+			String summary = (e == null) ? String.valueOf(RT.getIn(out, "response")) : null;
+			SwingUtilities.invokeLater(() -> {
+				if (feed != bound) return;
+				if (summary == null || summary.isBlank() || "null".equals(summary)) {
+					if (e != null) log.warn("Could not summarise the conversation", e);
+					Dialogs.warn(this, "Summary", "Sorry — Brightside couldn't summarise that conversation.");
+					return;
+				}
+				show.accept(summary);
+			});
+		});
+	}
+
+	private static JScrollPane scrolled(JComponent c) {
+		JScrollPane pane = new JScrollPane(c);
+		pane.setPreferredSize(new java.awt.Dimension(560, 320));
+		return pane;
 	}
 
 	private void run(String operation, ACell input, Runnable completed) {

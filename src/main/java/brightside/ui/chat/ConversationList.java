@@ -53,6 +53,12 @@ public final class ConversationList extends JPanel {
 
 		void onCopyTranscript(String sessionId);
 
+		/** Show the assistant's saved summary of this conversation, writing it first if new turns need it. */
+		void onSummariseSession(String sessionId);
+
+		/** Compact this conversation under a summary, keeping every message beneath it. */
+		void onCompactSession(String sessionId);
+
 		/** Show what the assistant's model actually receives for this conversation. */
 		void onInspectSession(String sessionId);
 
@@ -146,6 +152,16 @@ public final class ConversationList extends JPanel {
 		JMenuItem copy = new JMenuItem("Copy transcript");
 		copy.addActionListener(e -> listener.onCopyTranscript(sid));
 		menu.add(copy);
+
+		JMenuItem summarise = new JMenuItem("Summarise");
+		summarise.setToolTipText("Brightside's summary of this conversation; the conversation itself is unchanged");
+		summarise.addActionListener(e -> listener.onSummariseSession(sid));
+		menu.add(summarise);
+
+		JMenuItem compact = new JMenuItem("Compact…");
+		compact.setToolTipText("Carry this conversation on from a summary, keeping every message beneath it");
+		compact.addActionListener(e -> listener.onCompactSession(sid));
+		menu.add(compact);
 
 		JMenuItem info = new JMenuItem("Context");
 		info.addActionListener(e -> listener.onInspectSession(sid));

@@ -111,6 +111,8 @@ public final class ChatPanel extends JPanel {
 		+ " No need to describe the compaction itself.";
 
 	private final MessageColumn column = new MessageColumn();
+	/** Compacted stretches whose earlier turns the owner asked to see, kept across redraws. */
+	private final java.util.Set<SessionHistory.Summary> shownEarlier = new java.util.HashSet<>();
 	private final EmptyChatState emptyState = new EmptyChatState();
 	private final JScrollPane scroll;
 	private static final String STARTING_HINT = "Just a moment while everything starts up…";
@@ -462,7 +464,7 @@ public final class ChatPanel extends JPanel {
 		displayed.clear();
 		for (SessionHistory.Item it : items) {
 			displayed.add(it);
-			column.add(rowFor(it));
+			addRows(it);
 		}
 		if (items.isEmpty()) showEmptyState();
 		column.revalidate();
@@ -475,12 +477,39 @@ public final class ChatPanel extends JPanel {
 		if (!busy) restore(items);
 	}
 
+	/** An item's row, preceded, for a compacted stretch the owner opened, by the turns it stands for. */
+	private void addRows(SessionHistory.Item it) {
+		if (it instanceof SessionHistory.Summary s && shownEarlier.contains(s)) {
+			for (SessionHistory.Item e : s.earlier()) addRows(e);
+		}
+		column.add(rowFor(it));
+	}
+
+	/** Shows or hides the turns a summary stands for, keeping that summary in view. */
+	private void toggleEarlier(SessionHistory.Summary s) {
+		if (!shownEarlier.remove(s)) shownEarlier.add(s);
+		List<SessionHistory.Item> items = List.copyOf(displayed);
+		column.clear();
+		displayed.clear();
+		Component fold = null;
+		for (SessionHistory.Item it : items) {
+			displayed.add(it);
+			addRows(it);
+			if (it == s) fold = column.getComponent(column.getComponentCount() - 1);
+		}
+		column.revalidate();
+		column.repaint();
+		Component target = fold;
+		if (target != null) SwingUtilities.invokeLater(() -> column.scrollRectToVisible(target.getBounds()));
+	}
+
 	private Component rowFor(SessionHistory.Item it) {
 		if (it instanceof SessionHistory.Message m) return messageRow(m.role(), m.text(), caption(m.origin(), m.waiting()));
 		if (it instanceof SessionHistory.Activity a) return activityRow(a);
 		if (it instanceof SessionHistory.Summary s) {
 			// The assistant's context, not its words: folded, a click from view.
-			return leftRow(new CompactedFold(s, column::revalidate, ta -> lastSelectedBubble = ta));
+			return leftRow(new CompactedFold(s, column::revalidate, ta -> lastSelectedBubble = ta,
+				shownEarlier.contains(s), () -> toggleEarlier(s)));
 		}
 		return new JPanel();
 	}
@@ -508,6 +537,7 @@ public final class ChatPanel extends JPanel {
 	public void clearMessages() {
 		column.clear();
 		displayed.clear();
+		shownEarlier.clear();
 		showEmptyState();
 		column.revalidate();
 		column.repaint();
@@ -603,13 +633,13 @@ public final class ChatPanel extends JPanel {
 	 * Confirms, then sends {@link #COMPACT_REQUEST} as the next message. The
 	 * draft in the composer is left alone.
 	 */
-	private void confirmCompact() {
+	public void confirmCompact() {
 		ChatSession s = session;
 		if (s == null || s.sessionId() == null || busy) return;
 		boolean go = Dialogs.choose(this, "Compact this conversation?",
 			"Brightside will sum up the conversation so far and carry on from the\n"
-			+ "summary, which keeps it quick and focused. The full transcript is kept\n"
-			+ "underneath, folded into a summary you can open here.",
+			+ "summary, which keeps it quick and focused. Every message is kept: open\n"
+			+ "the summary here to read the earlier conversation again.",
 			"Compact", "Cancel");
 		if (go && session == s && !busy) deliver(COMPACT_REQUEST);
 	}

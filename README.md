@@ -211,7 +211,7 @@ venues meet other venues.
 | **Advanced → Open settings file / logs folder** | `config.json`, `~/.brightside/logs/` |
 | **Help → About** | local address and your technical identity |
 | Right-click a message | copy the message or the whole conversation |
-| Right-click a conversation | open, rename, copy transcript, delete, inspect context |
+| Right-click a conversation | open, rename, copy transcript, summarise, compact, delete, inspect context |
 | Right-click an agent | open, agent info, delete |
 | **Inbox** tab | requests from your agents waiting for your decision — answer or reject |
 

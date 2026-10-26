@@ -177,6 +177,9 @@ class CoviaMigrationTest {
 				assertEquals(1, summarised.size(), "the owner sees one summary: " + summarised);
 				SessionHistory.Summary latest = assertInstanceOf(SessionHistory.Summary.class, summarised.get(0));
 				assertEquals("Fourth summary.", latest.text());
+				SessionHistory.Summary third = (SessionHistory.Summary) latest.earlier().get(0);
+				assertEquals("Third summary.", third.text(), "an earlier compaction is a summary within it");
+				assertEquals(afterRun.get(compacted), third.earlier(), "under it, the transcript as it was before");
 				assertTrue(latest.turns() > first.turns(), "it stands for every turn before it: " + latest.turns());
 				assertEquals("compacted", rawTurns(recompacted).get(compacted).get(0).role());
 			}

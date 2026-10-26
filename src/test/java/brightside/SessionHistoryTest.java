@@ -302,6 +302,8 @@ class SessionHistoryTest {
 		SessionHistory.Summary summary = (SessionHistory.Summary) snap.items().get(0);
 		assertEquals("We discussed the opening question.", summary.text());
 		assertTrue(summary.turns() >= 4, "two questions and their replies stand behind it: " + summary.turns());
+		assertTrue(summary.earlier().contains(new SessionHistory.Message("user", "the opening question")),
+			"the turns it stands for can be read again: " + summary.earlier());
 
 		// The switcher still titles and times it by the archived turns.
 		SessionHistory.Session listed = SessionHistory.listSessions(client, "compact-agent").get(0);

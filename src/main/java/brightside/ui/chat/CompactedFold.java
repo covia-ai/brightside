@@ -12,6 +12,7 @@ import javax.swing.JPopupMenu;
 import javax.swing.JTextArea;
 
 import brightside.SessionHistory;
+import brightside.ui.components.Buttons;
 import brightside.ui.components.Clipboard;
 import brightside.ui.components.Disclosure;
 import brightside.ui.components.Labels;
@@ -27,7 +28,8 @@ import brightside.ui.components.SelectableText;
  * {@link ExpandableActivity}, the chip for a turn's tool use, so the eye reads
  * both as the assistant's working rather than its words. The summary is a
  * {@link SelectableText} so it can be selected and copied; a right-click
- * offers <em>Copy summary</em>.
+ * offers <em>Copy summary</em>. Beneath the summary, the turns it stands for
+ * can be shown again in the transcript, above the fold, as they were said.
  */
 @SuppressWarnings("serial")
 final class CompactedFold extends JPanel {
@@ -41,8 +43,11 @@ final class CompactedFold extends JPanel {
 	 * @param onToggle      run after expand/collapse so the host column can re-lay out
 	 * @param selectionSink notified with the summary's text area when it holds a
 	 *                      selection, so the panel's copy shortcut can pick it up
+	 * @param earlierShown  whether the turns it stands for are shown above it
+	 * @param onEarlier     shows or hides those turns; null offers neither
 	 */
-	CompactedFold(SessionHistory.Summary s, Runnable onToggle, Consumer<JTextArea> selectionSink) {
+	CompactedFold(SessionHistory.Summary s, Runnable onToggle, Consumer<JTextArea> selectionSink,
+			boolean earlierShown, Runnable onEarlier) {
 		setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 		setOpaque(false);
 		setAlignmentX(LEFT_ALIGNMENT);
@@ -56,6 +61,10 @@ final class CompactedFold extends JPanel {
 		JPanel body = Panels.column();
 		body.setBorder(BorderFactory.createEmptyBorder(2, 12, 6, 4));
 		body.add(summary);
+		if (onEarlier != null && !s.earlier().isEmpty()) {
+			body.add(Buttons.link(earlierShown ? "Hide the earlier conversation" : "Show the earlier conversation",
+				onEarlier));
+		}
 
 		Disclosure fold = new Disclosure(Labels.small(LABEL), body, CHEVRON)
 			.compact()

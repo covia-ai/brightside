@@ -141,6 +141,16 @@ public final class MainWindow extends JFrame {
 			}
 
 			@Override
+			public void onSummariseSession(String sessionId) {
+				views.summariseSession(sessionId);
+			}
+
+			@Override
+			public void onCompactSession(String sessionId) {
+				views.compactSession(sessionId);
+			}
+
+			@Override
 			public void onInspectSession(String sessionId) {
 				showSessionView(sessionId, SessionViews.View.OVERVIEW);
 			}

@@ -113,10 +113,15 @@ public final class SessionHistory {
 
 	/**
 	 * Earlier turns compacted into a summary the assistant wrote — {@code text}
-	 * is that summary, {@code turns} how many turns it stands for. The exact
-	 * turns are archived beneath it on the venue, kept rather than lost.
+	 * is that summary, {@code turns} how many turns it stands for, and
+	 * {@code earlier} those turns as they were, projected like the rest of the
+	 * transcript (an earlier compaction among them is a summary of its own).
+	 * The venue keeps them; compaction only changes what the model sees.
 	 */
-	public record Summary(String text, long turns) implements Item {
+	public record Summary(String text, long turns, List<Item> earlier) implements Item {
+		public Summary(String text, long turns) {
+			this(text, turns, List.of());
+		}
 	}
 
 	/**
@@ -548,7 +553,9 @@ public final class SessionHistory {
 				// Compacted: the summary stands in for the turns archived under it.
 				flush(items, pending);
 				String summary = str(RT.getIn(turn, "summary"));
-				items.add(new Summary((summary != null) ? summary : "", turnsOf(turn)));
+				AVector<ACell> archived = archivedOf(turn);
+				items.add(new Summary((summary != null) ? summary : "", turnsOf(turn),
+					(archived != null) ? List.copyOf(project(archived)) : List.of()));
 				continue;
 			}
 			String role = str(RT.getIn(turn, "role"));
