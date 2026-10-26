@@ -436,6 +436,20 @@ class SessionHistoryTest {
 	}
 
 	@Test
+	void aRequestedTaskIsTitledAndShownByItsTask() {
+		// A scheduled or delegated request arrives as the agent:request input, its instructions under task.
+		ACell conversation = Vectors.of(
+			Maps.of("role", "user", "content", Maps.of("task", "Daily Moltbook check-in\nLoad the skill first."),
+				"source", "request", "ts", 1000L),
+			Maps.of("role", "assistant", "content", "Check-in done.", "ts", 1001L));
+		ACell record = Maps.of("sessions", Maps.of(Blob.fromHex("0e01"),
+			Maps.of("frames", Vectors.of(Maps.of("conversation", conversation)))));
+		assertEquals("Daily Moltbook check-in", SessionHistory.sessionsOf(record).get(0).title());
+		assertEquals(new SessionHistory.Message("user", "Daily Moltbook check-in\nLoad the skill first."),
+			SessionHistory.snapshotOf(record, "0e01").items().get(0));
+	}
+
+	@Test
 	void noConversationForAnUnusedAgent() {
 		String userDID = Identity.of("nobody").userDID(venue.did());
 		assertNull(SessionHistory.loadLatest(venue.clientAs(userDID), "never-created"),
