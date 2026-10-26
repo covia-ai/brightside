@@ -33,9 +33,9 @@ import covia.venue.server.VenueServer;
  * hands the venue the result. The request is a file beside the store, so it
  * is read before the store is opened.</p>
  *
- * <p>The originals a launch-time repair keeps beside the store
- * ({@link StoreRepair}) are the owner's to remove once the repaired store has
- * proved itself. This lists them, and removes them only when asked, never as
+ * <p>The originals a launch-time repair or upgrade keeps beside the store
+ * ({@link StoreRepair}, {@link StoreUpgrade}) are the owner's to remove once
+ * the store they became has proved itself. This lists them, and removes them only when asked, never as
  * part of compacting.</p>
  */
 public final class StoreSpace {
@@ -60,7 +60,7 @@ public final class StoreSpace {
 		return store;
 	}
 
-	/** An original a repair kept: its file name, size, and when it last changed. */
+	/** An original a repair or upgrade kept: its file name, size, and when it last changed. */
 	public record KeptOriginal(String name, long bytes, Instant modified) {
 	}
 
@@ -152,7 +152,7 @@ public final class StoreSpace {
 		}
 	}
 
-	/** Removes the originals repairs kept, returning what went. Cannot be undone. */
+	/** Removes the originals repairs and upgrades kept, returning what went. Cannot be undone. */
 	public List<KeptOriginal> removeKeptOriginals() throws IOException {
 		List<KeptOriginal> kept = keptOriginals();
 		for (KeptOriginal k : kept) Files.delete(store.resolveSibling(k.name()));
@@ -162,12 +162,12 @@ public final class StoreSpace {
 	private List<KeptOriginal> keptOriginals() throws IOException {
 		Path dir = store.getParent();
 		if (dir == null || !Files.isDirectory(dir)) return List.of();
-		String prefix = store.getFileName() + StoreRepair.KEPT;
+		String repaired = store.getFileName() + StoreRepair.KEPT, upgraded = store.getFileName() + StoreUpgrade.KEPT;
 		List<KeptOriginal> out = new ArrayList<>();
 		try (Stream<Path> files = Files.list(dir)) {
 			for (Path f : (Iterable<Path>) files::iterator) {
 				String name = f.getFileName().toString();
-				if (name.startsWith(prefix) && Files.isRegularFile(f)) {
+				if ((name.startsWith(repaired) || name.startsWith(upgraded)) && Files.isRegularFile(f)) {
 					out.add(new KeptOriginal(name, Files.size(f), Files.getLastModifiedTime(f).toInstant()));
 				}
 			}

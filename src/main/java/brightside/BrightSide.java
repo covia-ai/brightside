@@ -460,9 +460,20 @@ public final class BrightSide {
 			EmbeddedVenue v;
 			StoreRepair.Outcome repaired = null;
 			StoreSpace.Compacted compacted = null;
+			StoreUpgrade.Kept upgraded = null;
 			try {
+				upgraded = StoreUpgrade.prepare(storeConfig).orElse(null);
 				if (compacting) compacted = space.compact(storeConfig);
 				v = launchOn(venueConfig, compacted);
+			} catch (StoreUpgrade.Newer e) {
+				log.error("The store is newer than this build", e);
+				startupFailed(e.getMessage());
+				return;
+			} catch (covia.venue.UnsupportedVersionException e) {
+				log.error("The store is newer than this build", e);
+				startupFailed("Part of this data store" + (e.adapter() != null ? ", " + e.adapter() + "'s," : "")
+					+ " was written by a newer Brightside. Nothing was changed: start the newer Brightside to open it.");
+				return;
 			} catch (RuntimeException | IOException e) {
 				if (StoreRepair.isInterruptedCollection(e)) {
 					log.error("The store was left part-way through a collection", e);
@@ -492,6 +503,7 @@ public final class BrightSide {
 				}
 				log.warn("Store repaired — {}", repaired.summary());
 				progress(compacting ? "Compacting the data store…" : "Starting the venue…");
+				upgraded = StoreUpgrade.prepare(storeConfig).orElse(null);
 				if (compacting) compacted = space.compact(storeConfig);
 				v = launchOn(venueConfig, compacted);
 			}
@@ -512,6 +524,10 @@ public final class BrightSide {
 			}
 			if (compacted != null) {
 				String notice = compacted.notice();
+				SwingUtilities.invokeLater(() -> window.showSystemMessage(notice));
+			}
+			if (upgraded != null) {
+				String notice = upgraded.notice();
 				SwingUtilities.invokeLater(() -> window.showSystemMessage(notice));
 			}
 		} catch (Throwable t) {
@@ -890,8 +906,13 @@ public final class BrightSide {
 				|| apiKey == null || apiKey.isBlank()) return false;
 		try {
 			String value = apiKey.trim();
-			v.secrets(id.userDID(v.did()), true).store(p.secretName(), value, v.secretKey());
-			v.secrets(v.did(), true).store(p.secretName(), value, v.secretKey());
+			AString owner = Strings.create(id.userDID(v.did())), operator = Strings.create(v.did());
+			covia.venue.SecretStore.Keys keys = v.secretKey();
+			// The owner's agents and the gods use the same key: both copies change together.
+			v.engine().getVenueState().transact(state -> {
+				state.users().ensure(owner).secrets().store(p.secretName(), value, keys);
+				state.users().ensure(operator).secrets().store(p.secretName(), value, keys);
+			});
 			return true;
 		} catch (Exception e) {
 			log.warn("Could not store the API key", e);
@@ -1096,7 +1117,7 @@ public final class BrightSide {
 		String n = note;
 		try {
 			String did = id.userDID(v.did());
-			bot = Discord.status(v.clientAs(did), Discord.record(v, did));
+			bot = Discord.status(v.clientAs(did));
 		} catch (Exception e) {
 			log.warn("Could not read the Discord bot: {}", e.toString());
 			if (n == null) n = "Couldn't read the bot: " + rootMessage(e);
@@ -1330,9 +1351,7 @@ public final class BrightSide {
 		if (did == null) return false;
 		try {
 			covia.venue.SecretStore store = v.secrets(did, false);
-			if (store == null || !store.exists(name)) return false;
-			store.delete(name);
-			return true;
+			return store != null && store.deleteIfPresent(Strings.create(name));
 		} catch (Exception e) {
 			log.warn("Could not delete secret {}: {}", name, e.toString());
 			return false;

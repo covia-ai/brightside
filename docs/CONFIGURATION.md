@@ -25,6 +25,7 @@ hand-edited file and its comments stay intact.
 | `~/.brightside/identity.json` | Your name, stable slug and full Covia user DID, kept apart so identity changes never rewrite settings. |
 | `~/.brightside/venue.etch` | The encrypted lattice store: conversations, memory, skills, agent state and personal drives. |
 | `~/.brightside/venue.etch.unclean-<stamp>` | The store as it was before a launch-time repair ([LAUNCH.md](LAUNCH.md)); remove it once the repaired store has proved itself, under [Data store space](#data-store-space). |
+| `~/.brightside/venue.etch.before-upgrade-v<n>-<stamp>` | The store as an older Brightside left it, kept before this one upgraded it ([LAUNCH.md](LAUNCH.md#opening-a-store-an-older-build-wrote)); the way back to that build. Removed the same way. |
 | `~/.brightside/venue.etch.compact` | Present when compaction is asked for; the next launch compacts the store and removes it ([Data store space](#data-store-space)). |
 | `~/.brightside/vault.salt` | The non-secret salt for passphrase hardening. |
 | `~/.brightside/identity.enc` | The AES-GCM-encrypted Ed25519 identity seed. |
@@ -301,9 +302,10 @@ does it before the venue opens, once, and the chat says what the store held
 before and after. Clear the box to withdraw it. Nothing compacts the store
 unasked. Why it waits for a start is in [LAUNCH.md](LAUNCH.md#compacting-the-store).
 
-The same section lists the files kept from earlier repairs, when there are
-any, and *Remove kept files…* deletes them after asking; keep them if
-anything has seemed missing since a repair.
+The same section lists the files kept from earlier repairs and upgrades, when
+there are any, and *Remove kept files…* deletes them after asking; keep them if
+anything has seemed missing since a repair, or if you may go back to an older
+Brightside.
 
 Odin can do both for the owner's assistants through `brightside:storage`
 ([ODIN.md](ODIN.md)); his judgement puts anything hard to undo, such as
