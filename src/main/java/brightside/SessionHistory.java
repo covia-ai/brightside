@@ -440,10 +440,16 @@ public final class SessionHistory {
 		return null;
 	}
 
-	/** The words of a turn's content as Covia reads them ({@link GoalTreeContext#turnText}), or null. */
+	/**
+	 * The words of a turn's content: a string as it is, a structured message's
+	 * {@code text} (as a channel or voice delivers it), or an agent request's
+	 * {@code task}, the field {@code agent:request} names for free-form
+	 * instructions; null for anything else.
+	 */
 	private static String contentText(ACell content) {
-		AString words = GoalTreeContext.turnText(content);
-		return (words != null) ? words.toString() : null;
+		if (content instanceof AString s) return s.toString();
+		String text = str(RT.getIn(content, "text"));
+		return (text != null) ? text : str(RT.getIn(content, "task"));
 	}
 
 	/**
