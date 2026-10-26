@@ -15,7 +15,6 @@ import convex.core.data.prim.CVMBool;
 import convex.core.lang.RT;
 import covia.grid.Job;
 import covia.grid.Venue;
-import covia.venue.AdapterState;
 
 /**
  * The owner's assistant on Discord: one bot, owned by the user, answering as
@@ -99,30 +98,24 @@ public final class Discord {
 	/**
 	 * The owner's bot as the adapter sees it, or null when there is none. A
 	 * read — the op is declared readOnly, so visiting Settings leaves no job
-	 * record. {@code record} is the persisted bot record (for the allow-list),
-	 * read in-process by the operator from the adapter's state, or null.
+	 * record.
 	 */
-	public static Bot status(Venue user, ACell record) throws Exception {
+	public static Bot status(Venue user) throws Exception {
 		ACell out = read(user, OP_BOTS, Maps.empty());
 		if (!(RT.getIn(out, "bots") instanceof AVector<?> bots)) return null;
 		for (long i = 0; i < bots.count(); i++) {
 			ACell b = (ACell) bots.get(i);
 			if (!BOT.equals(str(RT.getIn(b, "name")))) continue;
 			return new Bot(str(RT.getIn(b, "state")), str(RT.getIn(b, "username")), str(RT.getIn(b, "error")),
-				allows(record), lng(RT.getIn(b, "received")), lng(RT.getIn(b, "sent")));
+				allows(b), lng(RT.getIn(b, "received")), lng(RT.getIn(b, "sent")));
 		}
 		return null;
 	}
 
-	/** The owner's runtime bot record, as the adapter keeps it in its own state, or null. */
-	public static ACell record(EmbeddedVenue venue, String userDID) {
-		AdapterState state = venue.engine().adapterState("discord");
-		return state.read(state.userPath(Strings.create(userDID), "bots/" + BOT));
-	}
-
-	private static List<String> allows(ACell record) {
+	/** Who may message the bot, as the adapter matches them: ids, then usernames. */
+	private static List<String> allows(ACell bot) {
 		List<String> out = new ArrayList<>();
-		if (RT.getIn(record, "allow") instanceof AVector<?> v) {
+		if (RT.getIn(bot, "allow") instanceof AVector<?> v) {
 			for (long i = 0; i < v.count(); i++) out.add(String.valueOf(v.get(i)));
 		}
 		return List.copyOf(out);

@@ -44,7 +44,7 @@ class InProcessReadsTest {
 	void discordBotStatusIsAReadWithNoJobRecord() throws Exception {
 		String did = Identity.of("watcher").userDID(venue.did());
 		long before = RecordedJobs.of(venue, did);
-		assertNull(Discord.status(venue.clientAs(did), null), "no bot configured reports null");
+		assertNull(Discord.status(venue.clientAs(did)), "no bot configured reports null");
 		assertEquals(before, RecordedJobs.of(venue, did), "the read leaves no job record");
 	}
 }
