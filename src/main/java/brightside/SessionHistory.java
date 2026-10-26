@@ -518,13 +518,9 @@ public final class SessionHistory {
 		return ts;
 	}
 
-	/**
-	 * Whether a conversation entry is a compacted segment — {@code summary} over
-	 * the archived {@code items} — rather than a live turn (which has a role).
-	 * The shape is Covia's {@code GoalTreeContext.createSegment}.
-	 */
+	/** Whether a conversation entry is a compacted segment rather than a live turn. */
 	private static boolean isSegment(ACell entry) {
-		return entry instanceof AMap && RT.getIn(entry, "summary") != null && RT.getIn(entry, "items") != null;
+		return GoalTreeContext.isSegment(entry);
 	}
 
 	/** How many turns a compacted segment stands for. */

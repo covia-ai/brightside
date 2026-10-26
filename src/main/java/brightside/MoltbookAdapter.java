@@ -22,7 +22,6 @@ import covia.api.Abilities;
 import covia.venue.Engine.UserPathTarget;
 import covia.venue.RequestContext;
 import covia.venue.SecretStore;
-import covia.venue.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -254,9 +253,17 @@ public class MoltbookAdapter extends AAdapter {
 			} catch (java.io.IOException e) {
 				throw new CompletionException(e);
 			}
-			User user = engine.getVenueState().users().ensure(ctx.getUserDID());
-			user.secrets().store(Moltbook.KEY_SECRET, r.apiKey(), SecretStore.keys(engine.getKeyPair()));
-			writeRecord(ctx, Moltbook.record(name, r.claimUrl(), r.verificationCode()));
+			// The key and the record land together, and only if no key arrived meanwhile.
+			UserPathTarget target = engine.requireUserPath(ctx, Strings.create(Moltbook.RECORD_PATH), Capability.CRUD_WRITE, true);
+			SecretStore.Keys keys = SecretStore.keys(engine.getKeyPair());
+			AMap<AString, ACell> record = Moltbook.record(name, r.claimUrl(), r.verificationCode());
+			target.user().transact(user -> {
+				if (!user.secrets().storeIfAbsent(Strings.create(Moltbook.KEY_SECRET), Strings.create(r.apiKey()), keys)) {
+					throw new IllegalStateException("Moltbook was connected while this registration ran; "
+						+ "the account just registered was not kept");
+				}
+				user.workspaceRoot().write(target.pathKeys(), record);
+			});
 			AMap<AString, ACell> out = Maps.of(
 				K_REGISTERED, CVMBool.TRUE,
 				K_NAME, Strings.create(name),
@@ -275,11 +282,6 @@ public class MoltbookAdapter extends AAdapter {
 		} catch (Exception e) {
 			return null;
 		}
-	}
-
-	private void writeRecord(RequestContext ctx, AMap<AString, ACell> record) {
-		UserPathTarget target = engine.requireUserPath(ctx, Strings.create(Moltbook.RECORD_PATH), Capability.CRUD_WRITE, true);
-		target.user().workspaceRoot().write(target.pathKeys(), record);
 	}
 
 	// ------------------------------------------------------------------

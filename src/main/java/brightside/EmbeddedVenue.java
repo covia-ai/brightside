@@ -115,15 +115,18 @@ public final class EmbeddedVenue implements AutoCloseable {
 	}
 
 	/**
-	 * Reads an agent record ({@code g/<agentId>}) straight from the in-process
-	 * lattice as {@code userDID}, with no job — the same
-	 * {@link Engine#resolvePath} that {@code v/ops/covia/read} calls internally.
-	 * Used for cheap, silent change detection and projection (the venue is right
-	 * here in the process; there is no reason to submit a read job for it).
-	 * Returns null if absent or on any resolution error.
+	 * {@code userDID}'s agent record, one immutable value read through the
+	 * user's agent component, with no job: what change detection compares and
+	 * projections read, so each sees one version of the agent. Null if the
+	 * user or the agent does not exist; reading creates neither.
 	 */
 	public ACell agentRecord(String userDID, String agentId) {
-		return resolve(userDID, "g/" + agentId);
+		try {
+			User user = engine().getVenueState().users().get(Strings.create(userDID));
+			return (user == null) ? null : user.agent(agentId).getRecord();
+		} catch (RuntimeException e) {
+			return null;
+		}
 	}
 
 	/**
