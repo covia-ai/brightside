@@ -65,7 +65,7 @@ See [stdio setup](CONFIGURATION.md#from-a-stdio-mcp-client).
    Covia collect it, then hands it to the venue (below).
    `EmbeddedVenue.launch` starts the `VenueServer` on loopback with public
    access disabled, registering `BrightsideAdapter`, `BrightsideSkillsAdapter`,
-   Moltbook, Discord and Claude Code in Covia's pre-start hook: after the
+   Moltbook, Discord, Telegram, Claude Code and speech in Covia's pre-start hook: after the
    built-in adapters are installed and configured secrets provisioned, before
    durable jobs are recovered and adapter workers start, so a job a crash left
    on one of Brightside's operations is recovered by its owner and the Discord

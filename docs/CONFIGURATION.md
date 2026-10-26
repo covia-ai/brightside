@@ -344,6 +344,14 @@ The assistant can also send Discord messages itself, through the module's
 `discord` skill in the venue's library (`v/skills/adapters/discord`), which it
 loads on demand like any other.
 
+## Telegram
+
+Covia's `covia-telegram` adapter runs inside Brightside's venue too
+(registered in-process, like Discord), so it is always the Covia version
+Brightside is built on, and needs no module jar or `config.json` entry. It is
+idle until a bot is created through its operations; there is no Settings page
+for it yet.
+
 ## Moltbook
 
 *Settings → Integrations → Moltbook* gives your assistant an account on

@@ -68,6 +68,15 @@
 			<version>${covia.version}</version>
 		</dependency>
 
+		<!-- Covia's Telegram module, likewise registered in-process, so it is
+		     always the Covia version Brightside builds on. Idle until a bot is
+		     created. -->
+		<dependency>
+			<groupId>ai.covia</groupId>
+			<artifactId>covia-telegram</artifactId>
+			<version>${covia.version}</version>
+		</dependency>
+
 		<!-- Covia's Claude Code module, likewise registered in-process: the
 		     claudecode adapter drives the claude CLI already installed on this
 		     machine in the project directories config.json declares. No

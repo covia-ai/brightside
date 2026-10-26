@@ -41,6 +41,18 @@ class InProcessReadsTest {
 	}
 
 	@Test
+	void telegramRunsInProcessFromBrightsidesOwnBuild() throws Exception {
+		var adapter = venue.engine().getAdapter("telegram");
+		assertEquals(covia.adapter.telegram.TelegramAdapter.class, adapter.getClass());
+		assertEquals(EmbeddedVenue.class.getClassLoader(), adapter.getClass().getClassLoader(),
+			"the module on Brightside's classpath, not a jar loaded beside it");
+		String did = Identity.of("telegram-watcher").userDID(venue.did());
+		ACell bots = venue.clientAs(did).run("v/ops/telegram/bots", convex.core.data.Maps.empty())
+			.get(30, java.util.concurrent.TimeUnit.SECONDS);
+		assertEquals(0, RT.count(RT.getIn(bots, "bots")), "idle until a bot is created");
+	}
+
+	@Test
 	void discordBotStatusIsAReadWithNoJobRecord() throws Exception {
 		String did = Identity.of("watcher").userDID(venue.did());
 		long before = RecordedJobs.of(venue, did);

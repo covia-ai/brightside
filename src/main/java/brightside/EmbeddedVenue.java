@@ -86,6 +86,9 @@ public final class EmbeddedVenue implements AutoCloseable {
 		// the same adapter, on Brightside's own classpath. With no bots it costs
 		// nothing; the owner's bot is created from Settings (see Discord).
 		engine.registerAdapter(new covia.adapter.discord.DiscordAdapter());
+		// Covia's Telegram module, the same way, so it moves with Covia; idle
+		// until a bot is created.
+		engine.registerAdapter(new covia.adapter.telegram.TelegramAdapter());
 		// Covia's Claude Code module, the same way: the owner declares the
 		// project directories in config.json (see ClaudeCode). A mistake in
 		// that block is not worth a failed launch — it is logged and Claude

@@ -280,8 +280,9 @@ implies.
   Sharing a skill, delegating to a friend's agent, or reaching a remote tool
   without giving up ownership of your own state. The target state is written up
   in [docs/NETWORK.md](docs/NETWORK.md).
-- **More channels in-process** — Telegram and the rest, the way Discord already
-  is, so your agent can meet you where you already are
+- **More channels** — Telegram runs in-process already but has no Settings page
+  yet; it and the rest set up as Discord is, so your agent can meet you where
+  you already are
 - **Native packaging** — signed installers per platform instead of `java -jar`
 - **Richer message kinds** — images, cards and structured tool output as
   first-class rows in the transcript
