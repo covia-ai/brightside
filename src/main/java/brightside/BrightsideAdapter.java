@@ -51,7 +51,7 @@ import covia.venue.UcanJwtValidator;
  *       {@link brightside.Takeover}).</li>
  *   <li>{@code brightside:storage} — the disk the store takes
  *       ({@link StoreSpace}): compaction at the next start, and the originals
- *       repairs and upgrades kept; venue-operator only, so Odin's to run.</li>
+ *       repairs kept; venue-operator only, so Odin's to run.</li>
  *   <li>Two bridges for each of the {@link Gods}: its ask bridge
  *       ({@code brightside:ask-odin}, {@code brightside:alert-thor}) — an
  *       assistant's request to that god, submitted as the calling user with a
@@ -441,7 +441,7 @@ public class BrightsideAdapter extends AAdapter {
 
 	/**
 	 * The disk the store takes ({@link StoreSpace}): a report, compaction asked
-	 * for at the next start or withdrawn, and the originals repairs and upgrades kept removed.
+	 * for at the next start or withdrawn, and the originals repairs kept removed.
 	 * Venue-operator only; Odin reaches it through his bridge. It never starts or
 	 * stops anything: when Brightside starts stays the owner's.
 	 */

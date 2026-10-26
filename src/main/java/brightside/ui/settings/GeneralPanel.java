@@ -169,7 +169,7 @@ public final class GeneralPanel extends SettingsPage {
 		addSpan(compact);
 		addSpan(keptNote);
 		keptRow = buttons();
-		action(keptRow, "Remove kept files…", "Delete the files kept from earlier repairs and upgrades; this can't be undone",
+		action(keptRow, "Remove kept files…", "Delete the files kept from earlier repairs; this can't be undone",
 			host::removeKeptOriginals);
 		keptNote.setVisible(false); // until refreshStore finds any
 		keptRow.setVisible(false);
@@ -251,8 +251,8 @@ public final class GeneralPanel extends SettingsPage {
 		storeSize.setText((report != null) ? Sizes.of(report.storeBytes()) : "Not kept on disk");
 		int kept = (report != null) ? report.keptOriginals().size() : 0;
 		if (kept > 0) {
-			keptNote.setText(((kept == 1) ? "A file kept from an earlier repair or upgrade takes "
-				: kept + " files kept from earlier repairs and upgrades take ") + Sizes.of(report.keptBytes()) + ".");
+			keptNote.setText(((kept == 1) ? "A file kept from an earlier repair takes "
+				: kept + " files kept from earlier repairs take ") + Sizes.of(report.keptBytes()) + ".");
 		}
 		keptNote.setVisible(kept > 0);
 		keptRow.setVisible(kept > 0);

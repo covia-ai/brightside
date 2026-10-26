@@ -191,26 +191,17 @@ steps as it writes, so a small store stays near the size of its last step.
 ## Opening a store an older build wrote
 
 The venue runs inside the process, so a new build upgrades the store it opens
-and nothing else needs upgrading first. Covia does the upgrade as the venue
-starts, in one transaction, before anything else touches the store; Brightside
-decides what happens around it (`StoreUpgrade`):
+and nothing else needs upgrading first. Covia does it as the venue starts, in
+one transaction before anything else touches the store: an upgrade that fails
+changes nothing, and the launch reports it. Some of it is lazy: a conversation
+moves to Covia's append-only history only when its session next runs, so one
+left alone keeps its older form, and both read the same. A store written by a
+newer build is refused, unchanged, with a message on the unlock screen.
 
-- **Before the venue opens the store**, Brightside reads the version it holds
-  with Covia's own check, writing nothing.
-- **An older store is copied first**, as `venue.etch.before-upgrade-v<n>-<stamp>`
-  beside it. An older Brightside cannot read the store once it is upgraded, so
-  the copy is the way back; the chat says it was kept, and the owner removes it
-  with the repair copies under Settings → General.
-- **A newer store is refused, unchanged**, with a message on the unlock screen,
-  whether it is the venue's own version or one adapter's that is newer.
-- **Some of the upgrade is lazy.** A conversation moves to Covia's append-only
-  history only when its session next runs, so one left alone keeps its older
-  form, and both read the same.
-
-A build from before Covia versioned its state does not check at all, so do not
-start one on a store a newer build has opened; use the kept copy.
-`CoviaMigrationTest` upgrades an install written by such a build and reads it
-at every step; `StoreUpgradeTest` covers the copy and the refusal.
+An upgraded store cannot be read by the older build, and a build from before
+Covia versioned its state does not even check, so going back means a backup of
+`venue.etch` from before the upgrade. `CoviaMigrationTest` upgrades an
+install written by such a build and reads it at every step.
 
 ## When launch fails
 

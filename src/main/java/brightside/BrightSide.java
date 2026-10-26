@@ -460,19 +460,14 @@ public final class BrightSide {
 			EmbeddedVenue v;
 			StoreRepair.Outcome repaired = null;
 			StoreSpace.Compacted compacted = null;
-			StoreUpgrade.Kept upgraded = null;
 			try {
-				upgraded = StoreUpgrade.prepare(storeConfig).orElse(null);
 				if (compacting) compacted = space.compact(storeConfig);
 				v = launchOn(venueConfig, compacted);
-			} catch (StoreUpgrade.Newer e) {
-				log.error("The store is newer than this build", e);
-				startupFailed(e.getMessage());
-				return;
 			} catch (covia.venue.UnsupportedVersionException e) {
+				// Covia refuses a store newer than this build before writing anything.
 				log.error("The store is newer than this build", e);
-				startupFailed("Part of this data store" + (e.adapter() != null ? ", " + e.adapter() + "'s," : "")
-					+ " was written by a newer Brightside. Nothing was changed: start the newer Brightside to open it.");
+				startupFailed("This data store was written by a newer Brightside. Nothing was changed: start the"
+					+ " newer Brightside to open it.");
 				return;
 			} catch (RuntimeException | IOException e) {
 				if (StoreRepair.isInterruptedCollection(e)) {
@@ -503,7 +498,6 @@ public final class BrightSide {
 				}
 				log.warn("Store repaired — {}", repaired.summary());
 				progress(compacting ? "Compacting the data store…" : "Starting the venue…");
-				upgraded = StoreUpgrade.prepare(storeConfig).orElse(null);
 				if (compacting) compacted = space.compact(storeConfig);
 				v = launchOn(venueConfig, compacted);
 			}
@@ -524,10 +518,6 @@ public final class BrightSide {
 			}
 			if (compacted != null) {
 				String notice = compacted.notice();
-				SwingUtilities.invokeLater(() -> window.showSystemMessage(notice));
-			}
-			if (upgraded != null) {
-				String notice = upgraded.notice();
 				SwingUtilities.invokeLater(() -> window.showSystemMessage(notice));
 			}
 		} catch (Throwable t) {

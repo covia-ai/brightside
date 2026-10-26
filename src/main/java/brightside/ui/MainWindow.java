@@ -329,9 +329,8 @@ public final class MainWindow extends JFrame {
 				if (report == null || report.keptOriginals().isEmpty()) return;
 				int n = report.keptOriginals().size();
 				if (Dialogs.confirmDanger(MainWindow.this, "Remove kept files",
-						"Delete " + ((n == 1) ? "the file" : "the " + n + " files") + " kept from earlier repairs and upgrades ("
-							+ Sizes.of(report.keptBytes()) + ")?\nKeep them if anything has seemed missing since a repair,"
-							+ " or if you may go back to an older Brightside."
+						"Delete " + ((n == 1) ? "the file" : "the " + n + " files") + " kept from earlier repairs ("
+							+ Sizes.of(report.keptBytes()) + ")?\nKeep them if anything has seemed missing since a repair."
 							+ " This can't be undone.")) {
 					try {
 						app.removeKeptOriginals();
