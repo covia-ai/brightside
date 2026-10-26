@@ -4,6 +4,7 @@ import convex.core.data.ACell;
 import convex.core.data.AString;
 import convex.core.lang.RT;
 import covia.api.Fields;
+import covia.venue.AgentState;
 
 /**
  * Why an agent is suspended, read from its record or its {@code agent:info}
@@ -13,9 +14,11 @@ import covia.api.Fields;
  * missing key) suspends it with the failure as its error; re-applying the
  * configuration and resuming is the usual cure, and Brightside does that by
  * itself. {@code agent:suspend} — the owner, the operator or {@link Thor}
- * stopping it on purpose — suspends it with no error, or with
- * {@value #CANCELLED} when the stop cut a turn short. Brightside never lifts
- * one of those by itself: whoever stopped it, or the owner, decides.
+ * stopping it on purpose — records who stopped it, when and why, under
+ * {@code suspension}, which a failure racing the stop does not displace.
+ * A store from before that record says the same by leaving the error empty,
+ * or {@value #CANCELLED} when the stop cut a turn short. Brightside never
+ * lifts a deliberate stop by itself: whoever stopped it, or the owner, decides.
  */
 public final class Suspension {
 
@@ -28,7 +31,7 @@ public final class Suspension {
 
 	/** Whether {@code agent} is suspended because a turn failed. */
 	public static boolean byFault(ACell agent) {
-		if (!suspended(agent)) return false;
+		if (!suspended(agent) || RT.getIn(agent, AgentState.KEY_SUSPENSION) != null) return false;
 		AString error = RT.ensureString(RT.getIn(agent, Fields.ERROR));
 		return error != null && !CANCELLED.equals(error.toString());
 	}
@@ -36,6 +39,12 @@ public final class Suspension {
 	/** Whether {@code agent} was suspended on purpose, by {@code agent:suspend}. */
 	public static boolean deliberate(ACell agent) {
 		return suspended(agent) && !byFault(agent);
+	}
+
+	/** Why it was stopped on purpose, in the words of whoever stopped it, or null. */
+	public static String reason(ACell agent) {
+		AString reason = RT.ensureString(RT.getIn(agent, AgentState.KEY_SUSPENSION, Fields.REASON));
+		return (reason == null || reason.isEmpty()) ? null : reason.toString();
 	}
 
 	private static boolean suspended(ACell agent) {

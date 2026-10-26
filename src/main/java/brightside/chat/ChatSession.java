@@ -490,9 +490,10 @@ public final class ChatSession {
 	public static final class SuspendedException extends Exception {
 		private static final long serialVersionUID = 1L;
 
-		SuspendedException(String agent, Throwable cause) {
-			super(agent + " has been stopped on purpose, so Brightside won't restart it by itself. If Thor "
-				+ "stopped it, his request in your Inbox says why and lets you resume it.", cause);
+		SuspendedException(String agent, String reason, Throwable cause) {
+			super(agent + " has been stopped on purpose" + ((reason != null) ? " (“" + reason + "”)" : "")
+				+ ", so Brightside won't restart it by itself. If Thor stopped it, his request in your Inbox says why"
+				+ " and lets you resume it.", cause);
 		}
 	}
 
@@ -500,11 +501,11 @@ public final class ChatSession {
 		return (agentName != null) ? agentName : config.agentId();
 	}
 
-	/** Whether {@code e} is the venue refusing work because the agent is suspended. */
+	/** Whether {@code e} is the venue refusing work because the agent is suspended, by Covia's code for it. */
 	static boolean isSuspended(Throwable e) {
 		for (Throwable t = e; t != null; t = t.getCause()) {
-			String m = t.getMessage();
-			if (m != null && m.contains("is suspended")) return true;
+			if (t instanceof JobFailedException failure
+					&& AgentAdapter.SUSPENDED_CODE.equals(failure.getErrorCode())) return true;
 			if (t.getCause() == t) break;
 		}
 		return false;
@@ -560,7 +561,8 @@ public final class ChatSession {
 			// Settings): resume and try this message once more, same session.
 			// Stopped on purpose: say so, and leave it to whoever stopped it.
 			if (isSuspended(e)) {
-				if (Suspension.deliberate(agentInfo())) throw new SuspendedException(displayName(), e);
+				ACell info = agentInfo();
+				if (Suspension.deliberate(info)) throw new SuspendedException(displayName(), Suspension.reason(info), e);
 				log.warn("Agent is suspended ({}); resuming and retrying", e.getMessage());
 				resume();
 				Reply reply = sendOnce(message, accepted);

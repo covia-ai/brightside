@@ -446,6 +446,10 @@ public final class SessionHistory {
 	 * {@code task}, the field {@code agent:request} names for free-form
 	 * instructions; null for anything else.
 	 */
+	static String wordsOf(ACell content) {
+		return contentText(content);
+	}
+
 	private static String contentText(ACell content) {
 		if (content instanceof AString s) return s.toString();
 		String text = str(RT.getIn(content, "text"));

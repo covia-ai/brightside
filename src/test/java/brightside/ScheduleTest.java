@@ -81,6 +81,24 @@ class ScheduleTest {
 	}
 
 	@Test
+	void anEventIsNamedByWhatItIsFor() throws Exception {
+		EmbeddedVenue venue = shared.venue();
+		Venue client = venue.clientAs(Identity.of("schedule-purpose").userDID(venue.did()));
+		run(client, "v/ops/scheduler/schedule", Maps.of(
+			"operation", OP, "input", Maps.of("path", "w"), "after", HOUR, "description", "Tidy the workspace"));
+		Schedule.Event described = Schedule.list(client).get(0);
+		assertEquals("Tidy the workspace", described.title(), "the description it was scheduled with");
+		assertEquals(RT.getIn(client.getAsset(OP).meta(), "name").toString(), described.label());
+
+		// One that hands an agent a task is named by the task, as its conversation will be.
+		assertEquals("Daily check-in", Schedule.purpose(Maps.of("input",
+			Maps.of("agentId", "Brightside", "input", Maps.of("task", "Daily check-in", "format", "brief")))));
+		assertEquals("Say good morning", Schedule.purpose(Maps.of("input",
+			Maps.of("agentId", "Brightside", "message", "Say good morning"))));
+		assertNull(Schedule.purpose(Maps.of("input", Maps.of("path", "w"))), "nothing to say: the operation's name stands");
+	}
+
+	@Test
 	void runNowAndCancelActOnlyOnTheOwnersEvents() throws Exception {
 		EmbeddedVenue venue = shared.venue();
 		String did = Identity.of("schedule-actions").userDID(venue.did());

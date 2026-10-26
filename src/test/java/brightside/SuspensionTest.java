@@ -1,5 +1,6 @@
 package brightside;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -60,6 +61,15 @@ class SuspensionTest {
 	}
 
 	@Test
+	void aRecordedStopIsDeliberateEvenWhenAFailureRacedIt() {
+		var stopped = Maps.of("status", "SUSPENDED", "error", "Transition failed: late",
+			"suspension", Maps.of("by", "did:key:z6Mk:u:thor", "ts", 1L, "reason", "posting secrets"));
+		assertTrue(Suspension.deliberate(stopped));
+		assertFalse(Suspension.byFault(stopped));
+		assertEquals("posting secrets", Suspension.reason(stopped));
+	}
+
+	@Test
 	void aRunningAgentIsNeither() {
 		var sleeping = Maps.of("status", "SLEEPING", "error", "stale");
 		assertFalse(Suspension.byFault(sleeping));
@@ -82,11 +92,12 @@ class SuspensionTest {
 			assertTrue(turnStarted.await(TIMEOUT_SECONDS, TimeUnit.SECONDS), "its turn never started");
 		}
 
-		run("v/ops/agent/suspend", Maps.of(Fields.AGENT_ID, agent));
+		run("v/ops/agent/suspend", Maps.of(Fields.AGENT_ID, agent, "reason", "checking something"));
 		// Covia fails the cut-short task once it has recorded the suspension.
 		assertThrows(ExecutionException.class, () -> task.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
 		ACell record = venue.agentRecord(userDID, agent);
 		assertTrue(Suspension.deliberate(record), "stopped on purpose: " + record);
+		assertEquals("checking something", Suspension.reason(record), "and why, as whoever stopped it said");
 	}
 
 	@Test

@@ -50,13 +50,23 @@ public final class Schedule {
 	 * One pending event. Times are epoch millis; {@code everyMillis} is 0 for a
 	 * one-shot event and {@code lastFiredAt} 0 before the first run.
 	 * {@code lastStatus} and {@code lastError} describe the last tracked run,
-	 * null when it is not tracked or not known.
+	 * null when it is not tracked or not known. {@code purpose} is what the
+	 * event is for, in words: the description it was scheduled with, else the
+	 * task or message it hands an agent; null when it says neither.
 	 */
 	public record Event(String handle, String operation, String label, long nextAt, long everyMillis,
-			long lastFiredAt, String lastJob, String lastStatus, String lastError, boolean tracked) {
+			long lastFiredAt, String lastJob, String lastStatus, String lastError, boolean tracked,
+			String purpose) {
 
 		public boolean recurring() {
 			return everyMillis > 0;
+		}
+
+		/** The event's name on screen: what it is for when it says, else its operation's. */
+		public String title() {
+			if (purpose == null) return label;
+			int nl = purpose.indexOf('\n');
+			return (nl < 0) ? purpose : purpose.substring(0, nl);
 		}
 	}
 
@@ -89,7 +99,8 @@ public final class Schedule {
 			}
 			String label = (op == null) ? "Unknown operation" : labels.computeIfAbsent(op, o -> label(client, o));
 			list.add(new Event(handle, op, label, num(RT.getIn(e, "time")), num(RT.getIn(e, "repeat", "every")),
-				num(RT.getIn(e, "lastFired")), lastJob, status, error, CVMBool.TRUE.equals(RT.getIn(e, "track"))));
+				num(RT.getIn(e, "lastFired")), lastJob, status, error, CVMBool.TRUE.equals(RT.getIn(e, "track")),
+				purpose(e)));
 		}
 		return list;
 	}
@@ -186,6 +197,21 @@ public final class Schedule {
 		} catch (Exception e) {
 			return null; // the job record may have been deleted since
 		}
+	}
+
+	/**
+	 * What an event is for: its scheduled {@code description}, else the words
+	 * of what it hands an agent, an {@code agent:request}'s payload or an
+	 * {@code agent:chat} message, read as a conversation reads them.
+	 */
+	static String purpose(ACell event) {
+		String description = str(RT.getIn(event, "description"));
+		if (description != null && !description.isBlank()) return description.strip();
+		ACell input = RT.getIn(event, "input");
+		ACell handed = RT.getIn(input, Fields.INPUT);
+		if (handed == null) handed = RT.getIn(input, Fields.MESSAGE);
+		String words = SessionHistory.wordsOf(handed);
+		return (words != null && !words.isBlank()) ? words.strip() : null;
 	}
 
 	private static String str(ACell c) {

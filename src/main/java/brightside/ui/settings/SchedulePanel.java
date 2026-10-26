@@ -225,7 +225,7 @@ public final class SchedulePanel extends SettingsPage {
 		long waiting = events.stream().filter(e -> "INPUT_REQUIRED".equals(e.lastStatus())
 			|| "AUTH_REQUIRED".equals(e.lastStatus())).count();
 
-		summary.add(new StatTile("clock", Tone.ACCENT, "Next up", relative(next.nextAt(), now), next.label()));
+		summary.add(new StatTile("clock", Tone.ACCENT, "Next up", relative(next.nextAt(), now), next.title()));
 		summary.add(new StatTile("repeat", Tone.ACCENT, "Scheduled", plural(events.size(), "event"),
 			repeating == 0 ? "None repeat" : repeating == events.size() ? "All repeat" : repeating + " repeat"));
 		if (failed > 0) {
@@ -261,8 +261,8 @@ public final class SchedulePanel extends SettingsPage {
 			// What it is: the kind as a badge, the name, how often, the reference.
 			card.add(new Badge(e.recurring() ? "repeat" : "calendar-clock", Tone.ACCENT, 30), "aligny top");
 			JPanel what = column();
-			JLabel name = Labels.lead(e.label());
-			name.setToolTipText(e.operation());
+			JLabel name = Labels.lead(e.title());
+			name.setToolTipText((e.purpose() != null) ? e.label() + " · " + e.operation() : e.operation());
 			what.add(name, "wmin 0");
 			JPanel chips = new JPanel(new MigLayout("insets 0, gap 6", "", ""));
 			chips.setOpaque(false);
@@ -367,8 +367,8 @@ public final class SchedulePanel extends SettingsPage {
 			String also = event.recurring()
 				? "It stays scheduled and runs again " + relative(event.nextAt(), System.currentTimeMillis()).toLowerCase() + "."
 				: "It runs once now and will not run again later.";
-			if (!Dialogs.confirm(SchedulePanel.this, "Run now", "Run \"" + event.label() + "\" now? " + also)) return;
-			busy(true, "Running " + event.label() + "…");
+			if (!Dialogs.confirm(SchedulePanel.this, "Run now", "Run \"" + event.title() + "\" now? " + also)) return;
+			busy(true, "Running " + event.title() + "…");
 			host.runNow(event, this::finished);
 		}
 
@@ -376,8 +376,8 @@ public final class SchedulePanel extends SettingsPage {
 			String what = event.recurring() ? "It stops repeating and will not run again."
 				: "It will not run.";
 			if (!Dialogs.confirmDanger(SchedulePanel.this, "Cancel scheduled run",
-				"Cancel \"" + event.label() + "\"? " + what)) return;
-			busy(true, "Cancelling " + event.label() + "…");
+				"Cancel \"" + event.title() + "\"? " + what)) return;
+			busy(true, "Cancelling " + event.title() + "…");
 			host.cancel(event, this::finished);
 		}
 

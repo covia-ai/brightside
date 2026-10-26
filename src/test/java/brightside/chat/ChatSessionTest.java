@@ -438,7 +438,8 @@ class ChatSessionTest {
 		assertThrows(Exception.class, () -> new ChatSession(venue, broken).send("boom"));
 
 		ChatSession fixed = new ChatSession(venue, echoChat("bs-susp"));
-		assertTrue(ChatSession.isSuspended(new RuntimeException("Agent 'x' is suspended: y; fix the cause")));
+		assertFalse(ChatSession.isSuspended(new RuntimeException("Agent 'x' is suspended: y; fix the cause")),
+			"Covia's code says so, not the wording");
 		assertNotNull(fixed.send("hello again").sessionId(), "resumed, not bricked");
 	}
 
