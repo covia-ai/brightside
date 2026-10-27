@@ -225,6 +225,11 @@ public final class EmbeddedVenue implements AutoCloseable {
 		};
 	}
 
+	/** Brightside's own adapter, which keeps the app's state in the venue; null if it isn't registered. */
+	public BrightsideAdapter brightside() {
+		return (engine().getAdapter("brightside") instanceof BrightsideAdapter adapter) ? adapter : null;
+	}
+
 	/** Brightside's Moltbook adapter, which keeps the owner's Moltbook record; null if it isn't registered. */
 	public MoltbookAdapter moltbook() {
 		return (engine().getAdapter("moltbook") instanceof MoltbookAdapter adapter) ? adapter : null;

@@ -167,6 +167,20 @@ public class BrightsideAdapter extends AAdapter {
 		state.write(state.userPath(userDID, MAP_SETTINGS), settings);
 	}
 
+	/** Where the chosen model sits in this adapter's state: one for the installation. */
+	static final String MODEL = "model";
+
+	/** The model operation chosen in onboarding or Settings → Model, or null if none was. */
+	public String model() {
+		ACell model = adapterState().read(MODEL);
+		return (model instanceof AString s && !s.isEmpty()) ? s.toString() : null;
+	}
+
+	/** Remembers the chosen model operation ({@code v/models/<provider>/<id>}). */
+	public void saveModel(String llmOperation) {
+		adapterState().write(MODEL, Strings.create(llmOperation));
+	}
+
 	/** A deleted person's map settings go with them. */
 	@Override
 	public void deleteUserState(AString did, AdapterState state) {

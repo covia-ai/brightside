@@ -61,7 +61,7 @@ rules for changing them.
 | `config.json`, files, API keys, integrations, reaching the venue from other tools | `docs/CONFIGURATION.md` |
 | Federation roadmap | `docs/NETWORK.md` |
 | The Peers map: peer data, map settings, the path to live nodes | `docs/PEERS.md` |
-| Brightside's own state as a lattice application (proposal) | `docs/APP_STATE.md` |
+| Brightside's own state in its adapters' venue state: what is there, what moves in, the rules | `docs/APP_STATE.md` |
 | Memory proposals for consideration | `docs/ADVANCED_MEMORY.md` |
 | The shipped skills and Brightside's operations, in code | `BrightsideSkillsAdapter`, `BrightsideAdapter` |
 | Covia's own conventions, vocabulary and design | `../covia/AGENTS.md`, `../covia/venue/docs/` |

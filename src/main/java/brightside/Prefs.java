@@ -14,7 +14,7 @@ import org.slf4j.LoggerFactory;
  * Small persisted user preferences (e.g. tray behaviour), stored as a
  * {@code prefs.properties} side-file in the data home. Kept separate from
  * {@code config.json} so that file stays hand-editable (comments intact) — the
- * same reasoning as the {@code model.txt} model override.
+ * same reasoning that keeps the chosen model out of it.
  */
 public final class Prefs {
 

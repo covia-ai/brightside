@@ -126,7 +126,7 @@ public final class BrightSide {
 	private volatile Thread launchThread;
 	private volatile Vault vault; // set once onboarded/unlocked
 	private volatile String venueSeedHex; // the venue's Ed25519 seed hex (authorises operator takeover)
-	private volatile String llmOverride; // chosen model op for the first onboarding launch
+	private volatile String llmOverride; // the chosen model op, kept in Brightside's adapter state
 
 	private enum Mode {
 		ONBOARD, UNLOCK
@@ -503,6 +503,7 @@ public final class BrightSide {
 			}
 			venue = v;
 			log.info("Venue '{}' ready at {} as {}", v.name(), v.url(), v.did());
+			adoptModel(v);
 			// Bind the identity and move any keys the vault still holds while the
 			// dialog is still up, so a failure goes back to it. Only then reveal:
 			// the dialog drops and the window comes up in its startup state; the
@@ -603,7 +604,6 @@ public final class BrightSide {
 				llmOverride = (setup.providerId() == null)
 					? AppConfig.ECHO_LLM_OPERATION
 					: Providers.modelOp(setup.providerId(), setup.modelId());
-				config.persistModel(llmOverride);
 
 				// The wizard is already on screen in the main window; nothing to reveal.
 				launchVenueWith(venueConfig, null);
@@ -848,7 +848,12 @@ public final class BrightSide {
 	public void applyModel(String providerId, String modelId) {
 		String op = Providers.modelOp(providerId, modelId);
 		llmOverride = op;
-		config.persistModel(op);
+		EmbeddedVenue v = venue;
+		BrightsideAdapter app = (v != null) ? v.brightside() : null;
+		if (app != null) {
+			app.saveModel(op);
+			v.durable();
+		}
 		Providers.Provider p = Providers.byId(providerId);
 		boolean keyLive = p == null || !p.needsApiKey() || keyResolves(p.secretName());
 		if (!keyLive) {
@@ -1383,7 +1388,22 @@ public final class BrightSide {
 	}
 
 
-	/** The chat config with the chosen model applied (onboarding's, else the saved one). */
+	/**
+	 * The chosen model, kept in Brightside's adapter state: onboarding's choice
+	 * is saved there on its first launch, and a later launch reads it back.
+	 */
+	private void adoptModel(EmbeddedVenue v) {
+		BrightsideAdapter app = v.brightside();
+		if (app == null) return;
+		String chosen = llmOverride;
+		if (chosen == null) chosen = app.model();
+		if (chosen == null) chosen = AppConfig.takeModelFile(config.home());
+		if (chosen == null) return;
+		if (!chosen.equals(app.model())) app.saveModel(chosen);
+		llmOverride = chosen;
+	}
+
+	/** The chat config with the chosen model applied, else config.json's. */
 	private AppConfig.Chat effectiveChat() {
 		AppConfig.Chat c = config.chat();
 		if (llmOverride == null || llmOverride.equals(c.llmOperation())) return c;

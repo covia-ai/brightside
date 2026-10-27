@@ -101,4 +101,13 @@ class AppConfigTest {
 	void rejectsNonObjectConfig() {
 		assertThrows(IllegalArgumentException.class, () -> AppConfig.parse("[1, 2]", home));
 	}
+
+	@Test
+	void anEarlierModelFileIsReadOnceAndRemoved() throws IOException {
+		Files.writeString(home.resolve(AppConfig.MODEL_FILE), "v/models/anthropic/claude-opus-5\n");
+		assertEquals("v/models/anthropic/claude-opus-5", AppConfig.takeModelFile(home));
+		assertFalse(Files.exists(home.resolve(AppConfig.MODEL_FILE)));
+		assertEquals(null, AppConfig.takeModelFile(home));
+	}
+
 }

@@ -119,8 +119,8 @@ public final class AppConfig {
 				"agentId": "Brightside",
 				"operation": "v/ops/llmagent/chat",
 				// Model operation used for replies. The model chosen in the app
-				// (onboarding or Settings → Model) is kept in model.txt
-				// beside this file and takes precedence over this key.
+				// (onboarding or Settings → Model) is kept in the venue store
+				// and takes precedence over this key.
 				// Use "v/test/ops/llm" for an offline echo bot.
 				"llmOperation": "v/models/anthropic/claude-sonnet-5-5"
 				// How the assistant should behave. Leave it out to use Brightside's
@@ -142,41 +142,31 @@ public final class AppConfig {
 		this.repairStore = bool(raw, "repairStore", true);
 		this.venue = FileRoots.apply(merge(defaultVenue(home), RT.ensureMap(raw.get(Strings.create("venue")))), home);
 		AMap<AString, ACell> c = RT.ensureMap(raw.get(Strings.create("chat")));
-		// The chosen model persists in a small side-file (model.txt), so changing
-		// it in onboarding/Settings never rewrites the commented config.json.
-		String model = readModel(home);
-		if (model == null) model = string(c, "llmOperation", DEFAULT_LLM_OPERATION);
 		this.chat = new Chat(
 			string(c, "agentId", DEFAULT_AGENT_ID),
 			string(c, "operation", DEFAULT_OPERATION),
-			model,
+			string(c, "llmOperation", DEFAULT_LLM_OPERATION),
 			string(c, "systemPrompt", DEFAULT_SYSTEM_PROMPT));
 	}
 
-	/** File holding the chosen model operation, so it survives restarts without a config rewrite. */
+	/** Where an earlier Brightside kept the chosen model, before the venue store held it. */
 	static final String MODEL_FILE = "model.txt";
 
-	/** Persists the chosen model operation ({@code v/models/<provider>/<id>}). Best-effort. */
-	public void persistModel(String llmOperation) {
-		try {
-			Files.createDirectories(home);
-			Files.writeString(home.resolve(MODEL_FILE), llmOperation);
-		} catch (IOException e) {
-			log.warn("Could not save the chosen model", e);
-		}
-	}
-
-	private static String readModel(Path home) {
+	/**
+	 * The model an earlier Brightside kept in {@link #MODEL_FILE}, removing the
+	 * file: read once, on the first launch that keeps the model in the store.
+	 */
+	static String takeModelFile(Path home) {
 		try {
 			Path f = home.resolve(MODEL_FILE);
-			if (Files.isRegularFile(f)) {
-				String s = Files.readString(f).trim();
-				if (!s.isEmpty()) return s;
-			}
-		} catch (IOException ignored) {
-			// fall back to config.json / default
+			if (!Files.isRegularFile(f)) return null;
+			String s = Files.readString(f).trim();
+			Files.delete(f);
+			return s.isEmpty() ? null : s;
+		} catch (IOException e) {
+			log.warn("Could not read the model kept in {}: {}", MODEL_FILE, e.toString());
+			return null;
 		}
-		return null;
 	}
 
 	/**
