@@ -2,6 +2,7 @@ package brightside;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.ExecutionException;
@@ -68,6 +69,44 @@ class MoltbookAdapterTest {
 		ACell out = run(user, "v/ops/moltbook/account", Maps.empty());
 		assertEquals(CVMBool.FALSE, RT.getIn(out, "configured"));
 		assertTrue(String.valueOf(RT.getIn(out, "how")).contains("register"), "says how to set one up");
+	}
+
+	@Test
+	void aRecordKeptInTheWorkspaceMovesIntoTheAdaptersStateOnce() {
+		AString did = Strings.create(Identity.of("moltbook-legacy").userDID(venue.did()));
+		covia.lattice.WorkspaceRoot workspace = venue.engine().getVenueState().users().ensure(did).workspaceRoot();
+		ACell[] legacy = covia.lattice.WorkspaceRoot.parseStringPath("w/moltbook");
+		ACell record = Moltbook.record("Molty", "https://www.moltbook.com/claim/molty", "code-1");
+		workspace.write(legacy, record);
+
+		MoltbookAdapter moltbook = venue.moltbook();
+		assertEquals(record, moltbook.record(did));
+		assertNull(venue.resolve(did.toString(), "w/moltbook"), "gone from the workspace");
+		covia.venue.AdapterState state = venue.engine().adapterState("moltbook");
+		assertEquals(record, state.read(state.userPath(did, MoltbookAdapter.RECORD)));
+		assertEquals(record, moltbook.record(did), "read again from where it now is");
+	}
+
+	@Test
+	void readingWithoutARecordWritesNothing() {
+		AString did = Strings.create(Identity.of("moltbook-none").userDID(venue.did()));
+		covia.venue.User user = venue.engine().getVenueState().users().ensure(did);
+		ACell before = user.get();
+		assertNull(venue.moltbook().record(did));
+		assertEquals(before, venue.engine().getVenueState().users().get(did).get(), "the person's record is untouched");
+		covia.venue.AdapterState state = venue.engine().adapterState("moltbook");
+		assertNull(state.read(state.userPath(did, "")), "and nothing is kept for them");
+	}
+
+	@Test
+	void aDeletedPersonsRecordGoesWithThem() {
+		AString did = Strings.create(Identity.of("moltbook-deleted").userDID(venue.did()));
+		venue.engine().getVenueState().users().ensure(did);
+		venue.moltbook().saveRecord(did, Moltbook.record("Molty", null, null));
+		covia.venue.Engine engine = venue.engine();
+		engine.deleteUser(engine.venueContext(), did);
+		covia.venue.AdapterState state = engine.adapterState("moltbook");
+		assertNull(state.read(state.userPath(did, "")));
 	}
 
 	@Test

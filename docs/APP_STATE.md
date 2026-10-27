@@ -35,7 +35,7 @@ in the Convex repository); the peer map that motivated it is [PEERS.md](PEERS.md
 | Theme, mode, accent | `prefs.properties` | `:look` for the person; a device may override in `:devices` |
 | Tray behaviour | `prefs.properties` | `:devices`, since it belongs to one desktop |
 | Peers map settings | adapter state | `:peers` (orbits, placements by DID) |
-| Moltbook claim page | `w/moltbook` in the person's workspace | `:integrations` |
+| Moltbook claim page | the Moltbook adapter's state | `:integrations` |
 | Requests already notified | memory only | `:seen`, so a restart does not notify twice |
 | Last tab, window size, the map's zoom, unsent drafts | memory only | `:devices`, per device |
 | Migrations applied | implied by code | `:version` |
@@ -109,7 +109,7 @@ default rather than rely on that.
 
 On the first launch with the application, each value is read once from where
 it lives today (`identity.json`, `model.txt`, `prefs.properties`,
-`w/moltbook`, the adapter state) and written into the region; the old
+the adapters' state) and written into the region; the old
 locations are then read no more. `identity.json` stays as the pre-unlock
 cache and a recovery aid until the region is trusted, and is retired after.
 

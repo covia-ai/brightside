@@ -34,8 +34,8 @@ import covia.grid.Venue;
  * <p>Brightside keeps the API key only in the owner's encrypted secret store
  * inside the venue store (as {@link #KEY_SECRET}) — keyed from the identity
  * seed, so it outlives a passphrase recovery, and never in the vault, whose
- * keys are provisioned venue-wide — and remembers the claim page under the
- * owner's workspace ({@link #RECORD_PATH}) until it has been used. The
+ * keys are provisioned venue-wide — and {@link MoltbookAdapter} remembers the
+ * claim page in its own state until it has been used. The
  * assistant takes part through {@link MoltbookAdapter}'s operations, which
  * resolve the key inside the venue — the model never composes a request or
  * sees the credential. Nothing is written to {@code config.json}.
@@ -52,14 +52,11 @@ public final class Moltbook {
 	/** Always with {@code www}: the bare domain redirects and drops the credential. */
 	public static final String SITE = "https://www.moltbook.com";
 	public static final String API = SITE + "/api/v1";
-	/** The owner's workspace record: the agent's name and, until claimed, the claim page. */
-	public static final String RECORD_PATH = "w/moltbook";
 	/** The owner's dashboard, where a lost key is rotated. */
 	public static final String OWNER_LOGIN = SITE + "/login";
 
 	private static final String USER_AGENT = "Brightside/1.0 (+https://github.com/covia-ai/brightside)";
 	private static final String OP_SECRET_SET = "v/ops/secret/set";
-	private static final String OP_WRITE = "v/ops/covia/write";
 	private static final String OP_DELETE = "v/ops/covia/delete";
 	private static final long TIMEOUT_SECONDS = 30;
 
@@ -260,21 +257,12 @@ public final class Moltbook {
 		run(user, OP_DELETE, Maps.of("path", "s/" + KEY_SECRET));
 	}
 
-	/** Remembers the agent's name and, for a fresh registration, its claim page. */
-	public static void saveRecord(Venue user, String name, String claimUrl, String verificationCode) throws Exception {
-		run(user, OP_WRITE, Maps.of("path", RECORD_PATH, "value", record(name, claimUrl, verificationCode)));
-	}
-
-	/** The workspace record: the agent's name, when it was registered, and the claim page while it matters. */
+	/** The record: the agent's name, when it was registered, and the claim page while it matters. */
 	public static AMap<AString, ACell> record(String name, String claimUrl, String verificationCode) {
 		AMap<AString, ACell> record = Maps.of(K_NAME, name, K_REGISTERED, CVMLong.create(Utils.getCurrentTimestamp()));
 		if (claimUrl != null) record = record.assoc(K_CLAIM_URL, Strings.create(claimUrl));
 		if (verificationCode != null) record = record.assoc(K_VERIFICATION, Strings.create(verificationCode));
 		return record;
-	}
-
-	public static void clearRecord(Venue user) throws Exception {
-		run(user, OP_DELETE, Maps.of("path", RECORD_PATH));
 	}
 
 	// ------------------------------------------------------------------

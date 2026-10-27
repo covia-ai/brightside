@@ -1198,7 +1198,8 @@ public final class BrightSide {
 			try {
 				Venue user = ownerClient(v, id);
 				Moltbook.forgetKey(user);
-				Moltbook.clearRecord(user);
+				MoltbookAdapter moltbook = v.moltbook();
+				if (moltbook != null) moltbook.clearRecord(Strings.create(id.userDID(v.did())));
 				note = "Forgotten here. The account is still yours on Moltbook; connect it again with its key any time.";
 			} catch (Exception e) {
 				log.warn("Could not forget the Moltbook account", e);
@@ -1214,7 +1215,11 @@ public final class BrightSide {
 			String claimUrl, String verificationCode) throws Exception {
 		Venue user = ownerClient(v, id);
 		Moltbook.storeKey(user, apiKey.trim());
-		Moltbook.saveRecord(user, name, claimUrl, verificationCode);
+		MoltbookAdapter moltbook = v.moltbook();
+		if (moltbook != null) {
+			moltbook.saveRecord(Strings.create(id.userDID(v.did())), Moltbook.record(name, claimUrl, verificationCode));
+		}
+		v.durable();
 	}
 
 	/**
@@ -1229,7 +1234,8 @@ public final class BrightSide {
 			String did = id.userDID(v.did());
 			String key = v.engine().resolveSecret(MoltbookAdapter.SECRET_REF, RequestContext.of(Strings.create(did)));
 			if (key != null && !key.isBlank()) {
-				ACell record = v.resolve(did, Moltbook.RECORD_PATH);
+				MoltbookAdapter moltbook = v.moltbook();
+				ACell record = (moltbook != null) ? moltbook.record(Strings.create(did)) : null;
 				try {
 					account = Moltbook.lookup(key, record);
 				} catch (Exception e) {

@@ -46,7 +46,8 @@ class MoltbookKeyPersistenceTest {
 			userDID = Identity.of("owner").userDID(first.venue().did());
 			Venue user = first.venue().clientAs(userDID);
 			Moltbook.storeKey(user, "moltbook_persisted");
-			Moltbook.saveRecord(user, "Molty", "https://www.moltbook.com/claim/molty", "code-1");
+			first.venue().moltbook().saveRecord(Strings.create(userDID),
+				Moltbook.record("Molty", "https://www.moltbook.com/claim/molty", "code-1"));
 		}
 
 		// Recovery: keys.enc goes, the seed is re-encrypted under a new passphrase,
@@ -58,7 +59,7 @@ class MoltbookKeyPersistenceTest {
 			String key = second.venue().engine().resolveSecret(MoltbookAdapter.SECRET_REF,
 				RequestContext.of(Strings.create(userDID)));
 			assertEquals("moltbook_persisted", key, "the key is still in the owner's store");
-			ACell record = second.venue().resolve(userDID, Moltbook.RECORD_PATH);
+			ACell record = second.venue().moltbook().record(Strings.create(userDID));
 			assertNotNull(record, "the claim record is still there");
 			assertEquals(Strings.create("Molty"), RT.getIn(record, "name"));
 		}

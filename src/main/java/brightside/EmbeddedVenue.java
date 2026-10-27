@@ -225,6 +225,11 @@ public final class EmbeddedVenue implements AutoCloseable {
 		};
 	}
 
+	/** Brightside's Moltbook adapter, which keeps the owner's Moltbook record; null if it isn't registered. */
+	public MoltbookAdapter moltbook() {
+		return (engine().getAdapter("moltbook") instanceof MoltbookAdapter adapter) ? adapter : null;
+	}
+
 	/**
 	 * Makes what is committed survive a crash: Covia's durability barrier,
 	 * for just before Brightside tells the person something is saved. Without
