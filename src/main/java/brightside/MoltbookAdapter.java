@@ -264,6 +264,8 @@ public class MoltbookAdapter extends AAdapter {
 				}
 				user.workspaceRoot().write(target.pathKeys(), record);
 			});
+			// Moltbook shows the key once: it must outlive a crash before anyone is told.
+			engine.flush();
 			AMap<AString, ACell> out = Maps.of(
 				K_REGISTERED, CVMBool.TRUE,
 				K_NAME, Strings.create(name),

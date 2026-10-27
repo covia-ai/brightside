@@ -903,6 +903,7 @@ public final class BrightSide {
 				state.users().ensure(owner).secrets().store(p.secretName(), value, keys);
 				state.users().ensure(operator).secrets().store(p.secretName(), value, keys);
 			});
+			v.durable();
 			return true;
 		} catch (Exception e) {
 			log.warn("Could not store the API key", e);
@@ -1326,6 +1327,7 @@ public final class BrightSide {
 		if (did == null) return false;
 		try {
 			v.secrets(did, true).store(name, value.trim(), v.secretKey());
+			v.durable();
 			return true;
 		} catch (Exception e) {
 			log.warn("Could not store secret {}: {}", name, e.toString());
@@ -1341,7 +1343,9 @@ public final class BrightSide {
 		if (did == null) return false;
 		try {
 			covia.venue.SecretStore store = v.secrets(did, false);
-			return store != null && store.deleteIfPresent(Strings.create(name));
+			if (store == null || !store.deleteIfPresent(Strings.create(name))) return false;
+			v.durable();
+			return true;
 		} catch (Exception e) {
 			log.warn("Could not delete secret {}: {}", name, e.toString());
 			return false;

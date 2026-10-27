@@ -225,6 +225,15 @@ public final class EmbeddedVenue implements AutoCloseable {
 		};
 	}
 
+	/**
+	 * Makes what is committed survive a crash: Covia's durability barrier,
+	 * for just before Brightside tells the person something is saved. Without
+	 * it the venue's own flush comes within ten seconds.
+	 */
+	public void durable() {
+		engine().flush();
+	}
+
 	/** The keys for {@link #secrets}: derived from the venue key pair, as the secret adapter derives them. */
 	public covia.venue.SecretStore.Keys secretKey() {
 		return covia.venue.SecretStore.keys(engine().getKeyPair());
