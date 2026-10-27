@@ -118,9 +118,10 @@ placements and ring sizes and nothing else. The map's clock is the wall
 clock, so bodies keep moving while Brightside is closed and placements hold
 across launches.
 
-**Where they live.** In Brightside's own adapter workspace on the venue, under
-the acting person's DID: venue-private, encrypted with the store, and outside
-the person's own namespace, so no other principal reads them through it. The
+**Where they live.** In Brightside's own adapter state on the venue, under the
+acting person's DID: encrypted with the store, outside the person's own
+namespace, and deleted with the person. The person's agents can read them at
+`x/brightside/peers-map` with the ordinary read tools but not change them. The
 app reads and writes them in-process, a moment after a change settles, so
 arranging the map leaves no job records (`MapSettingsStoreTest`). Acting as
 the operator keeps a separate arrangement.

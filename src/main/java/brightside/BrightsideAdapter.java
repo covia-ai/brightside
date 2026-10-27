@@ -24,9 +24,11 @@ import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
 import convex.core.util.JSON;
 import convex.core.util.Utils;
+import convex.lattice.cursor.AForkableCursor;
 import covia.adapter.AAdapter;
 import covia.api.Abilities;
 import covia.api.Fields;
+import covia.venue.AdapterState;
 import covia.venue.Engine.UserPathTarget;
 import covia.venue.RequestContext;
 import covia.venue.UcanJwtValidator;
@@ -71,6 +73,7 @@ public class BrightsideAdapter extends AAdapter {
 	private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(BrightsideAdapter.class);
 
 	private static final AString K_APP = Strings.intern("app");
+	private static final AString K_USERS = Strings.intern("users");
 	private static final AString K_VERSION = Strings.intern("version");
 	private static final AString K_VENUE = Strings.intern("venue");
 	private static final AString K_DID = Strings.intern("did");
@@ -138,23 +141,47 @@ public class BrightsideAdapter extends AAdapter {
 		this.onShutdown = onShutdown;
 	}
 
-	/** Where a person's Peers map settings sit in this adapter's workspace, below their DID. */
+	/** Where a person's Peers map settings sit in this adapter's state, below their DID. */
 	static final String MAP_SETTINGS = "peers-map";
 
 	/**
 	 * A person's Peers map settings, as stored ({@link brightside.peers.MapSettings#toCell}),
-	 * or null. They live in this adapter's venue-private workspace rather than
-	 * the person's own namespace: they are how this installation draws the
-	 * map, not data anyone else is meant to read, and the desktop app reads and
-	 * writes them in-process, so arranging the map leaves no job records.
+	 * or null. They live in this adapter's own state rather than the person's
+	 * namespace: they are how this installation draws the map, which the
+	 * person's agents may read at {@code x/brightside} but not change, and the
+	 * desktop app reads and writes them in-process, so arranging the map leaves
+	 * no job records.
 	 */
 	public ACell mapSettings(AString userDID) {
-		return adapterState().read(adapterState().userPath(userDID, MAP_SETTINGS));
+		AdapterState state = adapterState(userDID);
+		return state.read(state.userPath(userDID, MAP_SETTINGS));
 	}
 
-	/** Stores a person's Peers map settings, replacing any. */
+	/**
+	 * Stores a person's Peers map settings, replacing any. Written through the
+	 * person's own view of this adapter's state, so a write racing their
+	 * deletion is refused rather than left behind for whoever has the DID next.
+	 */
 	public void saveMapSettings(AString userDID, ACell settings) {
-		adapterState().write(adapterState().userPath(userDID, MAP_SETTINGS), settings);
+		AdapterState state = adapterState(userDID);
+		state.write(state.userPath(userDID, MAP_SETTINGS), settings);
+	}
+
+	/** A deleted person's map settings go with them. */
+	@Override
+	public void deleteUserState(AString did, AdapterState state) {
+		state.delete(state.userPath(did, ""));
+	}
+
+	/**
+	 * {@code x/brightside}: what this installation keeps for the person, read
+	 * only, through the standard accessors, so their agents can see how the
+	 * Peers map is arranged without a Brightside operation.
+	 */
+	@Override
+	public AForkableCursor<ACell> latticeView(RequestContext ctx) {
+		return adapterState(ctx.getUserDID()).cursor().withDefault(Maps.empty())
+			.path(K_USERS).withDefault(Maps.empty()).path(ctx.getUserDID());
 	}
 
 	@Override
