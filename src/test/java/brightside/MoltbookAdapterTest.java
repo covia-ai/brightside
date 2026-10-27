@@ -72,22 +72,6 @@ class MoltbookAdapterTest {
 	}
 
 	@Test
-	void aRecordKeptInTheWorkspaceMovesIntoTheAdaptersStateOnce() {
-		AString did = Strings.create(Identity.of("moltbook-legacy").userDID(venue.did()));
-		covia.lattice.WorkspaceRoot workspace = venue.engine().getVenueState().users().ensure(did).workspaceRoot();
-		ACell[] legacy = covia.lattice.WorkspaceRoot.parseStringPath("w/moltbook");
-		ACell record = Moltbook.record("Molty", "https://www.moltbook.com/claim/molty", "code-1");
-		workspace.write(legacy, record);
-
-		MoltbookAdapter moltbook = venue.moltbook();
-		assertEquals(record, moltbook.record(did));
-		assertNull(venue.resolve(did.toString(), "w/moltbook"), "gone from the workspace");
-		covia.venue.AdapterState state = venue.engine().adapterState("moltbook");
-		assertEquals(record, state.read(state.userPath(did, MoltbookAdapter.RECORD)));
-		assertEquals(record, moltbook.record(did), "read again from where it now is");
-	}
-
-	@Test
 	void readingWithoutARecordWritesNothing() {
 		AString did = Strings.create(Identity.of("moltbook-none").userDID(venue.did()));
 		covia.venue.User user = venue.engine().getVenueState().users().ensure(did);

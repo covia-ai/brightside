@@ -15,7 +15,6 @@ import brightside.Suspension;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
-import convex.core.data.AVector;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
 import convex.core.data.Vectors;
@@ -107,7 +106,6 @@ public final class ChatSession {
 	 * with the memory pin, the app context and the skills index refreshed.
 	 */
 	static final String COMPACT_TOOL = "compact";
-	private static final String LEGACY_IDENTITY_SKILL = BrightsideSkillsAdapter.SKILLSET + "/identity";
 	/** Read-only dynamic product context; deliberately a non-skill load. */
 	public static final String CONTEXT_OP = "v/ops/brightside/context";
 	/** Stable identity for the configured context load. */
@@ -254,12 +252,7 @@ public final class ChatSession {
 		if (agentReady) return true;
 		ACell info = agentInfo();
 		String status = agentStatus(info);
-		AMap<AString, ACell> existingLoads = configuredLoads(info);
-		boolean legacyPinnedBaseline = existingLoads != null
-			&& (existingLoads.containsKey(Strings.create(LEGACY_IDENTITY_SKILL))
-				|| existingLoads.containsKey(Strings.create(BrightsideSkillsAdapter.INTRODUCTION))
-				|| existingLoads.containsKey(Strings.create(BrightsideSkillsAdapter.SKILLS)));
-		AMap<AString, ACell> desiredLoads = desiredLoads(existingLoads);
+		AMap<AString, ACell> desiredLoads = desiredLoads(configuredLoads(info));
 		AMap<AString, ACell> agentConfig = Maps.of(
 			Fields.OPERATION, config.operation(),
 			"llmOperation", config.llmOperation(),
@@ -308,36 +301,6 @@ public final class ChatSession {
 		if (agentName != null) agentConfig = agentConfig.assoc(Strings.create("name"), Strings.create(agentName));
 		AMap<AString, ACell> input = Maps.of(Fields.AGENT_ID, config.agentId(), Fields.CONFIG, agentConfig);
 		if (status != null) {
-			// agent:update recursively merges nested maps. Replace the loads map in
-			// two supported steps when retiring the old pinned baseline; the
-			// rebuilt map preserves any other operator pins and adds app context.
-			if (legacyPinnedBaseline) {
-				try {
-					replaceConfiguredLoads(desiredLoads);
-					log.info("Migrated legacy pinned skill baseline for agent '{}'", config.agentId());
-				} catch (Exception e) {
-					log.warn("Could not migrate pinned skill baseline for agent '{}' (will retry): {}",
-						config.agentId(), e.getMessage());
-					return false;
-				}
-			}
-			// A context pin on the read/write memory tool — an earlier Brightside's,
-			// or a venue template's of the time — is refused by the venue at every
-			// inference now (covia#465), whichever agent carries it. Rewrite it to
-			// the read-only recall op even for an agent whose configuration is
-			// otherwise left as its record holds it.
-			AVector<ACell> context = migratedContext(info);
-			if (context != null) {
-				try {
-					run(OP_UPDATE, Maps.of(Fields.AGENT_ID, config.agentId(),
-						Fields.CONFIG, Maps.of("context", context)), ADMIN_TIMEOUT_SECONDS);
-					log.info("Migrated memory context pin for agent '{}'", config.agentId());
-				} catch (Exception e) {
-					log.warn("Could not migrate memory context pin for agent '{}' (will retry): {}",
-						config.agentId(), e.getMessage());
-					return false;
-				}
-			}
 			if (!updateExisting) return ready();
 			// agent:update is a recursive *merge* (vectors replace, maps merge), not
 			// a replace: tools/skillsets/context above are re-applied wholesale, but
@@ -406,40 +369,9 @@ public final class ChatSession {
 		return (loads instanceof AMap<?, ?>) ? (AMap<AString, ACell>) loads : null;
 	}
 
-	/**
-	 * {@code config.context} with every pin on the read/write memory tool
-	 * rewritten to {@link #MEMORY_RECALL_OP} — same path and label, the
-	 * {@code command} dropped — or null when there is nothing to change.
-	 */
-	@SuppressWarnings("unchecked")
-	static AVector<ACell> migratedContext(ACell info) {
-		ACell context = RT.getIn(info, Fields.CONFIG, "context");
-		if (!(context instanceof AVector<?> entries)) return null;
-		AVector<ACell> out = Vectors.empty();
-		boolean changed = false;
-		for (long i = 0; i < entries.count(); i++) {
-			ACell entry = (ACell) entries.get(i);
-			if (entry instanceof AMap<?, ?> && Strings.create(MEMORY_OP).equals(RT.getIn(entry, "op"))) {
-				AMap<AString, ACell> pin = ((AMap<AString, ACell>) entry)
-					.assoc(Strings.create("op"), Strings.create(MEMORY_RECALL_OP));
-				if (RT.getIn(entry, "input") instanceof AMap<?, ?> input) {
-					pin = pin.assoc(Strings.create("input"),
-						((AMap<AString, ACell>) input).dissoc(Strings.create("command")));
-				}
-				entry = pin;
-				changed = true;
-			}
-			out = out.conj(entry);
-		}
-		return changed ? out : null;
-	}
-
-	/** Owner pins plus Brightside context, after removing the three legacy skill defaults. */
+	/** Owner pins plus Brightside context. */
 	private AMap<AString, ACell> desiredLoads(AMap<AString, ACell> existing) {
 		AMap<AString, ACell> loads = (existing != null) ? existing : Maps.empty();
-		loads = loads.dissoc(Strings.create(LEGACY_IDENTITY_SKILL));
-		loads = loads.dissoc(Strings.create(BrightsideSkillsAdapter.INTRODUCTION));
-		loads = loads.dissoc(Strings.create(BrightsideSkillsAdapter.SKILLS));
 
 		if (pinnedSkill != null && !loads.containsKey(Strings.create(pinnedSkill))) {
 			loads = loads.assoc(Strings.create(pinnedSkill), Maps.of(
@@ -458,18 +390,6 @@ public final class ChatSession {
 			"label", "Brightside application context",
 			"budget", 4000L,
 			"volatile", CVMBool.FALSE));
-	}
-
-	/** Replaces config.loads despite agent:update's normal recursive map merge. */
-	private void replaceConfiguredLoads(AMap<AString, ACell> loads) throws Exception {
-		AMap<AString, ACell> clear = Maps.empty();
-		clear = clear.assoc(Fields.LOADS, null);
-		run(OP_UPDATE, Maps.of(
-			Fields.AGENT_ID, config.agentId(),
-			Fields.CONFIG, clear), ADMIN_TIMEOUT_SECONDS);
-		run(OP_UPDATE, Maps.of(
-			Fields.AGENT_ID, config.agentId(),
-			Fields.CONFIG, Maps.of(Fields.LOADS, loads)), ADMIN_TIMEOUT_SECONDS);
 	}
 
 	/** Clears a suspension (SUSPENDED → SLEEPING). Best-effort; logged, never thrown. */

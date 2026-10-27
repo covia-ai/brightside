@@ -18,12 +18,9 @@ import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
 import covia.adapter.AAdapter;
 import covia.api.Abilities;
-import covia.lattice.WorkspaceRoot;
 import covia.venue.AdapterState;
 import covia.venue.RequestContext;
 import covia.venue.SecretStore;
-import covia.venue.User;
-import covia.venue.VenueState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -264,7 +261,8 @@ public class MoltbookAdapter extends AAdapter {
 					throw new IllegalStateException("Moltbook was connected while this registration ran; "
 						+ "the account just registered was not kept");
 				}
-				keepRecord(draft, owner, record);
+				AdapterState state = draft.adapterState(getName(), owner);
+				state.write(state.userPath(owner, RECORD), record);
 			});
 			// Moltbook shows the key once: it must outlive a crash before anyone is told.
 			engine.flush();
@@ -294,47 +292,23 @@ public class MoltbookAdapter extends AAdapter {
 
 	/** Where a person's record sits in this adapter's state, below their DID. */
 	static final String RECORD = "record";
-	/** Where the record was kept before, in the person's own workspace. */
-	private static final ACell[] LEGACY_RECORD = WorkspaceRoot.parseStringPath("w/moltbook");
 
-	/**
-	 * The person's record ({@link Moltbook#record}), or null. One kept in their
-	 * workspace by an earlier Brightside moves here the first time it is read;
-	 * otherwise reading writes nothing.
-	 */
+	/** The person's record ({@link Moltbook#record}), or null. Reading writes nothing. */
 	public ACell record(AString did) {
 		AdapterState state = adapterState(did);
-		ACell kept = state.read(state.userPath(did, RECORD));
-		if (kept != null) return kept;
-		User user = engine.getVenueState().users().get(did);
-		if (user == null || user.workspaceRoot().read(LEGACY_RECORD) == null) return null;
-		engine.getVenueState().transact(draft -> {
-			User u = draft.users().get(did);
-			ACell legacy = (u == null) ? null : u.workspaceRoot().read(LEGACY_RECORD);
-			if (legacy == null) return;
-			AdapterState s = draft.adapterState(getName(), did);
-			if (s.read(s.userPath(did, RECORD)) == null) s.write(s.userPath(did, RECORD), legacy);
-			u.workspaceRoot().delete(LEGACY_RECORD);
-		});
 		return state.read(state.userPath(did, RECORD));
 	}
 
 	/** Remembers the person's record, replacing any. */
 	public void saveRecord(AString did, AMap<AString, ACell> record) {
-		engine.getVenueState().transact(draft -> keepRecord(draft, did, record));
+		AdapterState state = adapterState(did);
+		state.write(state.userPath(did, RECORD), record);
 	}
 
 	/** Forgets the person's record. */
 	public void clearRecord(AString did) {
-		engine.getVenueState().transact(draft -> keepRecord(draft, did, null));
-	}
-
-	private void keepRecord(VenueState draft, AString did, AMap<AString, ACell> record) {
-		User user = draft.users().get(did);
-		if (user != null) user.workspaceRoot().delete(LEGACY_RECORD);
-		AdapterState state = draft.adapterState(getName(), did);
-		if (record != null) state.write(state.userPath(did, RECORD), record);
-		else state.delete(state.userPath(did, RECORD));
+		AdapterState state = adapterState(did);
+		state.delete(state.userPath(did, RECORD));
 	}
 
 	/** A deleted person's record goes with them; their key goes with their secrets. */
