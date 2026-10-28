@@ -149,26 +149,6 @@ public final class AppConfig {
 			string(c, "systemPrompt", DEFAULT_SYSTEM_PROMPT));
 	}
 
-	/** Where an earlier Brightside kept the chosen model, before the venue store held it. */
-	static final String MODEL_FILE = "model.txt";
-
-	/**
-	 * The model an earlier Brightside kept in {@link #MODEL_FILE}, removing the
-	 * file: read once, on the first launch that keeps the model in the store.
-	 */
-	static String takeModelFile(Path home) {
-		try {
-			Path f = home.resolve(MODEL_FILE);
-			if (!Files.isRegularFile(f)) return null;
-			String s = Files.readString(f).trim();
-			Files.delete(f);
-			return s.isEmpty() ? null : s;
-		} catch (IOException e) {
-			log.warn("Could not read the model kept in {}: {}", MODEL_FILE, e.toString());
-			return null;
-		}
-	}
-
 	/**
 	 * Loads the configuration at {@code file}, writing the default template
 	 * first if it does not exist. The file's directory becomes the data home

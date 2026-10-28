@@ -1397,7 +1397,6 @@ public final class BrightSide {
 		if (app == null) return;
 		String chosen = llmOverride;
 		if (chosen == null) chosen = app.model();
-		if (chosen == null) chosen = AppConfig.takeModelFile(config.home());
 		if (chosen == null) return;
 		if (!chosen.equals(app.model())) app.saveModel(chosen);
 		llmOverride = chosen;
