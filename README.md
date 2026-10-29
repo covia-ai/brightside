@@ -22,11 +22,20 @@ agent's memory and every skill it learns live in a folder on your disk that you
 can read, back up or delete.
 
 It is not a wrapper around a chat box. Brightside runs a full
-[Covia](https://covia.ai) agentic vault — engine, tools, lattice-backed state, an agent
+[Covia](https://covia.ai) venue — engine, tools, lattice-backed state, an agent
 framework and an MCP/A2A/HTTP surface — *inside its own process*, and puts a
 quiet desktop app in front of it. That is what lets a personal agent do the
 things personal agents are supposed to do: remember you, reach for real tools,
 and **grow new abilities it writes for itself**.
+
+And it is built to meet other agents. Every other local-first assistant is an
+isolated singleton wearing its owner's API key: two of them, belonging to two
+different people, have no way to establish who the other is, to agree to
+anything or to settle up, so every multi-agent path runs through somebody's
+hosted platform. Brightside runs a venue, and venues meet venues. Identity,
+trust, agreement and settlement are protocol, not platform — something that
+cannot be bolted on later. The **Peers** view below is the first piece of
+that; federation heads the [roadmap](#roadmap).
 
 <div align="center">
 
@@ -36,10 +45,11 @@ and **grow new abilities it writes for itself**.
 
 ## Why Brightside
 
-**It's yours.** Your agent runs on your own machine — `u:<your name>` —
-and it answers to that identity alone. State lives under `~/.brightside/`. The
-venue binds to loopback only. The only thing that leaves your machine is the
-model call you asked for, to the provider whose key you supplied.
+**It's yours.** Your agent runs on your own machine, under an identity that
+belongs to you — `u:<your name>` — and it answers to that identity alone. State
+lives under `~/.brightside/`. The venue binds to loopback only. The only thing
+that leaves your machine is the model call you asked for, to the provider whose
+key you supplied.
 
 **It grows.** Most assistants are frozen at the shape their vendor shipped.
 Brightside's optional abilities are **Covia skills** — data, not code — and the agent can
@@ -56,6 +66,13 @@ on. Writing, HTTP, files, other agents — each arrives by loading the skill tha
 carries it, so capability is deliberate rather than ambient. The ability to
 change its own skills sits behind the skill that explains growing.
 
+**It has a team.** Your assistant stays ordinary on purpose: it reads untrusted
+content all day, so it never holds the keys. Administering the venue, stopping
+an agent that misbehaves and moving money sit with three super-user agents —
+**Odin**, **Thor** and **Njord** — who answer to you alone, check one another,
+and bring any decision that is yours to your **Inbox**
+([docs/GODS.md](docs/GODS.md)).
+
 **It remembers.** A private memory (`n/memory`) persists across conversations,
 so it feels like *your* assistant instead of a stranger every morning. Every
 past conversation stays switchable, searchable by the agent itself, and
@@ -67,7 +84,7 @@ model context are all still there — one click away, under **Advanced**.
 
 ## Quick start
 
-You need **Java 21+** and **Maven 3.7+** (Java 25+ recommended)
+You need **Java 21+** and **Maven 3.7+** (Java 25+ recommended).
 
 ```bash
 git clone https://github.com/covia-ai/brightside.git
@@ -102,9 +119,8 @@ Covia's own `convex.version` is a SNAPSHOT. If the build cannot resolve
 
 ## Highlights
 
-- **Runs entirely in one process** — embedded Covia engine, every built-in
-  adapter, and an MCP endpoint at `http://127.0.0.1:8085/mcp` that other tools
-  can talk to
+### What it can do
+
 - **Self-authoring skills** — a gated `skill-authoring` ability lets the agent
   create, refine and remove skills in `w/skills`, where they become discoverable
   to itself; removal uses a path-constrained Brightside operation rather than
@@ -121,6 +137,9 @@ Covia's own `convex.version` is a SNAPSHOT. If the build cannot resolve
   missing detail asks through a Covia HITL request; it lands in the **Inbox**
   tab with a badge, and only you can answer it — an agent can never approve its
   own request, and an offered grant is conferred only if you tick it
+
+### Who it works with
+
 - **Meet it on Discord** — paste a bot token under *Settings → Integrations*
   and your assistant answers your DMs and mentions, from your phone or any
   server; only the Discord users you list can talk to it
@@ -145,6 +164,12 @@ Covia's own `convex.version` is a SNAPSHOT. If the build cannot resolve
   **Njord**, who keeps the signing keys where no assistant can use them, pays
   only what is well evidenced and fits what you want, and asks you in the
   Inbox before anything new ([docs/NJORD.md](docs/NJORD.md))
+
+### How it's built
+
+- **Runs entirely in one process** — embedded Covia engine, every built-in
+  adapter, and an MCP endpoint at `http://127.0.0.1:8085/mcp` that other tools
+  can talk to
 - **Every conversation, switchable** — a sidebar of past sessions with rename,
   delete and copy-transcript; the agent can read its own history when you ask
   what you discussed last week
@@ -270,8 +295,8 @@ tools* in [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for how to mint a token
 and act as your own user.
 
 **Is this production-ready?** Not yet — see the status badge. It is an early
-preview: usable every day, still moving quickly, and pre-1.0 in the way that
-implies.
+preview: in daily use by its author, still moving quickly, and pre-1.0 in the
+way that implies.
 
 ## Roadmap
 
