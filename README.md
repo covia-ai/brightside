@@ -31,13 +31,13 @@ and **grow new abilities it writes for itself**.
 <div align="center">
 
 <!-- Drop a screenshot at docs/images/screenshot.png -->
-<img src="docs/images/screenshot.png" alt="Brightside chat window" width="820">
+<img src="docs/images/screenshot.png" alt="Brightside stellar map" width="820">
 
 </div>
 
 ## Why Brightside
 
-**It's yours.** Your agent is a principal on your own venue — `u:<your name>` —
+**It's yours.** Your agent runs on your own machine — `u:<your name>` —
 and it answers to that identity alone. State lives under `~/.brightside/`. The
 venue binds to loopback only. The only thing that leaves your machine is the
 model call you asked for, to the provider whose key you supplied.
@@ -68,7 +68,7 @@ model context are all still there — one click away, under **Advanced**.
 
 ## Quick start
 
-You need **Java 21+** and **Maven 3.7+**.
+You need **Java 21+** and **Maven 3.7+** (Java 25+ recommended)
 
 ```bash
 git clone https://github.com/covia-ai/brightside.git
