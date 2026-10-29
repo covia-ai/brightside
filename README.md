@@ -30,7 +30,6 @@ and **grow new abilities it writes for itself**.
 
 <div align="center">
 
-<!-- Drop a screenshot at docs/images/screenshot.png -->
 <img src="docs/images/screenshot.png" alt="Brightside stellar map" width="820">
 
 </div>
