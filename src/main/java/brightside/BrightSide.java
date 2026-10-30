@@ -504,6 +504,7 @@ public final class BrightSide {
 			venue = v;
 			log.info("Venue '{}' ready at {} as {}", v.name(), v.url(), v.did());
 			adoptModel(v);
+			adoptVoicePrefs(v);
 			// Bind the identity and move any keys the vault still holds while the
 			// dialog is still up, so a failure goes back to it. Only then reveal:
 			// the dialog drops and the window comes up in its startup state; the
@@ -2234,23 +2235,26 @@ public final class BrightSide {
 		if (minimiseToTray() && tray != null) hideToTray();
 	}
 
-	/** Remembered in prefs.properties: whether each reply is read aloud. */
-	static final String PREF_READ_ALOUD = "voice.readRepliesAloud";
+	/** Brightside's adapter on the running venue, which keeps the app's own state; null before the venue is up. */
+	private BrightsideAdapter appState() {
+		EmbeddedVenue v = venue;
+		return (v != null) ? v.brightside() : null;
+	}
 
 	/**
 	 * Whether each reply the chat waits for is read aloud (default false: a fresh
 	 * install is silent). Off, a reply is read only when the owner asks.
 	 */
 	public boolean readRepliesAloud() {
-		return prefs.getBool(PREF_READ_ALOUD, false);
+		BrightsideAdapter app = appState();
+		Boolean on = (app != null) ? app.readRepliesAloud() : null;
+		return on != null && on;
 	}
 
 	public void setReadRepliesAloud(boolean value) {
-		prefs.setBool(PREF_READ_ALOUD, value);
+		BrightsideAdapter app = appState();
+		if (app != null) app.saveReadRepliesAloud(value);
 	}
-
-	/** Remembered in prefs.properties: how long a pause after speaking sends the message, in whole seconds. */
-	static final String PREF_SEND_AFTER_PAUSE = "voice.sendAfterPauseSeconds";
 
 	/**
 	 * How long a pause after speaking sends a spoken message, in seconds (default
@@ -2258,17 +2262,38 @@ public final class BrightSide {
 	 * or Enter sends.
 	 */
 	public int sendAfterPauseSeconds() {
-		try {
-			int seconds = Integer.parseInt(prefs.getString(PREF_SEND_AFTER_PAUSE, "").strip());
-			if (seconds >= 0) return seconds;
-		} catch (NumberFormatException e) {
-			// unset, or not a number: the default
-		}
-		return brightside.voice.Dictation.LONG_PAUSE_SECONDS;
+		BrightsideAdapter app = appState();
+		Integer seconds = (app != null) ? app.sendAfterPauseSeconds() : null;
+		return (seconds != null) ? seconds : brightside.voice.Dictation.LONG_PAUSE_SECONDS;
 	}
 
 	public void setSendAfterPauseSeconds(int seconds) {
-		prefs.setString(PREF_SEND_AFTER_PAUSE, Integer.toString(Math.max(0, seconds)));
+		BrightsideAdapter app = appState();
+		if (app != null) app.saveSendAfterPauseSeconds(seconds);
+	}
+
+	/** Where an earlier Brightside kept the voice preferences, before the venue store held them. */
+	private static final String OLD_READ_ALOUD = "voice.readRepliesAloud";
+	private static final String OLD_SEND_AFTER_PAUSE = "voice.sendAfterPauseSeconds";
+
+	/** Moves voice preferences an earlier Brightside kept in prefs.properties into the store, once. */
+	private void adoptVoicePrefs(EmbeddedVenue v) {
+		BrightsideAdapter app = v.brightside();
+		if (app == null) return;
+		String aloud = prefs.getString(OLD_READ_ALOUD, null);
+		if (aloud != null) {
+			if (app.readRepliesAloud() == null) app.saveReadRepliesAloud(Boolean.parseBoolean(aloud.strip()));
+			prefs.setString(OLD_READ_ALOUD, null);
+		}
+		String pause = prefs.getString(OLD_SEND_AFTER_PAUSE, null);
+		if (pause != null) {
+			try {
+				if (app.sendAfterPauseSeconds() == null) app.saveSendAfterPauseSeconds(Integer.parseInt(pause.strip()));
+			} catch (NumberFormatException e) {
+				// not a number: nothing worth keeping
+			}
+			prefs.setString(OLD_SEND_AFTER_PAUSE, null);
+		}
 	}
 
 	/** The data store's size, compaction request and kept originals; null when it is not a file or can't be read. */

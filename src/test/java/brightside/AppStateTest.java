@@ -6,10 +6,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 /**
- * The chosen model is kept in Brightside's adapter state in the venue store,
- * one for the installation, outside every person's namespace.
+ * The chosen model and the voice preferences are kept in Brightside's adapter
+ * state in the venue store, one set for the installation, outside every
+ * person's namespace.
  */
-class ChosenModelTest {
+class AppStateTest {
 
 	@RegisterExtension
 	static final SharedVenue shared = new SharedVenue();
@@ -25,4 +26,16 @@ class ChosenModelTest {
 		assertEquals(convex.core.data.Strings.create("v/models/anthropic/claude-opus-5"),
 			state.read(BrightsideAdapter.MODEL));
 	}
+
+	@Test
+	void voicePreferencesAreKeptInTheAdaptersState() {
+		BrightsideAdapter app = shared.venue().brightside();
+		app.saveReadRepliesAloud(true);
+		app.saveSendAfterPauseSeconds(-3);
+		assertEquals(Boolean.TRUE, app.readRepliesAloud());
+		assertEquals(0, app.sendAfterPauseSeconds(), "a negative pause is never");
+		app.saveSendAfterPauseSeconds(4);
+		assertEquals(4, app.sendAfterPauseSeconds());
+	}
+
 }

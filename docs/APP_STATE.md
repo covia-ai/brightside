@@ -27,6 +27,7 @@ in the Covia repository).
 | State | Where | Adapter |
 |---|---|---|
 | Chosen model | `model` | `brightside` |
+| Voice preferences (read aloud, send after a pause) | `voice` | `brightside` |
 | Peers map settings | `users/<did>/peers-map` | `brightside` |
 | Moltbook account record (name, claim page) | `users/<did>/record` | `moltbook` |
 
@@ -36,7 +37,6 @@ To move in, one at a time:
 |---|---|---|
 | Display name, operator label | `identity.json` | `users/<did>/profile` |
 | Theme, mode, accent | `prefs.properties` | `users/<did>/look`, with the file kept as the pre-unlock cache |
-| Voice preferences (read aloud, send after a pause) | `prefs.properties` | the installation's part |
 
 The skill-feedback backlog stays in the person's Covia workspace, because the
 assistant reads and writes it there with its ordinary tools. Secrets stay in

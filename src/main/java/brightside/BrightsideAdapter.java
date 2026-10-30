@@ -181,6 +181,28 @@ public class BrightsideAdapter extends AAdapter {
 		adapterState().write(MODEL, Strings.create(llmOperation));
 	}
 
+	/** Where the voice preferences sit in this adapter's state: one set for the installation. */
+	static final String READ_ALOUD = "voice/readRepliesAloud";
+	static final String SEND_AFTER_PAUSE = "voice/sendAfterPauseSeconds";
+
+	/** Whether each reply is read aloud, or null if never chosen. */
+	public Boolean readRepliesAloud() {
+		return (adapterState().read(READ_ALOUD) instanceof CVMBool b) ? b.booleanValue() : null;
+	}
+
+	public void saveReadRepliesAloud(boolean value) {
+		adapterState().write(READ_ALOUD, CVMBool.of(value));
+	}
+
+	/** How long a pause after speaking sends the message, in seconds, or null if never chosen. */
+	public Integer sendAfterPauseSeconds() {
+		return (adapterState().read(SEND_AFTER_PAUSE) instanceof CVMLong n) ? (int) n.longValue() : null;
+	}
+
+	public void saveSendAfterPauseSeconds(int seconds) {
+		adapterState().write(SEND_AFTER_PAUSE, CVMLong.create(Math.max(0, seconds)));
+	}
+
 	/** A deleted person's map settings go with them. */
 	@Override
 	public void deleteUserState(AString did, AdapterState state) {
