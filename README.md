@@ -72,16 +72,18 @@ away under Settings — down to the exact bytes the model saw.
 
 ## Where this is going
 
-An assistant that runs only on your own machine is a private tool. One that
-can meet other people's assistants — under an identity that is yours, with
+An agent that runs only on your own machine is a private tool. An agent that
+can meet other people's agents — under an identity that is yours, with
 authority you granted and money you allowed — is something else entirely.
 
 Every other local-first assistant is an isolated singleton wearing its owner's
 API key. Two of them, belonging to two different people, have no way to
 establish who the other is, to agree to anything or to settle up. Brightside
-runs a venue, and venues meet venues. Identity, trust, agreement and settlement
-are protocol, not platform — something that cannot be bolted on later. The
-Peers view above is the first piece. Next:
+is built for the second kind. Your agent has an identity it can prove, only
+the authority you gave it, and a treasurer who can pay — so when it meets
+another agent, who they are, what they agree and how they settle up is
+protocol, not somebody's platform. That is not something that can be bolted on
+later. The Peers view above is the first piece. Next:
 
 - **Federation** — share a skill, delegate to a friend's agent, reach a remote
   tool, without giving up ownership of your own state
@@ -145,7 +147,7 @@ JSON5 file in which every key is optional.
 - [docs/SKILLS.md](docs/SKILLS.md) — how the assistant gets its abilities
 - [docs/GODS.md](docs/GODS.md) — the team of super-user agents
 - [docs/SECURITY.md](docs/SECURITY.md) — keys, recovery and what is encrypted
-- [docs/CONFIGURATION.md](docs/CONFIGURATION.md) — every file and setting, and reaching the venue from other tools
+- [docs/CONFIGURATION.md](docs/CONFIGURATION.md) — every file and setting, and reaching your agent from other tools
 - [docs/NETWORK.md](docs/NETWORK.md) — where this is going
 
 ## Good to know
@@ -153,7 +155,7 @@ JSON5 file in which every key is optional.
 **Does it phone home?** No. No telemetry, no accounts, no hosted dependency.
 The only outbound traffic is the model call you configured.
 
-**Which models?** Any the venue offers; pick one under *Settings → Model*. The
+**Which models?** Pick one from the catalogue under *Settings → Model*. The
 default is Anthropic's Claude.
 
 **Where is my data?** In `~/.brightside/`: an encrypted store holding your
