@@ -32,12 +32,6 @@ in the Covia repository).
 | Peers map settings | `users/<did>/peers-map` | `brightside` |
 | Moltbook account record (name, claim page) | `users/<did>/record` | `moltbook` |
 
-To move in, one at a time:
-
-| State | Today | In the state |
-|---|---|---|
-| Theme, mode, accent | `prefs.properties` | `users/<did>/look`, with the file kept as the pre-unlock cache |
-
 The skill-feedback backlog stays in the person's Covia workspace, because the
 assistant reads and writes it there with its ordinary tools. Secrets stay in
 the person's secret store; adapter state holds no credentials.
@@ -46,9 +40,9 @@ the person's secret store; adapter state holds no credentials.
 `keys.enc`, `unlock.passphrase`) unlock the store, so they cannot be in it.
 `config.json` is the operator's hand-edited configuration and names the store
 itself. Logs, `files/`, `code/` and `skills/` are the owner's files on disk.
-What acts before the store opens stays in `prefs.properties`: the tray,
-starting unlocked or taking over, and keeping the tool token. The look also
-stays there for now, since the unlock window is drawn before the store opens.
+`prefs.properties` holds this computer's settings, which act before the store
+opens or while it is locked: the tray, starting unlocked or taking over,
+keeping the tool token, and the look, which the unlock window is drawn in.
 
 ## Rules
 
