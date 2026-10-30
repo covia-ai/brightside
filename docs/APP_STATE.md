@@ -19,8 +19,9 @@ in the Covia repository).
   they are removed when the person is deleted.
 - **Readable by their agents where that helps.** `x/brightside` shows a person
   their own part, read-only, through the ordinary read tools.
-- **Only what can wait for the unlock.** Whatever is needed before the store
-  opens stays in files.
+- **Files only for what acts before launch.** A file outside the store holds
+  only configuration and policy overrides read before the store opens; secrets
+  go in the vault, everything else here.
 
 ## What it holds
 
@@ -29,6 +30,7 @@ in the Covia repository).
 | The owner's identity (display name, slug, user DID, operator label) | `owner` | `brightside` |
 | Chosen model | `model` | `brightside` |
 | Voice preferences (read aloud, send after a pause) | `voice` | `brightside` |
+| Minimise to the tray, keep the tool token | `tray`, `toolToken` | `brightside` |
 | Peers map settings | `users/<did>/peers-map` | `brightside` |
 | Moltbook account record (name, claim page) | `users/<did>/record` | `moltbook` |
 
@@ -40,9 +42,10 @@ the person's secret store; adapter state holds no credentials.
 `keys.enc`, `unlock.passphrase`) unlock the store, so they cannot be in it.
 `config.json` is the operator's hand-edited configuration and names the store
 itself. Logs, `files/`, `code/` and `skills/` are the owner's files on disk.
-`prefs.properties` holds this computer's settings, which act before the store
-opens or while it is locked: the tray, starting unlocked or taking over,
-keeping the tool token, and the look, which the unlock window is drawn in.
+`prefs.properties` and `file-roots.json` hold only overrides read before the
+store opens: unlocking without asking, taking over a running instance, whether
+closing the unlock window keeps Brightside in the tray, the look the unlock
+window is drawn in, and the folder roots the venue is configured with.
 
 ## Rules
 

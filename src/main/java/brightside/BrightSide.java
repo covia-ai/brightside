@@ -126,6 +126,8 @@ public final class BrightSide {
 	private volatile Thread launchThread;
 	private volatile Vault vault; // set once onboarded/unlocked
 	private volatile String venueSeedHex; // the venue's Ed25519 seed hex (authorises operator takeover)
+	/** A recovery withdrew the tool token before the store was open; recorded there once it is. */
+	private volatile boolean toolTokenWithdrawn;
 	private volatile String llmOverride; // the chosen model op, kept in Brightside's adapter state
 
 	private enum Mode {
@@ -503,7 +505,7 @@ public final class BrightSide {
 			venue = v;
 			log.info("Venue '{}' ready at {} as {}", v.name(), v.url(), v.did());
 			adoptModel(v);
-			adoptVoicePrefs(v);
+			adoptSettings(v);
 			// Bind the identity and move any keys the vault still holds while the
 			// dialog is still up, so a failure goes back to it. Only then reveal:
 			// the dialog drops and the window comes up in its startup state; the
@@ -764,7 +766,8 @@ public final class BrightSide {
 				Files.deleteIfExists(home.resolve(Vault.KEYS_FILE));
 				forgetRememberedPassphrase();
 				// Like the remembered passphrase, the tool token is something to opt back into.
-				prefs.setBool("toolToken.keep", false);
+				if (appState() != null) setFlag(BrightsideAdapter.KEEP_TOOL_TOKEN, false);
+				else toolTokenWithdrawn = true; // the store is not open yet: withdrawn once it is
 				ToolToken.clear(home);
 				v.storeSeed(seedHex); // re-encrypt the seed under the new passphrase
 				this.vault = v;
@@ -2263,14 +2266,23 @@ public final class BrightSide {
 	 * install is silent). Off, a reply is read only when the owner asks.
 	 */
 	public boolean readRepliesAloud() {
-		BrightsideAdapter app = appState();
-		Boolean on = (app != null) ? app.readRepliesAloud() : null;
-		return on != null && on;
+		return flag(BrightsideAdapter.READ_ALOUD);
 	}
 
 	public void setReadRepliesAloud(boolean value) {
+		setFlag(BrightsideAdapter.READ_ALOUD, value);
+	}
+
+	/** One of the installation's on/off settings in Brightside's adapter state: off until chosen, and before the venue is up. */
+	private boolean flag(String key) {
 		BrightsideAdapter app = appState();
-		if (app != null) app.saveReadRepliesAloud(value);
+		Boolean on = (app != null) ? app.flag(key) : null;
+		return on != null && on;
+	}
+
+	private void setFlag(String key, boolean value) {
+		BrightsideAdapter app = appState();
+		if (app != null) app.saveFlag(key, value);
 	}
 
 	/**
@@ -2289,28 +2301,36 @@ public final class BrightSide {
 		if (app != null) app.saveSendAfterPauseSeconds(seconds);
 	}
 
-	/** Where an earlier Brightside kept the voice preferences, before the venue store held them. */
-	private static final String OLD_READ_ALOUD = "voice.readRepliesAloud";
-	private static final String OLD_SEND_AFTER_PAUSE = "voice.sendAfterPauseSeconds";
-
-	/** Moves voice preferences an earlier Brightside kept in prefs.properties into the store, once. */
-	private void adoptVoicePrefs(EmbeddedVenue v) {
+	/**
+	 * Moves the settings an earlier Brightside kept in prefs.properties into the
+	 * store, once. prefs.properties keeps only what acts before the store opens.
+	 */
+	private void adoptSettings(EmbeddedVenue v) {
 		BrightsideAdapter app = v.brightside();
 		if (app == null) return;
-		String aloud = prefs.getString(OLD_READ_ALOUD, null);
-		if (aloud != null) {
-			if (app.readRepliesAloud() == null) app.saveReadRepliesAloud(Boolean.parseBoolean(aloud.strip()));
-			prefs.setString(OLD_READ_ALOUD, null);
-		}
-		String pause = prefs.getString(OLD_SEND_AFTER_PAUSE, null);
+		adoptFlag(app, "voice.readRepliesAloud", BrightsideAdapter.READ_ALOUD);
+		adoptFlag(app, "tray.minimise", BrightsideAdapter.MINIMISE_TO_TRAY);
+		adoptFlag(app, "toolToken.keep", BrightsideAdapter.KEEP_TOOL_TOKEN);
+		String pause = prefs.getString("voice.sendAfterPauseSeconds", null);
 		if (pause != null) {
 			try {
 				if (app.sendAfterPauseSeconds() == null) app.saveSendAfterPauseSeconds(Integer.parseInt(pause.strip()));
 			} catch (NumberFormatException e) {
 				// not a number: nothing worth keeping
 			}
-			prefs.setString(OLD_SEND_AFTER_PAUSE, null);
+			prefs.setString("voice.sendAfterPauseSeconds", null);
 		}
+		if (toolTokenWithdrawn) {
+			app.saveFlag(BrightsideAdapter.KEEP_TOOL_TOKEN, false);
+			toolTokenWithdrawn = false;
+		}
+	}
+
+	private void adoptFlag(BrightsideAdapter app, String pref, String key) {
+		String value = prefs.getString(pref, null);
+		if (value == null) return;
+		if (app.flag(key) == null) app.saveFlag(key, Boolean.parseBoolean(value.strip()));
+		prefs.setString(pref, null);
 	}
 
 	/** The data store's size, compaction request and kept originals; null when it is not a file or can't be read. */
@@ -2352,11 +2372,11 @@ public final class BrightSide {
 	 * minimise made the window vanish). The tray is reached deliberately instead.
 	 */
 	public boolean minimiseToTray() {
-		return prefs.getBool("tray.minimise", false);
+		return flag(BrightsideAdapter.MINIMISE_TO_TRAY);
 	}
 
 	public void setMinimiseToTray(boolean value) {
-		prefs.setBool("tray.minimise", value);
+		setFlag(BrightsideAdapter.MINIMISE_TO_TRAY, value);
 	}
 
 	/**
@@ -2364,11 +2384,11 @@ public final class BrightSide {
 	 * Brightside runs (default false). See {@link ToolToken}.
 	 */
 	public boolean keepToolToken() {
-		return prefs.getBool("toolToken.keep", false);
+		return flag(BrightsideAdapter.KEEP_TOOL_TOKEN);
 	}
 
 	public void setKeepToolToken(boolean value) {
-		prefs.setBool("toolToken.keep", value);
+		setFlag(BrightsideAdapter.KEEP_TOOL_TOKEN, value);
 		renewToolToken();
 	}
 

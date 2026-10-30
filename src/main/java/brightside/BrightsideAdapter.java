@@ -193,17 +193,20 @@ public class BrightsideAdapter extends AAdapter {
 		adapterState().write(OWNER, owner);
 	}
 
-	/** Where the voice preferences sit in this adapter's state: one set for the installation. */
+	/** The installation's on/off settings in this adapter's state. */
 	static final String READ_ALOUD = "voice/readRepliesAloud";
+	static final String MINIMISE_TO_TRAY = "tray/minimise";
+	static final String KEEP_TOOL_TOKEN = "toolToken/keep";
+	/** How long a pause after speaking sends the message, in seconds. */
 	static final String SEND_AFTER_PAUSE = "voice/sendAfterPauseSeconds";
 
-	/** Whether each reply is read aloud, or null if never chosen. */
-	public Boolean readRepliesAloud() {
-		return (adapterState().read(READ_ALOUD) instanceof CVMBool b) ? b.booleanValue() : null;
+	/** One of the installation's on/off settings ({@link #READ_ALOUD} and the rest), or null if never chosen. */
+	public Boolean flag(String key) {
+		return (adapterState().read(key) instanceof CVMBool b) ? b.booleanValue() : null;
 	}
 
-	public void saveReadRepliesAloud(boolean value) {
-		adapterState().write(READ_ALOUD, CVMBool.of(value));
+	public void saveFlag(String key, boolean value) {
+		adapterState().write(key, CVMBool.of(value));
 	}
 
 	/** How long a pause after speaking sends the message, in seconds, or null if never chosen. */

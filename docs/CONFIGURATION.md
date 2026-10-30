@@ -184,8 +184,8 @@ the box takes no typing while the microphone is on. To send straight away, end
 with *"Go"* on its own (pause, then say "go"), stay quiet for a few seconds,
 or press *Enter*. How long a pause sends is *Send when I pause* under
 *Settings → General → Voice*: three seconds on a fresh install, from two to
-eight, or never, so that only "Go" and Enter send (remembered in
-`prefs.properties` as `voice.sendAfterPauseSeconds`, 0 for never). "Go" works
+eight, or never, so that only "Go" and Enter send (kept in the venue
+store). "Go" works
 like Enter and is not written into the message;
 only a "go" said as a sentence of its own counts, so *"Let's go"* and *"Okay,
 go"* stay part of the message. *Esc* discards a recording, or the
@@ -270,7 +270,7 @@ that launch and says why in the log.
 Brightside is silent unless you ask it to speak. Right-click a reply and
 choose *Read aloud* to hear that one; to hear every reply as it arrives, turn
 on *Read replies aloud* under *Settings → General → Voice* (off on a fresh
-install; remembered in `prefs.properties` as `voice.readRepliesAloud`). *Esc*
+install; kept in the venue store). *Esc*
 in the message box, *Stop reading aloud* on a reply, or pressing the
 microphone stops it; a new reply takes the place of one still being read.
 
