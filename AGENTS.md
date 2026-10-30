@@ -24,6 +24,13 @@ full technical surface lives under Settings. One Maven module,
   `v/test/ops/llm`, so no API key. Test mechanism (wiring, state, behaviour).
   No tests for the UI or for prose content — those are obvious in use and a
   test would only say the words twice.
+- Test logging shows warnings and errors only, in Eclipse and Maven
+  (`src/test/resources/logback-test.xml`). An expected failure hides its own
+  diagnostics with an `ExpectedLogs` scope; the unencrypted test-store warning
+  is filtered across the suite. Persistent Etch tests use
+  `StoreTestDirectory`: Windows can keep memory mappings after a store closes,
+  so any files still pinned are left under `target/test-stores/` for
+  `mvn clean`. Other tests use JUnit's own temporary directories.
 - The suite is fast because it is concurrent: test classes run in parallel in
   one JVM (`junit-platform.properties`), and a class that only needs a venue
   takes one from `SharedVenue` (a static `@RegisterExtension`), acting as a

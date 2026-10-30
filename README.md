@@ -9,33 +9,21 @@
 [![Licence: EPL 2.0](https://img.shields.io/badge/licence-EPL--2.0-blue.svg)](LICENSE)
 [![Java 21+](https://img.shields.io/badge/Java-21%2B-orange.svg)](https://adoptium.net/)
 [![Built on Covia](https://img.shields.io/badge/built%20on-Covia%20Grid-7c4dff.svg)](https://covia.ai)
-[![Status: early preview](https://img.shields.io/badge/status-early%20preview-yellow.svg)](#roadmap)
+[![Status: early preview](https://img.shields.io/badge/status-early%20preview-yellow.svg)](#where-this-is-going)
 
 </div>
 
 ---
 
-Brightside is a **self-sovereign personal agent**: a capable assistant that runs
-privately on your own computer, under an identity that belongs to you. There is
-no account to create, no server to trust, no telemetry. Your conversations, your
-agent's memory and every skill it learns live in a folder on your disk that you
-can read, back up or delete.
+Picture an assistant that is actually yours. It lives on your computer, not in
+someone else's cloud. It knows your name because you told it, and nothing about
+you leaves the house unless you send it. It remembers yesterday. It learns how
+you like things done and keeps that as a skill of its own. And when something
+is your call, it asks you, and waits.
 
-It is not a wrapper around a chat box. Brightside runs a full
-[Covia](https://covia.ai) venue — engine, tools, lattice-backed state, an agent
-framework and an MCP/A2A/HTTP surface — *inside its own process*, and puts a
-quiet desktop app in front of it. That is what lets a personal agent do the
-things personal agents are supposed to do: remember you, reach for real tools,
-and **grow new abilities it writes for itself**.
-
-And it is built to meet other agents. Every other local-first assistant is an
-isolated singleton wearing its owner's API key: two of them, belonging to two
-different people, have no way to establish who the other is, to agree to
-anything or to settle up, so every multi-agent path runs through somebody's
-hosted platform. Brightside runs a venue, and venues meet venues. Identity,
-trust, agreement and settlement are protocol, not platform — something that
-cannot be bolted on later. The **Peers** view below is the first piece of
-that; federation heads the [roadmap](#roadmap).
+That is Brightside. There is no account to create, no server to trust, no
+telemetry. Everything it is — your conversations, its memory, every skill it
+learns — sits in one folder on your disk that you can read, back up or delete.
 
 <div align="center">
 
@@ -43,63 +31,89 @@ that; federation heads the [roadmap](#roadmap).
 
 </div>
 
-## Why Brightside
+## What it's like
 
-**It's yours.** Your agent runs on your own machine, under an identity that
-belongs to you — `u:<your name>` — and it answers to that identity alone. State
-lives under `~/.brightside/`. The venue binds to loopback only. The only thing
-that leaves your machine is the model call you asked for, to the provider whose
-key you supplied.
+**It's yours.** It runs under a name you chose and answers to you alone. The
+only thing that ever leaves your machine is the model call you asked for, sent
+to the provider whose key you gave it.
 
 **It grows.** Most assistants are frozen at the shape their vendor shipped.
-Brightside's optional abilities are **Covia skills** — data, not code — and the agent can
-create, refine and remove them in its own `w/skills` namespace. Ask it to learn how you like
-your weekly report written, and it can capture that as a skill it loads next
-time. Its configured identity stays separate, and no shipped skill is pinned by
-default: descriptions determine what loads for the task. You can also hand it skills
-as **files**: drop an [agentskills.io](https://agentskills.io) `SKILL.md` into
-`~/.brightside/skills/` and it's imported on the next start — the same open,
-portable format Claude Code and a dozen other agents use.
+Yours writes its own skills. Show it how you like your weekly report done, and
+it can keep that as something it reaches for next time. Hand it a skill someone
+else wrote — a [`SKILL.md`](https://agentskills.io) folder dropped into
+`~/.brightside/skills/`, the same open format Claude Code and a dozen other
+agents use — and it learns that too, on its next start.
 
-**Power stays gated, not absent.** Only read-only tools and memory are always
-on. Writing, HTTP, files, other agents — each arrives by loading the skill that
-carries it, so capability is deliberate rather than ambient. The ability to
-change its own skills sits behind the skill that explains growing.
+**It remembers.** A private memory carries across every conversation, so it
+feels like your assistant and not a stranger every morning. Every past
+conversation is a click away, and it can read its own history when you ask
+what you talked about last week.
 
 **It has a team.** Your assistant stays ordinary on purpose: it reads untrusted
-content all day, so it never holds the keys. Administering the venue, stopping
-an agent that misbehaves and moving money sit with three super-user agents —
-**Odin**, **Thor** and **Njord** — who answer to you alone, check one another,
-and bring any decision that is yours to your **Inbox**
-([docs/GODS.md](docs/GODS.md)).
+content all day, so it never holds the keys. Three super-user agents do —
+**Odin** the administrator, **Thor** the guardian and **Njord** the treasurer.
+They answer to you alone, check one another, and bring any decision that is
+yours to your Inbox ([docs/GODS.md](docs/GODS.md)).
 
-**It remembers.** A private memory (`n/memory`) persists across conversations,
-so it feels like *your* assistant instead of a stranger every morning. Every
-past conversation stays switchable, searchable by the agent itself, and
-inspectable down to the exact bytes the model saw.
+**You stay in the loop.** Power is gated, not absent. Reading and remembering
+are always on; writing, the web, your files and other agents each arrive with
+the skill that carries them. When an agent needs an approval or a missing
+detail, it asks, and only you can answer. An agent can never approve its own
+request.
+
+**It meets you where you are.** Talk to it from your phone over Discord, or out
+loud at your desk. Hand it coding work and it runs Claude Code on your projects
+— including its own source, so it can improve itself. Other tools can reach it
+too: it speaks MCP, on your own machine only.
 
 **No jargon in the way.** The everyday screens say "your assistant", "your
-name", "memory". The venue, the DID, the dashboard, the API docs and the raw
-model context are all still there — one click away, under **Advanced**.
+name", "memory". The machinery is all still there for the curious, one click
+away under Settings — down to the exact bytes the model saw.
 
-## Quick start
+## Where this is going
 
-You need **Java 21+** and **Maven 3.7+** (Java 25+ recommended).
+An assistant that runs only on your own machine is a private tool. One that
+can meet other people's assistants — under an identity that is yours, with
+authority you granted and money you allowed — is something else entirely.
+
+Every other local-first assistant is an isolated singleton wearing its owner's
+API key. Two of them, belonging to two different people, have no way to
+establish who the other is, to agree to anything or to settle up. Brightside
+runs a venue, and venues meet venues. Identity, trust, agreement and settlement
+are protocol, not platform — something that cannot be bolted on later. The
+Peers view above is the first piece. Next:
+
+- **Federation** — share a skill, delegate to a friend's agent, reach a remote
+  tool, without giving up ownership of your own state
+  ([docs/NETWORK.md](docs/NETWORK.md))
+- **More channels** — Telegram and the rest, set up as easily as Discord
+- **Native installers** — a signed app per platform instead of `java -jar`
+- **Richer messages** — images, cards and structured tool output in the
+  conversation
+- **Local models** — a genuinely offline default
+- **Skill sharing** — import, export and review the skills your agent wrote
+
+Ideas and disagreement are welcome — open an issue.
+
+## Try it
+
+You need **Java 21+** (25 recommended) and **Maven 3.7+**.
 
 ```bash
 git clone https://github.com/covia-ai/brightside.git
 cd brightside
-export ANTHROPIC_API_KEY=sk-ant-...     # or store it in the venue's secret store
 mvn package
 java -jar target/brightside.jar
 ```
 
-On first launch Brightside asks *"What should I call you?"* — that is the whole
-of onboarding. Type, press **Enter**, and you are talking to your agent.
+First launch takes a minute: choose a passphrase, write down a recovery
+phrase, pick a model and paste its key, and say what it should call you. Then
+you are talking to your agent. No key to hand? Choose the offline echo bot; the
+app works end to end, the replies are just echoes.
 
-No API key to hand? Set `"llmOperation": "v/test/ops/llm"` in
-`~/.brightside/config.json` for an offline echo bot, enough to see the app work
-end to end.
+**Enter** sends and **Shift+Enter** starts a new line. Right-click a message, a
+conversation or an agent for what you can do with it; everything else is under
+**Settings**.
 
 <details>
 <summary><b>Building against a local Covia checkout</b></summary>
@@ -117,230 +131,58 @@ Covia's own `convex.version` is a SNAPSHOT. If the build cannot resolve
 `ai.covia:venue`, that is why.
 </details>
 
-## Highlights
+## Under the hood
 
-### What it can do
+Brightside is not a wrapper around a chat box. It runs a complete
+[Covia](https://covia.ai) venue — engine, tools, encrypted state, an agent
+framework and an MCP/A2A/HTTP surface — inside its own process, with a quiet
+desktop app in front. The venue binds to loopback only. Skills are data, not
+code, which is what lets the assistant write its own. Configuration is one
+JSON5 file in which every key is optional.
 
-- **Self-authoring skills** — a gated `skill-authoring` ability lets the agent
-  create, refine and remove skills in `w/skills`, where they become discoverable
-  to itself; removal uses a path-constrained Brightside operation rather than
-  general workspace deletion
-- **Useful work skills** — writing, planning, research and coding guidance loads
-  only when relevant; a separate greeting skill no longer occupies every turn
-- **A feedback loop** — concrete skill-loading and instruction misses append to
-  a private `w/skill-feedback` backlog through a path-constrained operation
-- **Filesystem skills** — drop an [agentskills.io](https://agentskills.io)
-  `SKILL.md` folder (or a single `.md`) into `~/.brightside/skills/` and it's
-  imported into your agent's `w/skills` on start; portable, editable, shareable
-- **Persistent memory** — `n/memory`, kept quietly, across every conversation
-- **You stay in the loop** — an agent that needs a decision, an approval or a
-  missing detail asks through a Covia HITL request; it lands in the **Inbox**
-  tab with a badge, and only you can answer it — an agent can never approve its
-  own request, and an offered grant is conferred only if you tick it
+- [docs/DESIGN.md](docs/DESIGN.md) — the product principles
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — the shape and the decisions behind it
+- [docs/SKILLS.md](docs/SKILLS.md) — how the assistant gets its abilities
+- [docs/GODS.md](docs/GODS.md) — the team of super-user agents
+- [docs/SECURITY.md](docs/SECURITY.md) — keys, recovery and what is encrypted
+- [docs/CONFIGURATION.md](docs/CONFIGURATION.md) — every file and setting, and reaching the venue from other tools
+- [docs/NETWORK.md](docs/NETWORK.md) — where this is going
 
-### Who it works with
+## Good to know
 
-- **Meet it on Discord** — paste a bot token under *Settings → Integrations*
-  and your assistant answers your DMs and mentions, from your phone or any
-  server; only the Discord users you list can talk to it
-  ([docs/CONFIGURATION.md](docs/CONFIGURATION.md#discord))
-- **Hand coding work to Claude Code** — name project directories in
-  `config.json` and your assistant can run Claude Code there, one task at a
-  time or as a conversation it continues, using the `claude` sign-in already
-  on your computer. Brightside's own source is a project out of the box, so
-  it can improve itself
-  ([docs/CONFIGURATION.md](docs/CONFIGURATION.md#claude-code))
-- **An administrator with judgement** — changes that need operator rights
-  (integrations, venue settings, users, access grants, repairs to an assistant)
-  go to **Odin**, the venue's own agent; he does them, declines, or asks you in
-  the Inbox first, and treats anything that looks manipulated as a question
-  for you ([docs/ODIN.md](docs/ODIN.md))
-- **A guardian** — when an assistant meets content trying to turn it against
-  you, or an agent misbehaves, it tells **Thor**; he looks into it, can stop
-  the agent at once or take away what it may do, tells you in the Inbox, and
-  reports every change to Odin so a wiser head checks it
-  ([docs/THOR.md](docs/THOR.md))
-- **A treasurer** — every payment and Convex transaction goes through
-  **Njord**, who keeps the signing keys where no assistant can use them, pays
-  only what is well evidenced and fits what you want, and asks you in the
-  Inbox before anything new ([docs/NJORD.md](docs/NJORD.md))
+**Does it phone home?** No. No telemetry, no accounts, no hosted dependency.
+The only outbound traffic is the model call you configured.
 
-### How it's built
+**Which models?** Any the venue offers; pick one under *Settings → Model*. The
+default is Anthropic's Claude.
 
-- **Runs entirely in one process** — embedded Covia engine, every built-in
-  adapter, and an MCP endpoint at `http://127.0.0.1:8085/mcp` that other tools
-  can talk to
-- **Every conversation, switchable** — a sidebar of past sessions with rename,
-  delete and copy-transcript; the agent can read its own history when you ask
-  what you discussed last week
-- **Tool use in the open, but out of the way** — the final reply is what you
-  see; one click expands each tool call with its input and result
-- **"What the assistant sees"** — a context inspector showing the exact model
-  input for a session: assembled messages, pinned memory, loaded skill bodies,
-  the tool palette, raw within-cycle turns, token accounting
-- **Live state, no polling jobs** — the app compares immutable lattice values
-  in-process to notice changes, so refresh is near-free and silent
-- **A proper desktop app** — [FlatLaf](https://www.formdev.com/flatlaf/)
-  macOS-style themes, bundled Lato, rounded chat bubbles, dark by default; it
-  can hide to the system tray and keep running
-- **Configuration is data** — an empty `{}` config is valid; every venue option
-  Covia understands can be set without a Brightside change
+**Where is my data?** In `~/.brightside/`: an encrypted store holding your
+conversations, memory, skills and keys, beside your settings file and logs.
+Back the folder up; delete it to start over completely
+([docs/CONFIGURATION.md](docs/CONFIGURATION.md)).
 
-## How it works
+**Can it run offline?** Everything but the model. Point it at a local model to
+close that gap, or at the echo bot.
 
-```
-┌──────────────────────────────────────────────┐
-│  Brightside (one JVM process)                │
-│                                              │
-│   Swing UI  ──►  Embedded Venue API          │
-│                     │  in-process Java      │
-│                     ▼                        │
-│   ┌────────────────────────────────────────┐ │
-│   │  Embedded Covia venue                  │ │
-│   │  engine · adapters · agent framework   │ │
-│   │  lattice state → ~/.brightside/…etch   │ │
-│   │  HTTP/MCP/A2A on 127.0.0.1             │ │
-│   └────────────────────────────────────────┘ │
-└──────────────────────────────────────────────┘
-                     │
-                     ▼  only your model calls
-              your LLM provider
-```
+**Can other tools reach it?** Yes — that is rather the point. HTTP, MCP and
+A2A, on your own machine ([docs/CONFIGURATION.md](docs/CONFIGURATION.md)).
 
-Brightside uses the **Embedded Venue API** directly within the same JVM. It
-reads lattice state, subscribes to live events and uses the venue's services
-and operations, with chat acting as your named principal. This close
-integration is intentional. HTTP, MCP and A2A provide separate access for
-external tools.
+**Is it production-ready?** Not yet. It is an early preview: in daily use by
+its author, moving quickly, and pre-1.0 in the way that implies.
 
-Namespaces do the separating: `v/skills/brightside/…` holds the skills
-Brightside ships, `w/skills` is where your agent writes its own, and `n/` is
-private scratch including memory. Only the venue writes `v/`.
+## Join in
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the shape and the
-decisions behind it, [docs/SKILLS.md](docs/SKILLS.md) for how the assistant
-gets its abilities, [docs/DESIGN.md](docs/DESIGN.md) for the product
-principles, and [docs/NETWORK.md](docs/NETWORK.md) for where this is going once
-venues meet other venues.
-
-## Using it
-
-| | |
-|---|---|
-| **Enter** / **Shift+Enter** | send / newline |
-| **File → New chat** | start a fresh conversation |
-| **File → Change my name…** | change how the assistant addresses you |
-| **File → Refresh** | force an immediate state compare |
-| **Advanced → Open dashboard in browser** | the venue's web UI, `/swagger`, MCP endpoint |
-| **Advanced → Open settings file / logs folder** | `config.json`, `~/.brightside/logs/` |
-| **Help → About** | local address and your technical identity |
-| Right-click a message | copy the message or the whole conversation |
-| Right-click a conversation | open, rename, copy transcript, summarise, compact, delete, inspect context |
-| Right-click an agent | open, agent info, delete |
-| **Inbox** tab | requests from your agents waiting for your decision — answer or reject |
-
-Minimising goes to the taskbar like any window. **Hide to tray** (Settings →
-General, or the hide shortcut) keeps the agent running out of sight; Settings →
-General can also send the window to the tray on close or on minimise if you
-prefer. By default closing quits, and **Quit** always stops it and flushes state.
-Without a system tray (or with `BRIGHTSIDE_NO_TRAY=1`) there is nowhere to hide
-to, so closing the window quits.
-
-## Configuration
-
-On first launch Brightside writes `~/.brightside/config.json` — JSON5, with
-comments — and **every key in it is optional**:
-
-```json5
-{
-  "theme": "dark",                      // or "light"
-  "venue": { "name": "Brightside Venue", "port": 8085 },
-  "chat": {
-    "agentId": "Brightside",
-    "llmOperation": "v/models/anthropic/claude-sonnet-5-5"
-  }
-}
-```
-
-Edit it and restart. The full reference — every venue key, the secret store, the
-agent config, where state and keys live and how to reset them — is in
-[docs/CONFIGURATION.md](docs/CONFIGURATION.md).
-
-## FAQ
-
-**Which models can I use?** Any model operation the embedded venue exposes.
-The default is Anthropic's Claude via `v/models/anthropic/claude-sonnet-5-5`;
-change `chat.llmOperation` to point at another. The venue's adapters are what
-determine the menu, not Brightside.
-
-**Does it phone home?** No. Brightside has no telemetry, no accounts and no
-Covia-hosted dependency. The venue binds to `127.0.0.1`. The only outbound
-traffic is the model call you configured, to the provider whose key you gave it.
-
-**Where is my data?** `~/.brightside/` — `venue.etch` (the encrypted lattice
-store, which holds conversations, memory, skills and your provider keys),
-`identity.enc` (the encrypted venue identity), `identity.json` (your name),
-`config.json` and `logs/`. Back the whole folder up; delete the whole folder to
-start over completely. Brightside never creates a plaintext `venue.key`; the
-full list is in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
-
-**Can it run fully offline?** The app, the venue, your memory and your skills
-are all local and work with no network. The *model* is the exception: point
-`chat.llmOperation` at a local model operation to close that last gap, or at
-`v/test/ops/llm` for an echo bot.
-
-**Is my agent reachable from other tools?** Yes — that is rather the point. The
-venue exposes HTTP, MCP and A2A on loopback. See *Reaching the venue from other
-tools* in [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for how to mint a token
-and act as your own user.
-
-**Is this production-ready?** Not yet — see the status badge. It is an early
-preview: in daily use by its author, still moving quickly, and pre-1.0 in the
-way that implies.
-
-## Roadmap
-
-- **Federation** — the point of a venue is that it can meet other venues.
-  Sharing a skill, delegating to a friend's agent, or reaching a remote tool
-  without giving up ownership of your own state. The target state is written up
-  in [docs/NETWORK.md](docs/NETWORK.md).
-- **More channels** — Telegram runs in-process already but has no Settings page
-  yet; it and the rest set up as Discord is, so your agent can meet you where
-  you already are
-- **Native packaging** — signed installers per platform instead of `java -jar`
-- **Richer message kinds** — images, cards and structured tool output as
-  first-class rows in the transcript
-- **Local model paths** — a genuinely offline default
-- **Skill sharing** — import, export and review skills your agent wrote
-
-Ideas and disagreement are welcome — open an issue.
-
-## Contributing
-
-Contributions are very welcome, especially at this stage.
+Contributions are very welcome, especially now.
 
 ```bash
-mvn test      # unit tests; they boot real venue engines, headless
+mvn test      # boots real venues, headless; no API key needed
 mvn package   # → target/brightside.jar
-mvn exec:java # run from the build
 ```
 
-- `master` is the integration branch; `develop` is the day-to-day working
-  branch. Branch from `develop` and PR into it.
-- Tests run headless and must never put a window or a tray icon on anyone's
-  desktop. The chat tests use `v/test/ops/llm`, so they need no API key.
-- Test logging shows warnings and errors only, in Eclipse and Maven, using
-  `src/test/resources/logback-test.xml`. Expected failure cases use
-  `ExpectedLogs` scopes to hide specific diagnostics; the known unencrypted
-  test-store warning is filtered across the suite. Persistent Etch tests use
-  `StoreTestDirectory`: Windows can retain Java 21 memory mappings after a
-  store closes, so any files still pinned are left under `target/test-stores/`
-  for `mvn clean`. Other test files use JUnit's normal temporary directories.
-- British English in comments, UI text and docs. Tabs for indentation in Java
-  and XML, matching Covia.
-- [AGENTS.md](AGENTS.md) is the short guide for anyone — human or AI — working
-  in this repository; read it and [docs/DESIGN.md](docs/DESIGN.md) before a
-  first PR. The `docs/` folder explains *why* things are the way they are.
+Branch from `develop` and PR into it. [AGENTS.md](AGENTS.md) is the short
+guide for anyone — human or AI — working here; read it and
+[docs/DESIGN.md](docs/DESIGN.md) before a first PR. The `docs/` folder explains
+*why* things are the way they are.
 
 ## Licence
 
