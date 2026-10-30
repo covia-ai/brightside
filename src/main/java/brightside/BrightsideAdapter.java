@@ -181,6 +181,18 @@ public class BrightsideAdapter extends AAdapter {
 		adapterState().write(MODEL, Strings.create(llmOperation));
 	}
 
+	/** Where the owner's identity sits in this adapter's state: one for the installation. */
+	static final String OWNER = "owner";
+
+	/** The owner's identity as {@link Identity#toCell} stored it, or null before one is chosen. */
+	public ACell owner() {
+		return adapterState().read(OWNER);
+	}
+
+	public void saveOwner(ACell owner) {
+		adapterState().write(OWNER, owner);
+	}
+
 	/** Where the voice preferences sit in this adapter's state: one set for the installation. */
 	static final String READ_ALOUD = "voice/readRepliesAloud";
 	static final String SEND_AFTER_PAUSE = "voice/sendAfterPauseSeconds";

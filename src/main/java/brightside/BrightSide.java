@@ -239,8 +239,7 @@ public final class BrightSide {
 	void start(Launch launch) {
 		boolean unlock = launch.unlock();
 		takeoverAllowed = launch.takeover();
-		Identity saved = Identity.load(config.home());
-		identity = saved;
+		identity = null; // in the store: read once it is open
 		Mode mode = decideMode();
 
 		char[] remembered = null;
@@ -642,7 +641,8 @@ public final class BrightSide {
 				}
 				this.vault = v;
 				this.venueSeedHex = seedHex;
-				Identity saved = Identity.load(home);
+				EmbeddedVenue up = venue;
+				Identity saved = (up != null) ? owner(up) : null;
 				this.identity = saved;
 
 				EmbeddedVenue running = venue;
@@ -769,7 +769,8 @@ public final class BrightSide {
 				v.storeSeed(seedHex); // re-encrypt the seed under the new passphrase
 				this.vault = v;
 				this.venueSeedHex = seedHex;
-				Identity saved = Identity.load(home);
+				EmbeddedVenue up = venue;
+				Identity saved = (up != null) ? owner(up) : null;
 				this.identity = saved;
 				EmbeddedVenue running = venue;
 				if (running != null) {
@@ -1507,6 +1508,10 @@ public final class BrightSide {
 		EmbeddedVenue v = venue;
 		Vault vlt = vault;
 		Identity id = identity;
+		if (id == null && v != null) {
+			id = owner(v);
+			identity = id;
+		}
 		if (v != null && vlt != null && id != null) {
 			migrateProviderKeys(v, vlt, id.userDID(v.did()));
 		}
@@ -1599,13 +1604,25 @@ public final class BrightSide {
 		window.promptChangeName(identity != null ? identity.name() : Identity.suggestName());
 	}
 
+	/** Keeps the identity in the store; before the venue is up, binding it to the venue saves it. */
 	private void persistIdentity(Identity id) {
-		try {
-			id.save(config.home());
-			log.info("Saved name '{}' to {}", id.name(), config.home().resolve(Identity.FILE_NAME));
-		} catch (IOException e) {
-			log.warn("Could not save the chosen name", e);
-		}
+		EmbeddedVenue v = venue;
+		BrightsideAdapter app = (v != null) ? v.brightside() : null;
+		if (app == null) return;
+		app.saveOwner(id.toCell());
+		v.durable();
+		log.info("Saved name '{}'", id.name());
+	}
+
+	/** The owner's identity from the store; one an earlier Brightside kept in a file moves in, once. */
+	private Identity owner(EmbeddedVenue v) {
+		BrightsideAdapter app = v.brightside();
+		if (app == null) return null;
+		Identity id = Identity.fromCell(app.owner());
+		if (id != null) return id;
+		id = Identity.takeFile(config.home());
+		if (id != null) app.saveOwner(id.toCell());
+		return id;
 	}
 
 	/** Pins and persists the full user DID once the home venue identity is known. */

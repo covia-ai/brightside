@@ -22,7 +22,6 @@ hand-edited file and its comments stay intact.
 |---|---|
 | `~/.brightside/config.json` | Settings (JSON5 — comments allowed). Hand-edited. |
 | `~/.brightside/file-roots.json` | Folder access overrides saved from the Files screen; applied over configured roots on restart. |
-| `~/.brightside/identity.json` | Your name, stable slug and full Covia user DID, kept apart so identity changes never rewrite settings. |
 | `~/.brightside/venue.etch` | The encrypted lattice store: conversations, memory, skills, agent state and personal drives. |
 | `~/.brightside/venue.etch.unclean-<stamp>` | The store as it was before a launch-time repair ([LAUNCH.md](LAUNCH.md)); remove it once the repaired store has proved itself, under [Data store space](#data-store-space). |
 | `~/.brightside/venue.etch.compact` | Present when compaction is asked for; the next launch compacts the store and removes it ([Data store space](#data-store-space)). |
@@ -487,8 +486,8 @@ u:<name>                                  the principal
 ```
 
 Here `<name>` is the stable, DID-safe slug chosen on first setup, not the
-editable display spelling. `identity.json` records both forms and pins the full
-user DID once the home venue first launches:
+editable display spelling. Brightside keeps both forms in the venue store and
+pins the full user DID once the home venue first launches:
 
 ```json
 {

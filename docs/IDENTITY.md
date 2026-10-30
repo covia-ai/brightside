@@ -38,7 +38,9 @@ yet create or link a Convex account to it.
 The owner picks a **name**. `Identity` keeps two forms apart: the display
 name exactly as typed, which the UI shows and the assistant says; and the
 slug, a lower-case DID-safe label used only to form the principal.
-`identity.json` holds name, slug and the full DID. The DID is pinned when the
+The identity record holds name, slug and the full DID, and lives in the venue
+store in Brightside's adapter state ([APP_STATE.md](APP_STATE.md)), so the
+recovery phrase brings it back with the store. The DID is pinned when the
 home venue first launches and must equal `<runningVenueDID>:u:<slug>` on every
 later launch, so a copied or edited profile cannot quietly move the UI to
 another principal.
@@ -56,7 +58,7 @@ aid, not a substitute for checking the value.
 the venue principal itself for the session: the agents pane lists the venue's
 own agents — [the gods](GODS.md), Odin first — the chat talks to them and the Inbox is
 the venue's. The operator has a display name of its own, kept in
-`identity.json` as `operator`; it is a label only, since the operator is the
+the same record as `operator`; it is a label only, since the operator is the
 venue itself and has no slug or user DID. Every launch starts as the user.
 
 **The treasury** is a user too, kept by Njord, the treasurer
@@ -88,8 +90,6 @@ accounts, agents as economic actors, are the direction in
 
 ## Known limits
 
-- The recovery phrase reproduces the venue but not the `:u:` suffix, so
-  `identity.json` travels with vault backups.
 - One venue serves one owner
   ([brightside#3](https://github.com/covia-ai/brightside/issues/3)).
 - A `did:key` venue cannot yet mint UCAN grants for its own users, so an Inbox

@@ -137,7 +137,7 @@ the capability model is what stops it becoming an instruction.
 key of its own. When peer-to-peer ships, sharing should produce a signed
 contact card — user DID, public or CNS name when present, current reachability
 endpoints, signing key identifier and rotation or revocation references.
-Volatile endpoints and public profile data do not belong in `identity.json`,
+Volatile endpoints and public profile data do not belong in the identity record,
 and the UI shows no placeholders before those facilities exist.
 
 ## Hiring another agent
@@ -281,9 +281,10 @@ of all four as a solar map on sample data. How it becomes live is in
   governs that part of the tree, and what stops squatting.
 - **Recovery.** Losing the key means losing the identity. Social recovery
   through contacts is the obvious shape and needs designing before anyone has
-  anything worth losing. The current recovery phrase reproduces the venue key
-  but not the saved `:u:<slug>` suffix if `identity.json` is also lost; the
-  public owner identity needs a canonical suffix or a signed recoverable record.
+  anything worth losing. The current recovery phrase reproduces the venue key,
+  and the store holds the `:u:<slug>` suffix; a phrase with no store recovers
+  the venue but not the suffix, so the public owner identity needs a canonical
+  suffix or a signed recoverable record.
 - **Money without crypto framing.** Whether the everyday product ever shows a
   balance, and what an allowance means when funding it is the awkward step.
 - **Reputation without a popularity contest.** Completed jobs and vouches from

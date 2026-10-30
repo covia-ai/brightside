@@ -26,6 +26,7 @@ in the Covia repository).
 
 | State | Where | Adapter |
 |---|---|---|
+| The owner's identity (display name, slug, user DID, operator label) | `owner` | `brightside` |
 | Chosen model | `model` | `brightside` |
 | Voice preferences (read aloud, send after a pause) | `voice` | `brightside` |
 | Peers map settings | `users/<did>/peers-map` | `brightside` |
@@ -35,7 +36,6 @@ To move in, one at a time:
 
 | State | Today | In the state |
 |---|---|---|
-| Display name, operator label | `identity.json` | `users/<did>/profile` |
 | Theme, mode, accent | `prefs.properties` | `users/<did>/look`, with the file kept as the pre-unlock cache |
 
 The skill-feedback backlog stays in the person's Covia workspace, because the
@@ -47,10 +47,8 @@ the person's secret store; adapter state holds no credentials.
 `config.json` is the operator's hand-edited configuration and names the store
 itself. Logs, `files/`, `code/` and `skills/` are the owner's files on disk.
 What acts before the store opens stays in `prefs.properties`: the tray,
-starting unlocked or taking over, and keeping the tool token. The unlock
-screen also needs the look and the name to greet: those stay as a cache in
-`prefs.properties` and `identity.json`, written whenever they change and
-never the source of truth.
+starting unlocked or taking over, and keeping the tool token. The look also
+stays there for now, since the unlock window is drawn before the store opens.
 
 ## Rules
 

@@ -135,7 +135,6 @@ The data home is the directory holding `config.json`, by default
 | `keys.enc` | transient onboarding key staging, AES-GCM | Normally absent; provider keys live in the stores inside `venue.etch` |
 | `unlock.passphrase` | **plaintext**, after explicit opt-in | Anyone who reads it can unlock the vault. Exclude from ordinary backups; cleared on recovery |
 | `tool-token.json` | **plaintext** user bearer token, after explicit opt-in | Anyone who reads it can act as the user until it expires (a day at most). Not needed for recovery; removed on quit and on recovery |
-| `identity.json` | plaintext name, slug and user DID | **Back it up**: the phrase reproduces the venue, not the user suffix |
 | `config.json`, `prefs.properties`, `file-roots.json` | plaintext, no secrets; folder overrides include local paths and access choices | Back up when customised |
 | `skills/`, `files/`, `code/` | plaintext, the owner's own | Outside the encrypted store; back up if they matter. Treat third-party skills as executable authority; `code/brightside` is a checkout Claude Code works in without asking (auto mode), as your OS user ([CONFIGURATION.md](CONFIGURATION.md#claude-code)) |
 | `logs/` | plaintext, rotated | Not needed; may contain operational detail |
@@ -150,8 +149,7 @@ legacy mode.
 ## Recovery procedure
 
 **What to back up.** The recovery phrase, offline and apart from the computer;
-and consistent backups of the whole data home, above all `venue.etch` and
-`identity.json`. Quit Brightside before copying so the store records a clean
+and consistent backups of the whole data home, above all `venue.etch`. Quit Brightside before copying so the store records a clean
 close. Keep the original until the recovered installation is verified.
 Recording the non-secret venue DID and public key beside the backup gives an
 independent fingerprint to compare afterwards; the identicons on the Identity
@@ -181,7 +179,7 @@ slug is in use. Provider keys reopen with the store; nothing to re-enter.
 | Material retained | Identity | Lattice data | Provider keys |
 |---|---|---|---|
 | Whole data home + passphrase | Yes | Yes | Yes |
-| `venue.etch` + phrase + `identity.json` | Yes; new envelope and salt are made | Yes | Yes |
+| `venue.etch` + phrase | Yes; new envelope and salt are made | Yes | Yes |
 | `venue.etch` + raw seed | Yes, with Convex tooling | Yes | Yes |
 | Phrase only | Yes; same seed and venue identity | No; an empty store can be created | No |
 | Envelope + salt + passphrase, no store | Yes | No | No |
@@ -213,7 +211,7 @@ shutdown operation. Treat a copied token as a password until it expires.
 The desktop chat acts as the named user, not the operator, and Covia's
 capability checks remain the boundary between principals. The user has no key
 of its own; the venue key signs for it and is shown separately on the Identity
-page. `identity.json` pins slug and DID, and launch requires the saved DID to
+page. The identity record in the store pins slug and DID, and launch requires the saved DID to
 equal `<runningVenueDID>:u:<slug>`, so a copied or edited profile cannot move
 the UI to another principal. The in-process application and the venue share
 one trust boundary.
@@ -246,8 +244,7 @@ one trust boundary.
   key file before rewriting the identity envelope, which is why an untouched
   backup is kept until it succeeds; a failed rewrite never invalidates the
   phrase or the store key.
-- `identity.json` and a custom store path are recovery metadata the phrase
-  does not reproduce.
+- A custom store path is recovery metadata the phrase does not reproduce.
 - Filesystem ACLs, disk encryption, backups, malware protection and physical
   security are the host's responsibility.
 - Separating the signing seed from the store key, and transactional rekey, are

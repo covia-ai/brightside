@@ -1,6 +1,5 @@
 package brightside;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
@@ -31,12 +30,12 @@ import convex.core.util.JSON;
  * <p>The DID follows the suffix convention Covia uses for the anonymous
  * {@code <venueDID>:public} principal and the {@code :u:} user segment of
  * {@code did:web} venues, so the agent's turns are attributed to their owner.
- * Persisted on its own in {@code <home>/identity.json}, apart from the
- * hand-edited {@code config.json}. The slug and full user DID are saved alongside
+ * Kept in the venue store, in Brightside's adapter state ({@link BrightsideAdapter#owner}),
+ * so the recovery phrase brings it back. The slug and full user DID are saved alongside
  * the name and kept when the name changes ({@link #withName}) — the principal is
  * where the agent, its memory and its skills live, so it must outlive any rename.
  *
- * <p>The file also names the <b>venue operator</b> — the other principal the app
+ * <p>The record also names the <b>venue operator</b> — the other principal the app
  * can act as ({@link #operatorName}, default {@value #DEFAULT_OPERATOR_NAME}).
  * That is a label only: the operator is the venue itself and has no slug or
  * user DID.
@@ -48,8 +47,8 @@ public final class Identity {
 	/** DID segment introducing a named user sub-principal (mirrors {@code :public}). */
 	public static final String USER_SEP = ":u:";
 
-	/** Where the chosen name lives, under the BrightSide data directory. */
-	public static final String FILE_NAME = "identity.json";
+	/** Where an earlier Brightside kept the identity, before the venue store held it. */
+	static final String FILE_NAME = "identity.json";
 
 	private static final int MAX_LENGTH = 60;
 
@@ -205,48 +204,50 @@ public final class Identity {
 		return suggestion.isEmpty() ? "You" : suggestion;
 	}
 
-	/** Reads the saved identity, or {@code null} if none has been chosen yet. */
-	public static Identity load(Path home) {
-		Path file = home.resolve(FILE_NAME);
-		if (!Files.exists(file)) return null;
-		try {
-			AMap<AString, ACell> map = RT.ensureMap(JSON.parseJSON5(Files.readString(file)));
-			AString n = (map == null) ? null : RT.ensureString(map.get(Strings.create("name")));
-			if (n == null) return null;
-			String raw = n.toString();
-			if (sanitise(raw).isEmpty()) return null;
-			Identity id = of(raw);
-			// A saved slug pins the principal across renames; older files (name
-			// only) derive it from the name, exactly as before.
-			AString s = RT.ensureString(map.get(Strings.create("slug")));
-			String savedSlug = (s == null) ? "" : sanitise(s.toString());
-			String slug = savedSlug.isEmpty() ? id.slug : savedSlug;
-			AString d = RT.ensureString(map.get(Strings.create("did")));
-			String savedDID = (d == null) ? null : d.toString().strip();
-			if (savedDID != null && (savedDID.isEmpty() || !savedDID.endsWith(USER_SEP + slug))) {
-				log.warn("Could not read {} — saved DID does not match the user slug", file);
-				return null;
-			}
-			// The operator's display name is optional: files from before it had one
-			// get the default.
-			AString o = RT.ensureString(map.get(Strings.create("operator")));
-			String operator = (o == null) ? "" : normaliseDisplay(o.toString());
-			return new Identity(id.display, slug, savedDID, operator.isEmpty() ? DEFAULT_OPERATOR_NAME : operator);
-		} catch (Exception e) {
-			log.warn("Could not read {} — will ask for a name again: {}", file, e.toString());
-			return null;
-		}
-	}
-
-	/** Persists this identity (display name, slug, full DID and the operator's name) to {@code <home>/identity.json}. */
-	public void save(Path home) throws IOException {
-		Files.createDirectories(home);
+	/** The identity as stored: display name, slug, full DID once known, and the operator's name. */
+	public AMap<AString, ACell> toCell() {
 		AMap<AString, ACell> map = Maps.of(
 			Strings.create("name"), Strings.create(display),
 			Strings.create("slug"), Strings.create(slug));
 		if (did != null) map = map.assoc(Strings.create("did"), Strings.create(did));
-		map = map.assoc(Strings.create("operator"), Strings.create(operator));
-		Files.writeString(home.resolve(FILE_NAME), JSON.printPretty(map).toString() + "\n");
+		return map.assoc(Strings.create("operator"), Strings.create(operator));
+	}
+
+	/** The identity {@link #toCell} stored, or null if there is none or it can't be read. */
+	public static Identity fromCell(ACell cell) {
+		AMap<AString, ACell> map = RT.ensureMap(cell);
+		AString n = (map == null) ? null : RT.ensureString(map.get(Strings.create("name")));
+		if (n == null || sanitise(n.toString()).isEmpty()) return null;
+		Identity id = of(n.toString());
+		AString s = RT.ensureString(map.get(Strings.create("slug")));
+		String savedSlug = (s == null) ? "" : sanitise(s.toString());
+		String slug = savedSlug.isEmpty() ? id.slug : savedSlug;
+		AString d = RT.ensureString(map.get(Strings.create("did")));
+		String savedDID = (d == null) ? null : d.toString().strip();
+		if (savedDID != null && (savedDID.isEmpty() || !savedDID.endsWith(USER_SEP + slug))) {
+			log.warn("The saved identity's DID does not match its slug; asking for a name again");
+			return null;
+		}
+		AString o = RT.ensureString(map.get(Strings.create("operator")));
+		String operator = (o == null) ? "" : normaliseDisplay(o.toString());
+		return new Identity(id.display, slug, savedDID, operator.isEmpty() ? DEFAULT_OPERATOR_NAME : operator);
+	}
+
+	/**
+	 * The identity an earlier Brightside kept in {@link #FILE_NAME}, removing the
+	 * file: read once, on the first launch that keeps it in the store.
+	 */
+	static Identity takeFile(Path home) {
+		Path file = home.resolve(FILE_NAME);
+		if (!Files.exists(file)) return null;
+		try {
+			Identity id = fromCell(JSON.parseJSON5(Files.readString(file)));
+			Files.delete(file);
+			return id;
+		} catch (Exception e) {
+			log.warn("Could not read {}: {}", file, e.toString());
+			return null;
+		}
 	}
 
 	@Override

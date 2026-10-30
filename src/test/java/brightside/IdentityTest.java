@@ -67,22 +67,19 @@ class IdentityTest {
 	}
 
 	@Test
-	void savesAndReloadsRoundTrip() throws IOException {
-		assertNull(Identity.load(home), "no identity yet");
+	void storesAndReadsBackRoundTrip() {
 		Identity id = Identity.of("Mike Smith").withVenueDID("did:key:z6MkMike");
-		id.save(home);
-		Identity reloaded = Identity.load(home);
+		Identity reloaded = Identity.fromCell(id.toCell());
 		assertNotNull(reloaded);
 		assertEquals(id, reloaded);
 		assertEquals("Mike Smith", reloaded.name(), "display case survives a round trip");
 		assertEquals("mike-smith", reloaded.slug());
 		assertEquals("did:key:z6MkMike:u:mike-smith", reloaded.did());
-		assertTrue(java.nio.file.Files.readString(home.resolve(Identity.FILE_NAME))
-			.contains("did:key:z6MkMike:u:mike-smith"));
+		assertNull(Identity.fromCell(null), "nothing stored yet");
 	}
 
 	@Test
-	void renamingKeepsThePrincipal() throws IOException {
+	void renamingKeepsThePrincipal() {
 		Identity mike = Identity.of("Mike").withVenueDID("did:key:z6MkMike");
 		Identity michael = mike.withName("Michael Anderson");
 		assertEquals("Michael Anderson", michael.name(), "the display name changes");
@@ -91,16 +88,15 @@ class IdentityTest {
 		assertEquals(mike.userDID("did:key:z6MkMike"), michael.userDID("did:key:z6MkMike"));
 		assertThrows(IllegalArgumentException.class, () -> mike.withName("   "));
 
-		// The pinned slug survives a save/load round trip.
-		michael.save(home);
-		Identity reloaded = Identity.load(home);
+		// The pinned slug survives being stored and read back.
+		Identity reloaded = Identity.fromCell(michael.toCell());
 		assertNotNull(reloaded);
 		assertEquals("Michael Anderson", reloaded.name());
 		assertEquals("mike", reloaded.slug());
 	}
 
 	@Test
-	void theOperatorHasItsOwnNameApartFromTheUsers() throws IOException {
+	void theOperatorHasItsOwnNameApartFromTheUsers() {
 		Identity mike = Identity.of("Mike").withVenueDID("did:key:z6MkMike");
 		assertEquals(Identity.DEFAULT_OPERATOR_NAME, mike.operatorName(), "a default until renamed");
 
@@ -112,16 +108,9 @@ class IdentityTest {
 		assertEquals(Identity.DEFAULT_OPERATOR_NAME, mike.withOperatorName("   ").operatorName(), "blank falls back");
 		assertEquals("The Boss", renamed.withName("Michael").operatorName(), "renaming the user keeps it");
 
-		renamed.save(home);
-		Identity reloaded = Identity.load(home);
-		assertNotNull(reloaded);
+		Identity reloaded = Identity.fromCell(renamed.toCell());
 		assertEquals(renamed, reloaded);
 		assertEquals("The Boss", reloaded.operatorName());
-
-		// A file from before the operator had a name reads with the default.
-		java.nio.file.Files.writeString(home.resolve(Identity.FILE_NAME),
-			"{\"name\":\"Mike\", \"slug\":\"mike\", \"did\":\"did:key:z6MkMike:u:mike\"}");
-		assertEquals(Identity.DEFAULT_OPERATOR_NAME, Identity.load(home).operatorName());
 	}
 
 	@Test
@@ -132,31 +121,24 @@ class IdentityTest {
 	}
 
 	@Test
-	void loadsAnOlderNameOnlyFile() throws IOException {
-		// identity.json written before the slug was saved: derive it from the name.
-		java.nio.file.Files.writeString(home.resolve(Identity.FILE_NAME), "{\"name\": \"Mike Smith\"}");
-		Identity id = Identity.load(home);
+	void aStoredDidThatDoesNotMatchTheSlugIsRefused() {
+		var cell = Identity.of("Mike").toCell().assoc(convex.core.data.Strings.create("did"),
+			convex.core.data.Strings.create("did:key:z6MkMike:u:someone-else"));
+		try (var logs = ExpectedLogs.warn(Identity.class, "The saved identity's DID does not match its slug")) {
+			assertNull(Identity.fromCell(cell));
+		}
+		assertNull(Identity.fromCell(convex.core.data.Strings.create("not a record")));
+	}
+
+	@Test
+	void anEarlierIdentityFileIsReadOnceAndRemoved() throws IOException {
+		java.nio.file.Files.writeString(home.resolve(Identity.FILE_NAME),
+			"{\"name\":\"Mike\", \"slug\":\"mike\", \"did\":\"did:key:z6MkMike:u:mike\", \"operator\":\"Boss\"}");
+		Identity id = Identity.takeFile(home);
 		assertNotNull(id);
-		assertEquals("mike-smith", id.slug());
-	}
-
-	@Test
-	void loadReturnsNullOnGarbage() throws IOException {
-		java.nio.file.Files.writeString(home.resolve(Identity.FILE_NAME), "not json at all {");
-		try (var logs = ExpectedLogs.warn(Identity.class,
-			"Could not read " + home.resolve(Identity.FILE_NAME) + " — will ask for a name again:")) {
-			assertNull(Identity.load(home));
-		}
-	}
-
-	@Test
-	void loadRejectsDidThatDoesNotMatchTheSavedSlug() throws IOException {
-		java.nio.file.Files.writeString(home.resolve(Identity.FILE_NAME), """
-			{"name":"Mike", "slug":"mike", "did":"did:key:z6MkMike:u:someone-else"}
-			""");
-		try (var logs = ExpectedLogs.warn(Identity.class,
-			"Could not read " + home.resolve(Identity.FILE_NAME) + " — saved DID does not match the user slug")) {
-			assertNull(Identity.load(home));
-		}
+		assertEquals("mike", id.slug());
+		assertEquals("Boss", id.operatorName());
+		assertFalse(java.nio.file.Files.exists(home.resolve(Identity.FILE_NAME)));
+		assertNull(Identity.takeFile(home));
 	}
 }

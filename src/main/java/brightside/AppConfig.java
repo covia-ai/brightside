@@ -84,7 +84,7 @@ public final class AppConfig {
 		{
 			// Brightside configuration — edit and restart Brightside to apply.
 			// Every key is optional; delete this file to restore the defaults.
-			// Your chosen name lives separately in identity.json (not here).
+			// Your chosen name is kept in the venue store (not here).
 
 			// Look and feel to start in: "dark" or "light". The mode and themes chosen
 			// in the app (Settings → Theme) are remembered in prefs.properties and win over this.
