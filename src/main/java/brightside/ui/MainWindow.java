@@ -23,6 +23,7 @@ import javax.swing.WindowConstants;
 import brightside.BrightSide;
 import brightside.EmbeddedVenue;
 import brightside.Identity;
+import brightside.KeyCheck;
 import brightside.SessionHistory;
 import brightside.Sizes;
 import brightside.StoreSpace;
@@ -413,6 +414,11 @@ public final class MainWindow extends JFrame {
 			@Override
 			public boolean storeApiKey(String providerId, String apiKey) {
 				return app.storeApiKey(providerId, apiKey);
+			}
+
+			@Override
+			public KeyCheck.Result testModel(String providerId, String modelId, String apiKey) {
+				return app.testModel(providerId, modelId, apiKey);
 			}
 		}, app.currentModelOp());
 		ProfilePanel profilePanel = new ProfilePanel(new ProfilePanel.Host() {

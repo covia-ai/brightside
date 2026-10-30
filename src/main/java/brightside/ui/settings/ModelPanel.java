@@ -1,14 +1,17 @@
 package brightside.ui.settings;
 
 import java.util.Objects;
+import java.util.function.Supplier;
 
 import javax.swing.JPasswordField;
 
 import com.formdev.flatlaf.FlatClientProperties;
 
+import brightside.KeyCheck;
 import brightside.model.Providers;
 import brightside.ui.components.Documents;
 import brightside.ui.components.Fields;
+import brightside.ui.components.KeyTest;
 import brightside.ui.components.ModelSelector;
 import brightside.ui.components.Styles;
 
@@ -16,7 +19,10 @@ import brightside.ui.components.Styles;
  * The <b>Model</b> settings page: pick the provider and model, and replace the API
  * key. Both apply live: a new key is stored encrypted in the venue's secret
  * stores, which model calls read each time. The <b>Save</b> action stays
- * disabled until something changes.
+ * disabled until something changes. <b>Test</b> checks the selected model with
+ * the key typed in the field, or the stored key when the field is blank,
+ * without saving the key or changing the settings (the call itself is kept in
+ * the owner's job history, key hidden, like any other).
  */
 @SuppressWarnings("serial")
 public final class ModelPanel extends SettingsPage {
@@ -26,11 +32,15 @@ public final class ModelPanel extends SettingsPage {
 		void applyModel(String providerId, String modelId);
 
 		boolean storeApiKey(String providerId, String apiKey);
+
+		/** One tiny call to the model, with {@code apiKey} if given, else the stored key. Off the event thread. */
+		KeyCheck.Result testModel(String providerId, String modelId, String apiKey);
 	}
 
 	private final Handler handler;
 	private final ModelSelector modelSelector = new ModelSelector();
 	private final JPasswordField keyField = Fields.secret(new JPasswordField(24));
+	private final KeyTest keyTest = new KeyTest(this::keyTestCall, 640, false);
 
 	private String baselineProvider;
 	private String baselineModel;
@@ -49,6 +59,7 @@ public final class ModelPanel extends SettingsPage {
 		modelSelector.addSelectionListener(this::onModelSelection);
 		keyField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Paste a new key to replace it (leave blank to keep)");
 		Documents.onChange(keyField, this::updateDirty);
+		Documents.onChange(keyField, keyTest::reset);
 
 		primary.setEnabled(false);
 		primary.setToolTipText("Apply the selected model and store any new key");
@@ -58,6 +69,16 @@ public final class ModelPanel extends SettingsPage {
 		addField("Provider", modelSelector.providerField());
 		addField("Model", modelSelector.modelField());
 		addField("API key", keyField);
+		addField("", keyTest);
+	}
+
+	/** Read on the event thread when Test is pressed: the selection and any typed key. */
+	private Supplier<KeyCheck.Result> keyTestCall() {
+		String providerId = currentProviderId();
+		String modelId = currentModelId();
+		char[] typed = keyField.getPassword();
+		String key = (typed.length > 0) ? new String(typed) : null;
+		return () -> handler.testModel(providerId, modelId, key);
 	}
 
 	private void onModelSelection() {
@@ -67,6 +88,7 @@ public final class ModelPanel extends SettingsPage {
 		keyField.setEnabled(needsKey);
 		keyField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT,
 			needsKey ? "Paste a new key to replace it (leave blank to keep)" : "No key needed for this provider");
+		keyTest.reset();
 		updateDirty();
 	}
 
