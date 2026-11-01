@@ -42,7 +42,9 @@ public final class Odin {
 	 *     {@code brightside:storage} compacts at the next start instead.</li>
 	 * </ul>
 	 * {@code user/delete} never takes the owner's account or a user a god keeps
-	 * ({@link BrightsideAdapter}).
+	 * ({@link BrightsideAdapter}). A value he gives {@code secret/set} is
+	 * redacted in that operation's record but not in his bridge call's, where it
+	 * sits nested in the input Covia's redaction does not reach.
 	 */
 	public static final Set<String> VENUE_OPERATIONS = Set.of(
 		"v/ops/venue/adapters",
