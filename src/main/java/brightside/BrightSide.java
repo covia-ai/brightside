@@ -109,7 +109,7 @@ public final class BrightSide {
 	private final Object godsLock = new Object();
 	/** A restart of the venue inside this process is under way ({@link #prepareRestart}). */
 	private final AtomicBoolean restarting = new AtomicBoolean();
-	/** Lock (log out) has hidden the window behind the unlock dialog; set off the event thread too. */
+	/** Lock (log out) has hidden the window, until a passphrase is proven again; read off the event thread. */
 	private volatile boolean locked;
 	/** What the venue's lifecycle operations ask of this app. */
 	private final BrightsideAdapter.App lifecycle = new BrightsideAdapter.App() {
@@ -379,7 +379,6 @@ public final class BrightSide {
 
 	/** The passphrase was accepted (or the identity recovered): drop the unlock dialog and bring up the window. */
 	private void unlocked() {
-		locked = false;
 		unattended = false; // up: from here on, as any launch (a later Lock asks as usual)
 		if (unlockDialog != null) {
 			unlockDialog.dispose();
@@ -599,8 +598,9 @@ public final class BrightSide {
 	 * starting up, or the unlock dialog its progress while locked. Then it closes
 	 * the venue, saving the store, and launches it again through the startup
 	 * path on the configuration just read. The chat binds to the new venue as
-	 * after an unlock; while locked, at the unlock. A launch that fails is
-	 * reported where the owner is looking, as at startup.
+	 * at launch — as the named user, on a clean Home with the standard agent,
+	 * the conversations waiting in Sessions — and while locked, at the unlock.
+	 * A launch that fails is reported where the owner is looking, as at startup.
 	 */
 	private void restartVenue(AppConfig fresh, String seedHex) {
 		try {
@@ -610,6 +610,7 @@ public final class BrightSide {
 			inboxWatcher = null;
 			chat = null;
 			client = null;
+			actingAsOperator = false; // every launch starts as the user
 			chatStarted.set(false);
 			godsEnsured.set(false);
 			SwingUtilities.invokeAndWait(() -> {
@@ -624,6 +625,7 @@ public final class BrightSide {
 			launchVenueWith(Vault.secure(fresh.venueConfig(), seedHex), this::restarted);
 			renewToolToken(); // signed by the new venue, in case one was refreshed while it was down
 		} catch (Exception e) {
+			if (e instanceof InterruptedException) Thread.currentThread().interrupt();
 			log.error("Restart failed", e);
 			startupFailed(e);
 		} finally {
@@ -773,6 +775,7 @@ public final class BrightSide {
 				}
 				this.vault = v;
 				this.venueSeedHex = seedHex;
+				locked = false; // proven: a venue launched from here binds the chat
 				EmbeddedVenue up = venue;
 				Identity saved = (up != null) ? owner(up) : null;
 				this.identity = saved;
@@ -903,6 +906,7 @@ public final class BrightSide {
 				v.storeSeed(seedHex); // re-encrypt the seed under the new passphrase
 				this.vault = v;
 				this.venueSeedHex = seedHex;
+				locked = false; // proven: a venue launched from here binds the chat
 				EmbeddedVenue up = venue;
 				Identity saved = (up != null) ? owner(up) : null;
 				this.identity = saved;

@@ -158,11 +158,13 @@ stops. `RestartTest` runs both on a venue whose app does nothing.
 - Just after answering, the app lets go of the venue as Lock does but keeps
   the key, closes the venue, which saves the store, and launches it again
   through the startup path on the configuration just read. The window shows
-  Home starting up, and the chat binds to the new venue as after an unlock.
+  Home starting up, and the chat binds to the new venue as at launch: as the
+  named user, on a clean Home.
 - While locked it restarts behind the unlock dialog, which shows its progress
   and then asks as before; the unlock binds to the new venue.
 - A venue that fails to come back is reported where the owner is looking, as
-  at startup; quitting and starting again is then the way back.
+  at startup. Behind Lock, unlocking launches it again; otherwise quitting and
+  starting again is the way back.
 - Refused while Brightside is starting up or quitting, during another restart,
   and off the desktop. The steps from closing the venue to binding the window
   run only with a window, so no test covers them.
