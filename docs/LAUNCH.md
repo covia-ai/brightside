@@ -184,7 +184,6 @@ stops. `RestartTest` runs both on a venue whose app does nothing.
   caller's authority. It is copied into `~/.brightside/run/` and the copy
   runs, so the build can be replaced meanwhile; earlier copies go unless one
   is still running. A jar whose main class is not Brightside's is refused.
-  A plain `https://` URL is not a content reference in Covia yet.
 - It comes back as this one is, and takes over and unlocks with the
   remembered passphrase without asking, whatever the startup settings say:
   `--takeover` when the window is showing, so the window comes back;
@@ -294,10 +293,15 @@ the port — one stopped dead mid-exit, or a different tool holding the file:
 wait a moment, or quit it. A wrong passphrase is reported on the unlock screen,
 not in the log.
 
-**Known limit:** a crash part-way through a compaction leaves the store in
-files that only a repair by hand can open, and the launch stops rather than
-repairing the wrong one (`StoreRepair.isInterruptedCollection`), telling the
-owner to keep every `venue.etch` file as it is. The window is the collection
-itself, well under a second for a store of tens of megabytes. Putting it right needs
-Convex's `etch` tools; doing it at launch belongs in Convex and Covia
-([covia-ai/covia#614](https://github.com/covia-ai/covia/issues/614)).
+## Known limits
+
+- A crash part-way through a compaction leaves the store in files that only a
+  repair by hand can open, and the launch stops rather than repairing the
+  wrong one (`StoreRepair.isInterruptedCollection`), telling the owner to keep
+  every `venue.etch` file as it is. The window is the collection itself, well
+  under a second for a store of tens of megabytes. Putting it right needs
+  Convex's `etch` tools; doing it at launch belongs in Convex and Covia
+  ([covia-ai/covia#614](https://github.com/covia-ai/covia/issues/614)).
+- A relaunch cannot name its jar by a plain `https://` URL: Covia resolves no
+  web address as content yet
+  ([covia-ai/covia#653](https://github.com/covia-ai/covia/issues/653)).
