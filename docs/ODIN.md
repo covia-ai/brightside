@@ -6,13 +6,14 @@ of the gods; what they share — the bridges, asking the owner, deliberate
 stops — is in [GODS.md](GODS.md). This is what is his alone. Code: `Odin`.
 
 - **He holds the venue's administration**: integrations and modules, users,
-  access grants, the data store's disk, and repairs inside a user's namespace.
+  access grants, the data store's disk, restarting Brightside, and repairs
+  inside a user's namespace.
 - **He judges each request on the owner's interest.** He does it, asks the
   owner first, or declines.
 - **He is the wiser head.** Every change Thor or Njord makes is reported to
   him, and he takes a disagreement to the owner rather than undoing it.
-- **His reach is an allowlist** of administration. The venue's lifecycle and
-  who can sign in stay out of it.
+- **His reach is an allowlist** of administration. Who can sign in stays out
+  of it.
 
 ## Why Odin
 
@@ -40,15 +41,17 @@ owner's interest, is that someone.
 
 As the venue: list, enable, disable and configure adapters, load and unload
 modules, create, list and inspect users, issue grants over the venue's own
-resources, and look after the data store's disk: ask for it to be compacted
-at the next start, and remove the files earlier repairs kept. Inside one of the venue's users' namespaces, on their behalf:
+resources, look after the data store's disk: ask for it to be compacted
+at the next start, and remove the files earlier repairs kept; and restart
+Brightside, a new instance taking over from this one
+([LAUNCH.md](LAUNCH.md#restarting)). Inside one of the venue's users' namespaces, on their behalf:
 read, write and delete workspace data, inspect, update, resume and delete
 agents and their past sessions, and read skills — enough to repair an owner's
 assistants.
 
-Left out on purpose: restarting the venue, since Brightside owns its own
-lifecycle, and so Covia's online collection too, which can restart it; and
-authentication keys and venue-scoped MCP servers, which stay
+Left out on purpose: Covia's own venue restart and its online collection,
+which can restart the venue, since both need process control an embedded
+venue lacks; and authentication keys and venue-scoped MCP servers, which stay
 with the owner.
 
 ## How he judges

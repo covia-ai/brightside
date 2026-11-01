@@ -22,11 +22,13 @@ public final class Odin {
 	/**
 	 * The operator operations Odin may run as the venue. Each is guarded by
 	 * Covia's {@code requireVenueAuthority}; the bridge supplies the venue
-	 * context, this list bounds what it will supply it for. Disk is reclaimed
-	 * through {@code brightside:storage}, which compacts at Brightside's next
-	 * start, not through {@code venue/gc}, whose restart option would reach the
-	 * lifecycle. Deliberately absent: {@code venue/restart} (Brightside owns its
-	 * own lifecycle), authentication key management, and venue-scoped MCP servers.
+	 * context, this list bounds what it will supply it for. Brightside restarts
+	 * through {@code brightside:restart}, a new instance taking over, not
+	 * through {@code venue/restart}, which needs process control an embedded
+	 * venue lacks; disk is reclaimed through {@code brightside:storage}, which
+	 * compacts at Brightside's next start, not through {@code venue/gc}, whose
+	 * restart option would need it too. Deliberately absent: authentication key
+	 * management and venue-scoped MCP servers.
 	 */
 	public static final Set<String> VENUE_OPERATIONS = Set.of(
 		"v/ops/venue/adapters",
@@ -39,7 +41,8 @@ public final class Odin {
 		"v/ops/user/list",
 		"v/ops/user/info",
 		"v/ops/ucan/issue",
-		"v/ops/brightside/storage");
+		"v/ops/brightside/storage",
+		"v/ops/brightside/restart");
 
 	/**
 	 * The operations Odin may run inside a user's namespace ({@code user:sudo}):

@@ -1,7 +1,8 @@
 # Launch, takeover and exit
 
 How a Brightside process starts, what happens when one is already running, and
-how it stops. Code: `BrightSide`, `Takeover`, `EmbeddedVenue`, `TrayManager`.
+how it stops or restarts. Code: `BrightSide`, `Takeover`, `Relaunch`,
+`EmbeddedVenue`, `TrayManager`.
 
 - **Nothing shows without live data behind it.** The unlock dialog or wizard
   comes first; the main window appears only once the venue is ready.
@@ -9,7 +10,8 @@ how it stops. Code: `BrightSide`, `Takeover`, `EmbeddedVenue`, `TrayManager`.
   in-process; the agent is configured on the first message.
 - **Two processes cannot share the store**, so a newcomer asks the running
   instance to step aside with a request only the venue's own key can sign, and
-  waits for it to release the store before opening it.
+  waits for it to release the store before opening it. A restart is such a
+  newcomer, started by the instance it replaces.
 - **Closing the window quits** unless the owner opts into the tray; quitting
   always flushes state, and waits for a launch in progress first.
 - **The store is compacted only when asked**, at the start of the next
@@ -125,9 +127,43 @@ Two processes cannot share `venue.etch`; the second fails on the file lock. So
   `waitUntilReleased` waits for the lock on `venue.etch` to lift. Only then
   does the newcomer launch its own venue.
 
-This is not a venue restart: the newcomer is already up and only needs the
-incumbent to step aside, and it works from an IDE launch with no jar.
-`TakeoverTest` runs the handshake against a private venue.
+The newcomer is already up and only needs the incumbent to step aside, so this
+works from an IDE launch with no jar too. `TakeoverTest` runs the handshake
+against a private venue.
+
+## Restarting
+
+`brightside:restart` restarts Brightside by starting a newcomer that takes over,
+as above. Only the venue may run it, as with shutdown, which is how Odin runs it
+through his bridge ([ODIN.md](ODIN.md)). Covia's own venue restart needs process
+control that only a standalone venue has.
+
+- The newcomer is the same program on the same configuration file: the same
+  Java, and the same jar, or the same class path for a launch from an IDE,
+  which then carries on outside the IDE (`Relaunch`, as the MCP bridge starts
+  the app).
+- It comes back as this one is, and takes over and unlocks with the
+  remembered passphrase without asking, whatever the startup settings say:
+  `--takeover` when the window is showing, so the window comes back;
+  `--unlock --takeover` when it is in the tray or minimised, so it comes back
+  there. With no passphrase remembered its unlock dialog asks for one, even
+  from the tray.
+- This instance runs on until the newcomer has unlocked and asks it to stop, so
+  a failure before then leaves it as it was. Only a failure in the newcomer's
+  own venue launch, after the handover, leaves nothing running.
+- The operation answers as soon as the newcomer has started, with its process
+  id, not once it has taken over; a newcomer that fails after that says so
+  only in the log, or on its own unlock dialog. `brightside:info` reports the
+  process id and when the process started, so a caller can see afterwards that
+  the restart happened. An agent's work in flight when this instance stops
+  resumes in the newcomer: it finds the restart's answer in its conversation,
+  and a call cut off by the handover was cut off because the restart worked.
+- Refused while Brightside is locked (unlocking at once would undo the lock,
+  and the newcomer cannot take over without the key), while a newcomer an
+  earlier restart started is still running beside this one, and off the
+  desktop, where there is no app to start again.
+
+`RestartTest` runs the operation on a venue whose app starts nothing.
 
 ## Tray, minimise, close, quit
 

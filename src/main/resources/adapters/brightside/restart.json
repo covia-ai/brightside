@@ -1,0 +1,18 @@
+{
+	"name": "Restart Brightside",
+	"description": "Restarts this Brightside desktop process: starts a new instance of the same program, which unlocks and takes over from this one, and answers as soon as it has started — before the handover. Within seconds this process stops, so the work in flight here is cut off and resumes in the new one: a call cut off after this answer was cut off because the restart worked, so never restart again for that; brightside:info reports the new process id and start time. The new instance comes back as this one is (the window, or the tray); with no remembered passphrase it asks the owner for it, and this one runs on until then. Refused while Brightside is locked or a restart is already under way. Venue-operator only.",
+	"operation": {
+		"adapter": "brightside:restart",
+		"input": {
+			"type": "object",
+			"properties": {}
+		},
+		"output": {
+			"type": "object",
+			"properties": {
+				"accepted": { "type": "boolean", "description": "True when the new instance was started." },
+				"pid": { "type": "integer", "description": "The operating-system process id of the new instance." }
+			}
+		}
+	}
+}

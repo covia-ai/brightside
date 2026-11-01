@@ -61,6 +61,8 @@ class BrightsideAdapterTest {
 		assertEquals(Strings.create("Brightside"), RT.getIn(result, "app"));
 		assertEquals(Strings.create(venue.did()), RT.getIn(result, "did"));
 		assertNotNull(RT.getIn(result, "version"), "reports a version");
+		assertEquals(ProcessHandle.current().info().startInstant().map(t -> Strings.create(t.toString())).orElse(null),
+			RT.getIn(result, "started"), "reports when this process started");
 		assertTrue(vectorContains(RT.getIn(result, "skills"), Strings.create("introduction")));
 	}
 
@@ -78,6 +80,13 @@ class BrightsideAdapterTest {
 			.get(5, TimeUnit.SECONDS);
 		assertThrows(Exception.class, () -> denied.future().get(5, TimeUnit.SECONDS),
 			"a non-operator cannot shut the process down");
+	}
+
+	@Test
+	void aVenueWithNoAppCannotRestart() throws Exception {
+		// This test venue has no app behind it to start again, so even the operator is refused.
+		Job refused = venue.clientAs(venue.did()).invoke("v/ops/brightside/restart", Maps.empty()).get(5, TimeUnit.SECONDS);
+		assertThrows(Exception.class, () -> refused.future().get(5, TimeUnit.SECONDS));
 	}
 
 	@Test

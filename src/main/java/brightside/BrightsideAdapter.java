@@ -51,6 +51,8 @@ import covia.venue.UcanJwtValidator;
  *   <li>{@code brightside:shutdown} — clean process shutdown, venue-operator
  *       only, so a newly launched instance can take over (see
  *       {@link brightside.Takeover}).</li>
+ *   <li>{@code brightside:restart} — starts a new instance that takes over
+ *       from this one; venue-operator only, so Odin's to run.</li>
  *   <li>{@code brightside:storage} — the disk the store takes
  *       ({@link StoreSpace}): compaction at the next start, and the originals
  *       repairs kept; venue-operator only, so Odin's to run.</li>
@@ -80,6 +82,7 @@ public class BrightsideAdapter extends AAdapter {
 	private static final AString K_SKILLS = Strings.intern("skills");
 	private static final AString K_STORE = Strings.intern("store");
 	private static final AString K_PID = Strings.intern("pid");
+	private static final AString K_STARTED = Strings.intern("started");
 	private static final AString K_ACCEPTED = Strings.intern("accepted");
 	private static final AString K_NAME = Strings.intern("name");
 	private static final AString K_DELETED = Strings.intern("deleted");
@@ -130,15 +133,31 @@ public class BrightsideAdapter extends AAdapter {
 	private static final Set<String> FEEDBACK_CATEGORIES = Set.of(
 		"failed-load", "missing-skill", "instruction-conflict", "missing-capability", "other");
 
-	/** Runs to shut the app down cleanly (flush venue + exit); null off the desktop. */
-	private final Runnable onShutdown;
-
-	public BrightsideAdapter() {
-		this(null);
+	/**
+	 * Starts a Brightside to take over from this one, for {@code brightside:restart},
+	 * and returns its process; throws, in words for the caller, when it cannot.
+	 */
+	@FunctionalInterface
+	public interface Restart {
+		ProcessHandle start() throws Exception;
 	}
 
-	public BrightsideAdapter(Runnable onShutdown) {
+	/** Runs to shut the app down cleanly (flush venue + exit); null off the desktop. */
+	private final Runnable onShutdown;
+	/** Starts this app's successor; null off the desktop. */
+	private final Restart onRestart;
+	/** One restart at a time, so two cannot both start a successor. */
+	private final Object restartLock = new Object();
+	/** The successor the last restart started; guarded by {@link #restartLock}. */
+	private ProcessHandle successor;
+
+	public BrightsideAdapter() {
+		this(null, null);
+	}
+
+	public BrightsideAdapter(Runnable onShutdown, Restart onRestart) {
 		this.onShutdown = onShutdown;
+		this.onRestart = onRestart;
 	}
 
 	/** Where a person's Peers map settings sit in this adapter's state, below their DID. */
@@ -253,6 +272,7 @@ public class BrightsideAdapter extends AAdapter {
 		installAsset("brightside/delete-skill", "/adapters/brightside/delete-skill.json");
 		installAsset("brightside/report-skill-feedback", "/adapters/brightside/report-skill-feedback.json");
 		installAsset("brightside/shutdown", "/adapters/brightside/shutdown.json");
+		installAsset("brightside/restart", "/adapters/brightside/restart.json");
 		installAsset("brightside/storage", "/adapters/brightside/storage.json");
 		for (God god : Gods.ALL) {
 			installAsset("brightside/" + god.ask(), "/adapters/brightside/" + god.ask() + ".json");
@@ -277,6 +297,9 @@ public class BrightsideAdapter extends AAdapter {
 		}
 		if ("shutdown".equals(op)) {
 			return handleShutdown(ctx);
+		}
+		if ("restart".equals(op)) {
+			return handleRestart(ctx);
 		}
 		if ("storage".equals(op)) {
 			return handleStorage(ctx, input);
@@ -508,6 +531,33 @@ public class BrightsideAdapter extends AAdapter {
 			t.start();
 		}
 		return CompletableFuture.completedFuture(Maps.of(K_ACCEPTED, CVMBool.TRUE));
+	}
+
+	/**
+	 * Restarts the app: starts a new instance, which takes over from this one as
+	 * any newcomer does ({@link Takeover}), and answers once it has started, not
+	 * once it has taken over. Venue-operator only, so Odin's to run through his
+	 * bridge; refused while the successor an earlier restart started is still
+	 * running here beside this one — starting, or waiting for the passphrase.
+	 */
+	private CompletableFuture<ACell> handleRestart(RequestContext ctx) {
+		try {
+			if (!isOperator(ctx)) throw new IllegalStateException("brightside:restart requires venue operator authority");
+			if (onRestart == null) throw new IllegalStateException("This Brightside cannot restart itself: it has no app to start again");
+			ProcessHandle started;
+			synchronized (restartLock) {
+				if (successor != null && successor.isAlive()) {
+					throw new IllegalStateException("A restart is already under way: the new Brightside (process "
+						+ successor.pid() + ") is starting, or waiting for the passphrase");
+				}
+				started = onRestart.start();
+				successor = started;
+			}
+			log.info("Restarting: the new instance is process {}", started.pid());
+			return CompletableFuture.completedFuture(Maps.of(K_ACCEPTED, CVMBool.TRUE, K_PID, CVMLong.create(started.pid())));
+		} catch (Exception e) {
+			return CompletableFuture.failedFuture(e);
+		}
 	}
 
 	/** Whether the caller is the venue itself, as its own operations and Odin's bridge run. */
@@ -789,9 +839,11 @@ public class BrightsideAdapter extends AAdapter {
 			K_DID, (did != null) ? did.toString() : null,
 			K_SKILLS, shippedSkills(),
 			// Which instance this is: the store it holds and the process holding
-			// it. A newcomer taking over waits on both (Takeover).
+			// it. A newcomer taking over waits on both (Takeover); when the process
+			// started shows a caller that a restart happened.
 			K_STORE, storeName(),
-			K_PID, CVMLong.create(ProcessHandle.current().pid()));
+			K_PID, CVMLong.create(ProcessHandle.current().pid()),
+			K_STARTED, ProcessHandle.current().info().startInstant().map(Object::toString).orElse(null));
 	}
 
 	/** The store this venue runs on, as configured: a path, or {@code temp}. */

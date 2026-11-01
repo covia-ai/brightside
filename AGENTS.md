@@ -34,7 +34,7 @@ owns it.
 | Product principles | `DESIGN.md` |
 | Process shape, reads versus actions, source map, packaging | `ARCHITECTURE.md` |
 | Skills, tools and memory | `SKILLS.md` |
-| Startup, takeover, store repair, tray, exit | `LAUNCH.md` |
+| Startup, takeover, restart, store repair, tray, exit | `LAUNCH.md` |
 | Venue, user and agent principals | `IDENTITY.md` |
 | The gods; Odin, Thor, Njord | `GODS.md`, `ODIN.md`, `THOR.md`, `NJORD.md` |
 | Vault, keys, recovery, network exposure | `SECURITY.md` |

@@ -66,7 +66,7 @@ class StoreSpaceTest {
 			assertTrue(compacted.before() > 8 << 20, compacted.summary());
 			assertTrue(compacted.before() - compacted.after() >= 8 << 20, "the replaced value is gone: " + compacted.summary());
 			assertTrue(compacted.notice().contains("down from"), compacted.notice());
-			try (EmbeddedVenue venue = EmbeddedVenue.launch(config, compacted.store(), null)) {
+			try (EmbeddedVenue venue = EmbeddedVenue.launch(config, compacted.store(), null, null)) {
 				BrightsideAdapter adapter = (BrightsideAdapter) venue.engine().getAdapter("brightside");
 				assertEquals(Strings.create("kept"), adapter.mapSettings(owner), "what is in use survives");
 			}

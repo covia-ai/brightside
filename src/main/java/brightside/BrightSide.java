@@ -539,8 +539,42 @@ public final class BrightSide {
 
 	/** Launches the venue on the store {@code compacted} opened, or else on the one the config names. */
 	private EmbeddedVenue launchOn(AMap<AString, ACell> venueConfig, StoreSpace.Compacted compacted) {
-		return (compacted != null) ? EmbeddedVenue.launch(venueConfig, compacted.store(), this::exit)
-			: EmbeddedVenue.launch(venueConfig, this::exit);
+		return (compacted != null) ? EmbeddedVenue.launch(venueConfig, compacted.store(), this::exit, this::restart)
+			: EmbeddedVenue.launch(venueConfig, this::exit, this::restart);
+	}
+
+	/**
+	 * Starts the Brightside that takes over from this one, for
+	 * {@code brightside:restart}: the same program and configuration, coming
+	 * back as this one is ({@link #restartOptions}). Refused while locked —
+	 * unlocking at once would undo the lock, and the newcomer cannot take over
+	 * without the key — and while exiting. Never on the event thread.
+	 */
+	private ProcessHandle restart() throws Exception {
+		if (exiting.get()) throw new IllegalStateException("Brightside is already shutting down");
+		boolean[] locked = { false }, showing = { false };
+		SwingUtilities.invokeAndWait(() -> {
+			locked[0] = unlockDialog != null;
+			showing[0] = window != null && window.isShowing()
+				&& (window.getExtendedState() & java.awt.Frame.ICONIFIED) == 0;
+		});
+		if (locked[0]) throw new IllegalStateException("Brightside is locked; it can restart once the owner unlocks it");
+		List<String> options = restartOptions(showing[0], RememberedPassphrase.exists(config.home()));
+		log.info("Restarting: starting a new Brightside with {}", options);
+		return Relaunch.start(configPath, options).toHandle();
+	}
+
+	/**
+	 * How a restart launches its successor so that it comes back as this one is,
+	 * taking over without asking and unlocking with the remembered passphrase at
+	 * once. With the window showing, {@code --takeover}: the window comes back.
+	 * In the tray, or minimised, with a passphrase remembered,
+	 * {@code --unlock --takeover}: it comes back there. With none remembered it
+	 * must ask, so {@code --takeover} again: its unlock dialog asks for the
+	 * passphrase, and this instance runs on until it is given.
+	 */
+	static List<String> restartOptions(boolean windowShowing, boolean passphraseRemembered) {
+		return (!windowShowing && passphraseRemembered) ? List.of("--unlock", "--takeover") : List.of("--takeover");
 	}
 
 	/** The persistent store {@code venueConfig} names, or null for a temp or memory store. */

@@ -5,12 +5,10 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
@@ -40,8 +38,15 @@ final class McpStartup {
 			if (!Prefs.load(home).getBool("toolToken.keep", false) || !RememberedPassphrase.exists(home)) {
 				throw new IOException(SETUP_REQUIRED);
 			}
-			return start(config);
+			return Relaunch.start(config, UNATTENDED);
 		}, TIMEOUT);
+	}
+
+	/** Started for a connection nobody is sitting at, and never to take over a running app. */
+	private static final List<String> UNATTENDED = List.of("--unlock");
+
+	static List<String> command(Path config) throws Exception {
+		return Relaunch.command(config, UNATTENDED);
 	}
 
 	/**
@@ -123,31 +128,5 @@ final class McpStartup {
 		long remaining = deadline - System.nanoTime();
 		if (remaining <= 0) throw new IOException(TIMED_OUT);
 		TimeUnit.NANOSECONDS.sleep(Math.min(remaining, TimeUnit.MILLISECONDS.toNanos(100)));
-	}
-
-	private static Process start(Path config) throws Exception {
-		ProcessBuilder builder = new ProcessBuilder(command(config));
-		// The desktop outlives the bridge. Never let it inherit protocol stdout
-		// or an input/output pipe owned by the MCP client. It has its own log.
-		builder.redirectOutput(ProcessBuilder.Redirect.DISCARD);
-		builder.redirectError(ProcessBuilder.Redirect.DISCARD);
-		Process child = builder.start();
-		child.getOutputStream().close();
-		return child;
-	}
-
-	static List<String> command(Path config) throws Exception {
-		Path bin = Path.of(System.getProperty("java.home"), "bin");
-		// javaw prevents a console window when a Windows client has no console.
-		Path java = bin.resolve(Files.isRegularFile(bin.resolve("javaw.exe")) ? "javaw.exe" : "java");
-		List<String> command = new ArrayList<>(List.of(java.toString()));
-		Path source = Path.of(Main.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-		if (Files.isRegularFile(source)) {
-			command.addAll(List.of("-jar", source.toString()));
-		} else {
-			command.addAll(List.of("-cp", System.getProperty("java.class.path"), Main.class.getName()));
-		}
-		command.addAll(List.of("--unlock", config.toAbsolutePath().normalize().toString()));
-		return command;
 	}
 }
