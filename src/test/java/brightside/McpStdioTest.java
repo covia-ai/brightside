@@ -186,6 +186,13 @@ class McpStdioTest {
 			"clientInfo", Maps.of("name", "brightside-stdio-test", "version", "1"));
 	}
 
+	/**
+	 * Each wait on the subprocess includes a cold JVM and the bridge's own bounded
+	 * waits (probe, connect, graceful close), so it guards against a hang with the
+	 * bridge's longest wait rather than measuring how fast a loaded machine starts it.
+	 */
+	private static final long PROCESS_WAIT_SECONDS = McpStartup.TIMEOUT.toSeconds();
+
 	private final class Client implements AutoCloseable {
 		final Path errors = home.resolve("stderr.log");
 		final Process process;
@@ -222,7 +229,7 @@ class McpStdioTest {
 				} catch (Exception e) {
 					throw new RuntimeException(e);
 				}
-			}).get(5, TimeUnit.SECONDS);
+			}).get(PROCESS_WAIT_SECONDS, TimeUnit.SECONDS);
 			assertNotNull(line, () -> {
 				try {
 					return Files.readString(errors);
@@ -239,13 +246,13 @@ class McpStdioTest {
 		}
 
 		int exit() throws Exception {
-			return process.onExit().get(5, TimeUnit.SECONDS).exitValue();
+			return process.onExit().get(PROCESS_WAIT_SECONDS, TimeUnit.SECONDS).exitValue();
 		}
 
 		@Override
 		public void close() throws Exception {
 			process.destroyForcibly();
-			process.onExit().get(5, TimeUnit.SECONDS);
+			process.onExit().get(PROCESS_WAIT_SECONDS, TimeUnit.SECONDS);
 		}
 	}
 }
