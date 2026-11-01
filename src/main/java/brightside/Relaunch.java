@@ -31,7 +31,20 @@ final class Relaunch {
 	}
 
 	static List<String> command(Path config, List<String> options) throws Exception {
-		return command(Path.of(Main.class.getProtectionDomain().getCodeSource().getLocation().toURI()), config, options);
+		return command(Main.class, config, options);
+	}
+
+	/**
+	 * The command for the program {@code main} belongs to. Refused when another
+	 * program's class loader loaded it, as {@code mvn exec:java} does: this
+	 * process's class path is then that program's, and would not start it.
+	 */
+	static List<String> command(Class<?> main, Path config, List<String> options) throws Exception {
+		if (main.getClassLoader() != ClassLoader.getSystemClassLoader()) {
+			throw new IllegalStateException("Brightside is running inside another program (such as mvn exec:java),"
+				+ " so it cannot start itself again: start it again the way it was started");
+		}
+		return command(Path.of(main.getProtectionDomain().getCodeSource().getLocation().toURI()), config, options);
 	}
 
 	/** The command for the program at {@code source}: a jar, or a directory of classes. */

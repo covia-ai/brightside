@@ -49,10 +49,10 @@ read, write and delete workspace data, inspect, update, resume and delete
 agents and their past sessions, and read skills — enough to repair an owner's
 assistants.
 
-Left out on purpose: Covia's own venue restart and its online collection,
-which can restart the venue, since both need process control an embedded
-venue lacks; and authentication keys and venue-scoped MCP servers, which stay
-with the owner.
+Left out on purpose: Covia's own venue restart, which needs process control
+an embedded venue lacks; Covia's online collection, which compacts at the
+wrong moment ([LAUNCH.md](LAUNCH.md#compacting-the-store)); and authentication
+keys and venue-scoped MCP servers, which stay with the owner.
 
 ## How he judges
 

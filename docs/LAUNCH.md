@@ -160,8 +160,9 @@ control that only a standalone venue has.
   and a call cut off by the handover was cut off because the restart worked.
 - Refused while Brightside is locked (unlocking at once would undo the lock,
   and the newcomer cannot take over without the key), while a newcomer an
-  earlier restart started is still running beside this one, and off the
-  desktop, where there is no app to start again.
+  earlier restart started is still running beside this one, off the desktop,
+  where there is no app to start again, and inside another program's process
+  (`mvn exec:java`), whose class path would not start it.
 
 `RestartTest` runs the operation on a venue whose app starts nothing.
 

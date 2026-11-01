@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -99,6 +101,16 @@ class RestartTest {
 		assertEquals(java, Path.of(fromClasses.get(0)).getParent());
 		assertEquals(List.of("-cp", System.getProperty("java.class.path"), Main.class.getName(),
 			"--unlock", "--takeover", config.toString()), fromClasses.subList(1, fromClasses.size()));
+
+		// Loaded by another program's class loader, as `mvn exec:java` loads it, this
+		// process's class path is that program's: refused rather than started to fail.
+		Path classes = Path.of(Main.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+		try (URLClassLoader other = new URLClassLoader(new URL[] { classes.toUri().toURL() }, null)) {
+			Class<?> elsewhere = Class.forName(Main.class.getName(), false, other);
+			assertThrows(IllegalStateException.class, () -> Relaunch.command(elsewhere, config, List.of("--takeover")));
+		}
+		assertEquals(config.toString(), Relaunch.command(Main.class, config, List.of("--takeover")).getLast(),
+			"this process's own program is started again");
 	}
 
 	private static ACell run(Venue client) throws Exception {
