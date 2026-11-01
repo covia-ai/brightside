@@ -24,6 +24,7 @@ import convex.core.data.AString;
 import convex.core.data.AVector;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
+import convex.core.data.Vectors;
 import convex.core.data.prim.CVMBool;
 import convex.core.lang.RT;
 import covia.api.Fields;
@@ -124,6 +125,56 @@ class OdinTest {
 			"Odin may run a listed venue operation");
 		assertThrows(Exception.class, () -> asOdin(Odin.OP_RUN, Maps.of("operation", "v/ops/venue/restart")),
 			"an unlisted venue operation is refused");
+		assertThrows(Exception.class, () -> asOdin(Odin.OP_RUN, Maps.of(
+			"operation", "v/ops/hitl/respond", "input", Maps.of("id", "0", "outcome", "reject"))),
+			"answering the Inbox stays the owner's");
+		assertThrows(Exception.class, () -> asOdin(Odin.OP_RUN, Maps.of(
+			"operation", "v/ops/grid/run", "input", Maps.of("operation", "v/ops/venue/restart"))),
+			"nothing that runs another operation with the venue's authority");
+	}
+
+	@Test
+	void odinCanUndoAUserHeCreated() throws Exception {
+		AString made = Strings.create(venue.did() + ":u:odin-made");
+		asOdin(Odin.OP_RUN, Maps.of("operation", "v/ops/user/create", "input", Maps.of("did", made)));
+		assertNotNull(venue.engine().getVenueState().users().get(made), "created");
+
+		asOdin(Odin.OP_RUN, Maps.of("operation", "v/ops/user/delete", "input", Maps.of("did", made)));
+		assertTrue(venue.engine().getVenueState().users().isDeleted(made), "and deleted again");
+	}
+
+	@Test
+	void odinNeverDeletesTheOwnerOrAKeptUser() throws Exception {
+		venue.brightside().saveOwner(Identity.of("odin-owner").toCell());
+		for (String did : new String[] { userDID, Njord.GOD.kept(venue.did()) }) {
+			AString account = Strings.create(did);
+			// Registered, so a refusal is the bridge's and not Covia's for a missing user.
+			if (venue.engine().getVenueState().users().get(account) == null) {
+				run(venue.operator(), "v/ops/user/create", Maps.of("did", account));
+			}
+			assertThrows(Exception.class, () -> asOdin(Odin.OP_RUN, Maps.of(
+				"operation", "v/ops/user/delete", "input", Maps.of("did", account))), did);
+			assertNotNull(venue.engine().getVenueState().users().get(account), "still there: " + did);
+		}
+	}
+
+	@Test
+	void odinCreatesAssistantsConfinedToTheOwnersData() throws Exception {
+		AMap<AString, ACell> confined = Maps.of("caps", Vectors.of(Maps.of("with", "w/", "can", "*")));
+		asOdin(Odin.OP_RUN, Maps.of(
+			"operation", "v/ops/agent/create",
+			"input", Maps.of("agentId", "OdinMade", "config", confined),
+			"user", userDID));
+		assertNotNull(venue.agentRecord(userDID, "OdinMade"), "an assistant in the owner's namespace");
+		assertNull(venue.agentRecord(venue.did(), "OdinMade"), "not one of the venue's own");
+
+		// Acting for the owner he holds their namespace only, so he cannot make
+		// an assistant that reaches further than that.
+		assertThrows(Exception.class, () -> asOdin(Odin.OP_RUN, Maps.of(
+			"operation", "v/ops/agent/create",
+			"input", Maps.of("agentId", "OdinUnbounded"),
+			"user", userDID)));
+		assertNull(venue.agentRecord(userDID, "OdinUnbounded"));
 	}
 
 	@Test

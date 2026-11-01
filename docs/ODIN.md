@@ -5,15 +5,15 @@ administrator rights, and the wiser head the other gods answer to. He is one
 of the gods; what they share — the bridges, asking the owner, deliberate
 stops — is in [GODS.md](GODS.md). This is what is his alone. Code: `Odin`.
 
-- **He holds the venue's administration**: integrations and modules, users,
-  access grants, the data store's disk, restarting Brightside, and repairs
-  inside a user's namespace.
+- **He holds the venue's administration**: integrations, modules and MCP
+  servers, users, access grants, the data store's disk, restarting and
+  shutting down Brightside, and repairs inside a user's namespace.
 - **He judges each request on the owner's interest.** He does it, asks the
   owner first, or declines.
 - **He is the wiser head.** Every change Thor or Njord makes is reported to
   him, and he takes a disagreement to the owner rather than undoing it.
-- **His reach is an allowlist** of administration. Who can sign in stays out
-  of it.
+- **His reach is an allowlist** covering all of that. Money, the gods
+  themselves and the owner's Inbox stay out of it.
 
 ## Why Odin
 
@@ -39,21 +39,37 @@ owner's interest, is that someone.
 
 ## What he can do
 
-As the venue: list, enable, disable and configure adapters, load and unload
-modules, create, list and inspect users, issue grants over the venue's own
-resources, look after the data store's disk: ask for it to be compacted
-at the next start, and remove the files earlier repairs kept; and restart
-Brightside, either the venue inside the running app or a relaunch, a new
-instance taking over, which can run a new build
-([LAUNCH.md](LAUNCH.md#restart-and-relaunch)). Inside one of the venue's users' namespaces, on their behalf:
-read, write and delete workspace data, inspect, update, resume and delete
-agents and their past sessions, and read skills — enough to repair an owner's
-assistants.
+As the venue, all of its administration: adapters, modules and MCP servers;
+the venue's settings and its own secrets; users, including deleting them and
+revoking their sign-in keys; grants over the venue's own resources; peers; the
+data store's disk, compacted at the next start, and the files earlier repairs
+kept; restarting Brightside, either the venue inside the running app or a
+relaunch, a new instance taking over, which can run a new build
+([LAUNCH.md](LAUNCH.md#restart-and-relaunch)); and shutting it down. Inside
+one of the venue's users'
+namespaces, on their behalf: their workspace data, their assistants and past
+sessions (changing, suspending and deleting them), their skills and their
+secrets — enough to look after an owner's assistants. Acting for a user he
+holds their namespace and nothing beyond it, so an assistant he creates for
+them is confined to it too. He never deletes the owner's own account, or a
+user another god keeps.
 
-Left out on purpose: Covia's own venue restart, which needs process control
-an embedded venue lacks; Covia's online collection, which compacts at the
-wrong moment ([LAUNCH.md](LAUNCH.md#compacting-the-store)); and authentication
-keys and venue-scoped MCP servers, which stay with the owner.
+Left out on purpose, each because it would undo another part of the design
+rather than for want of trust in him:
+
+- anything that runs another operation — the grid, the scheduler, talking to
+  an agent as its owner — since it would carry the venue's authority past
+  everything else on this list;
+- answering an Inbox, which stays the owner's decision even when a god asked,
+  and reading a secret's value;
+- money, which is Njord's: transactions, signing, keys and his treasury;
+- the venue's own agents — the gods, which hold operator rights — and the
+  skill library and operation catalogue they load;
+- copying a user whole, which carries their secrets, and adding a way to sign
+  in as someone, which stays with the owner;
+- Covia's own restart, which needs a standalone Covia process, and collecting
+  the store while it is open, which compaction at the next start replaces
+  ([LAUNCH.md](LAUNCH.md#compacting-the-store)).
 
 ## How he judges
 
