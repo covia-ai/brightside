@@ -164,10 +164,11 @@ public final class Vault {
 	 * Returns {@code venueConfig} with the identity {@code seed} and Etch v3
 	 * encryption injected. The Etch key is derived from the <b>seed</b> (not the
 	 * passphrase), so the same seed always opens the same store — that is what lets
-	 * recovery reopen it. Neither value is ever persisted; they live only in the
-	 * in-memory config handed to the venue.
+	 * recovery reopen it, and needs no open vault: a restart secures the config
+	 * again while Brightside is locked. Neither value is ever persisted; they live
+	 * only in the in-memory config handed to the venue.
 	 */
-	public AMap<AString, ACell> secure(AMap<AString, ACell> venueConfig, String seedHex) {
+	public static AMap<AString, ACell> secure(AMap<AString, ACell> venueConfig, String seedHex) {
 		byte[] seed = unhex(seedHex);
 		String etchKeyHex;
 		try {

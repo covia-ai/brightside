@@ -73,9 +73,8 @@ class VaultTest {
 	}
 
 	@Test
-	void secureInjectsSeedAndEtchV3(@TempDir Path home) throws Exception {
-		Vault vault = Vault.open(home, "pw".toCharArray());
-		AMap<AString, ACell> secured = vault.secure(Maps.empty(), "ab".repeat(32));
+	void secureInjectsSeedAndEtchV3() {
+		AMap<AString, ACell> secured = Vault.secure(Maps.empty(), "ab".repeat(32));
 		assertEquals(Strings.create("ab".repeat(32)), secured.get(Strings.create("seed")));
 		ACell etch = secured.get(Strings.create("etch"));
 		assertEquals(CVMLong.create(3), RT.getIn(etch, "version"));
@@ -111,8 +110,8 @@ class VaultTest {
 		// The persistent store under home, on whatever port is free.
 		AMap<AString, ACell> base = AppConfig.defaultVenue(home).assoc(Fields.PORT, CVMLong.create(0));
 
-		// Launch under passphrase A (with this seed), write a marker, close.
-		AMap<AString, ACell> a = Vault.open(home, "passphrase-A".toCharArray()).secure(base, seed);
+		// Launch with this seed, write a marker, close.
+		AMap<AString, ACell> a = Vault.secure(base, seed);
 		EmbeddedVenue venue = EmbeddedVenue.launch(a);
 		try {
 			write(venue.clientAs(venue.did()), "w/vault-marker", "hi there");
@@ -127,11 +126,10 @@ class VaultTest {
 		String otherSeed = Mnemonic.toSeedHex(Mnemonic.generate(12));
 		assertThrows(IOException.class, () -> recovery.verifyStoreAccess(base, otherSeed));
 
-		// A DIFFERENT passphrase but the SAME seed reopens the store and reads the
-		// marker — the store key comes from the seed, so recovery (which reaches the
+		// The same seed reopens the store and reads the marker — the store key comes
+		// from the seed alone, never the passphrase, so recovery (which reaches the
 		// seed via the recovery phrase) restores full access, not just the identity.
-		AMap<AString, ACell> different = Vault.open(home, "totally-different".toCharArray()).secure(base, seed);
-		EmbeddedVenue again = EmbeddedVenue.launch(different);
+		EmbeddedVenue again = EmbeddedVenue.launch(Vault.secure(base, seed));
 		try {
 			assertEquals("hi there", str(read(again.clientAs(again.did()), "w/vault-marker")),
 				"the same seed reopens the store regardless of passphrase");
@@ -140,7 +138,7 @@ class VaultTest {
 		}
 
 		// A DIFFERENT seed cannot open it.
-		AMap<AString, ACell> wrong = Vault.open(home, "passphrase-A".toCharArray()).secure(base, otherSeed);
+		AMap<AString, ACell> wrong = Vault.secure(base, otherSeed);
 		assertThrows(Exception.class, () -> EmbeddedVenue.launch(wrong).close(),
 			"a different seed cannot open the encrypted store");
 	}

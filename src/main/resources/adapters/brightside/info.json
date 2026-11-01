@@ -18,7 +18,7 @@
 				"skills": { "type": "array", "description": "Brightside's default skills, seeded under v/skills/brightside" },
 				"store": { "type": "string", "description": "The venue store this instance holds: a file path, or 'temp'" },
 				"pid": { "type": "integer", "description": "The operating-system process id of this instance" },
-				"started": { "type": "string", "description": "When this instance's process started (ISO-8601), so a caller can see that a restart happened" }
+				"started": { "type": "string", "description": "When this instance's process started (ISO-8601), so a caller can see that a relaunch happened" }
 			}
 		}
 	}

@@ -10,8 +10,9 @@ how it stops or restarts. Code: `BrightSide`, `Takeover`, `Relaunch`,
   in-process; the agent is configured on the first message.
 - **Two processes cannot share the store**, so a newcomer asks the running
   instance to step aside with a request only the venue's own key can sign, and
-  waits for it to release the store before opening it. A restart is such a
-  newcomer, started by the instance it replaces.
+  waits for it to release the store before opening it. A relaunch is such a
+  newcomer, started by the instance it replaces; a restart stays in the
+  process and starts only the venue again.
 - **Closing the window quits** unless the owner opts into the tray; quitting
   always flushes state, and waits for a launch in progress first.
 - **The store is compacted only when asked**, at the start of the next
@@ -131,12 +132,42 @@ The newcomer is already up and only needs the incumbent to step aside, so this
 works from an IDE launch with no jar too. `TakeoverTest` runs the handshake
 against a private venue.
 
-## Restarting
+## Restart and relaunch
 
-`brightside:restart` restarts Brightside by starting a newcomer that takes over,
-as above. Only the venue may run it, as with shutdown, which is how Odin runs it
-through his bridge ([ODIN.md](ODIN.md)). Covia's own venue restart needs process
-control that only a standalone venue has.
+Brightside starts again in one of two ways, each an operation only the venue
+may run, as with shutdown, which is how Odin runs them through his bridge
+([ODIN.md](ODIN.md)). Covia's own venue restart needs process control that
+only a standalone venue has.
+
+- **`brightside:restart`** stops the venue and starts it again inside this
+  process: the same program, with the key it already holds. It picks up
+  `config.json` and a compaction asked for, not new code.
+- **`brightside:relaunch`** starts a new process that takes over, as above: a
+  new jar at the same path, or newly compiled classes for a launch from an
+  IDE, come in with it.
+
+Either way an agent's work in flight resumes once the venue is back: it finds
+the operation's answer in its conversation, and a call cut off by the stop was
+cut off because the restart or relaunch worked. Both answer before anything
+stops. `RestartTest` runs both on a venue whose app does nothing.
+
+### Restart
+
+- `config.json` is read again first; a file that cannot be read, or venue
+  settings Covia refuses, refuse the restart before anything stops.
+- Just after answering, the app lets go of the venue as Lock does but keeps
+  the key, closes the venue, which saves the store, and launches it again
+  through the startup path on the configuration just read. The window shows
+  Home starting up, and the chat binds to the new venue as after an unlock.
+- While locked it restarts behind the unlock dialog, which shows its progress
+  and then asks as before; the unlock binds to the new venue.
+- A venue that fails to come back is reported where the owner is looking, as
+  at startup; quitting and starting again is then the way back.
+- Refused while Brightside is starting up or quitting, during another restart,
+  and off the desktop. The steps from closing the venue to binding the window
+  run only with a window, so no test covers them.
+
+### Relaunch
 
 - The newcomer is the same program on the same configuration file: the same
   Java, and the same jar, or the same class path for a launch from an IDE,
@@ -155,16 +186,12 @@ control that only a standalone venue has.
   id, not once it has taken over; a newcomer that fails after that says so
   only in the log, or on its own unlock dialog. `brightside:info` reports the
   process id and when the process started, so a caller can see afterwards that
-  the restart happened. An agent's work in flight when this instance stops
-  resumes in the newcomer: it finds the restart's answer in its conversation,
-  and a call cut off by the handover was cut off because the restart worked.
+  the relaunch happened.
 - Refused while Brightside is locked (unlocking at once would undo the lock,
   and the newcomer cannot take over without the key), while a newcomer an
-  earlier restart started is still running beside this one, off the desktop,
+  earlier relaunch started is still running beside this one, off the desktop,
   where there is no app to start again, and inside another program's process
   (`mvn exec:java`), whose class path would not start it.
-
-`RestartTest` runs the operation on a venue whose app starts nothing.
 
 ## Tray, minimise, close, quit
 

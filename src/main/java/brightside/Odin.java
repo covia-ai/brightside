@@ -23,9 +23,10 @@ public final class Odin {
 	 * The operator operations Odin may run as the venue. Each is guarded by
 	 * Covia's {@code requireVenueAuthority}; the bridge supplies the venue
 	 * context, this list bounds what it will supply it for. Brightside restarts
-	 * through {@code brightside:restart}, a new instance taking over, not
-	 * through {@code venue/restart}, which needs process control an embedded
-	 * venue lacks; disk is reclaimed through {@code brightside:storage}, which
+	 * through {@code brightside:restart} (the venue, inside the process) and
+	 * {@code brightside:relaunch} (a new instance taking over), not through
+	 * {@code venue/restart}, which needs process control an embedded venue
+	 * lacks; disk is reclaimed through {@code brightside:storage}, which
 	 * compacts at Brightside's next start, not through {@code venue/gc}, whose
 	 * restart option would need it too. Deliberately absent: authentication key
 	 * management and venue-scoped MCP servers.
@@ -42,7 +43,8 @@ public final class Odin {
 		"v/ops/user/info",
 		"v/ops/ucan/issue",
 		"v/ops/brightside/storage",
-		"v/ops/brightside/restart");
+		"v/ops/brightside/restart",
+		"v/ops/brightside/relaunch");
 
 	/**
 	 * The operations Odin may run inside a user's namespace ({@code user:sudo}):

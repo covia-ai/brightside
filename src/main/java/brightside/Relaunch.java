@@ -9,7 +9,7 @@ import java.util.List;
  * Starts this program again as a separate process: the same Java, and the same
  * jar, or the same class path when there is none (a launch from an IDE). The
  * MCP bridge starts the app this way when it is absent ({@link McpStartup}),
- * and a restart starts its successor this way ({@code brightside:restart}).
+ * and a relaunch starts its successor this way ({@code brightside:relaunch}).
  */
 final class Relaunch {
 

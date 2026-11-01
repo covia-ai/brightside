@@ -190,8 +190,8 @@ class V0Install {
 
 	/** Launches the way Brightside does: the store keyed from the seed, the vault from the passphrase. */
 	static Launched launch(Path home) throws IOException {
-		Vault vault = Vault.open(home, PASSPHRASE.toCharArray());
-		AMap<AString, ACell> config = vault.secure(AppConfig.defaultVenue(home), SEED)
+		Vault.open(home, PASSPHRASE.toCharArray());
+		AMap<AString, ACell> config = Vault.secure(AppConfig.defaultVenue(home), SEED)
 			.assoc(Fields.PORT, CVMLong.create(0));
 		return new Launched(EmbeddedVenue.launch(config));
 	}

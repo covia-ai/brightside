@@ -216,8 +216,7 @@ class CoviaMigrationTest {
 
 	/** The venue's own state as stored, read straight from the store without launching anything. */
 	private static AMap<Keyword, ACell> storedVenue(Path home) throws Exception {
-		AMap<AString, ACell> config = Vault.open(home, V0Install.PASSPHRASE.toCharArray())
-			.secure(AppConfig.defaultVenue(home), V0Install.SEED);
+		AMap<AString, ACell> config = Vault.secure(AppConfig.defaultVenue(home), V0Install.SEED);
 		try (EtchStore store = EtchStore.create(home.resolve("venue.etch").toFile(), new Config(config).getEtchConfig())) {
 			AMap<ACell, ACell> venues = RT.ensureMap(RT.getIn(store.getRootData(), Covia.GRID, Covia.VENUES));
 			assertEquals(1, venues.count(), "one venue in the install");

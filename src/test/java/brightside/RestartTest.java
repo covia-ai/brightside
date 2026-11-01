@@ -23,6 +23,7 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 import convex.core.data.ACell;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
+import convex.core.data.prim.CVMBool;
 import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
 import covia.grid.Job;
@@ -30,60 +31,106 @@ import covia.grid.Venue;
 import covia.venue.RequestContext;
 
 /**
- * {@code brightside:restart} starts the instance that takes over from this one,
- * as only the venue — and so Odin, through his bridge — may ask, and answers
- * once it has started. The venue is the test's own, launched with a stand-in
- * for the app that counts what it is asked to start and starts nothing: the
- * successor it names is this very process, alive, so still "starting". How the
- * successor is launched is checked as a command line, never run.
+ * {@code brightside:restart} restarts the venue inside this process, and
+ * {@code brightside:relaunch} starts the instance that takes over from this
+ * one; only the venue — and so Odin, through his bridge — may ask for either.
+ * Each venue is the test's own, launched with a stand-in for the app that
+ * counts what it is asked to do and does none of it: its restart only counts
+ * down a latch, and the successor it names is this very process, alive, so
+ * still "starting". How a successor is launched is checked as a command line,
+ * never run.
  */
 @Execution(ExecutionMode.CONCURRENT)
 class RestartTest {
 
 	private static final String OP_RESTART = "v/ops/brightside/restart";
+	private static final String OP_RELAUNCH = "v/ops/brightside/relaunch";
 
 	@TempDir
 	Path home;
 
 	@Test
-	void theVenueRestartsOneAtATime() throws Exception {
+	void theVenueRestartsAfterAnswering() throws Exception {
+		AtomicInteger checks = new AtomicInteger();
+		AtomicBoolean refuse = new AtomicBoolean(true);
+		CountDownLatch restarted = new CountDownLatch(1);
+		BrightsideAdapter.App app = new BrightsideAdapter.App() {
+			@Override
+			public void shutdown() {
+				throw new AssertionError("a restart never ends the process");
+			}
+
+			@Override
+			public Runnable prepareRestart() {
+				checks.incrementAndGet();
+				if (refuse.get()) throw new IllegalStateException("the app refuses");
+				return restarted::countDown;
+			}
+		};
+		try (EmbeddedVenue venue = EmbeddedVenue.launch(SharedVenue.config(home), app)) {
+			String userDID = Identity.of("not-the-operator").userDID(venue.did());
+			assertThrows(Exception.class, () -> run(venue.clientAs(userDID), OP_RESTART), "a user cannot restart Brightside");
+			assertEquals(0, checks.get(), "the app was not asked for them");
+
+			ExecutionException refused = assertThrows(ExecutionException.class,
+				() -> run(venue.clientAs(venue.did()), OP_RESTART));
+			assertTrue(String.valueOf(refused.getCause()).contains("the app refuses"),
+				"the app's reason reaches the caller: " + refused.getCause());
+			assertEquals(1, restarted.getCount(), "a refused restart restarts nothing");
+
+			refuse.set(false);
+			ACell answer = asOdin(venue, OP_RESTART);
+			assertEquals(CVMBool.TRUE, RT.getIn(answer, "accepted"), "Odin's restart is accepted: " + answer);
+			assertTrue(restarted.await(10, TimeUnit.SECONDS), "and the restart runs once it has answered");
+		}
+	}
+
+	@Test
+	void theVenueRelaunchesOneAtATime() throws Exception {
 		AtomicInteger starts = new AtomicInteger();
 		AtomicBoolean refuse = new AtomicBoolean(true);
 		CountDownLatch stopped = new CountDownLatch(1);
-		try (EmbeddedVenue venue = EmbeddedVenue.launch(SharedVenue.config(home), stopped::countDown, () -> {
-			starts.incrementAndGet();
-			if (refuse.get()) throw new IllegalStateException("the app refuses");
-			return ProcessHandle.current();
-		})) {
+		BrightsideAdapter.App app = new BrightsideAdapter.App() {
+			@Override
+			public void shutdown() {
+				stopped.countDown();
+			}
+
+			@Override
+			public ProcessHandle relaunch() {
+				starts.incrementAndGet();
+				if (refuse.get()) throw new IllegalStateException("the app refuses");
+				return ProcessHandle.current();
+			}
+		};
+		try (EmbeddedVenue venue = EmbeddedVenue.launch(SharedVenue.config(home), app)) {
 			String userDID = Identity.of("not-the-operator").userDID(venue.did());
-			assertThrows(Exception.class, () -> run(venue.clientAs(userDID)), "a user cannot restart Brightside");
+			assertThrows(Exception.class, () -> run(venue.clientAs(userDID), OP_RELAUNCH), "a user cannot relaunch Brightside");
 			assertEquals(0, starts.get(), "nothing was started for them");
 
 			Venue operator = venue.clientAs(venue.did());
-			ExecutionException refused = assertThrows(ExecutionException.class, () -> run(operator));
+			ExecutionException refused = assertThrows(ExecutionException.class, () -> run(operator, OP_RELAUNCH));
 			assertTrue(String.valueOf(refused.getCause()).contains("the app refuses"),
 				"the app's reason reaches the caller: " + refused.getCause());
 
 			refuse.set(false);
-			RequestContext odin = RequestContext.ofAgent(Strings.create(venue.did()), Strings.create(Odin.AGENT_ID));
-			ACell started = venue.engine().jobs().invokeOperation(Odin.OP_RUN, Maps.of("operation", OP_RESTART), odin)
-				.future().get(10, TimeUnit.SECONDS);
+			ACell started = asOdin(venue, OP_RELAUNCH);
 			assertEquals(CVMLong.create(ProcessHandle.current().pid()), RT.getIn(started, "pid"),
-				"Odin's restart answers with the new instance's process: " + started);
+				"Odin's relaunch answers with the new instance's process: " + started);
 			assertEquals(2, starts.get());
 			assertEquals(1, stopped.getCount(), "this instance runs on until its successor asks it to stop");
 
-			assertThrows(Exception.class, () -> run(operator), "no second restart while the successor is starting");
+			assertThrows(Exception.class, () -> run(operator, OP_RELAUNCH), "no second relaunch while the successor is starting");
 			assertEquals(2, starts.get(), "and no second successor");
 		}
 	}
 
 	@Test
 	void theSuccessorComesBackAsThisOneIs() {
-		assertEquals(List.of("--takeover"), BrightSide.restartOptions(true, true), "the window comes back, unlocked at once");
-		assertEquals(List.of("--unlock", "--takeover"), BrightSide.restartOptions(false, true), "the tray stays the tray");
-		assertEquals(List.of("--takeover"), BrightSide.restartOptions(false, false), "with no passphrase remembered, it asks");
-		assertEquals(List.of("--takeover"), BrightSide.restartOptions(true, false));
+		assertEquals(List.of("--takeover"), BrightSide.relaunchOptions(true, true), "the window comes back, unlocked at once");
+		assertEquals(List.of("--unlock", "--takeover"), BrightSide.relaunchOptions(false, true), "the tray stays the tray");
+		assertEquals(List.of("--takeover"), BrightSide.relaunchOptions(false, false), "with no passphrase remembered, it asks");
+		assertEquals(List.of("--takeover"), BrightSide.relaunchOptions(true, false));
 	}
 
 	@Test
@@ -113,8 +160,15 @@ class RestartTest {
 			"this process's own program is started again");
 	}
 
-	private static ACell run(Venue client) throws Exception {
-		Job job = client.invoke(OP_RESTART, Maps.empty()).get(5, TimeUnit.SECONDS);
+	private static ACell run(Venue client, String op) throws Exception {
+		Job job = client.invoke(op, Maps.empty()).get(5, TimeUnit.SECONDS);
 		return job.future().get(5, TimeUnit.SECONDS);
+	}
+
+	/** Through Odin's bridge, as his own sub-principal — the context his run loop gives his tool calls. */
+	private static ACell asOdin(EmbeddedVenue venue, String op) throws Exception {
+		RequestContext odin = RequestContext.ofAgent(Strings.create(venue.did()), Strings.create(Odin.AGENT_ID));
+		return venue.engine().jobs().invokeOperation(Odin.OP_RUN, Maps.of("operation", op), odin)
+			.future().get(10, TimeUnit.SECONDS);
 	}
 }

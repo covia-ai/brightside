@@ -83,10 +83,13 @@ class BrightsideAdapterTest {
 	}
 
 	@Test
-	void aVenueWithNoAppCannotRestart() throws Exception {
-		// This test venue has no app behind it to start again, so even the operator is refused.
-		Job refused = venue.clientAs(venue.did()).invoke("v/ops/brightside/restart", Maps.empty()).get(5, TimeUnit.SECONDS);
-		assertThrows(Exception.class, () -> refused.future().get(5, TimeUnit.SECONDS));
+	void aVenueWithNoAppCannotRestartOrRelaunch() throws Exception {
+		// This test venue has no app behind it, so even the operator is refused.
+		Venue operator = venue.clientAs(venue.did());
+		for (String op : new String[] { "v/ops/brightside/restart", "v/ops/brightside/relaunch" }) {
+			Job refused = operator.invoke(op, Maps.empty()).get(5, TimeUnit.SECONDS);
+			assertThrows(Exception.class, () -> refused.future().get(5, TimeUnit.SECONDS), op);
+		}
 	}
 
 	@Test

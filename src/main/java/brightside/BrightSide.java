@@ -83,7 +83,8 @@ public final class BrightSide {
 	/** The venue's model listing: each provider's catalog, readiness and live models. */
 	private static final String MODELS_OP = "v/ops/langchain/models";
 
-	private final AppConfig config;
+	/** Read at launch, and again by a restart ({@link #prepareRestart}). */
+	private volatile AppConfig config;
 	private final Path configPath;
 	private final Prefs prefs;
 	private volatile EmbeddedVenue venue;
@@ -106,6 +107,27 @@ public final class BrightSide {
 	private final AtomicBoolean godsEnsured = new AtomicBoolean();
 	/** One god ensure at a time, so two cannot both try to create the same god. */
 	private final Object godsLock = new Object();
+	/** A restart of the venue inside this process is under way ({@link #prepareRestart}). */
+	private final AtomicBoolean restarting = new AtomicBoolean();
+	/** Lock (log out) has hidden the window behind the unlock dialog; set off the event thread too. */
+	private volatile boolean locked;
+	/** What the venue's lifecycle operations ask of this app. */
+	private final BrightsideAdapter.App lifecycle = new BrightsideAdapter.App() {
+		@Override
+		public void shutdown() {
+			exit();
+		}
+
+		@Override
+		public Runnable prepareRestart() throws Exception {
+			return BrightSide.this.prepareRestart();
+		}
+
+		@Override
+		public ProcessHandle relaunch() throws Exception {
+			return BrightSide.this.relaunch();
+		}
+	};
 	private final AtomicLong chatBindings = new AtomicLong();
 	/** The owner already agreed, at startup, to take over the instance found running. */
 	private volatile boolean takeoverApproved;
@@ -357,6 +379,7 @@ public final class BrightSide {
 
 	/** The passphrase was accepted (or the identity recovered): drop the unlock dialog and bring up the window. */
 	private void unlocked() {
+		locked = false;
 		unattended = false; // up: from here on, as any launch (a later Lock asks as usual)
 		if (unlockDialog != null) {
 			unlockDialog.dispose();
@@ -423,6 +446,9 @@ public final class BrightSide {
 		launchThread = Thread.currentThread();
 		launching = done;
 		try {
+			// Quitting meanwhile (during a restart): nothing to open, and the exit,
+			// which waits on this launch, must not find a store left open.
+			if (exiting.get()) return;
 			// Another instance already holds the venue store? Offer to take over
 			// (ask it to shut down cleanly) rather than fail on the store lock.
 			int port = config.port();
@@ -539,18 +565,86 @@ public final class BrightSide {
 
 	/** Launches the venue on the store {@code compacted} opened, or else on the one the config names. */
 	private EmbeddedVenue launchOn(AMap<AString, ACell> venueConfig, StoreSpace.Compacted compacted) {
-		return (compacted != null) ? EmbeddedVenue.launch(venueConfig, compacted.store(), this::exit, this::restart)
-			: EmbeddedVenue.launch(venueConfig, this::exit, this::restart);
+		return (compacted != null) ? EmbeddedVenue.launch(venueConfig, compacted.store(), lifecycle)
+			: EmbeddedVenue.launch(venueConfig, lifecycle);
+	}
+
+	/**
+	 * Checks that the venue can restart inside this process, for
+	 * {@code brightside:restart}, and returns the restart ({@link #restartVenue}).
+	 * {@code config.json} is read again now, so a file that cannot be read, or
+	 * venue settings Covia refuses, stop the restart before anything stops.
+	 * Refused while exiting, before the venue is up and during another restart.
+	 */
+	private Runnable prepareRestart() throws Exception {
+		if (exiting.get()) throw new IllegalStateException("Brightside is shutting down");
+		String seedHex = venueSeedHex;
+		if (venue == null || seedHex == null || launching != null) {
+			throw new IllegalStateException("Brightside is still starting up");
+		}
+		AppConfig fresh;
+		try {
+			fresh = AppConfig.load(configPath);
+			new covia.venue.Config(fresh.venueConfig());
+		} catch (Exception e) {
+			throw new IllegalStateException("config.json could not be used, so nothing was restarted: " + e.getMessage(), e);
+		}
+		if (!restarting.compareAndSet(false, true)) throw new IllegalStateException("A restart is already under way");
+		return () -> restartVenue(fresh, seedHex);
+	}
+
+	/**
+	 * The restart itself, once {@code brightside:restart} has answered. It lets
+	 * go of the venue as Lock does, but keeps the key: the window shows Home
+	 * starting up, or the unlock dialog its progress while locked. Then it closes
+	 * the venue, saving the store, and launches it again through the startup
+	 * path on the configuration just read. The chat binds to the new venue as
+	 * after an unlock; while locked, at the unlock. A launch that fails is
+	 * reported where the owner is looking, as at startup.
+	 */
+	private void restartVenue(AppConfig fresh, String seedHex) {
+		try {
+			log.info("Restarting the venue");
+			chatBindings.incrementAndGet(); // a bind still in flight is for the old venue
+			LatticeWatcher oldInbox = inboxWatcher;
+			inboxWatcher = null;
+			chat = null;
+			client = null;
+			chatStarted.set(false);
+			godsEnsured.set(false);
+			SwingUtilities.invokeAndWait(() -> {
+				if (oldInbox != null) oldInbox.stop();
+				window.closeSessions();
+				if (unlockDialog != null) unlockDialog.showProgress("Restarting…");
+				else window.showChatStartup();
+			});
+			closeVenue();
+			venue = null;
+			config = fresh;
+			launchVenueWith(Vault.secure(fresh.venueConfig(), seedHex), this::restarted);
+			renewToolToken(); // signed by the new venue, in case one was refreshed while it was down
+		} catch (Exception e) {
+			log.error("Restart failed", e);
+			startupFailed(e);
+		} finally {
+			restarting.set(false);
+		}
+	}
+
+	/** The venue is back after a restart. Event thread. */
+	private void restarted() {
+		// Still locked: back to asking, and the unlock binds the chat to the new venue.
+		if (unlockDialog != null) unlockDialog.showUnlock(null);
 	}
 
 	/**
 	 * Starts the Brightside that takes over from this one, for
-	 * {@code brightside:restart}: the same program and configuration, coming
-	 * back as this one is ({@link #restartOptions}). Refused while locked —
+	 * {@code brightside:relaunch}: the same program and configuration, coming
+	 * back as this one is ({@link #relaunchOptions}). Refused while locked —
 	 * unlocking at once would undo the lock, and the newcomer cannot take over
 	 * without the key — and while exiting. Never on the event thread.
 	 */
-	private ProcessHandle restart() throws Exception {
+	private ProcessHandle relaunch() throws Exception {
 		if (exiting.get()) throw new IllegalStateException("Brightside is already shutting down");
 		boolean[] locked = { false }, showing = { false };
 		SwingUtilities.invokeAndWait(() -> {
@@ -558,14 +652,14 @@ public final class BrightSide {
 			showing[0] = window != null && window.isShowing()
 				&& (window.getExtendedState() & java.awt.Frame.ICONIFIED) == 0;
 		});
-		if (locked[0]) throw new IllegalStateException("Brightside is locked; it can restart once the owner unlocks it");
-		List<String> options = restartOptions(showing[0], RememberedPassphrase.exists(config.home()));
-		log.info("Restarting: starting a new Brightside with {}", options);
+		if (locked[0]) throw new IllegalStateException("Brightside is locked; it can relaunch once the owner unlocks it");
+		List<String> options = relaunchOptions(showing[0], RememberedPassphrase.exists(config.home()));
+		log.info("Relaunching: starting a new Brightside with {}", options);
 		return Relaunch.start(configPath, options).toHandle();
 	}
 
 	/**
-	 * How a restart launches its successor so that it comes back as this one is,
+	 * How a relaunch starts its successor so that it comes back as this one is,
 	 * taking over without asking and unlocking with the remembered passphrase at
 	 * once. With the window showing, {@code --takeover}: the window comes back.
 	 * In the tray, or minimised, with a passphrase remembered,
@@ -573,7 +667,7 @@ public final class BrightSide {
 	 * must ask, so {@code --takeover} again: its unlock dialog asks for the
 	 * passphrase, and this instance runs on until it is given.
 	 */
-	static List<String> restartOptions(boolean windowShowing, boolean passphraseRemembered) {
+	static List<String> relaunchOptions(boolean windowShowing, boolean passphraseRemembered) {
 		return (!windowShowing && passphraseRemembered) ? List.of("--unlock", "--takeover") : List.of("--takeover");
 	}
 
@@ -638,7 +732,7 @@ public final class BrightSide {
 					String secretName = Providers.byId(setup.providerId()).secretName();
 					if (secretName != null) v.storeApiKey(secretName, setup.apiKey());
 				}
-				AMap<AString, ACell> venueConfig = v.secure(config.venueConfig(), setup.seedHex());
+				AMap<AString, ACell> venueConfig = Vault.secure(config.venueConfig(), setup.seedHex());
 				llmOverride = (setup.providerId() == null)
 					? AppConfig.ECHO_LLM_OPERATION
 					: Providers.modelOp(setup.providerId(), setup.modelId());
@@ -692,7 +786,7 @@ public final class BrightSide {
 					startChat(running, saved, effectiveChat(), Bind.FIRST);
 					return;
 				}
-				AMap<AString, ACell> venueConfig = v.secure(config.venueConfig(), seedHex);
+				AMap<AString, ACell> venueConfig = Vault.secure(config.venueConfig(), seedHex);
 				// The window appears only once any takeover is settled.
 				launchVenueWith(venueConfig, this::unlocked);
 			} catch (IOException e) {
@@ -750,6 +844,7 @@ public final class BrightSide {
 			SwingUtilities.invokeLater(() -> window.showSystemMessage("This install has no passphrase to lock behind."));
 			return;
 		}
+		locked = true;
 		chatBindings.incrementAndGet();
 		LatticeWatcher oldInbox = inboxWatcher;
 		inboxWatcher = null;
@@ -820,7 +915,7 @@ public final class BrightSide {
 					startChat(running, saved, effectiveChat(), Bind.FIRST);
 					return;
 				}
-				AMap<AString, ACell> venueConfig = v.secure(config.venueConfig(), seedHex);
+				AMap<AString, ACell> venueConfig = Vault.secure(config.venueConfig(), seedHex);
 				launchVenueWith(venueConfig, this::unlocked);
 			} catch (Exception e) {
 				log.error("Recovery failed", e);
@@ -1567,6 +1662,7 @@ public final class BrightSide {
 		// gods are not touched here: they are created or brought up to date when
 		// first needed (the first message, acting as the operator, or a model
 		// change), so a launch submits no jobs.
+		if (locked) return null; // a restart behind Lock: the unlock binds
 		EmbeddedVenue v = venue;
 		Vault vlt = vault;
 		Identity id = identity;

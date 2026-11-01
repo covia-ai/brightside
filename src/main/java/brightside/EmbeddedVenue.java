@@ -44,15 +44,16 @@ public final class EmbeddedVenue implements AutoCloseable {
 	 * once it is serving.
 	 */
 	public static EmbeddedVenue launch(AMap<AString, ACell> config) {
-		return launch(config, null, null);
+		return launch(config, null);
 	}
 
 	/**
-	 * As {@link #launch(AMap)}, but wires {@code onShutdown} into the
-	 * {@code brightside:shutdown} operation so an operator (or a newly launched
-	 * instance taking over) can stop this process cleanly over the venue's own
-	 * HTTP surface, and {@code onRestart} into {@code brightside:restart}, which
-	 * starts such an instance. Pass null off the desktop (e.g. tests).
+	 * As {@link #launch(AMap)}, but wires the {@code app} this venue runs in into
+	 * Brightside's lifecycle operations: {@code brightside:shutdown}, so an
+	 * operator (or a newly launched instance taking over) can stop this process
+	 * cleanly over the venue's own HTTP surface; {@code brightside:restart},
+	 * which restarts the venue inside the process; and {@code brightside:relaunch},
+	 * which starts an instance to take over. Pass null off the desktop (e.g. tests).
 	 *
 	 * <p>Brightside's adapters are registered in Covia's pre-start hook: after
 	 * the built-in adapters are installed and configured secrets provisioned,
@@ -62,27 +63,24 @@ public final class EmbeddedVenue implements AutoCloseable {
 	 * starts. A failure in the hook closes the half-assembled server before the
 	 * exception reaches us, so nothing is left holding the port or the store.
 	 */
-	public static EmbeddedVenue launch(AMap<AString, ACell> config, Runnable onShutdown,
-			BrightsideAdapter.Restart onRestart) {
-		return new EmbeddedVenue(VenueServer.launch(config, List.of(), engine -> install(engine, onShutdown, onRestart)));
+	public static EmbeddedVenue launch(AMap<AString, ACell> config, BrightsideAdapter.App app) {
+		return new EmbeddedVenue(VenueServer.launch(config, List.of(), engine -> install(engine, app)));
 	}
 
 	/**
-	 * As {@link #launch(AMap, Runnable, BrightsideAdapter.Restart)}, on a store
-	 * the caller has already opened rather than the one {@code config} names —
-	 * as {@link StoreSpace} opens it to compact it first. The venue owns the
-	 * store from here, and closes it on failure as on {@link #close}.
+	 * As {@link #launch(AMap, BrightsideAdapter.App)}, on a store the caller has
+	 * already opened rather than the one {@code config} names — as
+	 * {@link StoreSpace} opens it to compact it first. The venue owns the store
+	 * from here, and closes it on failure as on {@link #close}.
 	 */
-	public static EmbeddedVenue launch(AMap<AString, ACell> config, AStore store, Runnable onShutdown,
-			BrightsideAdapter.Restart onRestart) {
-		return new EmbeddedVenue(VenueServer.launch(config, store, List.of(),
-			engine -> install(engine, onShutdown, onRestart)));
+	public static EmbeddedVenue launch(AMap<AString, ACell> config, AStore store, BrightsideAdapter.App app) {
+		return new EmbeddedVenue(VenueServer.launch(config, store, List.of(), engine -> install(engine, app)));
 	}
 
-	/** Brightside's part of the launch, in Covia's pre-start hook (see {@link #launch(AMap, Runnable, BrightsideAdapter.Restart)}). */
-	private static CompletableFuture<Void> install(Engine engine, Runnable onShutdown, BrightsideAdapter.Restart onRestart) {
+	/** Brightside's part of the launch, in Covia's pre-start hook (see {@link #launch(AMap, BrightsideAdapter.App)}). */
+	private static CompletableFuture<Void> install(Engine engine, BrightsideAdapter.App app) {
 		// Brightside's venue adapters: operations, and the default skill library.
-		engine.registerAdapter(new BrightsideAdapter(onShutdown, onRestart));
+		engine.registerAdapter(new BrightsideAdapter(app));
 		engine.registerAdapter(new BrightsideSkillsAdapter());
 		// Moltbook as typed operations; idle until the owner connects an account.
 		engine.registerAdapter(new MoltbookAdapter());

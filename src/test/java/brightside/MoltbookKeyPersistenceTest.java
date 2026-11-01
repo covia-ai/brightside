@@ -74,8 +74,8 @@ class MoltbookKeyPersistenceTest {
 
 	/** Launches the venue the way Brightside does: the store keyed from the seed, the vault from the passphrase. */
 	private static Launched launch(Path home, String passphrase) throws IOException {
-		Vault vault = Vault.open(home, passphrase.toCharArray());
-		AMap<AString, ACell> config = vault.secure(AppConfig.defaultVenue(home), SEED)
+		Vault.open(home, passphrase.toCharArray());
+		AMap<AString, ACell> config = Vault.secure(AppConfig.defaultVenue(home), SEED)
 			.assoc(Fields.PORT, CVMLong.create(0));
 		return new Launched(EmbeddedVenue.launch(config));
 	}

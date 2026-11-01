@@ -63,7 +63,7 @@ class TakeoverTest {
 		venue = EmbeddedVenue.launch(config, () -> {
 			asked.countDown();
 			running.get().close(); // what BrightSide.exit does: flush and go
-		}, null);
+		});
 		running.set(venue);
 		int port = venue.port();
 
