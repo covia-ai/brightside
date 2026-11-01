@@ -64,7 +64,10 @@ projects its state rather than maintaining a separate application model.
 ## Key decisions
 
 **Threading.** Swing on the event thread only. Venue launch and close, agent
-calls and desktop integration run on background threads.
+calls, disk and desktop integration run on background threads. A view works
+only while it is showing: its timers and feeds run, and a stale view renders,
+only on screen, so an update or a theme switch costs nothing for what is out
+of sight.
 
 **Storage is managed where it is browsed, and distinguishes installation
 access from personal data.** `FileRoots` persists folder access for the next

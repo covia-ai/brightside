@@ -83,6 +83,8 @@ public final class Labels {
 	 * The app's own copy as HTML, wrapped at {@code width} and aligned
 	 * {@link SwingConstants#CENTER} or {@link SwingConstants#LEFT}. Never for text
 	 * from an agent or a peer — use {@link #text} or {@link SelectableText}.
+	 * {@code width} is unscaled and grows with the UI scale, so inside a
+	 * container sized in raw pixels keep it to that width divided by the scale.
 	 */
 	public static JLabel html(String html, int width, int align) {
 		return new JLabel(wrap(html, width, align), align);

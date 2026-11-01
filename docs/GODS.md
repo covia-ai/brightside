@@ -42,7 +42,10 @@ reach across the whole venue rather than one conversation. Everything else
 belongs in a skill or an ordinary agent. Every god turn is a model call, so
 the team stays small and its work lean. A report that changes nothing
 should trouble no one, and a god that would mostly be idle waits until its
-job exists.
+job exists. Anything that makes a god act on its own, a watch, a schedule or
+a report to another god, starts as one rule that is nearly certain when it
+fires: each firing is a turn, and turns cascade from god to god and on to
+the owner's Inbox.
 
 Ideas that may join when their job arrives, none of them built:
 

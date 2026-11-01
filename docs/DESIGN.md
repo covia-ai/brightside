@@ -41,6 +41,10 @@ acting. A step needed only once, such as creating a Discord bot, folds away.
 The why behind security choices belongs in [SECURITY.md](SECURITY.md), not on
 the page.
 
+Every screen is clean, not crammed: the aim is structure and presentation,
+never more on the screen. Shape, colour or an icon replaces words where it
+can, and fewer, well-grouped elements beat extra tiles, chips or banners.
+
 ## 3. Identity
 
 The person picks a **name**. Internally it becomes a principal on their own

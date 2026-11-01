@@ -164,8 +164,9 @@ the gates below.
 
 ## Known limits
 
-- Searchable, bounded memory in Covia is
-  [covia#429](https://github.com/covia-ai/covia/issues/429); the pin and
-  memory tool exist, the search operation and index do not.
+- Covia will not grow a searchable memory tier
+  ([covia#429](https://github.com/covia-ai/covia/issues/429), not planned):
+  memory stays small and always in context, so any search operation and
+  index proposed here would be Brightside's own.
 - Confirmation of destructive memory operations rides on
   [brightside#16](https://github.com/covia-ai/brightside/issues/16).

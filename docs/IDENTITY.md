@@ -84,15 +84,19 @@ in `w/memory` it shares with their other agents. Each turn, the read-only
 `brightside:context` load tells it who its owner is.
 
 An agent has no key and cannot sign for itself or hold funds. Authority is
-delegated to it with a UCAN whose audience is the agent DID. Per-agent keys and
-accounts, agents as economic actors, are the direction in
-[NETWORK.md](NETWORK.md).
+delegated to it with a UCAN whose audience is the agent DID. The owner's
+approval is such a grant: an Inbox answer that echoes the grant an agent
+offered has the venue mint it a UCAN for exactly that, with an expiry.
+Approval confers authority; nothing intercepts an agent's calls to hold them
+for sign-off. Per-agent keys and accounts, agents as economic actors, are the
+direction in [NETWORK.md](NETWORK.md).
 
 ## Known limits
 
 - One venue serves one owner
   ([brightside#3](https://github.com/covia-ai/brightside/issues/3)).
-- A `did:key` venue cannot yet mint UCAN grants for its own users, so an Inbox
-  answer that offers a grant fails until
-  [covia#440](https://github.com/covia-ai/covia/issues/440) lands; answers
-  without a grant are unaffected.
+- An agent cannot yet present a grant the owner approved: the token reaches it
+  as text in its conversation, not as authority it holds
+  ([covia#447](https://github.com/covia-ai/covia/issues/447)), so the `hitl`
+  skill offers no grants. An approval that runs one exact call is
+  [covia#592](https://github.com/covia-ai/covia/issues/592).

@@ -42,7 +42,13 @@ what each reveals links into the library.
 | `n/…` | the agent's private scratch, including `n/memory` | the agent |
 
 Only the venue writes `v/`. A skill of the owner's shadows a shipped skill of
-the same name, and Brightside's shadow the venue's.
+the same name, and Brightside's shadow the venue's. Brightside ships its own
+variant of a venue skill where talking to the owner or using the app calls for
+different judgement, and gives it the module's tools: `hitl`, and `voice` and
+`speaking` in place of the speech module's `speech`. Protocol skills, such as
+Convex transactions, stay close to the venue's. A skill is optional depth: an
+agent may never load it, or may not be Brightside's, so anything that must
+hold goes in the context line or in the message itself.
 
 ## What the assistant starts with
 

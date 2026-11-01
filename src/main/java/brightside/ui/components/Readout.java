@@ -41,7 +41,9 @@ import com.formdev.flatlaf.util.UIScale;
  * A read-only document for the inspectors: sections, entries, prose, code,
  * lists, key/value pairs and notes, laid out as text in one {@link JTextPane}.
  * The text wraps at whatever width the pane is given and scrolls in
- * {@link Scrolls#vertical}, so a long list needs no layout of its own — and
+ * {@link Scrolls#vertical}, so a long list needs no layout of its own (a grid
+ * of wrapping text areas cannot do it: a wrapped area's minimum height is its
+ * height at one character per line, and grid layouts size rows from it) — and
  * because it is one document, everything shown (headings, metadata, values)
  * is selectable and copyable in a single sweep. Long prose or code goes in as
  * an {@linkplain #excerpt excerpt}, folded to a few lines behind a "Show all"
