@@ -1,109 +1,81 @@
 # AGENTS.md — Brightside
 
-Instructions for AI coding agents in this repository. The workspace rules in
-`../AGENTS.md` (GitHub identities, British English) still apply.
-
-## What this is
-
 Brightside is a self-sovereign personal agent: a Swing/FlatLaf desktop app that
-runs a complete Covia venue inside its own process and chats, as the owner's own
-named principal, with an agent on that venue. It is a product, not a demo. The
-owner's needs — usefulness, privacy, trust, control — come first; Covia is the
-means, not the message. Everyday screens carry no venue/agent/DID jargon; the
-full technical surface lives under Settings. One Maven module,
-`ai.covia:brightside`, launcher `brightside.Main`, desktop app `brightside.BrightSide`.
+runs a complete Covia venue in its own process and chats, as the owner's own
+named principal, with an agent on that venue. It is a product, not a demo
+(`docs/DESIGN.md`). One Maven module, `ai.covia:brightside`; launcher
+`brightside.Main`, desktop app `brightside.BrightSide`.
 
 ## Build and test
 
-- Java 21+, Maven 3.7+. `covia.version` in `pom.xml` names the Covia line; a
-  SNAPSHOT needs `../covia` installed with `mvn install` (and `../convex`
-  before it only if Covia's `convex.version` is itself a SNAPSHOT).
+- Java 21+, Maven 3.7+. `covia.version` in `pom.xml` names the Covia line. A
+  SNAPSHOT needs every Covia module the pom names (`venue`, `workbench` and the
+  in-process `covia-*` modules) installed from `../covia`: `-pl venue -am`
+  alone leaves the others stale.
 - `mvn package` → `target/brightside.jar`; `mvn test`; `mvn exec:java`.
-- Tests boot real venues headless (`-Djava.awt.headless=true`) and must never
-  put a window or a tray icon on a desktop. Chat tests use the echo LLM
-  `v/test/ops/llm`, so no API key. Test mechanism (wiring, state, behaviour).
-  No tests for the UI or for prose content — those are obvious in use and a
-  test would only say the words twice.
-- Test logging shows warnings and errors only, in Eclipse and Maven
-  (`src/test/resources/logback-test.xml`). An expected failure hides its own
-  diagnostics with an `ExpectedLogs` scope; the unencrypted test-store warning
-  is filtered across the suite. Persistent Etch tests use
-  `StoreTestDirectory`: Windows can keep memory mappings after a store closes,
-  so any files still pinned are left under `target/test-stores/` for
-  `mvn clean`. Other tests use JUnit's own temporary directories.
-- The suite is fast because it is concurrent: test classes run in parallel in
-  one JVM (`junit-platform.properties`), and a class that only needs a venue
-  takes one from `SharedVenue` (a static `@RegisterExtension`), acting as a
-  user principal of its own so classes never see each other's state. Today
-  that is one venue per class; `-Dbrightside.tests.sharedVenue=true` makes it
-  one per run, which is the intended shape but loses writes under load until
-  covia-ai/covia#521 is fixed. Launch a venue by hand only to test the launch,
-  an encrypted store or a shutdown — from `SharedVenue.config`, on port 0.
-  Never wait on a clock: a test follows an asynchronous step to its end
-  through the future or latch the mechanism gives it, and a negative check
-  ("nothing happened") is made after that, not after a pause. Keep the whole
-  run under ten seconds.
+- Tests boot real venues headless and never put a window or tray icon on a
+  desktop. Chat tests use the echo LLM `v/test/ops/llm`, so no API key. Test
+  mechanism (wiring, state, behaviour), never UI or prose content.
+- Classes run in parallel in one JVM. A class that only needs a venue takes
+  one from `SharedVenue` as a user principal of its own; persistent Etch tests
+  use `StoreTestDirectory`; an expected failure hides its logs with
+  `ExpectedLogs`. A negative check follows the asynchronous step's future or
+  latch, never a pause. Keep the run under ten seconds.
 
 ## Where the detail lives
 
-Start with `docs/DESIGN.md` for what Brightside is, `docs/ARCHITECTURE.md`
-for how it is put together, and `docs/SKILLS.md` for how the assistant gets
-its abilities. Each doc opens with an overview and key bullets; the
-`design-docs` skill (`.claude/skills/design-docs/SKILL.md`) is the map and the
-rules for changing them.
+Design docs are in `docs/`; the `design-docs` skill
+(`.claude/skills/design-docs/SKILL.md`) maps them and holds the rules for
+changing them. Keep this file short: detail goes to the doc or class that
+owns it.
 
 | Topic | See |
 |---|---|
-| Product principles, how the assistant is shaped | `docs/DESIGN.md` |
-| The one-process shape, reads versus actions, orientation map, key decisions, packaging | `docs/ARCHITECTURE.md` |
-| Skills, tools, memory: namespaces, what loads when, the shipped library | `docs/SKILLS.md` |
-| Startup, takeover, tray, exit | `docs/LAUNCH.md` |
-| Venue, user and agent identity | `docs/IDENTITY.md` |
-| The gods: a team of super-user agents working for the owner — the idea, what they share | `docs/GODS.md` |
-| Odin, the administrator and the wiser head the other gods answer to | `docs/ODIN.md` |
-| Thor, the guardian: responding to reported threats; what he may change | `docs/THOR.md` |
-| Njord, the treasurer: custody of the keys, what he pays | `docs/NJORD.md` |
-| Vault, keys, recovery, authentication, network exposure | `docs/SECURITY.md` |
-| First run, unlock, recovery, settings | `docs/ONBOARDING.md` |
-| `config.json`, files, API keys, integrations, reaching the venue from other tools | `docs/CONFIGURATION.md` |
-| Federation roadmap | `docs/NETWORK.md` |
-| The Peers map: peer data, map settings, the path to live nodes | `docs/PEERS.md` |
-| Brightside's own state in its adapters' venue state: what is there, what moves in, the rules | `docs/APP_STATE.md` |
-| Memory proposals for consideration | `docs/ADVANCED_MEMORY.md` |
-| The shipped skills and Brightside's operations, in code | `BrightsideSkillsAdapter`, `BrightsideAdapter` |
-| Covia's own conventions, vocabulary and design | `../covia/AGENTS.md`, `../covia/venue/docs/` |
+| Product principles | `DESIGN.md` |
+| Process shape, reads versus actions, source map, packaging | `ARCHITECTURE.md` |
+| Skills, tools and memory | `SKILLS.md` |
+| Startup, takeover, store repair, tray, exit | `LAUNCH.md` |
+| Venue, user and agent principals | `IDENTITY.md` |
+| The gods; Odin, Thor, Njord | `GODS.md`, `ODIN.md`, `THOR.md`, `NJORD.md` |
+| Vault, keys, recovery, network exposure | `SECURITY.md` |
+| First run, unlock, recovery, settings | `ONBOARDING.md` |
+| `config.json`, files, integrations, reaching the venue from other tools | `CONFIGURATION.md` |
+| Brightside's own state in the venue | `APP_STATE.md` |
+| Ahead of the code: federation, the Peers map, memory proposals | `NETWORK.md`, `PEERS.md`, `ADVANCED_MEMORY.md` |
+| The shipped skills and Brightside's operations | `BrightsideSkillsAdapter`, `BrightsideAdapter` |
+| Covia's conventions, vocabulary and design | `../covia/AGENTS.md`, `../covia/venue/docs/` |
 
 When a change moves a decision or a name, fix the doc that owns it in the same
 commit.
 
 ## Conventions
 
-British English in code, UI text and docs. Tabs in Java and XML. Covia's names
-for venue concepts: venue, engine, adapter, operation, agent, session, job.
+- British English in code and UI text as well as docs. Tabs in Java and XML.
+- Covia's names for venue concepts: venue, engine, adapter, operation, agent,
+  session, job.
+- Screens are composed from `ui/components`; a new look is a style class in
+  `brightside/ui/FlatLaf.properties` worn through `Styles`, and colours come
+  from `Theme`.
 
 ## Git
 
 Remote `https://github.com/covia-ai/brightside`. `master` is the default
 branch; `develop` is the working branch — commit there and merge to `master`.
-Commit as the repo's local `user.name` / `user.email`; use `gh` as
-`brittleboye` for issues and PRs. Commit after each meaningful, tested chunk
-of work, without waiting to be asked.
 
 ## When Brightside runs you
 
-If `COVIA_PROJECT` is set, you are being driven by Brightside's own assistant,
-headless, working in its checkout at `~/.brightside/code/brightside` — the
-app improving itself. The everyday developer tools are allowed there
-outright — editing, building, testing, git, looking around — and nobody sees
-a permission prompt, so none will be waited on; your own safety checks judge
-anything else, and a blocked action is reported, never worked around. To ask
-something, end the turn with the question: the assistant answers on the next
-turn of the same session, taking it to the owner when it is theirs to decide.
-The final message is the only thing that comes back, so make it a faithful
-report of what was done, what tests ran, and what remains. Never launch
-Brightside from the checkout
-(`mvn exec:java`, `java -jar`): the instance driving you is running on this
-machine, and a second launch would take it over. Build with `mvn package`
-and say the owner must restart from that build. Commit on `develop` after
-each meaningful, tested chunk of work; pushing, merging to `master` and
-releasing need the owner's explicit word, relayed in the prompt.
+If `COVIA_PROJECT` is set, Brightside's own assistant is driving you, headless,
+in its checkout at `~/.brightside/code/brightside`: the app improving itself.
+Editing, building, testing, git and looking around are allowed outright and
+nobody sees a permission prompt, so none will be waited on; your own safety
+checks judge anything else, and a blocked action is reported, never worked
+around. To ask something, end the turn with the question: the assistant
+answers on the next turn of the same session, taking it to the owner when it
+is theirs to decide. Only the final message comes back, so make it a faithful
+report of what was done, which tests ran and what remains. Never launch
+Brightside from the checkout (`mvn exec:java`, `java -jar`): the instance
+driving you is running on this machine, and a second launch would take it
+over. Build with `mvn package` and say the owner must restart from that build.
+Commit on `develop` after each meaningful, tested chunk of work; pushing,
+merging to `master` and releasing need the owner's explicit word, relayed in
+the prompt.
