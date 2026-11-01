@@ -7,19 +7,25 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.atomic.AtomicLong;
 
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
 import convex.core.data.AVector;
+import convex.core.data.Cells;
 import convex.core.data.MapEntry;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
+import convex.core.data.Vectors;
 import convex.core.data.prim.CVMBool;
 import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
+import convex.core.text.Text;
+import convex.core.util.Utils;
 import covia.adapter.AAdapter;
 import covia.api.Abilities;
+import covia.api.Fields;
 import covia.venue.AdapterState;
 import covia.venue.RequestContext;
 import covia.venue.SecretStore;
@@ -32,7 +38,8 @@ import org.slf4j.LoggerFactory;
  * tool per action rather than by composing HTTP requests. Each operation
  * resolves the owner's API key ({@code s/MOLTBOOK_API_KEY}) from the caller's
  * secret store inside the venue, calls Moltbook, and returns Moltbook's JSON
- * as structured data (a post's authors by name alone, see {@code readPost});
+ * as structured data — cut down where Moltbook sends far more than a reader
+ * needs ({@code readPost}, {@code notifications}, which keeps the whole page);
  * the model never handles the credential and cannot send it anywhere else.
  * Input is validated before any request is made.
  *
@@ -95,14 +102,31 @@ public class MoltbookAdapter extends AAdapter {
 	private static final AString K_POST = Strings.intern("post");
 	private static final AString K_COMMENTS = Strings.intern("comments");
 	private static final AString K_AUTHOR = Strings.intern("author");
+	private static final AString K_COMMENT = Strings.intern("comment");
+	private static final AString K_NOTIFICATIONS = Strings.intern("notifications");
+	private static final AString K_UNREAD_COUNT = Strings.intern("unread_count");
+	private static final AString K_HAS_MORE = Strings.intern("has_more");
+	private static final AString K_NEXT_CURSOR = Strings.intern("next_cursor");
+	private static final AString K_IS_READ = Strings.intern("isRead");
+	private static final AString K_CREATED_AT = Strings.intern("createdAt");
+	private static final AString K_PARENT_ID_IN_NOTIFICATION = Strings.intern("parentId");
+	private static final AString K_EXCERPT = Strings.intern("excerpt");
+
+	private static final AString OP_WRITE = Strings.intern("v/ops/covia/write");
 
 	private static final int MAX_TITLE = 300;
 	private static final int MAX_CONTENT = 40_000;
 	private static final int MAX_QUERY = 500;
 	private static final int MAX_ID = 200;
+	private static final int MAX_PATH = 1000;
+	/** Characters of a comment a notification's summary shows. */
+	private static final int EXCERPT = 280;
 
 	/** The API root every operation calls, and so where the owner's key is sent. */
 	private final String api;
+
+	/** The time {@link #scratchPath} last used, so two calls in one millisecond still get a key each. */
+	private final AtomicLong lastKept = new AtomicLong();
 
 	/** The adapter Brightside registers, on Moltbook's own API. */
 	public MoltbookAdapter() {
@@ -179,7 +203,7 @@ public class MoltbookAdapter extends AAdapter {
 				case "verify" -> call("POST", "/verify", key, Maps.of(
 					K_VERIFICATION_CODE, requiredText(input, K_VERIFICATION_CODE, MAX_ID),
 					K_ANSWER, requiredText(input, K_ANSWER, 64)));
-				case "notifications" -> notifications(key, input);
+				case "notifications" -> notifications(ctx, key, input);
 				case "notifications-read" -> notificationsRead(key, input);
 				case "delete-post" -> call("DELETE", "/posts/" + segment(requiredText(input, K_ID, MAX_ID)), key, null);
 				default -> CompletableFuture.failedFuture(new IllegalArgumentException("Unknown moltbook operation: " + op));
@@ -475,14 +499,69 @@ public class MoltbookAdapter extends AAdapter {
 	}
 
 	/**
-	 * The account's notifications as Moltbook returns them — replies to its
-	 * comments as well as activity on its posts, which home covers alone.
+	 * The account's notifications — replies to its comments as well as activity
+	 * on its posts, which home covers alone. Moltbook embeds the whole post and
+	 * comment in every notification, search index and moderation flags
+	 * included: a page of twenty came to 115 KB. So the page is kept whole at
+	 * {@code outputPath} (by default the calling run's scratch) and the caller
+	 * is given what a check-in acts on, with that path to read for more.
 	 */
-	private CompletableFuture<ACell> notifications(String key, ACell input) {
+	private CompletableFuture<ACell> notifications(RequestContext ctx, String key, ACell input) {
 		Map<String, String> query = new LinkedHashMap<>();
 		putOptional(query, "limit", optionalCount(input, K_LIMIT, 100));
 		putOptional(query, "cursor", optionalText(input, K_CURSOR, 500));
-		return get(key, "/notifications" + query(query));
+		String outputPath = optionalText(input, Fields.OUTPUT_PATH, MAX_PATH);
+		String path = (outputPath != null) ? outputPath : scratchPath("notifications");
+		return get(key, "/notifications" + query(query)).thenCompose(page ->
+			keep(ctx, path, page, notificationSummary(page)));
+	}
+
+	/**
+	 * A page of notifications as a check-in acts on it: each with what it is,
+	 * the post it concerns by id and title, and its comment by id with an
+	 * excerpt. The post itself is read in full before replying.
+	 */
+	private static AMap<AString, ACell> notificationSummary(ACell page) {
+		AMap<AString, ACell> out = Maps.empty();
+		out = with(out, K_UNREAD_COUNT, RT.getIn(page, K_UNREAD_COUNT));
+		out = with(out, K_HAS_MORE, RT.getIn(page, K_HAS_MORE));
+		out = with(out, K_NEXT_CURSOR, RT.getIn(page, K_NEXT_CURSOR));
+		AVector<ACell> summaries = Vectors.empty();
+		AVector<?> notifications = RT.ensureVector(RT.getIn(page, K_NOTIFICATIONS));
+		if (notifications != null) {
+			for (long i = 0; i < notifications.count(); i++) summaries = summaries.conj(notificationSummaryOf(notifications.get(i)));
+		}
+		return out.assoc(K_NOTIFICATIONS, summaries);
+	}
+
+	private static AMap<AString, ACell> notificationSummaryOf(ACell notification) {
+		AMap<AString, ACell> out = Maps.empty();
+		for (AString k : List.of(K_ID, K_TYPE, K_IS_READ, K_CREATED_AT, K_CONTENT)) out = with(out, k, RT.getIn(notification, k));
+		ACell post = RT.getIn(notification, K_POST);
+		if (post != null) {
+			out = out.assoc(K_POST, with(with(Maps.empty(), K_ID, RT.getIn(post, K_ID)), K_TITLE, RT.getIn(post, K_TITLE)));
+		}
+		ACell comment = RT.getIn(notification, K_COMMENT);
+		if (comment != null) {
+			AMap<AString, ACell> c = with(Maps.empty(), K_ID, RT.getIn(comment, K_ID));
+			c = with(c, K_PARENT_ID_IN_NOTIFICATION, RT.getIn(comment, K_PARENT_ID_IN_NOTIFICATION));
+			c = with(c, K_EXCERPT, excerpt(RT.getIn(comment, K_CONTENT)));
+			out = out.assoc(K_COMMENT, c);
+		}
+		return out;
+	}
+
+	/** The first {@link #EXCERPT} characters of {@code text}, marked where cut; null when there is none. */
+	private static AString excerpt(ACell text) {
+		AString s = RT.ensureString(text);
+		if (s == null) return null;
+		String t = s.toString();
+		if (t.codePointCount(0, t.length()) <= EXCERPT) return s;
+		return Strings.create(t.substring(0, t.offsetByCodePoints(0, EXCERPT)) + "…");
+	}
+
+	private static AMap<AString, ACell> with(AMap<AString, ACell> map, AString key, ACell value) {
+		return (value == null) ? map : map.assoc(key, value);
 	}
 
 	private CompletableFuture<ACell> notificationsRead(String key, ACell input) {
@@ -502,6 +581,40 @@ public class MoltbookAdapter extends AAdapter {
 
 	private CompletableFuture<ACell> call(String method, String path, String key, ACell body) {
 		return Moltbook.call(api, method, path, key, body);
+	}
+
+	// ------------------------------------------------------------------
+	// Keeping Moltbook's full answer
+	// ------------------------------------------------------------------
+
+	/**
+	 * Keeps Moltbook's {@code full} answer at {@code path}, written as the
+	 * caller through Covia's own write, so the caller's authority decides
+	 * where it may go; then completes with {@code summary}, saying where the
+	 * answer is and how large ({@code outputPath} and {@code bytes}, as Covia's
+	 * own output handoff reports them).
+	 */
+	private CompletableFuture<ACell> keep(RequestContext ctx, String path, ACell full, AMap<AString, ACell> summary) {
+		AString at = Strings.create(path);
+		return engine.jobs().invokeInternal(OP_WRITE, Maps.of(Fields.PATH, at, Fields.VALUE, full), ctx)
+			.handle((written, failure) -> {
+				if (failure != null) {
+					throw new CompletionException(new IllegalStateException(
+						"Moltbook answered, but its answer could not be kept at " + path + ": " + rootMessage(failure)));
+				}
+				return summary.assoc(Fields.OUTPUT_PATH, at).assoc(Fields.BYTES, CVMLong.create(Cells.storageSize(full)));
+			});
+	}
+
+	/**
+	 * Where an answer is kept when the caller names nowhere: the calling run's
+	 * scratch, by operation and time — Convex's timestamp, UTC to the
+	 * millisecond and fixed width, so keys sort in time order.
+	 */
+	private String scratchPath(String op) {
+		long now = Utils.getCurrentTimestamp();
+		long at = lastKept.updateAndGet(last -> Math.max(last + 1, now));
+		return "t/moltbook/" + op + "/" + Text.dateFormat(at);
 	}
 
 	// ------------------------------------------------------------------

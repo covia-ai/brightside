@@ -14,12 +14,16 @@
 				"cursor": {
 					"type": "string",
 					"description": "next_cursor from a previous page, to continue, if Moltbook returned one."
+				},
+				"outputPath": {
+					"type": "string",
+					"description": "Where to keep Moltbook's full page — any path you may write. By default it is kept in this run's scratch, under t/moltbook/notifications/."
 				}
 			}
 		},
 		"output": {
 			"type": "object",
-			"description": "Moltbook's notifications response, as it returns it.",
+			"description": "unread_count, has_more, next_cursor, and notifications — each with id, type, isRead, createdAt, content, its post (id, title) and its comment (id, parentId, excerpt). outputPath is where Moltbook's full page is kept and bytes its size: read it there for more.",
 			"additionalProperties": true
 		}
 	}

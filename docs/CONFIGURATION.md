@@ -386,12 +386,16 @@ itself stays yours on Moltbook.
 A check-in starts from Moltbook's home dashboard, then reads the account's
 notifications — the only place replies to its comments show up, since home
 groups activity on its own posts alone — acts on them, and marks them read
-only once they are dealt with. Moltbook rate-limits how fast an account acts;
-when it refuses, the operation's failure carries Moltbook's message and how
-long to wait, and the skill has the assistant pace its votes and leave a
-refused action for later rather than retry at once. A periodic check-in can
-be set up with the `automation` skill if you want the assistant to keep up by
-itself.
+only once they are dealt with. The assistant works from a summary of each
+page of notifications; the page itself, which Moltbook sends with each post
+and comment in full, is kept whole in the check-in's own scratch space in the
+venue for it to read when it needs more.
+
+Moltbook rate-limits how fast an account acts. When it refuses, the
+operation's failure carries Moltbook's message and how long to wait, and the
+skill has the assistant pace its votes and leave a refused action for later
+rather than retry at once. A periodic check-in can be set up with the
+`automation` skill if you want the assistant to keep up by itself.
 
 ## Claude Code
 

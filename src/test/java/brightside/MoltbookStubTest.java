@@ -1,6 +1,8 @@
 package brightside;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -27,6 +29,8 @@ import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
 import convex.core.data.Maps;
+import convex.core.data.prim.CVMBool;
+import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
 import covia.grid.Job;
 import covia.grid.Venue;
@@ -35,7 +39,8 @@ import covia.grid.Venue;
  * The Moltbook operations against a stand-in for Moltbook on loopback: what
  * reaches the agent when Moltbook refuses, and what of an answer it is given.
  * The venue is this class's own, so its Moltbook adapter can be pointed at the
- * stand-in; each test is its own user and asks for its own paths.
+ * stand-in; each test is its own user, and asks for paths of its own or for
+ * the one page of notifications they all share.
  */
 @Execution(ExecutionMode.CONCURRENT)
 class MoltbookStubTest {
@@ -118,6 +123,83 @@ class MoltbookStubTest {
 		assertEquals("A reply", RT.getIn(out, "comments", "comments", 0, "replies", 0, "content").toString());
 		assertEquals("c1", RT.getIn(out, "comments", "comments", 0, "replies", 0, "parent_id").toString());
 		assertEquals("page-2", RT.getIn(out, "comments", "next_cursor").toString());
+	}
+
+	/** A page of notifications as Moltbook sends it: each with its post and comment in full. */
+	private static final String NOTIFICATIONS = """
+		{"success": true, "unread_count": 1, "has_more": true, "next_cursor": "page-2", "tip": "Check home regularly",
+		 "notifications": [
+		  {"id": "n1", "type": "comment_reply", "isRead": false, "content": "Someone replied to your comment",
+		   "agentId": "me", "relatedPostId": "p1", "relatedCommentId": "c1", "createdAt": "2026-10-31T10:14:20.632Z",
+		   "post": {"id": "p1", "title": "Approvals need payload binding", "content": "The whole post",
+		            "tsv": "'approv':1 'bind':4", "isNsfw": false},
+		   "comment": {"id": "c1", "parentId": "c0", "postId": "p1", "authorId": "a2", "content": "%s",
+		               "tsv": "'repli':1", "isHateSpeech": false}},
+		  {"id": "n2", "type": "new_follower", "isRead": true, "content": "thegreekgodhermes started following you",
+		   "agentId": "me", "createdAt": "2026-10-26T11:07:44.870Z"}]}
+		""".formatted("A long reply. ".repeat(40));
+
+	@Test
+	void notificationsComeAsASummaryWithThePageKeptInTheRunsScratch() throws Exception {
+		answers.put("/notifications", new Answer(200, null, NOTIFICATIONS));
+		Venue user = connected("molty-notified");
+		Job job = user.invoke("v/ops/moltbook/notifications", Maps.empty()).get(10, TimeUnit.SECONDS);
+		ACell out = job.future().get(10, TimeUnit.SECONDS);
+
+		assertEquals(CVMLong.ONE, RT.getIn(out, "unread_count"));
+		assertEquals("page-2", RT.getIn(out, "next_cursor").toString());
+		assertEquals("p1", RT.getIn(out, "notifications", 0, "post", "id").toString());
+		assertEquals("Approvals need payload binding", RT.getIn(out, "notifications", 0, "post", "title").toString());
+		assertNull(RT.getIn(out, "notifications", 0, "post", "content"), "the post is read in full with read-post");
+		assertNull(RT.getIn(out, "notifications", 0, "post", "tsv"));
+		assertEquals("c0", RT.getIn(out, "notifications", 0, "comment", "parentId").toString());
+		String comment = "A long reply. ".repeat(40);
+		String excerpt = RT.getIn(out, "notifications", 0, "comment", "excerpt").toString();
+		assertTrue(excerpt.length() < comment.length() && comment.startsWith(excerpt.substring(0, excerpt.length() - 1)),
+			"the comment is cut to its start: " + excerpt);
+		assertNull(RT.getIn(out, "notifications", 0, "comment", "tsv"));
+		assertEquals("thegreekgodhermes started following you", RT.getIn(out, "notifications", 1, "content").toString());
+		assertTrue(((CVMLong) RT.getIn(out, "bytes")).longValue() > 0);
+
+		// The whole page is in this call's own scratch: its job's temp.
+		String kept = RT.getIn(out, "outputPath").toString();
+		assertTrue(kept.startsWith("t/moltbook/notifications/"), kept);
+		ACell page = read(user, "j/" + job.getID().toHexString() + "/temp/" + kept.substring("t/".length()));
+		assertEquals("'repli':1", RT.getIn(page, "notifications", 0, "comment", "tsv").toString(), "kept whole");
+		assertEquals("The whole post", RT.getIn(page, "notifications", 0, "post", "content").toString());
+	}
+
+	@Test
+	void notificationsKeepThePageWhereTheCallerSays() throws Exception {
+		answers.put("/notifications", new Answer(200, null, NOTIFICATIONS));
+		Venue user = connected("molty-keeper");
+		ACell out = run(user, "v/ops/moltbook/notifications", Maps.of("outputPath", "w/moltbook-kept/latest"));
+		assertEquals("w/moltbook-kept/latest", RT.getIn(out, "outputPath").toString());
+		assertEquals("The whole post", RT.getIn(read(user, "w/moltbook-kept/latest"), "notifications", 0, "post", "content").toString());
+	}
+
+	@Test
+	void aPathTheCallerMayNotWriteFailsTheCall() throws Exception {
+		answers.put("/notifications", new Answer(200, null, NOTIFICATIONS));
+		String elsewhere = Identity.of("molty-someone-else").userDID(venue.did()) + "/w/kept";
+		String refusal = failure(connected("molty-trespasser"), "v/ops/moltbook/notifications", Maps.of("outputPath", elsewhere));
+		assertTrue(refusal.contains(elsewhere), "names where it could not keep the page: " + refusal);
+	}
+
+	@Test
+	void callsInQuickSuccessionKeepAPageEach() throws Exception {
+		answers.put("/notifications", new Answer(200, null, NOTIFICATIONS));
+		Venue user = connected("molty-quick");
+		ACell first = run(user, "v/ops/moltbook/notifications", Maps.empty());
+		ACell second = run(user, "v/ops/moltbook/notifications", Maps.empty());
+		assertNotEquals(RT.getIn(first, "outputPath"), RT.getIn(second, "outputPath"));
+	}
+
+	/** The value at {@code path}, read as the caller. */
+	private static ACell read(Venue client, String path) throws Exception {
+		ACell out = run(client, "v/ops/covia/read", Maps.of("path", path));
+		assertEquals(CVMBool.TRUE, RT.getIn(out, "exists"), "something is kept at " + path);
+		return RT.getIn(out, "value");
 	}
 
 	/** A user with a Moltbook key in their own secret store. */
