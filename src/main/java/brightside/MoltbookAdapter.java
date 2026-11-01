@@ -11,6 +11,8 @@ import java.util.concurrent.CompletionException;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
+import convex.core.data.AVector;
+import convex.core.data.MapEntry;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
 import convex.core.data.prim.CVMBool;
@@ -30,8 +32,9 @@ import org.slf4j.LoggerFactory;
  * tool per action rather than by composing HTTP requests. Each operation
  * resolves the owner's API key ({@code s/MOLTBOOK_API_KEY}) from the caller's
  * secret store inside the venue, calls Moltbook, and returns Moltbook's JSON
- * as structured data; the model never handles the credential and cannot send
- * it anywhere else. Input is validated before any request is made.
+ * as structured data (a post's authors by name alone, see {@code readPost});
+ * the model never handles the credential and cannot send it anywhere else.
+ * Input is validated before any request is made.
  *
  * <p>Registered on the embedded engine at launch ({@link EmbeddedVenue}); the
  * account itself is set up in Settings → Integrations ({@link Moltbook}), and
@@ -91,11 +94,29 @@ public class MoltbookAdapter extends AAdapter {
 	private static final AString K_ANSWER = Strings.intern("answer");
 	private static final AString K_POST = Strings.intern("post");
 	private static final AString K_COMMENTS = Strings.intern("comments");
+	private static final AString K_AUTHOR = Strings.intern("author");
 
 	private static final int MAX_TITLE = 300;
 	private static final int MAX_CONTENT = 40_000;
 	private static final int MAX_QUERY = 500;
 	private static final int MAX_ID = 200;
+
+	/** The API root every operation calls, and so where the owner's key is sent. */
+	private final String api;
+
+	/** The adapter Brightside registers, on Moltbook's own API. */
+	public MoltbookAdapter() {
+		this(Moltbook.API);
+	}
+
+	/**
+	 * The adapter on another API root — a test's stand-in for Moltbook. Only
+	 * code chooses where the key goes: it is not configuration a venue
+	 * operation could change.
+	 */
+	MoltbookAdapter(String api) {
+		this.api = api;
+	}
 
 	@Override
 	public String getName() {
@@ -147,7 +168,7 @@ public class MoltbookAdapter extends AAdapter {
 				case "vote" -> vote(key, input);
 				case "search" -> search(key, input);
 				case "profile" -> profile(key, input);
-				case "update-profile" -> Moltbook.call("PATCH", "/agents/me", key,
+				case "update-profile" -> call("PATCH", "/agents/me", key,
 					Maps.of(K_DESCRIPTION, requiredText(input, K_DESCRIPTION, 2000)));
 				case "submolts" -> submolts(key, input);
 				case "subscribe" -> toggle(key, "/submolts/" + segment(requiredText(input, K_SUBMOLT, MAX_ID)) + "/subscribe",
@@ -155,12 +176,12 @@ public class MoltbookAdapter extends AAdapter {
 				case "follow" -> toggle(key, "/agents/" + segment(requiredText(input, K_NAME, MAX_ID)) + "/follow",
 					flag(input, K_UNFOLLOW));
 				case "create-submolt" -> createSubmolt(key, input);
-				case "verify" -> Moltbook.call("POST", "/verify", key, Maps.of(
+				case "verify" -> call("POST", "/verify", key, Maps.of(
 					K_VERIFICATION_CODE, requiredText(input, K_VERIFICATION_CODE, MAX_ID),
 					K_ANSWER, requiredText(input, K_ANSWER, 64)));
 				case "notifications" -> notifications(key, input);
 				case "notifications-read" -> notificationsRead(key, input);
-				case "delete-post" -> Moltbook.call("DELETE", "/posts/" + segment(requiredText(input, K_ID, MAX_ID)), key, null);
+				case "delete-post" -> call("DELETE", "/posts/" + segment(requiredText(input, K_ID, MAX_ID)), key, null);
 				default -> CompletableFuture.failedFuture(new IllegalArgumentException("Unknown moltbook operation: " + op));
 			};
 		} catch (Exception e) {
@@ -209,8 +230,8 @@ public class MoltbookAdapter extends AAdapter {
 					+ "an account in Settings → Integrations → Moltbook"));
 		}
 		ACell record = record(ctx);
-		return Moltbook.call("GET", "/agents/me", key, null).thenCompose(me ->
-			Moltbook.call("GET", "/agents/status", key, null)
+		return get(key, "/agents/me").thenCompose(me ->
+			get(key, "/agents/status")
 				.handle((status, failure) -> Moltbook.parseAccount(me, (failure == null) ? status : null, record))
 				.thenApply(a -> {
 					AMap<AString, ACell> out = Maps.of(
@@ -245,7 +266,7 @@ public class MoltbookAdapter extends AAdapter {
 		engine.requireAuthority(ctx, Strings.create(SECRET_REF), Abilities.SECRET_WRITE);
 		AMap<AString, ACell> body = Maps.of(K_NAME, Strings.create(name),
 			K_DESCRIPTION, Strings.create(description != null ? description : ""));
-		return Moltbook.call("POST", "/agents/register", null, body).thenApply(response -> {
+		return call("POST", "/agents/register", null, body).thenApply(response -> {
 			Moltbook.Registration r;
 			try {
 				r = Moltbook.parseRegistration(response);
@@ -321,7 +342,7 @@ public class MoltbookAdapter extends AAdapter {
 	// The operations
 	// ------------------------------------------------------------------
 
-	private static CompletableFuture<ACell> feed(String key, ACell input) {
+	private CompletableFuture<ACell> feed(String key, ACell input) {
 		String scope = optionalText(input, K_SCOPE, 32);
 		if (scope == null) scope = "feed";
 		Map<String, String> query = new LinkedHashMap<>();
@@ -345,8 +366,8 @@ public class MoltbookAdapter extends AAdapter {
 		return get(key, path + query(query));
 	}
 
-	/** The post and its comments together, as a reader wants them. */
-	private static CompletableFuture<ACell> readPost(String key, ACell input) {
+	/** The post and its comments together, as a reader wants them: each author by name. */
+	private CompletableFuture<ACell> readPost(String key, ACell input) {
 		String id = segment(requiredText(input, K_ID, MAX_ID));
 		Map<String, String> query = new LinkedHashMap<>();
 		putOptional(query, "sort", optionalText(input, K_SORT, 16));
@@ -354,10 +375,33 @@ public class MoltbookAdapter extends AAdapter {
 		putOptional(query, "cursor", optionalText(input, K_CURSOR, 500));
 		return get(key, "/posts/" + id).thenCompose(post ->
 			get(key, "/posts/" + id + "/comments" + query(query)).thenApply(comments ->
-				Maps.of(K_POST, post, K_COMMENTS, comments)));
+				Maps.of(K_POST, authorsByName(post), K_COMMENTS, authorsByName(comments))));
 	}
 
-	private static CompletableFuture<ACell> createPost(String key, ACell input) {
+	/**
+	 * Moltbook's answer with every {@code author} cut to its name. Moltbook
+	 * puts the author's whole profile — bio, counts, timestamps — on the post
+	 * and on every comment and reply, a quarter of a busy thread spent
+	 * repeating the same few profiles; who said it is all a reader needs.
+	 */
+	private static ACell authorsByName(ACell cell) {
+		if (cell instanceof AVector<?> v) return v.map(MoltbookAdapter::authorsByName);
+		if (!(cell instanceof AMap<?, ?> m)) return cell;
+		@SuppressWarnings("unchecked")
+		AMap<ACell, ACell> map = (AMap<ACell, ACell>) m;
+		AMap<ACell, ACell> out = map;
+		for (long i = 0; i < map.count(); i++) {
+			MapEntry<ACell, ACell> e = map.entryAt(i);
+			ACell value = e.getValue();
+			ACell trimmed = (K_AUTHOR.equals(e.getKey()) && value instanceof AMap)
+				? Maps.of(K_NAME, RT.getIn(value, K_NAME))
+				: authorsByName(value);
+			if (trimmed != value) out = out.assoc(e.getKey(), trimmed);
+		}
+		return out;
+	}
+
+	private CompletableFuture<ACell> createPost(String key, ACell input) {
 		AMap<AString, ACell> body = Maps.of(
 			Strings.create("submolt_name"), Strings.create(requiredText(input, K_SUBMOLT, MAX_ID)),
 			K_TITLE, Strings.create(requiredText(input, K_TITLE, MAX_TITLE)));
@@ -366,18 +410,18 @@ public class MoltbookAdapter extends AAdapter {
 		if (content == null && url == null) throw new IllegalArgumentException("A post needs content or a url");
 		if (content != null) body = body.assoc(K_CONTENT, Strings.create(content));
 		if (url != null) body = body.assoc(K_URL, Strings.create(url)).assoc(K_TYPE, Strings.create("link"));
-		return Moltbook.call("POST", "/posts", key, body);
+		return call("POST", "/posts", key, body);
 	}
 
-	private static CompletableFuture<ACell> comment(String key, ACell input) {
+	private CompletableFuture<ACell> comment(String key, ACell input) {
 		String postId = segment(requiredText(input, K_POST_ID, MAX_ID));
 		AMap<AString, ACell> body = Maps.of(K_CONTENT, Strings.create(requiredText(input, K_CONTENT, MAX_CONTENT)));
 		String parent = optionalText(input, K_PARENT_ID, MAX_ID);
 		if (parent != null) body = body.assoc(K_PARENT_ID, Strings.create(parent));
-		return Moltbook.call("POST", "/posts/" + postId + "/comments", key, body);
+		return call("POST", "/posts/" + postId + "/comments", key, body);
 	}
 
-	private static CompletableFuture<ACell> vote(String key, ACell input) {
+	private CompletableFuture<ACell> vote(String key, ACell input) {
 		String target = requiredText(input, K_TARGET, 16);
 		String id = segment(requiredText(input, K_ID, MAX_ID));
 		String direction = optionalText(input, K_DIRECTION, 8);
@@ -393,10 +437,10 @@ public class MoltbookAdapter extends AAdapter {
 			}
 			default -> throw new IllegalArgumentException("target must be post or comment");
 		};
-		return Moltbook.call("POST", path, key, null);
+		return call("POST", path, key, null);
 	}
 
-	private static CompletableFuture<ACell> search(String key, ACell input) {
+	private CompletableFuture<ACell> search(String key, ACell input) {
 		Map<String, String> query = new LinkedHashMap<>();
 		query.put("q", requiredText(input, K_Q, MAX_QUERY));
 		String type = optionalText(input, K_TYPE, 16);
@@ -409,51 +453,55 @@ public class MoltbookAdapter extends AAdapter {
 		return get(key, "/search" + query(query));
 	}
 
-	private static CompletableFuture<ACell> profile(String key, ACell input) {
+	private CompletableFuture<ACell> profile(String key, ACell input) {
 		String name = optionalText(input, K_NAME, MAX_ID);
 		if (name == null) return get(key, "/agents/me");
 		return get(key, "/agents/profile" + query(Map.of("name", name)));
 	}
 
-	private static CompletableFuture<ACell> submolts(String key, ACell input) {
+	private CompletableFuture<ACell> submolts(String key, ACell input) {
 		String name = optionalText(input, K_NAME, MAX_ID);
 		return get(key, (name == null) ? "/submolts" : "/submolts/" + segment(name));
 	}
 
-	private static CompletableFuture<ACell> createSubmolt(String key, ACell input) {
+	private CompletableFuture<ACell> createSubmolt(String key, ACell input) {
 		AMap<AString, ACell> body = Maps.of(
 			K_NAME, Strings.create(requiredText(input, K_NAME, 30)),
 			K_DISPLAY_NAME, Strings.create(requiredText(input, K_DISPLAY_NAME, 100)));
 		String description = optionalText(input, K_DESCRIPTION, 2000);
 		if (description != null) body = body.assoc(K_DESCRIPTION, Strings.create(description));
 		if (flag(input, K_ALLOW_CRYPTO)) body = body.assoc(K_ALLOW_CRYPTO, CVMBool.TRUE);
-		return Moltbook.call("POST", "/submolts", key, body);
+		return call("POST", "/submolts", key, body);
 	}
 
 	/**
 	 * The account's notifications as Moltbook returns them — replies to its
 	 * comments as well as activity on its posts, which home covers alone.
 	 */
-	private static CompletableFuture<ACell> notifications(String key, ACell input) {
+	private CompletableFuture<ACell> notifications(String key, ACell input) {
 		Map<String, String> query = new LinkedHashMap<>();
 		putOptional(query, "limit", optionalCount(input, K_LIMIT, 100));
 		putOptional(query, "cursor", optionalText(input, K_CURSOR, 500));
 		return get(key, "/notifications" + query(query));
 	}
 
-	private static CompletableFuture<ACell> notificationsRead(String key, ACell input) {
+	private CompletableFuture<ACell> notificationsRead(String key, ACell input) {
 		String postId = optionalText(input, K_POST_ID, MAX_ID);
 		String path = (postId == null) ? "/notifications/read-all" : "/notifications/read-by-post/" + segment(postId);
-		return Moltbook.call("POST", path, key, null);
+		return call("POST", path, key, null);
 	}
 
 	/** Subscribe/follow with POST, or the reverse with DELETE, on the same path. */
-	private static CompletableFuture<ACell> toggle(String key, String path, boolean reverse) {
-		return Moltbook.call(reverse ? "DELETE" : "POST", path, key, null);
+	private CompletableFuture<ACell> toggle(String key, String path, boolean reverse) {
+		return call(reverse ? "DELETE" : "POST", path, key, null);
 	}
 
-	private static CompletableFuture<ACell> get(String key, String path) {
-		return Moltbook.call("GET", path, key, null);
+	private CompletableFuture<ACell> get(String key, String path) {
+		return call("GET", path, key, null);
+	}
+
+	private CompletableFuture<ACell> call(String method, String path, String key, ACell body) {
+		return Moltbook.call(api, method, path, key, body);
 	}
 
 	// ------------------------------------------------------------------

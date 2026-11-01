@@ -104,10 +104,16 @@ public final class Moltbook {
 	 * query string already on it; {@code body} (a map) is sent as JSON; the key
 	 * is sent as the bearer, or nothing when null (registration). Completes
 	 * with the parsed JSON response, or fails with Moltbook's own error and
-	 * hint — a non-2xx status, or a {@code success: false} body.
+	 * hint — a non-2xx status, or a {@code success: false} body — and the wait
+	 * when Moltbook names one ({@link #errorOf(int, String, String)}).
 	 */
 	public static CompletableFuture<ACell> call(String method, String path, String apiKey, ACell body) {
-		HttpRequest.Builder b = HttpRequest.newBuilder(URI.create(API + path))
+		return call(API, method, path, apiKey, body);
+	}
+
+	/** {@link #call(String, String, String, ACell)} on the API root {@code api}. */
+	static CompletableFuture<ACell> call(String api, String method, String path, String apiKey, ACell body) {
+		HttpRequest.Builder b = HttpRequest.newBuilder(URI.create(api + path))
 			.timeout(Duration.ofSeconds(TIMEOUT_SECONDS))
 			.header("User-Agent", USER_AGENT)
 			.header("Accept", "application/json");
@@ -128,7 +134,10 @@ public final class Moltbook {
 				log.debug("{} {} → {} in {} ms", method, (q < 0) ? path : path.substring(0, q), status,
 					(System.nanoTime() - started) / 1_000_000);
 			}
-			if (status < 200 || status >= 300) throw new CompletionException(new IOException(errorOf(status, text)));
+			if (status < 200 || status >= 300) {
+				String retryAfter = response.headers().firstValue("Retry-After").orElse(null);
+				throw new CompletionException(new IOException(errorOf(status, text, retryAfter)));
+			}
 			ACell parsed;
 			try {
 				parsed = parse(text);
@@ -229,18 +238,52 @@ public final class Moltbook {
 
 	/** Moltbook's {@code error} and {@code hint} from a failed response, else the status. */
 	public static String errorOf(int status, String body) {
-		String error = null;
-		String hint = null;
+		return errorOf(status, body, null);
+	}
+
+	/**
+	 * {@link #errorOf(int, String)}, with the wait when Moltbook names one. A
+	 * rate limit or cooldown answers 429 with only a message, and says how long
+	 * to wait in {@code retry_after_seconds} (or {@code retry_after_minutes},
+	 * for a post) and in the {@code Retry-After} header ({@code retryAfter},
+	 * null when absent). The body's figure is the more specific, so it wins.
+	 */
+	static String errorOf(int status, String body, String retryAfter) {
+		ACell parsed = null;
 		try {
-			ACell parsed = parse(body);
-			error = str(RT.getIn(parsed, "error"));
-			if (error == null) error = str(RT.getIn(parsed, "message"));
-			hint = str(RT.getIn(parsed, "hint"));
+			parsed = parse(body);
 		} catch (IOException ignored) {
 			// not JSON; fall through to the status
 		}
-		if (error == null || error.isBlank()) return "Moltbook answered HTTP " + status;
-		return (hint != null && !hint.isBlank()) ? error + " (" + hint + ")" : error;
+		String error = str(RT.getIn(parsed, "error"));
+		if (error == null) error = str(RT.getIn(parsed, "message"));
+		String hint = str(RT.getIn(parsed, "hint"));
+		String message;
+		if (error == null || error.isBlank()) message = "Moltbook answered HTTP " + status;
+		else message = (hint != null && !hint.isBlank()) ? error + " (" + hint + ")" : error;
+		String wait = waitOf(parsed, retryAfter);
+		return (wait != null) ? message + " — try again in " + wait : message;
+	}
+
+	/** The wait a refusal names, in words, or null. */
+	private static String waitOf(ACell parsed, String retryAfter) {
+		long seconds = lng(RT.getIn(parsed, "retry_after_seconds"));
+		if (seconds > 0) return plural(seconds, "second");
+		long minutes = lng(RT.getIn(parsed, "retry_after_minutes"));
+		if (minutes > 0) return plural(minutes, "minute");
+		if (retryAfter != null) {
+			try {
+				seconds = Long.parseLong(retryAfter.trim());
+			} catch (NumberFormatException e) {
+				// the header's other form, an HTTP date, which Moltbook does not send
+			}
+			if (seconds > 0) return plural(seconds, "second");
+		}
+		return null;
+	}
+
+	private static String plural(long n, String unit) {
+		return n + " " + unit + ((n == 1) ? "" : "s");
 	}
 
 	// ------------------------------------------------------------------

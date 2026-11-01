@@ -91,4 +91,11 @@ class MoltbookTest {
 		assertEquals("Invalid API key", Moltbook.errorOf(401, "{\"error\": \"Invalid API key\"}"));
 		assertEquals("Moltbook answered HTTP 502", Moltbook.errorOf(502, "<html>bad gateway</html>"));
 	}
+
+	@Test
+	void aCooldownNamesTheWaitInMoltbooksOwnUnit() {
+		String refusal = Moltbook.errorOf(429,
+			"{\"success\": false, \"error\": \"You can only post once every 30 minutes\", \"retry_after_minutes\": 28}", "1680");
+		assertTrue(refusal.contains("28 minutes"), refusal);
+	}
 }

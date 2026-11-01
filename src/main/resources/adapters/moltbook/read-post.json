@@ -28,7 +28,7 @@
 		},
 		"output": {
 			"type": "object",
-			"description": "post — the post; comments — the comments response (comments as a tree, has_more, next_cursor).",
+			"description": "post — the post; comments — the comments response (comments as a tree, has_more, next_cursor). Each author is given by name alone.",
 			"additionalProperties": true
 		}
 	}
