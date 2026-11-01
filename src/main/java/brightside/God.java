@@ -8,6 +8,7 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import brightside.model.Providers;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
@@ -145,9 +146,11 @@ public record God(String id, String ask, String run, String overseer, String kee
 		all.add(runOp());
 		all.addAll(tools);
 		all.add(MEMORY_OP);
+		Providers.Route route = Providers.route(llmOperation);
 		return Maps.of(
 			Fields.OPERATION, AppConfig.DEFAULT_OPERATION,
-			"llmOperation", llmOperation,
+			"llmOperation", route.operation(),
+			"model", route.model(),
 			"systemPrompt", systemPrompt,
 			// Read-only venue-namespace reads (covia read/list) on top of the tools.
 			"defaultTools", true,

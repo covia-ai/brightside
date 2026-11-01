@@ -8,16 +8,23 @@ import javax.swing.DefaultListCellRenderer;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.plaf.basic.BasicComboBoxEditor;
+import javax.swing.text.JTextComponent;
 
 import brightside.model.Providers;
 import net.miginfocom.swing.MigLayout;
 
-/** Shared provider/model picker used by onboarding, Settings and agent creation. */
+/**
+ * Shared provider/model picker used by onboarding, Settings and agent creation.
+ * For a provider that takes any model, the model field is editable and holds
+ * the model's id: pick a listed one, or type any id the provider serves.
+ */
 @SuppressWarnings("serial")
 public final class ModelSelector extends JPanel {
 
 	private final JComboBox<Providers.Provider> provider = new JComboBox<>();
 	private final JComboBox<Providers.Model> model = new JComboBox<>();
+	private final IdEditor idEditor = new IdEditor();
 	private final List<Runnable> listeners = new ArrayList<>();
 	private boolean syncing;
 
@@ -25,12 +32,14 @@ public final class ModelSelector extends JPanel {
 		super(new MigLayout("insets 0, fillx, wrap 2", "[]12[grow,fill]", ""));
 		setOpaque(false);
 		provider.setModel(new DefaultComboBoxModel<>(Providers.ALL.toArray(new Providers.Provider[0])));
-		provider.setRenderer(renderer(true));
-		model.setRenderer(renderer(false));
+		provider.setRenderer(renderer());
+		model.setRenderer(renderer());
+		model.setEditor(idEditor);
 		provider.setToolTipText("The model provider");
-		model.setToolTipText("Which model to use");
 		provider.addActionListener(e -> providerChanged());
 		model.addActionListener(e -> fireSelectionChanged());
+		// A typed id is the choice as it stands, before Enter or a change of focus.
+		Documents.onChange((JTextComponent) idEditor.getEditorComponent(), this::fireSelectionChanged);
 
 		add(new JLabel("Provider"));
 		add(provider, "growx, wmin 180");
@@ -53,21 +62,25 @@ public final class ModelSelector extends JPanel {
 		return model;
 	}
 
-	/** Select an operation path such as {@code v/models/anthropic/claude-sonnet-5-5}. */
+	/**
+	 * Select an operation path such as {@code v/models/anthropic/claude-sonnet-5-5}.
+	 * A model the list does not offer is added to it, so the field shows the
+	 * choice in force rather than another one.
+	 */
 	public void selectModelOp(String modelOp) {
 		syncing = true;
 		String providerId = Providers.providerOf(modelOp);
 		Providers.Provider selected = (providerId != null) ? Providers.byId(providerId) : null;
 		provider.setSelectedItem((selected != null) ? selected : Providers.defaultProvider());
 		reloadModels();
-		String prefix = (providerId != null) ? "v/models/" + providerId + "/" : null;
-		String modelId = (prefix != null && modelOp != null && modelOp.startsWith(prefix))
-			? modelOp.substring(prefix.length()) : null;
-		for (int i = 0; modelId != null && i < model.getItemCount(); i++) {
-			if (model.getItemAt(i).id().equals(modelId)) {
-				model.setSelectedIndex(i);
-				break;
+		String modelId = (selected != null) ? Providers.modelOf(modelOp) : null;
+		if (modelId != null && !modelId.isEmpty()) {
+			Providers.Model current = listed(modelId);
+			if (current == null) {
+				current = new Providers.Model(modelId, modelId);
+				((DefaultComboBoxModel<Providers.Model>) model.getModel()).addElement(current);
 			}
+			model.setSelectedItem(current);
 		}
 		syncing = false;
 		fireSelectionChanged();
@@ -77,8 +90,13 @@ public final class ModelSelector extends JPanel {
 		return (Providers.Provider) provider.getSelectedItem();
 	}
 
+	/** The chosen model; for an editable field, the id typed so far. Null when there is none. */
 	public Providers.Model selectedModel() {
-		return (Providers.Model) model.getSelectedItem();
+		if (!model.isEditable()) return (Providers.Model) model.getSelectedItem();
+		String id = idEditor.text();
+		if (id.isEmpty()) return null;
+		Providers.Model current = listed(id);
+		return (current != null) ? current : new Providers.Model(id, id);
 	}
 
 	public String selectedModelOp() {
@@ -107,6 +125,18 @@ public final class ModelSelector extends JPanel {
 		Providers.Provider p = selectedProvider();
 		if (p == null) return;
 		model.setModel(new DefaultComboBoxModel<>(p.models().toArray(new Providers.Model[0])));
+		model.setEditable(p.anyModel());
+		model.setToolTipText(p.anyModel()
+			? "Which model to use: pick one, or type the id of any model " + p.label() + " serves"
+			: "Which model to use");
+	}
+
+	/** The model in the list with this id, or null. */
+	private Providers.Model listed(String modelId) {
+		for (int i = 0; i < model.getItemCount(); i++) {
+			if (model.getItemAt(i).id().equals(modelId)) return model.getItemAt(i);
+		}
+		return null;
 	}
 
 	private void fireSelectionChanged() {
@@ -114,15 +144,28 @@ public final class ModelSelector extends JPanel {
 		for (Runnable listener : List.copyOf(listeners)) listener.run();
 	}
 
-	private static DefaultListCellRenderer renderer(boolean providerChoice) {
+	/** The editable model field shows and takes a model's id, not its label. */
+	private static final class IdEditor extends BasicComboBoxEditor {
+		@Override
+		public void setItem(Object item) {
+			super.setItem((item instanceof Providers.Model m) ? m.id() : item);
+		}
+
+		String text() {
+			return editor.getText().trim();
+		}
+	}
+
+	/** Labels for providers and models; a typed id shows as itself. */
+	private static DefaultListCellRenderer renderer() {
 		return new DefaultListCellRenderer() {
 			@Override
 			public java.awt.Component getListCellRendererComponent(javax.swing.JList<?> list, Object value,
 					int index, boolean selected, boolean focus) {
 				java.awt.Component c = super.getListCellRendererComponent(list, value, index, selected, focus);
 				if (c instanceof JLabel label && value != null) {
-					label.setText(providerChoice
-						? ((Providers.Provider) value).label() : ((Providers.Model) value).label());
+					label.setText((value instanceof Providers.Provider p) ? p.label()
+						: (value instanceof Providers.Model m) ? m.label() : value.toString());
 				}
 				return c;
 			}

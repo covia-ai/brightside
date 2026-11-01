@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import brightside.AppConfig;
 import brightside.BrightsideSkillsAdapter;
 import brightside.Suspension;
+import brightside.model.Providers;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
@@ -253,9 +254,11 @@ public final class ChatSession {
 		ACell info = agentInfo();
 		String status = agentStatus(info);
 		AMap<AString, ACell> desiredLoads = desiredLoads(configuredLoads(info));
+		Providers.Route route = Providers.route(config.llmOperation());
 		AMap<AString, ACell> agentConfig = Maps.of(
 			Fields.OPERATION, config.operation(),
-			"llmOperation", config.llmOperation(),
+			"llmOperation", route.operation(),
+			"model", route.model(),
 			"systemPrompt", config.systemPrompt(),
 			// Read-only workspace access (covia read/list) on top of the tools
 			// below — so it can look into its own namespace out of the box.

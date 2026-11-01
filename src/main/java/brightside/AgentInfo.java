@@ -87,7 +87,8 @@ public final class AgentInfo {
 		return new Summary(agentId, (name != null && !name.isBlank()) ? name : agentId, did, ownerDID, ownerName,
 			standard, str(RT.getIn(info, Fields.STATUS)), render(RT.getIn(info, "error")),
 			lng(RT.getIn(info, "tasks")), lng(RT.getIn(info, "timelineLength")),
-			str(RT.getIn(config, "llmOperation")), str(RT.getIn(config, Fields.OPERATION)),
+			model(str(RT.getIn(config, "llmOperation")), str(RT.getIn(config, "model"))),
+			str(RT.getIn(config, Fields.OPERATION)),
 			str(RT.getIn(config, "systemPrompt")),
 			CVMBool.TRUE.equals(RT.getIn(config, "defaultTools")),
 			strings(RT.getIn(config, "tools")), strings(RT.getIn(config, "skillsets")),
@@ -122,6 +123,11 @@ public final class AgentInfo {
 			}
 		}
 		return out;
+	}
+
+	/** The model operation, followed by the model it is told to use when the config overrides the operation's own. */
+	private static String model(String operation, String model) {
+		return (operation != null && model != null) ? operation + "  ·  " + model : operation;
 	}
 
 	private static List<String> strings(ACell cell) {

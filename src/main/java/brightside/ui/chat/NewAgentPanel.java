@@ -63,7 +63,7 @@ public final class NewAgentPanel extends JPanel {
 			if (!Dialogs.form(parent, "New agent", panel)) return null;
 			Options options = panel.options();
 			if (options != null) return options;
-			Dialogs.warn(parent, "New agent", "Give the agent a name.");
+			Dialogs.warn(parent, "New agent", "Give the agent a name and a model.");
 		}
 	}
 

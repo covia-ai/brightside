@@ -45,7 +45,8 @@ the wizard and unlock both run before it. The code is `OnboardingWizard`,
    twelve or twenty-four words with live validation, and an advanced fold takes
    a raw seed. The seed is then derived and written encrypted, and the venue's
    DID is fixed.
-4. **Model** — provider and model from the venue's catalogue, an API key with
+4. **Model** — provider and model from the venue's catalogue (for OpenRouter
+   and Ollama, any model id typed in), an API key with
    a link to that provider's console, an optional test call, and a keyless
    "use the offline echo bot" escape so the app works end to end without a
    key. The key is staged encrypted and moved into the venue's secret stores at
@@ -76,7 +77,8 @@ restores the identity only.
 ## Settings afterwards
 
 - **Model** — provider, model and key. The model choice persists in
-  `config.json` and applies on the next message; the key goes to the venue's
+  Brightside's venue state ([APP_STATE.md](APP_STATE.md)) and applies on the
+  next message; the key goes to the venue's
   secret stores at once and never to `config.json`. Stored values are viewable,
   passphrase-gated, under *Settings → Secrets* (a passphrase remembered on
   this computer passes the gate unasked).
@@ -85,5 +87,5 @@ restores the identity only.
 - **Advanced** — change passphrase, view the recovery phrase behind the
   passphrase.
 
-Providers and their secret names are catalogued in `model/Providers`; the live
-model list comes from the venue.
+Providers, their models and their secret names are listed in
+`model/Providers`; each listed model is one the venue catalogues.

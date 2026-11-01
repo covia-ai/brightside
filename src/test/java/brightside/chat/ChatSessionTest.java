@@ -29,6 +29,7 @@ import brightside.Identity;
 import brightside.SessionHistory;
 import brightside.SharedVenue;
 import brightside.chat.ChatSession;
+import brightside.model.Providers;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
@@ -430,6 +431,31 @@ class ChatSessionTest {
 		ChatSession reopened = new ChatSession(venue, replacement, null, false);
 		ChatSession.Reply reply = reopened.send("still configured");
 		assertTrue(reply.text().contains("still configured"), reply.text());
+	}
+
+	@Test
+	void anUncataloguedModelRunsThroughItsProviderUntilOneIsChosenThatIs() throws Exception {
+		String agentId = "bs-any-model";
+		String typed = "google/gemini-3.6-flash";
+		new ChatSession(venue, modelChat(agentId, Providers.modelOp("openrouter", typed))).ensureAgent();
+
+		// What the agent loop resolves from the stored configuration, by Covia's own rule.
+		@SuppressWarnings("unchecked")
+		AMap<AString, ACell> config = (AMap<AString, ACell>) RT.getIn(agentInfo(agentId), Fields.CONFIG);
+		Asset operation = engine.resolveAsset(AbstractLLMAdapter.getLLMOperation(config), engine.venueContext());
+		assertNotNull(operation, "the provider's own operation");
+		assertEquals(Strings.create(typed), AbstractLLMAdapter.resolveModel(engine, operation,
+			RT.ensureString(config.get(Strings.create("model"))), config, engine.venueContext()).modelId());
+
+		// agent:update merges: choosing a catalogued model must clear the override.
+		new ChatSession(venue, modelChat(agentId, "v/models/openrouter/anthropic/claude-sonnet-5")).ensureAgent();
+		ACell updated = RT.getIn(agentInfo(agentId), Fields.CONFIG);
+		assertEquals(Strings.create("v/models/openrouter/anthropic/claude-sonnet-5"), RT.getIn(updated, "llmOperation"));
+		assertNull(RT.getIn(updated, "model"));
+	}
+
+	private static AppConfig.Chat modelChat(String agentId, String modelOp) {
+		return new AppConfig.Chat(agentId, AppConfig.DEFAULT_OPERATION, modelOp, "Answer the user.");
 	}
 
 	@Test

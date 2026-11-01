@@ -440,6 +440,7 @@ public final class OnboardingWizard extends JPanel {
 					&& keyField.getPassword().length == 0) {
 					return "Paste your API key, or choose the offline bot.";
 				}
+				if (useKey.isSelected() && modelSelector.selectedModel() == null) return "Choose a model.";
 			}
 			default -> { }
 		}

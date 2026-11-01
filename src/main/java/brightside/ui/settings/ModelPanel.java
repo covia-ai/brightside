@@ -87,7 +87,8 @@ public final class ModelPanel extends SettingsPage {
 		boolean changed = !Objects.equals(currentProviderId(), baselineProvider)
 			|| !Objects.equals(currentModelId(), baselineModel)
 			|| keyField.getPassword().length > 0;
-		primary.setEnabled(changed);
+		// Nothing to save while a typed model id is still empty.
+		primary.setEnabled(changed && currentModelId() != null);
 	}
 
 	private String currentProviderId() {

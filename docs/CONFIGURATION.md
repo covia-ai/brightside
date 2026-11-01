@@ -139,7 +139,7 @@ and across configuration changes.
 |---|---|
 | `agentId` | The agent's id under your namespace — `<venueDID>:u:<name>/g/<agentId>`. |
 | `operation` | The transition operation driving each turn. Default `v/ops/llmagent/chat`. |
-| `llmOperation` | The model operation. Default `v/models/anthropic/claude-sonnet-5-5`. |
+| `llmOperation` | The model operation. Default `v/models/anthropic/claude-sonnet-5-5`. OpenRouter and Ollama serve more models than the venue catalogues: `v/models/openrouter/<vendor>/<model>` or `v/models/ollama/<model>` names any of them, and one the catalogue lacks runs through the provider's own operation with that model. |
 | `systemPrompt` | The assistant's identity, role and tone. Dynamic owner/model context comes from Brightside's read-only context operation; task detail belongs in on-demand skills. |
 
 A reply has no time limit. A turn takes as long as its model and tool calls
