@@ -1,5 +1,7 @@
 package brightside.ui.settings;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import javax.swing.JPasswordField;
@@ -68,6 +70,11 @@ public final class ModelPanel extends SettingsPage {
 		keyField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT,
 			needsKey ? "Paste a new key to replace it (leave blank to keep)" : "No key needed for this provider");
 		updateDirty();
+	}
+
+	/** Offers the models the venue reports each provider serving right now, by provider id. */
+	public void offer(Map<String, List<String>> served) {
+		modelSelector.offer(served);
 	}
 
 	/** Preselect the provider/model for {@code modelOp} and re-baseline (Save disabled). */

@@ -7,9 +7,15 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 
 import brightside.model.Providers;
+import convex.core.data.ACell;
+import convex.core.data.Maps;
+import convex.core.data.Vectors;
 
 class ProvidersTest {
 
@@ -35,6 +41,16 @@ class ProvidersTest {
 		assertEquals(new Providers.Route("v/models/anthropic/claude-new", null),
 			Providers.route("v/models/anthropic/claude-new"), "a provider without anyModel is never rerouted");
 		assertEquals(new Providers.Route("v/test/ops/llm", null), Providers.route("v/test/ops/llm"));
+	}
+
+	@Test
+	void offersWhatTheVenueServesOnlyWhereAnyModelCanRun() {
+		ACell report = Maps.of("providers", Vectors.of(
+			Maps.of("provider", "ollama", "installedModels", Vectors.of("qwen2.5:7b", "llama3.2:3b")),
+			Maps.of("provider", "openai", "installedModels", Vectors.of("gpt-uncatalogued")),
+			Maps.of("provider", "openrouter", "models", Vectors.of("openrouter/auto"))));
+		assertEquals(Map.of("ollama", List.of("qwen2.5:7b", "llama3.2:3b")), Providers.served(report));
+		assertTrue(Providers.served(null).isEmpty());
 	}
 
 	@Test

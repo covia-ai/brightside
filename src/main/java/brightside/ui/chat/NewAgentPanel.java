@@ -2,6 +2,8 @@ package brightside.ui.chat;
 
 import java.awt.Component;
 import java.awt.Dimension;
+import java.util.List;
+import java.util.Map;
 
 import javax.swing.JComboBox;
 import javax.swing.JPanel;
@@ -33,13 +35,15 @@ public final class NewAgentPanel extends JPanel {
 	private final SelectableText templateDescription = descriptionArea();
 	private final ModelSelector model = new ModelSelector();
 
-	public NewAgentPanel(String currentModelOp) {
+	/** {@code served}: the models the venue reports each provider serving right now, by provider id. */
+	public NewAgentPanel(String currentModelOp, Map<String, List<String>> served) {
 		super(new MigLayout("insets 8, fillx, wrap 2", "[]14[grow,fill]", ""));
 		setOpaque(false);
 		name.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "e.g. Research partner");
 		name.setToolTipText("The name shown in the agent list");
 		template.setToolTipText("A starting role and working style; the agent can grow from here");
 		template.addActionListener(e -> updateTemplateDescription());
+		model.offer(served);
 		model.selectModelOp(currentModelOp);
 
 		add(Labels.text("Name"));
@@ -56,8 +60,8 @@ public final class NewAgentPanel extends JPanel {
 	}
 
 	/** Shows the shared form in a modal dialog, returning null when cancelled. */
-	public static Options showDialog(Component parent, String currentModelOp) {
-		NewAgentPanel panel = new NewAgentPanel(currentModelOp);
+	public static Options showDialog(Component parent, String currentModelOp, Map<String, List<String>> served) {
+		NewAgentPanel panel = new NewAgentPanel(currentModelOp, served);
 		while (true) {
 			SwingUtilities.invokeLater(panel.name::requestFocusInWindow);
 			if (!Dialogs.form(parent, "New agent", panel)) return null;

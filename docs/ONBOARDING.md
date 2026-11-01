@@ -88,4 +88,6 @@ restores the identity only.
   passphrase.
 
 Providers, their models and their secret names are listed in
-`model/Providers`; each listed model is one the venue catalogues.
+`model/Providers`; each listed model is one the venue catalogues. Settings and
+the new-agent dialog also offer the models the venue reports a provider serving
+right now, such as those installed in Ollama.

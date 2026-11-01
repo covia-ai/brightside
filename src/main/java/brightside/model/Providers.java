@@ -1,6 +1,14 @@
 package brightside.model;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+
+import convex.core.data.ACell;
+import convex.core.data.AString;
+import convex.core.data.AVector;
+import convex.core.lang.RT;
 
 /**
  * The model providers Brightside offers at onboarding and in Settings, mirroring
@@ -134,6 +142,29 @@ public final class Providers {
 			return new Route(modelOp, null);
 		}
 		return new Route("v/ops/langchain/" + p.id(), modelId);
+	}
+
+	/**
+	 * The models the venue's {@code langchain:models} {@code report} says each
+	 * provider serves right now beyond its catalog — Ollama's installed models —
+	 * by provider id, in the report's order. Only providers that take
+	 * {@code anyModel} are included, since only their ids {@link #route} can run.
+	 */
+	public static Map<String, List<String>> served(ACell report) {
+		Map<String, List<String>> served = new LinkedHashMap<>();
+		if (!(RT.getIn(report, "providers") instanceof AVector<?> providers)) return served;
+		for (long i = 0; i < providers.count(); i++) {
+			ACell entry = (ACell) providers.get(i);
+			Provider p = byId(String.valueOf(RT.getIn(entry, "provider")));
+			if (p == null || !p.anyModel() || !(RT.getIn(entry, "installedModels") instanceof AVector<?> ids)) continue;
+			List<String> list = new ArrayList<>();
+			for (long j = 0; j < ids.count(); j++) {
+				AString id = RT.ensureString((ACell) ids.get(j));
+				if (id != null) list.add(id.toString());
+			}
+			served.put(p.id(), List.copyOf(list));
+		}
+		return served;
 	}
 
 	/** The default provider (Anthropic). */

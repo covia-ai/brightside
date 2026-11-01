@@ -2,6 +2,7 @@ package brightside.ui.components;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.DefaultListCellRenderer;
@@ -26,6 +27,7 @@ public final class ModelSelector extends JPanel {
 	private final JComboBox<Providers.Model> model = new JComboBox<>();
 	private final IdEditor idEditor = new IdEditor();
 	private final List<Runnable> listeners = new ArrayList<>();
+	private Map<String, List<String>> served = Map.of();
 	private boolean syncing;
 
 	public ModelSelector() {
@@ -86,6 +88,16 @@ public final class ModelSelector extends JPanel {
 		fireSelectionChanged();
 	}
 
+	/**
+	 * Adds the models the venue reports each provider serving right now
+	 * ({@link Providers#served}) to the list after the provider's own, keeping
+	 * the choice as it stands.
+	 */
+	public void offer(Map<String, List<String>> servedModels) {
+		served = Map.copyOf(servedModels);
+		addServed();
+	}
+
 	public Providers.Provider selectedProvider() {
 		return (Providers.Provider) provider.getSelectedItem();
 	}
@@ -129,6 +141,17 @@ public final class ModelSelector extends JPanel {
 		model.setToolTipText(p.anyModel()
 			? "Which model to use: pick one, or type the id of any model " + p.label() + " serves"
 			: "Which model to use");
+		addServed();
+	}
+
+	/** Appends the selected provider's served models that the list lacks, labelled by id. */
+	private void addServed() {
+		Providers.Provider p = selectedProvider();
+		if (p == null) return;
+		DefaultComboBoxModel<Providers.Model> list = (DefaultComboBoxModel<Providers.Model>) model.getModel();
+		for (String id : served.getOrDefault(p.id(), List.of())) {
+			if (listed(id) == null) list.addElement(new Providers.Model(id, id));
+		}
 	}
 
 	/** The model in the list with this id, or null. */

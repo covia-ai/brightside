@@ -2,6 +2,7 @@ package brightside.ui;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Dimension;
@@ -96,6 +97,8 @@ public final class MainWindow extends JFrame {
 
 	private EmbeddedVenue venue; // set once ready
 	private Identity identity;
+	/** What the venue last reported each provider serving, for the new-agent dialog. */
+	private Map<String, List<String>> servedModels = Map.of();
 	private String currentCard;
 
 	public MainWindow(BrightSide app) {
@@ -194,7 +197,8 @@ public final class MainWindow extends JFrame {
 
 			@Override
 			public void onNewAgent() {
-				NewAgentPanel.Options options = NewAgentPanel.showDialog(MainWindow.this, app.currentModelOp());
+				NewAgentPanel.Options options = NewAgentPanel.showDialog(MainWindow.this, app.currentModelOp(),
+					servedModels);
 				if (options != null) {
 					app.createAgent(options.name(), options.modelOp(), options.systemPrompt(), options.template().skill());
 				}
@@ -675,6 +679,7 @@ public final class MainWindow extends JFrame {
 		chatPanel.setSession(session);
 		selectTab(NavBar.Tab.HOME);
 		show(CARD_CHAT);
+		app.refreshServedModels(); // answers through showServedModels, off the event thread
 	}
 
 	/** Switched to another agent: rebind the chat to its conversation (no name-change note). */
@@ -843,6 +848,7 @@ public final class MainWindow extends JFrame {
 		settingsScreen.general().refreshStore(app.storeReport());
 		settingsScreen.theme().refresh(app.mode(), app.theme(), app.accent());
 		settingsScreen.model().preselect(app.currentModelOp());
+		app.refreshServedModels(); // answers through showServedModels, off the event thread
 		settingsScreen.profile().refresh(name, userDid, venueDid, app.publicKeyHex(), app.canRevealPrivateSeed(),
 			app.actingAsOperator(), app.operatorName());
 		app.refreshDiscordStatus(); // answers through showDiscordStatus, off the event thread
@@ -880,6 +886,12 @@ public final class MainWindow extends JFrame {
 	}
 
 	/** The owner's Discord bot as the venue reports it (null: none), with an optional note for Settings → Integrations. */
+	/** The models the venue reports each provider serving right now, by provider id, for the model pickers. */
+	public void showServedModels(Map<String, List<String>> served) {
+		servedModels = served;
+		settingsScreen.model().offer(served);
+	}
+
 	public void showDiscordStatus(brightside.Discord.Bot bot, String note) {
 		settingsScreen.integrations().discord().showStatus(bot, note);
 	}

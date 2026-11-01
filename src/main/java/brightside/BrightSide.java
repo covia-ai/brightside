@@ -80,6 +80,8 @@ public final class BrightSide {
 	 */
 	private static final String PREF_TAKE_OVER = "startup.takeOver";
 	private static final String PREF_UNLOCK = "startup.unlock";
+	/** The venue's model listing: each provider's catalog, readiness and live models. */
+	private static final String MODELS_OP = "v/ops/langchain/models";
 
 	private final AppConfig config;
 	private final Path configPath;
@@ -928,6 +930,29 @@ public final class BrightSide {
 	/** The owner's in-process client — the named user even while the app acts as the operator. */
 	private Venue ownerClient(EmbeddedVenue v, Identity id) {
 		return v.clientAs(id.userDID(v.did()));
+	}
+
+	/**
+	 * Asks the venue, off the event thread, which models each provider serves
+	 * right now beyond its catalog, and offers them in the model pickers. A
+	 * read: the listing is a read-only operation. Unanswered, the pickers keep
+	 * their own lists.
+	 */
+	public void refreshServedModels() {
+		EmbeddedVenue v = venue;
+		Identity id = identity;
+		if (v == null || id == null) return;
+		Thread t = new Thread(() -> {
+			try {
+				ACell report = ownerClient(v, id).run(MODELS_OP, Maps.empty()).get(30, TimeUnit.SECONDS);
+				Map<String, List<String>> served = Providers.served(report);
+				SwingUtilities.invokeLater(() -> window.showServedModels(served));
+			} catch (Exception e) {
+				log.warn("Could not list the models the venue serves: {}", e.toString());
+			}
+		}, "brightside-served-models");
+		t.setDaemon(true);
+		t.start();
 	}
 
 	/**
