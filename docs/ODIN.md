@@ -44,7 +44,8 @@ modules, create, list and inspect users, issue grants over the venue's own
 resources, look after the data store's disk: ask for it to be compacted
 at the next start, and remove the files earlier repairs kept; and restart
 Brightside, either the venue inside the running app or a relaunch, a new
-instance taking over ([LAUNCH.md](LAUNCH.md#restart-and-relaunch)). Inside one of the venue's users' namespaces, on their behalf:
+instance taking over, which can run a new build
+([LAUNCH.md](LAUNCH.md#restart-and-relaunch)). Inside one of the venue's users' namespaces, on their behalf:
 read, write and delete workspace data, inspect, update, resume and delete
 agents and their past sessions, and read skills — enough to repair an owner's
 assistants.

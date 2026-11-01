@@ -124,8 +124,8 @@ public final class BrightSide {
 		}
 
 		@Override
-		public ProcessHandle relaunch() throws Exception {
-			return BrightSide.this.relaunch();
+		public ProcessHandle relaunch(covia.grid.AContent jar) throws Exception {
+			return BrightSide.this.relaunch(jar);
 		}
 	};
 	private final AtomicLong chatBindings = new AtomicLong();
@@ -641,23 +641,29 @@ public final class BrightSide {
 
 	/**
 	 * Starts the Brightside that takes over from this one, for
-	 * {@code brightside:relaunch}: the same program and configuration, coming
-	 * back as this one is ({@link #relaunchOptions}). Refused while locked —
+	 * {@code brightside:relaunch}: the same configuration, and the same program
+	 * or {@code jar}, copied into the run directory first ({@link Relaunch#stage}),
+	 * coming back as this one is ({@link #relaunchOptions}). Refused while locked —
 	 * unlocking at once would undo the lock, and the newcomer cannot take over
 	 * without the key — and while exiting. Never on the event thread.
 	 */
-	private ProcessHandle relaunch() throws Exception {
+	private ProcessHandle relaunch(covia.grid.AContent jar) throws Exception {
 		if (exiting.get()) throw new IllegalStateException("Brightside is already shutting down");
-		boolean[] locked = { false }, showing = { false };
+		boolean[] asking = { false }, showing = { false };
 		SwingUtilities.invokeAndWait(() -> {
-			locked[0] = unlockDialog != null;
+			asking[0] = unlockDialog != null;
 			showing[0] = window != null && window.isShowing()
 				&& (window.getExtendedState() & java.awt.Frame.ICONIFIED) == 0;
 		});
-		if (locked[0]) throw new IllegalStateException("Brightside is locked; it can relaunch once the owner unlocks it");
+		if (asking[0]) throw new IllegalStateException("Brightside is locked; it can relaunch once the owner unlocks it");
 		List<String> options = relaunchOptions(showing[0], RememberedPassphrase.exists(config.home()));
-		log.info("Relaunching: starting a new Brightside with {}", options);
-		return Relaunch.start(configPath, options).toHandle();
+		if (jar == null) {
+			log.info("Relaunching: starting a new Brightside with {}", options);
+			return Relaunch.start(configPath, options).toHandle();
+		}
+		Path staged = Relaunch.stage(jar, config.home());
+		log.info("Relaunching: starting a new Brightside from {} with {}", staged, options);
+		return Relaunch.start(staged, configPath, options).toHandle();
 	}
 
 	/**

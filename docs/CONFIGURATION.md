@@ -33,6 +33,7 @@ hand-edited file and its comments stay intact.
 | `~/.brightside/files/` | Brightside-managed local files; exposed to the assistant as the confined writable `files` root. |
 | `~/.brightside/code/` | Source checkouts the assistant works on, as the writable `code` root; `code/brightside` is Brightside's own source, a [Claude Code](#claude-code) project by default. |
 | `~/.brightside/logs/` | Plaintext rolling logs; exposed to the assistant as the server-enforced read-only `logs` root. |
+| `~/.brightside/run/` | The copy of the jar a relaunch started from another build ([LAUNCH.md](LAUNCH.md#relaunch)); earlier copies go at the next relaunch. |
 | `~/.brightside/cache/speech/` | The speech models and engine libraries [voice typing](#voice-typing) and [reading aloud](#reading-replies-aloud) download once you agree; safe to delete. |
 
 To reset Brightside completely, remove the whole data directory while

@@ -75,7 +75,8 @@ is theirs to decide. Only the final message comes back, so make it a faithful
 report of what was done, which tests ran and what remains. Never launch
 Brightside from the checkout (`mvn exec:java`, `java -jar`): the instance
 driving you is running on this machine, and a second launch would take it
-over. Build with `mvn package` and say the owner must restart from that build.
+over. Build with `mvn package` and say that Brightside must be relaunched into
+that build, which the owner, or Odin on their behalf, does.
 Commit on `develop` after each meaningful, tested chunk of work; pushing,
 merging to `master` and releasing need the owner's explicit word, relayed in
 the prompt.

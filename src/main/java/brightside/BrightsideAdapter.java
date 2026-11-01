@@ -26,12 +26,14 @@ import convex.core.util.JSON;
 import convex.core.util.Utils;
 import convex.lattice.cursor.AForkableCursor;
 import covia.adapter.AAdapter;
+import covia.grid.AContent;
 import covia.api.Abilities;
 import covia.api.Fields;
 import covia.venue.AdapterState;
 import covia.venue.Engine.UserPathTarget;
 import covia.venue.RequestContext;
 import covia.venue.UcanJwtValidator;
+import covia.venue.storage.ContentProvider;
 
 /**
  * The Brightside venue adapter: Brightside-specific operations.
@@ -85,6 +87,7 @@ public class BrightsideAdapter extends AAdapter {
 	private static final AString K_STORE = Strings.intern("store");
 	private static final AString K_PID = Strings.intern("pid");
 	private static final AString K_STARTED = Strings.intern("started");
+	private static final AString K_JAR = Strings.intern("jar");
 	private static final AString K_ACCEPTED = Strings.intern("accepted");
 	private static final AString K_NAME = Strings.intern("name");
 	private static final AString K_DELETED = Strings.intern("deleted");
@@ -155,8 +158,11 @@ public class BrightsideAdapter extends AAdapter {
 			throw new IllegalStateException("This Brightside cannot restart its venue");
 		}
 
-		/** Starts a Brightside that takes over from this one ({@code brightside:relaunch}), and returns its process. */
-		default ProcessHandle relaunch() throws Exception {
+		/**
+		 * Starts a Brightside that takes over from this one ({@code brightside:relaunch}),
+		 * from {@code jar}, or the program this one runs when null, and returns its process.
+		 */
+		default ProcessHandle relaunch(AContent jar) throws Exception {
 			throw new IllegalStateException("This Brightside cannot start itself again");
 		}
 	}
@@ -322,7 +328,7 @@ public class BrightsideAdapter extends AAdapter {
 			return handleRestart(ctx);
 		}
 		if ("relaunch".equals(op)) {
-			return handleRelaunch(ctx);
+			return handleRelaunch(ctx, input);
 		}
 		if ("storage".equals(op)) {
 			return handleStorage(ctx, input);
@@ -565,21 +571,31 @@ public class BrightsideAdapter extends AAdapter {
 	/**
 	 * Relaunches the app: starts a new instance, which takes over from this one
 	 * as any newcomer does ({@link Takeover}), and answers once it has started,
-	 * not once it has taken over. Venue-operator only, so Odin's to run through
-	 * his bridge; refused while the successor an earlier relaunch started is
-	 * still running here beside this one — starting, or waiting for the passphrase.
+	 * not once it has taken over. The new instance runs the program this one
+	 * runs, or the {@code jar} named: any content reference the venue resolves
+	 * ({@code file://<root>/<path>}, a DLFS path, an asset), read under the
+	 * caller's authority. Venue-operator only, so Odin's to run through his
+	 * bridge; refused while the successor an earlier relaunch started is still
+	 * running here beside this one — starting, or waiting for the passphrase.
 	 */
-	private CompletableFuture<ACell> handleRelaunch(RequestContext ctx) {
+	private CompletableFuture<ACell> handleRelaunch(RequestContext ctx, ACell input) {
 		try {
 			if (!isOperator(ctx)) throw new IllegalStateException("brightside:relaunch requires venue operator authority");
 			if (app == null) throw new IllegalStateException("This venue has no app to start again");
+			AString jarRef = optionalText(input, K_JAR, 2000);
 			ProcessHandle started;
 			synchronized (relaunchLock) {
 				if (successor != null && successor.isAlive()) {
 					throw new IllegalStateException("A relaunch is already under way: the new Brightside (process "
 						+ successor.pid() + ") is starting, or waiting for the passphrase");
 				}
-				started = app.relaunch();
+				AContent jar = null;
+				if (jarRef != null) {
+					ContentProvider.Resolved resolved = engine.resolveContent(jarRef, ctx);
+					if (resolved == null) throw new IllegalArgumentException("Nothing to relaunch from at " + jarRef);
+					jar = resolved.content();
+				}
+				started = app.relaunch(jar);
 				successor = started;
 			}
 			log.info("Relaunching: the new instance is process {}", started.pid());

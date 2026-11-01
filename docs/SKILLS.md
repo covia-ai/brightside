@@ -187,8 +187,8 @@ the index and open their own families.
   project by default (`code/brightside`, cloned on first use), and `coding` →
   `self-improvement` is the path: agree the change, hand it to Claude Code one
   bounded task at a time, verify by the tests, and report; the change takes
-  effect once Brightside is started from the new build, which is the owner's
-  to do.
+  effect once Odin relaunches Brightside into the new build, when the owner
+  wants it running.
 
 - The assistant writes its own skills to `w/skills/<name>`. `skill-authoring`
   brings the lattice write tool for that purpose and a Brightside deletion

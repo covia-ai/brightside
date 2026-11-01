@@ -142,9 +142,9 @@ only a standalone venue has.
 - **`brightside:restart`** stops the venue and starts it again inside this
   process: the same program, with the key it already holds. It picks up
   `config.json` and a compaction asked for, not new code.
-- **`brightside:relaunch`** starts a new process that takes over, as above: a
-  new jar at the same path, or newly compiled classes for a launch from an
-  IDE, come in with it.
+- **`brightside:relaunch`** starts a new process that takes over, as above,
+  running this program again or another Brightside jar: this is how a new
+  build comes in.
 
 Either way an agent's work in flight resumes once the venue is back: it finds
 the operation's answer in its conversation, and a call cut off by the stop was
@@ -171,10 +171,18 @@ stops. `RestartTest` runs both on a venue whose app does nothing.
 
 ### Relaunch
 
-- The newcomer is the same program on the same configuration file: the same
-  Java, and the same jar, or the same class path for a launch from an IDE,
-  which then carries on outside the IDE (`Relaunch`, as the MCP bridge starts
-  the app).
+- The newcomer runs on the same Java and configuration file, and by default
+  the same program: the same jar, or the same class path for a launch from an
+  IDE, which then carries on outside the IDE (`Relaunch`, as the MCP bridge
+  starts the app). Windows locks a running jar, so a jar launch never picks
+  up a build that replaced its file.
+- `jar` names another Brightside jar instead: any content reference the venue
+  resolves for the caller, such as `file://code/brightside/target/brightside.jar`
+  for Brightside's own build, a DLFS path or an asset, read under the
+  caller's authority. It is copied into `~/.brightside/run/` and the copy
+  runs, so the build can be replaced meanwhile; earlier copies go unless one
+  is still running. A jar whose main class is not Brightside's is refused.
+  A plain `https://` URL is not a content reference in Covia yet.
 - It comes back as this one is, and takes over and unlocks with the
   remembered passphrase without asking, whatever the startup settings say:
   `--takeover` when the window is showing, so the window comes back;
