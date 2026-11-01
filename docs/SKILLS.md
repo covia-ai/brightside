@@ -29,6 +29,10 @@ what each reveals links into the library.
   never to do.
 - **Namespaces separate who writes what.** The venue writes `v/`, the owner's
   agent writes `w/`, scratch and memory live in `n/`.
+- **Memory holds preferences, not records.** The pinned memory is the owner's
+  preferences and standing decisions, kept short. What happened is already in
+  job records and past conversations, and knowledge of a subject belongs in a
+  skill or the workspace.
 
 ## Namespaces
 
@@ -39,7 +43,7 @@ what each reveals links into the library.
 | `w/skills` | the owner's agent's own skills, including imported `SKILL.md` folders | the agent, `FilesystemSkills` |
 | `w/skill-feedback/<id>` | append-only reports of concrete skill-system misses | the scoped feedback operation |
 | `w/memory` | what the owner is like and prefers, shared by all their assistants | the assistants |
-| `n/…` | the agent's private scratch, including `n/memory` | the agent |
+| `n/…` | the agent's private scratch, including `n/memory`: the owner's standing decisions that only this agent's work needs | the agent |
 
 Only the venue writes `v/`. A skill of the owner's shadows a shipped skill of
 the same name, and Brightside's shadow the venue's. Brightside ships its own
@@ -52,7 +56,9 @@ hold goes in the context line or in the message itself.
 
 ## What the assistant starts with
 
-`ChatSession` configures the agent the same way on every launch:
+`ChatSession` applies this configuration on the owner's first message from the
+app after each launch; until then, scheduled runs and other channels use the
+one last applied:
 
 - **Skillsets** `w/skills`, `v/skills/brightside`, `v/skills/root`, in that
   order. No skill is pinned, except in an agent made from a template for one
@@ -68,7 +74,9 @@ hold goes in the context line or in the message itself.
   cached prefix around it with the pins, memory and skills index refreshed.
 - **Context** memory, rendered every turn through the read-only recall
   operation: `w/memory`, shared by all the owner's assistants, then its own
-  `n/memory`. Then one non-skill load, `brightside-context`,
+  `n/memory`. Covia cuts each pinned entry at a fixed share of the context
+  budget and keeps its beginning, so a memory that outgrows it loses its
+  newest entries. Then one non-skill load, `brightside-context`,
   which the read-only `brightside:context` operation assembles: the owner's
   name and DID, where model processing happens, today's date and timestamp
   (a model's own "now" is its training cut-off), and the product invariants.

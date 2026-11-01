@@ -55,8 +55,8 @@ settings file. The model is in [IDENTITY.md](IDENTITY.md).
 
 ## 4. The assistant itself
 
-- **It has a memory.** A private memory persists across conversations so it
-  feels like *their* assistant. It remembers quietly and never narrates the
+- **It has a memory.** It carries what the owner prefers and has decided
+  across conversations, so it feels like *their* assistant. It remembers quietly and never narrates the
   mechanics.
 - **Identity, runtime context and skills have separate jobs.** The configured
   system prompt owns the assistant's name and role. Facts about the owner and
