@@ -131,6 +131,8 @@ public final class BrightSide {
 	private final AtomicLong chatBindings = new AtomicLong();
 	/** The owner already agreed, at startup, to take over the instance found running. */
 	private volatile boolean takeoverApproved;
+	/** This launch took over from a running instance, which has gone: nothing else runs if it fails now. */
+	private volatile boolean tookOver;
 	/** Launched with --unlock: a failed unlock exits rather than waiting at the dialog for someone. */
 	private volatile boolean unattended;
 	/** Launched with --unlock: come up in the tray (minimised without one), not as a window. Event thread. */
@@ -398,10 +400,27 @@ public final class BrightSide {
 		}
 	}
 
-	/** An --unlock launch could not come up: nobody is there to try again, so say why and end with an error. */
+	/**
+	 * An --unlock launch could not come up: nobody is there to try again, so say
+	 * why and end with an error. Once it has taken over, nothing else is running
+	 * — a relaunch into a jar too old for the store ends here — so where there is
+	 * a desktop it also says why in a dialog, and ends when that is closed.
+	 */
 	private void unattendedFailed(String message) {
 		log.error("--unlock: {}", message);
 		System.err.println(message);
+		if (tookOver && !java.awt.GraphicsEnvironment.isHeadless()) {
+			Runnable tell = () -> JOptionPane.showMessageDialog(null,
+				"Brightside took over from the one that was running, then couldn't start:\n\n" + message,
+				APP_NAME, JOptionPane.ERROR_MESSAGE);
+			try {
+				if (SwingUtilities.isEventDispatchThread()) tell.run();
+				else SwingUtilities.invokeAndWait(tell);
+			} catch (Exception e) {
+				if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+				log.warn("Could not show why the launch failed", e);
+			}
+		}
 		exit(1);
 	}
 
@@ -477,6 +496,7 @@ public final class BrightSide {
 					System.exit(0);
 					return;
 				}
+				tookOver = true;
 			}
 			// The slow part: opening the encrypted store, adapters, provisioning;
 			// and compacting the store first, when that was asked for.

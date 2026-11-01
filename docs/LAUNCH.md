@@ -50,8 +50,10 @@ See [stdio setup](CONFIGURATION.md#from-a-stdio-mcp-client).
    desktop without one) until the tray brings it back. With
    no passphrase remembered, or no vault yet, it exits at once with an error
    and opens no window; a remembered passphrase that fails exits with an
-   error too, as does a launch that fails after it, since nobody is there to
-   read a dialog. Once it is up it is an ordinary session: a later
+   error too, as does a launch that fails after it, since nobody may be there
+   to read a dialog. One that has already taken over says why in a dialog
+   first, where there is a desktop, since nothing else is left running. Once
+   it is up it is an ordinary session: a later
    Lock asks for the passphrase as usual. If an instance is already running it
    is left alone and the launch exits, unless `--takeover` is given as well;
    the startup settings never apply to it.
@@ -191,7 +193,13 @@ stops. `RestartTest` runs both on a venue whose app does nothing.
   from the tray.
 - This instance runs on until the newcomer has unlocked and asks it to stop, so
   a failure before then leaves it as it was. Only a failure in the newcomer's
-  own venue launch, after the handover, leaves nothing running.
+  own venue launch, after the handover, leaves nothing running; it says why on
+  its unlock dialog, or in a dialog of its own from the tray.
+- Nothing checks that a jar is newer: a build's version does not tell
+  development builds apart. A jar too old for the store takes over, finds the
+  store written by a newer Brightside, changes nothing and says so
+  ([below](#opening-a-store-an-older-build-wrote)); starting the newer build
+  again opens it.
 - The operation answers as soon as the newcomer has started, with its process
   id, not once it has taken over; a newcomer that fails after that says so
   only in the log, or on its own unlock dialog. `brightside:info` reports the
@@ -270,7 +278,8 @@ one transaction before anything else touches the store: an upgrade that fails
 changes nothing, and the launch reports it. Some of it is lazy: a conversation
 moves to Covia's append-only history only when its session next runs, so one
 left alone keeps its older form, and both read the same. A store written by a
-newer build is refused, unchanged, with a message on the unlock screen.
+newer build is refused, unchanged, with a message on the unlock screen, or in
+a dialog from a launch that took over from the tray.
 
 An upgraded store cannot be read by the older build, and a build from before
 Covia versioned its state does not even check, so going back means a backup of
