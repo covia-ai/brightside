@@ -20,13 +20,29 @@ public final class Odin {
 	public static final String AGENT_ID = "Odin";
 
 	/**
-	 * The operator operations Odin may run as the venue. Each is guarded by
-	 * Covia's {@code requireVenueAuthority}; the bridge supplies the venue
-	 * context, this list bounds what it will supply it for. Disk is reclaimed
-	 * through {@code brightside:storage}, which compacts at Brightside's next
-	 * start, not through {@code venue/gc}, whose restart option would reach the
-	 * lifecycle. Deliberately absent: {@code venue/restart} (Brightside owns its
-	 * own lifecycle), authentication key management, and venue-scoped MCP servers.
+	 * The operations Odin may run as the venue: all of its administration. The
+	 * bridge supplies the venue context and this list bounds what it supplies it
+	 * for, so what is absent is absent on purpose:
+	 * <ul>
+	 * <li>anything that runs another operation ({@code grid/run}, the scheduler,
+	 *     talking to an agent), which would carry the venue's authority past
+	 *     every exclusion here;</li>
+	 * <li>answering the Inbox ({@code hitl/respond}), which is the owner's
+	 *     decision even when a god asked;</li>
+	 * <li>money — Convex transactions, signing, keys — which is Njord's;</li>
+	 * <li>the venue's own agents — the gods, which hold operator rights — and
+	 *     the skill library and operation catalogue they load (so not
+	 *     {@code mcp/add-tool} either);</li>
+	 * <li>copying a user whole ({@code user/clone}, {@code export},
+	 *     {@code import}), which carries their secrets, and adding a way to
+	 *     sign in as someone ({@code user/authentication-add});</li>
+	 * <li>{@code secret/extract};</li>
+	 * <li>Covia's {@code venue/restart}, which needs a standalone Covia
+	 *     process, and {@code venue/gc}, which collects a store still open:
+	 *     {@code brightside:storage} compacts at the next start instead.</li>
+	 * </ul>
+	 * {@code user/delete} never takes the owner's account or a user a god keeps
+	 * ({@link BrightsideAdapter}).
 	 */
 	public static final Set<String> VENUE_OPERATIONS = Set.of(
 		"v/ops/venue/adapters",
@@ -35,32 +51,61 @@ public final class Odin {
 		"v/ops/venue/adapter/configure",
 		"v/ops/venue/module/load",
 		"v/ops/venue/module/unload",
+		"v/ops/venue/show-config",
+		"v/ops/mcp/add-server",
+		"v/ops/mcp/remove-server",
+		"v/ops/mcp/refresh",
+		"v/ops/mcp/tools-list",
 		"v/ops/user/create",
 		"v/ops/user/list",
 		"v/ops/user/info",
+		"v/ops/user/delete",
+		"v/ops/user/authentication-list",
+		"v/ops/user/authentication-revoke",
 		"v/ops/ucan/issue",
-		"v/ops/brightside/storage");
+		"v/ops/ucan/verify",
+		"v/ops/p2p/peers",
+		"v/ops/p2p/connect",
+		"v/ops/secret/list",
+		"v/ops/secret/set",
+		"v/ops/secret/delete",
+		"v/ops/brightside/storage",
+		"v/ops/brightside/shutdown");
 
 	/**
 	 * The operations Odin may run inside a user's namespace ({@code user:sudo}):
-	 * enough to inspect and repair an owner's assistants and workspace, nothing
-	 * that reaches beyond them.
+	 * looking after an owner's workspace, assistants, skills and keys. Talking to
+	 * an assistant as the owner, scheduling, answering their Inbox and reading a
+	 * secret's value stay out, for the reasons above.
 	 */
 	public static final Set<String> SUDO_OPERATIONS = Set.of(
 		"v/ops/covia/read",
 		"v/ops/covia/list",
 		"v/ops/covia/inspect",
+		"v/ops/covia/slice",
+		"v/ops/covia/aggregate",
 		"v/ops/covia/write",
+		"v/ops/covia/copy",
 		"v/ops/covia/delete",
+		"v/ops/agent/create",
 		"v/ops/agent/list",
 		"v/ops/agent/info",
 		"v/ops/agent/update",
+		"v/ops/agent/suspend",
 		"v/ops/agent/resume",
+		"v/ops/agent/reload-context",
 		"v/ops/agent/sessions",
+		"v/ops/agent/compact-session",
+		"v/ops/agent/rename-session",
 		"v/ops/agent/delete-session",
 		"v/ops/agent/delete",
 		"v/ops/skills/list",
-		"v/ops/skills/read");
+		"v/ops/skills/read",
+		"v/ops/skills/import",
+		"v/ops/brightside/delete-skill",
+		"v/ops/secret/list",
+		"v/ops/secret/set",
+		"v/ops/secret/delete");
 
 	/** Odin's identity and the policy he applies. Judgement lives here; the tools describe their own mechanics. */
 	public static final String SYSTEM_PROMPT = """

@@ -122,6 +122,7 @@ public class BrightsideAdapter extends AAdapter {
 	private static final String OP_GENERATE_KEY = "v/ops/convex/generate-key";
 	private static final String OP_AGENT_REQUEST = "v/ops/agent/request";
 	private static final String OP_USER_SUDO = "v/ops/user/sudo";
+	private static final String OP_USER_DELETE = "v/ops/user/delete";
 	private static final long DEFAULT_ASK_TIMEOUT_MS = 30_000;
 	private static final long MAX_ASK_TIMEOUT_MS = 300_000;
 	/** Lifetime of the per-call delegations the bridges mint: long enough to submit, never to keep. */
@@ -655,6 +656,7 @@ public class BrightsideAdapter extends AAdapter {
 					throw new IllegalArgumentException("Not a venue operation " + god.id() + " may run: " + operation
 						+ " (allowed: " + String.join(", ", new java.util.TreeSet<>(god.venueOperations())) + ")");
 				}
+				if (OP_USER_DELETE.equals(operation)) requireDeletable(RT.ensureString(RT.getIn(operationInput, Fields.DID)));
 				return engine.jobs().invokeInternal(operation, operationInput, engine.venueContext());
 			}
 			if (!god.sudoOperations().contains(operation)) {
@@ -688,6 +690,25 @@ public class BrightsideAdapter extends AAdapter {
 			return engine.jobs().invokeInternal(OP_USER_SUDO, sudo, operator);
 		} catch (Exception e) {
 			return CompletableFuture.failedFuture(e);
+		}
+	}
+
+	/**
+	 * Refuses to delete an account Brightside depends on: the owner's, which the
+	 * chat acts as, or a user a god keeps for itself, whose secrets would go with
+	 * it. Covia already refuses the venue's own.
+	 */
+	private void requireDeletable(AString did) {
+		if (did == null) return; // Covia refuses the call itself
+		String venueDID = engine.getDIDString().toString();
+		Identity owner = Identity.fromCell(owner());
+		if (owner != null && did.toString().equals(owner.userDID(venueDID))) {
+			throw new IllegalArgumentException(did + " is the owner's own account and cannot be deleted");
+		}
+		for (God keeper : Gods.ALL) {
+			if (did.toString().equals(keeper.kept(venueDID))) {
+				throw new IllegalArgumentException(did + " is kept by " + keeper.id() + " and cannot be deleted");
+			}
 		}
 	}
 
