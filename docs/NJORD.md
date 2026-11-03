@@ -90,5 +90,5 @@ content asked for.
 - Brightside fixes no network. The request names the peer, and a call that
   names none goes to Convex's public network, Covia's default.
 - Budgets and limits live in his memory and judgement. No mechanism refuses
-  an over-limit transaction yet; a spending policy in Covia's Convex adapter
-  would add one (covia#433).
+  an over-limit transaction yet; the treasury is designed to add one
+  ([TREASURY.md](TREASURY.md)).
