@@ -34,12 +34,11 @@ the owner sets, and Njord's judgement decides only how to use it.
 
 ## Accounts and rails
 
-An account is one address on one network, with its key held by reference in
-the custody of a user Njord may act in: his treasury above all, or the
-owner's own store, where funds may already be ([NJORD.md](NJORD.md)). Networks,
-accounts and assets are named by the CAIP standards that Convex's x402
-support already uses for networks, so a name means the same thing on every
-rail.
+An account is one place funds are held on one rail, with whatever lets the
+treasury spend from it, a key for a chain, held by reference in a custody the
+treasury signs from. Networks, accounts and assets are named by the CAIP
+standards that Convex's x402 support already uses for networks, so a name
+means the same thing on every rail.
 
 A rail is a `Rail`: how one network reads a balance and makes a payment. A
 rail that fits an existing Covia operation delegates to it. The Convex rail
@@ -86,10 +85,10 @@ for paying web services say, and those payments need no turn of his.
 
 ## Njord's place
 
-Njord stops signing directly. His bridge gains the treasury's operations and
-loses Covia's raw `transact` and `sign`, which would otherwise step around
-every limit. He keeps making keys, so he can open accounts in his treasury,
-and reading balances. His judgement still decides each payment he makes; the
+Njord's bridge gains the treasury's operations and keeps Covia's raw
+`transact` and `sign`, for what a payment cannot express. Those sign only
+with keys he can reach, so an account's limit holds as long as its key is
+not one of them. His judgement still decides each payment he makes; the
 treasury decides only that it fits.
 
 ## New interfaces
@@ -108,6 +107,9 @@ treasury decides only that it fits.
 
 ## Not yet decided
 
+- Where the keys of the treasury's accounts are kept, so that Njord's raw
+  signing cannot reach them, and how an account already held elsewhere
+  comes under the treasury.
 - How a contract call that spends, rather than a plain transfer, is paid
   through a rail.
 - Whether budgets expire, and whether a limit may also renew each period.
