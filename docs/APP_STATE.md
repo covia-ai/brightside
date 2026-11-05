@@ -33,6 +33,7 @@ in the Covia repository).
 | Minimise to the tray, keep the tool token | `tray`, `toolToken` | `brightside` |
 | Peers map settings | `users/<did>/peers-map` | `brightside` |
 | Moltbook account record (name, claim page) | `users/<did>/record` | `moltbook` |
+| The treasury's accounts, budgets and ledger of payments ([TREASURY.md](TREASURY.md)) | `accounts`, `budgets`, `ledger` | `treasury` |
 
 The skill-feedback backlog stays in the person's Covia workspace, because the
 assistant reads and writes it there with its ordinary tools. Secrets stay in
@@ -50,8 +51,8 @@ window is drawn in, and the folder roots the venue is configured with.
 ## Rules
 
 - **Methods, not paths.** Each value has a reader and a writer on its adapter
-  (`BrightsideAdapter`, `MoltbookAdapter`). Screens and operations call
-  those; nothing else names a key.
+  (`BrightsideAdapter`, `MoltbookAdapter`, `TreasuryAdapter`). Screens and
+  operations call those; nothing else names a key.
 - **A person's part through their view.** Reads and writes for a person use
   the adapter state bound to that person. Each adapter's user-deletion hook
   removes `users/<did>`.

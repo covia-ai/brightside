@@ -36,12 +36,12 @@ owns it.
 | Skills, tools and memory | `SKILLS.md` |
 | Startup, takeover, restart and relaunch, store repair, tray, exit | `LAUNCH.md` |
 | Venue, user and agent principals | `IDENTITY.md` |
-| The gods; Odin, Thor, Njord | `GODS.md`, `ODIN.md`, `THOR.md`, `NJORD.md` |
+| The gods; Odin, Thor, Njord; the treasury | `GODS.md`, `ODIN.md`, `THOR.md`, `NJORD.md`, `TREASURY.md` |
 | Vault, keys, recovery, network exposure | `SECURITY.md` |
 | First run, unlock, recovery, settings | `ONBOARDING.md` |
 | `config.json`, files, integrations, reaching the venue from other tools | `CONFIGURATION.md` |
 | Brightside's own state in the venue | `APP_STATE.md` |
-| Ahead of the code: federation, the Peers map, memory proposals, the treasury | `NETWORK.md`, `PEERS.md`, `ADVANCED_MEMORY.md`, `TREASURY.md` |
+| Ahead of the code: federation, the Peers map, memory proposals | `NETWORK.md`, `PEERS.md`, `ADVANCED_MEMORY.md` |
 | The shipped skills and Brightside's operations | `BrightsideSkillsAdapter`, `BrightsideAdapter` |
 | Covia's conventions, vocabulary and design | `../covia/AGENTS.md`, `../covia/venue/docs/` |
 

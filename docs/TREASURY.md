@@ -3,9 +3,11 @@
 The treasury holds the accounts Njord manages, the spend limit the owner has
 approved on each, the budgets Njord draws from those limits, and the ledger of
 every payment. It is a Brightside adapter written to move into Covia, and
-nothing in it belongs to any one network. This doc is ahead of the code: today
-Njord signs through Covia's Convex operations directly
-([NJORD.md](NJORD.md)).
+nothing in it belongs to any one network. Code: `brightside.treasury`
+(`TreasuryAdapter`, `Rail`, `ConvexRail`). Accounts, limits, budgets, paying
+and the ledger are built, on Convex, and Njord reaches them through his
+bridge; the rest of this doc is ahead of the code where
+[Not built yet](#not-built-yet) says so.
 
 - **Generic, with rails beneath.** The treasury speaks of accounts,
   currencies, amounts and payments. A rail is how money moves on one network
@@ -57,9 +59,9 @@ reads them.
 
 A rail is a `Rail`: how one network reads a balance and makes a payment. A
 rail that fits an existing Covia operation delegates to it. The Convex rail
-reads through `convex/query` and pays through `convex/transact`, so its
-signing key is resolved by Covia from its reference, never seen by the
-treasury, and
+pays CVM: it reads through `convex/query` and pays a `transfer` through
+`convex/transact`, used inside the user whose store holds the key, so the key
+is resolved by Covia from its reference, never seen by the treasury, and
 every payment keeps Covia's job record. A rail without such an operation,
 x402 or a card processor say, carries its own code.
 
@@ -98,9 +100,11 @@ overcommitment beside the balances, and the limit still caps what can leave.
 ## Paying
 
 A payment names its budget, the recipient, the amount and a reason. The
-caller must hold a grant on that budget. The treasury draws the budget and
-the limit down in one step, pays over the rail, and writes the ledger line;
-if the rail fails, the draw is returned.
+caller must hold a grant on that budget. In one step, saved before the rail
+is asked, the treasury draws the budget and the limit down and writes the
+ledger line; then it settles the line with what the rail said. Paid; not
+paid, when the rail is sure nothing moved, and the budget has the amount
+back; or unknown, when the rail cannot say, and it stays drawn.
 
 Today Njord is the only spender: his run bridge mints, for each call, a grant
 on the account or budget named and nothing broader. Once an agent can hold a
@@ -112,10 +116,11 @@ for paying web services say, and those payments need no turn of his.
 Authority over the treasury is Covia's ordinary capabilities
 (`venue/docs/UCAN.md` in the Covia repository): a resource path, an
 ability, and a grant that covers everything under its path. Accounts and
-budgets are resources of the treasury's own, under a `treasury/` segment.
-Budgets are flat, each at a path of its own that records the account it
-draws on, so moving a budget leaves its path, and every grant on it, as it
-was.
+budgets are the venue's own resources, `<venueDID>/treasury/accounts/<id>`
+and `<venueDID>/treasury/budgets/<id>`, so the venue holds every ability and
+anyone else presents a grant it signed. Budgets are flat, each at a path of
+its own that records the account it draws on, so moving a budget leaves its
+path, and every grant on it, as it was.
 
 | Ability | On | Lets the holder | Held by |
 |---|---|---|---|
@@ -133,7 +138,7 @@ Delegation needs nothing new: Covia's grant issuance already lets a holder of
 
 | Operation | Does | Needs |
 |---|---|---|
-| `account-add` | bring an account under the treasury by its credential reference, with a limit of nothing | `treasury/budget` on the treasury |
+| `account-add` | bring an account under the treasury by its credential reference, with a limit of nothing | `treasury/budget` on the accounts |
 | `account-list` | accounts with limit, drawn, budgets and balance | `treasury/read` |
 | `limit-set` | set an account's limit | `treasury/limit` on it |
 | `budget-create`, `budget-lower`, `budget-cancel` | manage a budget within its account's limit | `treasury/budget` on the account |
@@ -144,28 +149,33 @@ Delegation needs nothing new: Covia's grant issuance already lets a holder of
 
 ## Njord's place
 
-Njord's bridge gains the treasury's operations and keeps Covia's raw
-`transact` and `sign`, for what a payment cannot express. Those sign only
-with keys he can reach, so an account's limit holds as long as its
+The treasury's operations, all but setting a limit, are Njord's granted
+operations: his run bridge runs each as him, under a grant the venue signs
+for exactly the account or budget it names ([GODS.md](GODS.md)). Each that
+changes something needs his reason and is reported to Odin. He keeps
+Covia's raw `transact` and `sign`, for what a payment cannot express. Those
+sign only with keys he can reach, so an account's limit holds as long as its
 credential is not one of them. His judgement still decides each payment he
 makes; the treasury decides only that it fits.
 
-## New interfaces
+`TreasuryTest` covers the grants and the accounting over a rail that moves
+nothing, and Njord's bridge; `TreasuryConvexTest` pays over a local Convex
+network.
 
-| Interface | Who uses it |
-|---|---|
-| `brightside.treasury`, the adapter `treasury` and its operations above, its state in Brightside's adapter state ([APP_STATE.md](APP_STATE.md)) | Brightside |
-| `Rail`, and `ConvexRail` delegating to Covia's Convex operations | the treasury |
-| The `treasury/…` abilities above | Covia's grants |
-| An Inbox request kind for raising a limit, which Brightside applies on approval | Njord, the owner |
+## Not built yet
+
+- `budget-move` and `treasury/move`.
+- The Inbox request to raise a limit, and Brightside applying it on the
+  owner's approval; until then only the venue itself sets a limit.
+- Rails other than Convex, and currencies other than CVM.
 
 ## Not yet decided
 
 - Where the credentials of the treasury's accounts are kept, so that
   nothing but the treasury, Njord's raw signing included, can use them, and
-  how an account already held elsewhere comes under the treasury.
-- Which principal's DID the treasury's resources sit under: the venue's, or
-  a user the treasury keeps.
+  how an account already held elsewhere comes under the treasury. Until
+  then an account's key is wherever it is named, Njord's treasury included,
+  so his raw signing can step around its limit.
 - How a contract call that spends, rather than a plain transfer, is paid
   through a rail.
 - Whether budgets expire, and whether a limit may also renew each period.

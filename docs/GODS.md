@@ -96,7 +96,11 @@ one of this venue's own, it runs one of the god's namespace operations
 inside that user's namespace on their behalf through Covia's `user:sudo`. A
 per-call delegation bounds it to that namespace, so the venue's own authority
 does not leak in. The job record says "venue, on behalf of the user". A seed
-goes by reference only; the bridge refuses a literal one.
+goes by reference only; the bridge refuses a literal one. A god may also have
+granted operations, which run as the god itself under a grant the venue signs
+for exactly what that call touches, named by the operation's adapter
+(`CallGrants`): Njord's treasury operations are these
+([TREASURY.md](TREASURY.md)).
 
 ### Answering to an overseer
 
