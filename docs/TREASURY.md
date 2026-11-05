@@ -86,8 +86,10 @@ the account's budgets past it.
 A budget belongs to one account, so every budget sits under one limit and
 the owner can always see where its money would leave from. Where the owner
 allows it, Njord may move what remains of a budget to another account in the
-same currency, to pay GBP by card rather than by bank, say. The move must
-fit the new account's limit; what was already drawn stays on the old one.
+same currency, to pay GBP by card rather than by bank, say. The owner's
+permission is a standing grant to move budgets onto that account, apart from
+managing budgets on it. The move must fit the new account's limit; what was
+already drawn stays on the old one.
 
 Budgets may add up to more than an account holds, so a payment within budget
 can still fail at the rail for want of funds. The treasury shows that
@@ -119,7 +121,8 @@ was.
 |---|---|---|---|
 | `treasury/read` | the treasury, an account or a budget | list, and read the ledger | Njord, Odin, the owner |
 | `treasury/spend` | a budget | pay from it | Njord; later an assistant |
-| `treasury/budget` | an account | create, lower and cancel budgets drawing on it, and move one onto it | Njord |
+| `treasury/budget` | an account | create, lower and cancel budgets drawing on it | Njord |
+| `treasury/move` | an account | move a budget onto it from another account in the same currency | whom the owner grants it to |
 | `treasury/limit` | an account | set its limit | the venue alone, on the owner's approval |
 | `grant/treasury/spend` | budgets | have spending on a budget granted to another | Njord, once agents hold grants |
 
@@ -134,7 +137,7 @@ Delegation needs nothing new: Covia's grant issuance already lets a holder of
 | `account-list` | accounts with limit, drawn, budgets and balance | `treasury/read` |
 | `limit-set` | set an account's limit | `treasury/limit` on it |
 | `budget-create`, `budget-lower`, `budget-cancel` | manage a budget within its account's limit | `treasury/budget` on the account |
-| `budget-move` | move what remains of a budget to another account in the same currency | `treasury/budget` on both accounts, and the owner's permission |
+| `budget-move` | move what remains of a budget to another account in the same currency | `treasury/budget` on the account it leaves, `treasury/move` on the one it joins |
 | `budget-list` | budgets with what remains of each | `treasury/read` |
 | `pay` | pay from a budget: recipient, amount, reason | `treasury/spend` on the budget |
 | `ledger` | the payments made | `treasury/read` |
@@ -165,8 +168,6 @@ makes; the treasury decides only that it fits.
   a user the treasury keeps.
 - How a contract call that spends, rather than a plain transfer, is paid
   through a rail.
-- How the owner allows budgets to move between accounts: for one budget,
-  or standing between particular accounts.
 - Whether budgets expire, and whether a limit may also renew each period.
 - How an owner's approval runs a raise without Brightside applying it, once
   Covia has an ask that runs one call on approval (covia#592).
