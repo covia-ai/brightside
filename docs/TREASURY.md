@@ -46,8 +46,10 @@ asset on a chain. A token belongs to its chain, so its name includes the
 network, and the same token on two chains is two currencies.
 
 An account is one place funds are held on one rail, possibly in several
-currencies, with whatever lets the treasury spend from it, a key for a chain,
-held by reference in a custody the treasury signs from. Accounts and
+currencies, with the credential that lets the treasury spend from it. What a
+credential is belongs to the rail: a signing key on a chain, an API key for a
+card processor, a token for a bank. The treasury holds it only as a reference
+to a secret in a custody it spends from, and never reads it. Accounts and
 recipients are named in their rail's own standard form, CAIP-10 on a chain
 and a `payto:` URI for a bank-style account, or a form the rail defines where
 none exists. The treasury stores and compares these names; only the rail
@@ -55,8 +57,9 @@ reads them.
 
 A rail is a `Rail`: how one network reads a balance and makes a payment. A
 rail that fits an existing Covia operation delegates to it. The Convex rail
-reads through `convex/query` and pays through `convex/transact`, so the key
-is resolved by Covia from its reference, never seen by the treasury, and
+reads through `convex/query` and pays through `convex/transact`, so its
+signing key is resolved by Covia from its reference, never seen by the
+treasury, and
 every payment keeps Covia's job record. A rail without such an operation,
 x402 or a card processor say, carries its own code.
 
@@ -106,8 +109,8 @@ for paying web services say, and those payments need no turn of his.
 
 Njord's bridge gains the treasury's operations and keeps Covia's raw
 `transact` and `sign`, for what a payment cannot express. Those sign only
-with keys he can reach, so an account's limit holds as long as its key is
-not one of them. His judgement still decides each payment he makes; the
+with keys he can reach, so an account's limit holds as long as its
+credential is not one of them. His judgement still decides each payment he makes; the
 treasury decides only that it fits.
 
 ## New interfaces
@@ -116,7 +119,7 @@ treasury decides only that it fits.
 |---|---|
 | `brightside.treasury`, the adapter `treasury`, its state in Brightside's adapter state ([APP_STATE.md](APP_STATE.md)) | Brightside |
 | `Rail`, and `ConvexRail` delegating to Covia's Convex operations | the treasury |
-| Accounts: add an account by its key reference, list accounts with limit, drawn, budgets and balance | Njord |
+| Accounts: add an account by its credential reference, list accounts with limit, drawn, budgets and balance | Njord |
 | Limits: set a limit | the operator, on the owner's approval |
 | Budgets: create, lower, cancel, list; move to another account in the same currency | Njord, with a grant on the account, and for a move the owner's permission |
 | Pay: from a budget, to a recipient, an amount, a reason | the holder of a grant on the budget |
@@ -126,8 +129,8 @@ treasury decides only that it fits.
 
 ## Not yet decided
 
-- Where the keys of the treasury's accounts are kept, so that Njord's raw
-  signing cannot reach them, and how an account already held elsewhere
+- Where the credentials of the treasury's accounts are kept, so that
+  nothing but the treasury, Njord's raw signing included, can use them, and how an account already held elsewhere
   comes under the treasury.
 - How a contract call that spends, rather than a plain transfer, is paid
   through a rail.
