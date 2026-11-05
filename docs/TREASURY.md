@@ -167,6 +167,9 @@ network.
 - `budget-move` and `treasury/move`.
 - The Inbox request to raise a limit, and Brightside applying it on the
   owner's approval; until then only the venue itself sets a limit.
+- Settling a payment left pending, by a stop between its draw and the
+  rail's answer, or unknown: it stays drawn until something finds out what
+  the rail did.
 - Rails other than Convex, and currencies other than CVM.
 
 ## Not yet decided
