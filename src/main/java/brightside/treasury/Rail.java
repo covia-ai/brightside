@@ -43,7 +43,18 @@ public interface Rail {
 	/**
 	 * Pays {@code amount}, in the account's currency's smallest unit, from the
 	 * account to {@code recipient}. Completes with what the rail reports of the
-	 * payment, kept on its ledger line, or fails if nothing was paid.
+	 * payment, kept on its ledger line. Fails with {@link NotPaid} only when the
+	 * rail is sure nothing was paid; any other failure leaves the payment
+	 * unknown, and the treasury keeps it drawn.
 	 */
 	CompletableFuture<ACell> pay(AMap<AString, ACell> account, AString recipient, long amount);
+
+	/** A payment the rail is sure did not happen, so its draw returns to the budget. */
+	class NotPaid extends RuntimeException {
+		private static final long serialVersionUID = 1L;
+
+		public NotPaid(String message) {
+			super(message);
+		}
+	}
 }

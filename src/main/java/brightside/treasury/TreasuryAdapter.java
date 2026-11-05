@@ -1,9 +1,13 @@
 package brightside.treasury;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.UnaryOperator;
 import java.util.regex.Pattern;
 
@@ -16,6 +20,7 @@ import convex.core.data.Strings;
 import convex.core.data.Vectors;
 import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
+import convex.core.util.Utils;
 import covia.adapter.AAdapter;
 import covia.venue.RequestContext;
 
@@ -35,15 +40,16 @@ import covia.venue.RequestContext;
  * than its limit.
  *
  * <p>State is installation-wide, in this adapter's state in the venue:
- * {@code accounts/<id>} and {@code budgets/<id>}. Every change is one atomic
- * update of that state.
+ * {@code accounts/<id>}, {@code budgets/<id>} and the {@code ledger} of
+ * payments. Every change is one atomic update of that state.
  */
 public class TreasuryAdapter extends AAdapter {
 
 	/** Every operation, as installed under {@code v/ops/treasury/}. */
 	public static final List<String> OPS = List.of(
 		"account-add", "account-list", "limit-set",
-		"budget-create", "budget-lower", "budget-cancel", "budget-list");
+		"budget-create", "budget-lower", "budget-cancel", "budget-list",
+		"pay", "ledger");
 
 	/** See accounts, budgets and the ledger. */
 	public static final AString READ = Strings.intern("treasury/read");
@@ -76,9 +82,29 @@ public class TreasuryAdapter extends AAdapter {
 	static final AString K_STATUS = Strings.intern("status");
 	static final AString OPEN = Strings.intern("open");
 	static final AString CANCELLED = Strings.intern("cancelled");
+	static final AString K_LEDGER = Strings.intern("ledger");
+	static final AString K_PAYMENTS = Strings.intern("payments");
+	static final AString K_N = Strings.intern("n");
+	static final AString K_BUDGET = Strings.intern("budget");
+	static final AString K_RECIPIENT = Strings.intern("recipient");
+	static final AString K_REASON = Strings.intern("reason");
+	static final AString K_BY = Strings.intern("by");
+	static final AString K_AT = Strings.intern("at");
+	static final AString K_RESULT = Strings.intern("result");
+	static final AString K_ERROR = Strings.intern("error");
+	static final AString K_BALANCE = Strings.intern("balance");
+	static final AString K_BALANCE_ERROR = Strings.intern("balanceError");
+	/** A payment drawn and sent to its rail, not yet settled. */
+	static final AString PENDING = Strings.intern("pending");
+	static final AString PAID = Strings.intern("paid");
+	/** The rail is sure nothing moved: the draw went back to the budget. */
+	static final AString NOT_PAID = Strings.intern("not-paid");
+	/** The rail cannot say whether it moved: it stays drawn until someone finds out. */
+	static final AString UNKNOWN = Strings.intern("unknown");
 
 	private static final Pattern ID = Pattern.compile("[a-z0-9][a-z0-9-]{0,63}");
 	private static final int MAX_PURPOSE = 500;
+	private static final int MAX_REASON = 1000;
 
 	private final Map<String, Rail> rails = new ConcurrentHashMap<>();
 
@@ -96,6 +122,7 @@ public class TreasuryAdapter extends AAdapter {
 	@Override
 	protected void installAssets() {
 		for (String op : OPS) installAsset("treasury/" + op, "/adapters/treasury/" + op + ".json");
+		addRail(new ConvexRail(engine));
 	}
 
 	/** Makes a rail's accounts possible: an account names its rail by {@link Rail#name()}. */
@@ -116,17 +143,18 @@ public class TreasuryAdapter extends AAdapter {
 	@Override
 	public CompletableFuture<ACell> invokeFuture(RequestContext ctx, AMap<AString, ACell> meta, ACell input) {
 		try {
-			ACell out = switch (getSubOperation(meta)) {
-				case "account-add" -> accountAdd(ctx, input);
+			return switch (getSubOperation(meta)) {
+				case "account-add" -> done(accountAdd(ctx, input));
 				case "account-list" -> accountList(ctx);
-				case "limit-set" -> limitSet(ctx, input);
-				case "budget-create" -> budgetCreate(ctx, input);
-				case "budget-lower" -> budgetLower(ctx, input);
-				case "budget-cancel" -> budgetCancel(ctx, input);
-				case "budget-list" -> budgetList(ctx, input);
+				case "limit-set" -> done(limitSet(ctx, input));
+				case "budget-create" -> done(budgetCreate(ctx, input));
+				case "budget-lower" -> done(budgetLower(ctx, input));
+				case "budget-cancel" -> done(budgetCancel(ctx, input));
+				case "budget-list" -> done(budgetList(ctx, input));
+				case "pay" -> pay(ctx, input);
+				case "ledger" -> done(ledger(ctx, input));
 				default -> throw new IllegalArgumentException("Unknown treasury operation: " + getSubOperation(meta));
 			};
-			return CompletableFuture.completedFuture(out);
 		} catch (Exception e) {
 			return CompletableFuture.failedFuture(e);
 		}
@@ -155,18 +183,29 @@ public class TreasuryAdapter extends AAdapter {
 		return accountView(state(), record);
 	}
 
-	/** Every account, with its limit and what its budgets hold and have drawn. */
-	private ACell accountList(RequestContext ctx) {
+	/**
+	 * Every account, with its limit, what its budgets hold and have drawn, and
+	 * its balance as its rail reads it — or why the rail could not.
+	 */
+	private CompletableFuture<ACell> accountList(RequestContext ctx) {
 		require(ctx, ROOT, READ);
 		ACell state = state();
-		AVector<ACell> out = Vectors.empty();
+		List<CompletableFuture<AMap<AString, ACell>>> views = new ArrayList<>();
 		AMap<AString, ACell> accounts = RT.ensureMap(RT.getIn(state, K_ACCOUNTS));
 		if (accounts != null) {
 			for (long i = 0; i < accounts.count(); i++) {
-				out = out.conj(accountView(state, RT.ensureMap(accounts.entryAt(i).getValue())));
+				AMap<AString, ACell> account = RT.ensureMap(accounts.entryAt(i).getValue());
+				AMap<AString, ACell> view = accountView(state, account);
+				views.add(rail(account.get(K_RAIL).toString()).balance(account).handle((balance, failure) -> (failure == null)
+					? view.assoc(K_BALANCE, CVMLong.create(balance))
+					: view.assoc(K_BALANCE_ERROR, Strings.create(rootMessage(failure)))));
 			}
 		}
-		return Maps.of(K_ACCOUNTS, out);
+		return CompletableFuture.allOf(views.toArray(CompletableFuture[]::new)).thenApply(all -> {
+			AVector<ACell> out = Vectors.empty();
+			for (CompletableFuture<AMap<AString, ACell>> view : views) out = out.conj(view.join());
+			return Maps.of(K_ACCOUNTS, out);
+		});
 	}
 
 	/**
@@ -254,6 +293,107 @@ public class TreasuryAdapter extends AAdapter {
 			}
 		}
 		return Maps.of(K_BUDGETS, out);
+	}
+
+	// ------------------------------------------------------------------
+	// Paying
+	// ------------------------------------------------------------------
+
+	/**
+	 * Pays from a budget. One update draws the budget and its account's limit
+	 * and writes the ledger line, saved before the rail is asked; a second
+	 * settles the line: paid, not paid (the draw returns to the budget), or
+	 * unknown (it stays drawn).
+	 */
+	private CompletableFuture<ACell> pay(RequestContext ctx, ACell input) {
+		String budgetId = requiredId(input, K_BUDGET);
+		require(ctx, budget(budgetId), SPEND);
+		long amount = amount(input, K_AMOUNT, false);
+		String reason = requiredText(input, K_REASON, MAX_REASON);
+		ACell before = state();
+		AMap<AString, ACell> known = budgetOf(before, budgetId);
+		if (known == null) throw new IllegalArgumentException("No budget " + budgetId);
+		Rail rail = rail(existingAccount(before, known.get(K_ACCOUNT).toString()).get(K_RAIL).toString());
+		AString recipient = rail.recipient(RT.getIn(input, K_RECIPIENT));
+		AString by = ctx.getCallerDID();
+
+		AtomicLong line = new AtomicLong();
+		ACell drawn = update(s -> {
+			AMap<AString, ACell> budget = openBudget(s, budgetId);
+			String accountId = budget.get(K_ACCOUNT).toString();
+			AMap<AString, ACell> account = existingAccount(s, accountId);
+			long budgetDrawn = Math.addExact(longOf(budget, K_DRAWN), amount);
+			if (budgetDrawn > longOf(budget, K_AMOUNT)) {
+				throw new IllegalStateException("Budget " + budgetId + " has " + (longOf(budget, K_AMOUNT) - longOf(budget, K_DRAWN)) + " left");
+			}
+			if (Math.addExact(drawn(s, accountId), amount) > longOf(account, K_LIMIT)) {
+				throw new IllegalStateException("That would take account " + accountId + " past its limit of "
+					+ longOf(account, K_LIMIT) + "; the owner raises a limit");
+			}
+			AVector<ACell> ledger = ledgerOf(s);
+			line.set(ledger.count());
+			AMap<AString, ACell> entry = Maps.of(
+				K_N, CVMLong.create(ledger.count()),
+				K_BUDGET, Strings.create(budgetId),
+				K_ACCOUNT, Strings.create(accountId),
+				K_RECIPIENT, recipient,
+				K_CURRENCY, account.get(K_CURRENCY),
+				K_AMOUNT, CVMLong.create(amount),
+				K_REASON, Strings.create(reason),
+				K_AT, CVMLong.create(Utils.getCurrentTimestamp()),
+				K_STATUS, PENDING);
+			if (by != null) entry = entry.assoc(K_BY, by);
+			s = RT.assocIn(s, CVMLong.create(budgetDrawn), K_BUDGETS, Strings.create(budgetId), K_DRAWN);
+			return RT.assocIn(s, ledger.conj(entry), K_LEDGER);
+		});
+		long n = line.get();
+		AMap<AString, ACell> account = accountOf(drawn, budgetOf(drawn, budgetId).get(K_ACCOUNT).toString());
+		CompletableFuture<ACell> paying;
+		try {
+			paying = rail.pay(account, recipient, amount);
+		} catch (RuntimeException e) {
+			paying = CompletableFuture.failedFuture(e);
+		}
+		return paying.handle((result, failure) -> settle(budgetId, amount, n, result, failure));
+	}
+
+	/** Settles ledger line {@code n} with what the rail said, returning the line or failing as the payment did. */
+	private ACell settle(String budgetId, long amount, long n, ACell result, Throwable failure) {
+		Throwable cause = (failure == null) ? null : root(failure);
+		AString status = (cause == null) ? PAID : (cause instanceof Rail.NotPaid) ? NOT_PAID : UNKNOWN;
+		ACell state = update(s -> {
+			ACell settled = RT.assocIn(s, status, K_LEDGER, CVMLong.create(n), K_STATUS);
+			if (result != null) settled = RT.assocIn(settled, result, K_LEDGER, CVMLong.create(n), K_RESULT);
+			if (cause != null) settled = RT.assocIn(settled, Strings.create(rootMessage(cause)), K_LEDGER, CVMLong.create(n), K_ERROR);
+			if (status == NOT_PAID) {
+				long drawn = longOf(budgetOf(s, budgetId), K_DRAWN) - amount;
+				settled = RT.assocIn(settled, CVMLong.create(drawn), K_BUDGETS, Strings.create(budgetId), K_DRAWN);
+			}
+			return settled;
+		});
+		ACell entry = ledgerOf(state).get(n);
+		if (status == PAID) return entry;
+		String what = (status == NOT_PAID) ? "Not paid, and the budget has it back: " : "Whether it was paid is not known, so it stays drawn (ledger line " + n + "): ";
+		throw new CompletionException(new IllegalStateException(what + rootMessage(cause)));
+	}
+
+	/** The payments made, oldest first, or one budget's. */
+	private ACell ledger(RequestContext ctx, ACell input) {
+		require(ctx, ROOT, READ);
+		String budgetId = optionalText(input, K_BUDGET, 64);
+		AVector<ACell> ledger = ledgerOf(state());
+		if (budgetId == null) return Maps.of(K_PAYMENTS, ledger);
+		AString budget = Strings.create(budgetId);
+		AVector<ACell> out = Vectors.empty();
+		for (long i = 0; i < ledger.count(); i++) {
+			if (budget.equals(RT.getIn(ledger.get(i), K_BUDGET))) out = out.conj(ledger.get(i));
+		}
+		return Maps.of(K_PAYMENTS, out);
+	}
+
+	static AVector<ACell> ledgerOf(ACell state) {
+		AVector<ACell> ledger = RT.ensureVector(RT.getIn(state, K_LEDGER));
+		return (ledger == null) ? Vectors.empty() : ledger;
 	}
 
 	// ------------------------------------------------------------------
@@ -352,6 +492,22 @@ public class TreasuryAdapter extends AAdapter {
 	// ------------------------------------------------------------------
 	// Authority and input
 	// ------------------------------------------------------------------
+
+	private static CompletableFuture<ACell> done(ACell value) {
+		return CompletableFuture.completedFuture(value);
+	}
+
+	private static Throwable root(Throwable failure) {
+		Throwable t = failure;
+		while ((t instanceof CompletionException || t instanceof ExecutionException) && t.getCause() != null) t = t.getCause();
+		return t;
+	}
+
+	private static String rootMessage(Throwable failure) {
+		Throwable t = root(failure);
+		String m = t.getMessage();
+		return (m == null || m.isBlank()) ? t.getClass().getSimpleName() : m;
+	}
 
 	private void require(RequestContext ctx, String resource, AString ability) {
 		engine.requireVenueAuthority(ctx, resource, ability);

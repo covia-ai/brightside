@@ -1,6 +1,6 @@
 {
 	"name": "Treasury account list",
-	"description": "Lists the treasury's accounts: each one's rail, name on that rail, currency, spend limit, what its budgets hold (committed) and what has been drawn from it.",
+	"description": "Lists the treasury's accounts: each one's rail, name on that rail, currency, spend limit, what its budgets hold (committed), what has been drawn from it, and its balance as the rail reads it (or balanceError).",
 	"operation": {
 		"adapter": "treasury:account-list",
 		"toolName": "treasury_account_list",

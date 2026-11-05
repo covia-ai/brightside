@@ -1,0 +1,21 @@
+{
+	"name": "Treasury ledger",
+	"description": "The payments the treasury has made, oldest first, or one budget's: each with its budget, account, recipient, currency, amount, reason, who asked, when, and whether it was paid, not paid, or not known.",
+	"operation": {
+		"adapter": "treasury:ledger",
+		"toolName": "treasury_ledger",
+		"readOnly": true,
+		"input": {
+			"type": "object",
+			"properties": {
+				"budget": { "type": "string", "description": "Only this budget's payments" }
+			}
+		},
+		"output": {
+			"type": "object",
+			"properties": {
+				"payments": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+			}
+		}
+	}
+}

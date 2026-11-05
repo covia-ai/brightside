@@ -1,0 +1,23 @@
+{
+	"name": "Treasury pay",
+	"description": "Pays a recipient from a budget, over its account's rail, and writes the ledger line. Refused if the budget or the account's spend limit would be exceeded. Fails if the rail did not pay: then the budget has the amount back, unless the rail could not say whether it paid, when it stays drawn and the ledger line says so.",
+	"operation": {
+		"adapter": "treasury:pay",
+		"toolName": "treasury_pay",
+		"input": {
+			"type": "object",
+			"properties": {
+				"budget": { "type": "string", "description": "The budget to pay from" },
+				"recipient": { "type": "string", "description": "Who is paid, in the rail's own form (Convex: #n)" },
+				"amount": { "type": "integer", "description": "How much, in the currency's smallest unit" },
+				"reason": { "type": "string", "description": "The ledger line: what is paid for and on what authority" }
+			},
+			"required": ["budget", "recipient", "amount", "reason"]
+		},
+		"output": {
+			"type": "object",
+			"description": "The ledger line: n, budget, account, recipient, currency, amount, reason, by, at, status (paid) and what the rail reported.",
+			"additionalProperties": true
+		}
+	}
+}

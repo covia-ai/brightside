@@ -27,8 +27,8 @@ import covia.venue.RequestContext;
 /**
  * The treasury's mechanism on a real venue, over a rail that moves nothing:
  * who may act on an account or budget, and the accounting that keeps an
- * account's budgets within the limit the owner set. Payments over a real
- * rail are {@link TreasuryConvexTest}'s.
+ * account's budgets within the limit the owner set, and what a payment draws
+ * and records. Payments over a real rail are {@link TreasuryConvexTest}'s.
  */
 class TreasuryTest {
 
@@ -94,7 +94,74 @@ class TreasuryTest {
 		assertThrows(Exception.class, () -> createBudget("granted-b", "granted", 5, reading), "reading is not budgeting");
 	}
 
+	@Test
+	void aPaymentDrawsItsBudgetAndIsLedgered() throws Exception {
+		add("paying", asVenue);
+		run("limit-set", Maps.of("account", "paying", "limit", 100L), asVenue);
+		createBudget("paying-a", "paying", 30, asVenue);
+
+		ACell line = pay("paying-a", "shop", 20);
+		assertEquals(Strings.create("paid"), RT.getIn(line, "status"));
+		assertEquals(Strings.create("shop"), RT.getIn(line, "recipient"));
+		assertTrue(failure(() -> pay("paying-a", "shop", 11)).contains("has 10 left"), "a budget caps what it pays");
+
+		// The rail is sure nothing moved: the budget has it back.
+		assertTrue(failure(() -> pay("paying-a", TestRail.REFUSES, 10)).contains("Not paid"));
+		assertEquals(20L, drawn("paying-a"));
+		// The rail cannot say: it stays drawn, and the ledger says so.
+		assertTrue(failure(() -> pay("paying-a", TestRail.LOSES, 10)).contains("not known"));
+		assertEquals(30L, drawn("paying-a"));
+
+		AVector<ACell> payments = RT.ensureVector(RT.getIn(run("ledger", Maps.of("budget", "paying-a"), asVenue), "payments"));
+		assertEquals(3, payments.count());
+		assertEquals(Strings.create("not-paid"), RT.getIn(payments.get(1), "status"));
+		assertEquals(Strings.create("unknown"), RT.getIn(payments.get(2), "status"));
+	}
+
+	@Test
+	void aPaymentStopsAtALoweredLimit() throws Exception {
+		add("lowered", asVenue);
+		run("limit-set", Maps.of("account", "lowered", "limit", 100L), asVenue);
+		createBudget("lowered-a", "lowered", 100, asVenue);
+		pay("lowered-a", "shop", 40);
+		run("limit-set", Maps.of("account", "lowered", "limit", 50L), asVenue);
+		assertTrue(failure(() -> pay("lowered-a", "shop", 20)).contains("past its limit"),
+			"the owner's limit holds over a budget made before it was lowered");
+		pay("lowered-a", "shop", 10);
+	}
+
+	@Test
+	void spendingNeedsAGrantOnThatBudget() throws Exception {
+		add("spending", asVenue);
+		run("limit-set", Maps.of("account", "spending", "limit", 10L), asVenue);
+		createBudget("spending-a", "spending", 5, asVenue);
+		createBudget("spending-b", "spending", 5, asVenue);
+		RequestContext onA = njord(cap(TreasuryAdapter.budget("spending-a"), TreasuryAdapter.SPEND));
+		run("pay", payment("spending-a", "shop", 1), onA);
+		assertTrue(failure(() -> run("pay", payment("spending-b", "shop", 1), onA)).contains("treasury/spend"));
+		AVector<ACell> payments = RT.ensureVector(RT.getIn(run("ledger", Maps.of("budget", "spending-a"), asVenue), "payments"));
+		assertEquals(Strings.create(Njord.GOD.did(venue.did())), RT.getIn(payments.get(0), "by"), "the ledger says who paid");
+	}
+
 	// ------------------------------------------------------------------
+
+	private static ACell pay(String budget, String recipient, long amount) throws Exception {
+		return run("pay", payment(budget, recipient, amount), asVenue);
+	}
+
+	private static AMap<AString, ACell> payment(String budget, String recipient, long amount) {
+		return Maps.of("budget", budget, "recipient", recipient, "amount", amount, "reason", "As the test agreed.");
+	}
+
+	private static long drawn(String budget) throws Exception {
+		AVector<ACell> budgets = RT.ensureVector(RT.getIn(run("budget-list", Maps.empty(), asVenue), "budgets"));
+		for (long i = 0; i < budgets.count(); i++) {
+			if (Strings.create(budget).equals(RT.getIn(budgets.get(i), "id"))) {
+				return RT.ensureLong(RT.getIn(budgets.get(i), "drawn")).longValue();
+			}
+		}
+		throw new AssertionError("No budget " + budget);
+	}
 
 	private static void add(String id, RequestContext ctx) throws Exception {
 		run("account-add", Maps.of("id", id, "rail", TestRail.NAME, "address", id), ctx);
@@ -141,9 +208,15 @@ class TreasuryTest {
 		return String.valueOf(e.getCause().getMessage());
 	}
 
-	/** A rail that names accounts by their {@code address} and moves nothing. */
+	/**
+	 * A rail that names accounts by their {@code address} and moves nothing: it
+	 * pays anyone but {@link #REFUSES}, which it is sure it did not pay, and
+	 * {@link #LOSES}, which it cannot say.
+	 */
 	static final class TestRail implements Rail {
 		static final String NAME = "test";
+		static final String REFUSES = "refuses";
+		static final String LOSES = "loses";
 
 		@Override
 		public String name() {
@@ -171,7 +244,11 @@ class TreasuryTest {
 
 		@Override
 		public CompletableFuture<ACell> pay(AMap<AString, ACell> account, AString recipient, long amount) {
-			return CompletableFuture.completedFuture(Maps.of("paid", amount));
+			return switch (recipient.toString()) {
+				case REFUSES -> CompletableFuture.failedFuture(new NotPaid("refused"));
+				case LOSES -> CompletableFuture.failedFuture(new IllegalStateException("no answer"));
+				default -> CompletableFuture.completedFuture(Maps.of("paid", amount));
+			};
 		}
 	}
 }
