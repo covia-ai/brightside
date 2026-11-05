@@ -105,33 +105,64 @@ on the account or budget named and nothing broader. Once an agent can hold a
 grant of its own, Njord can delegate a budget to an assistant, a small one
 for paying web services say, and those payments need no turn of his.
 
+## Grants
+
+Authority over the treasury is Covia's ordinary capabilities
+(`venue/docs/UCAN.md` in the Covia repository): a resource path, an
+ability, and a grant that covers everything under its path. Accounts and
+budgets are resources of the treasury's own, under a `treasury/` segment.
+Budgets are flat, each at a path of its own that records the account it
+draws on, so moving a budget leaves its path, and every grant on it, as it
+was.
+
+| Ability | On | Lets the holder | Held by |
+|---|---|---|---|
+| `treasury/read` | the treasury, an account or a budget | list, and read the ledger | Njord, Odin, the owner |
+| `treasury/spend` | a budget | pay from it | Njord; later an assistant |
+| `treasury/budget` | an account | create, lower and cancel budgets drawing on it, and move one onto it | Njord |
+| `treasury/limit` | an account | set its limit | the venue alone, on the owner's approval |
+| `grant/treasury/spend` | budgets | have spending on a budget granted to another | Njord, once agents hold grants |
+
+Delegation needs nothing new: Covia's grant issuance already lets a holder of
+`grant/<ability>` on a resource have the venue grant that ability under it.
+
+## Operations
+
+| Operation | Does | Needs |
+|---|---|---|
+| `account-add` | bring an account under the treasury by its credential reference, with a limit of nothing | `treasury/budget` on the treasury |
+| `account-list` | accounts with limit, drawn, budgets and balance | `treasury/read` |
+| `limit-set` | set an account's limit | `treasury/limit` on it |
+| `budget-create`, `budget-lower`, `budget-cancel` | manage a budget within its account's limit | `treasury/budget` on the account |
+| `budget-move` | move what remains of a budget to another account in the same currency | `treasury/budget` on both accounts, and the owner's permission |
+| `budget-list` | budgets with what remains of each | `treasury/read` |
+| `pay` | pay from a budget: recipient, amount, reason | `treasury/spend` on the budget |
+| `ledger` | the payments made | `treasury/read` |
+
 ## Njord's place
 
 Njord's bridge gains the treasury's operations and keeps Covia's raw
 `transact` and `sign`, for what a payment cannot express. Those sign only
 with keys he can reach, so an account's limit holds as long as its
-credential is not one of them. His judgement still decides each payment he makes; the
-treasury decides only that it fits.
+credential is not one of them. His judgement still decides each payment he
+makes; the treasury decides only that it fits.
 
 ## New interfaces
 
 | Interface | Who uses it |
 |---|---|
-| `brightside.treasury`, the adapter `treasury`, its state in Brightside's adapter state ([APP_STATE.md](APP_STATE.md)) | Brightside |
+| `brightside.treasury`, the adapter `treasury` and its operations above, its state in Brightside's adapter state ([APP_STATE.md](APP_STATE.md)) | Brightside |
 | `Rail`, and `ConvexRail` delegating to Covia's Convex operations | the treasury |
-| Accounts: add an account by its credential reference, list accounts with limit, drawn, budgets and balance | Njord |
-| Limits: set a limit | the operator, on the owner's approval |
-| Budgets: create, lower, cancel, list; move to another account in the same currency | Njord, with a grant on the account, and for a move the owner's permission |
-| Pay: from a budget, to a recipient, an amount, a reason | the holder of a grant on the budget |
-| Ledger: read | Njord, Odin, the owner |
-| Grant abilities: manage an account; spend from a budget | issued by Njord's bridge |
+| The `treasury/…` abilities above | Covia's grants |
 | An Inbox request kind for raising a limit, which Brightside applies on approval | Njord, the owner |
 
 ## Not yet decided
 
 - Where the credentials of the treasury's accounts are kept, so that
-  nothing but the treasury, Njord's raw signing included, can use them, and how an account already held elsewhere
-  comes under the treasury.
+  nothing but the treasury, Njord's raw signing included, can use them, and
+  how an account already held elsewhere comes under the treasury.
+- Which principal's DID the treasury's resources sit under: the venue's, or
+  a user the treasury keeps.
 - How a contract call that spends, rather than a plain transfer, is paid
   through a rail.
 - How the owner allows budgets to move between accounts: for one budget,
