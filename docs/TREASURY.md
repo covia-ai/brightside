@@ -7,15 +7,16 @@ nothing in it belongs to any one network. This doc is ahead of the code: today
 Njord signs through Covia's Convex operations directly
 ([NJORD.md](NJORD.md)).
 
-- **Generic, with rails beneath.** The treasury speaks of accounts, assets,
-  amounts and payments. A rail is how one network does them; Convex is the
-  first and the exemplar.
+- **Generic, with rails beneath.** The treasury speaks of accounts,
+  currencies, amounts and payments. A rail is how money moves on one network
+  or payment system; Convex is the first and the exemplar. Currencies are
+  named apart from rails.
 - **Limits are the owner's.** Each account has a spend limit: the total the
   owner has approved for spending from it. Only the owner raises it, through
   the Inbox.
-- **Budgets are Njord's.** A budget is an allowance of one asset, drawn from
-  an account's limit, which Njord creates, lowers and cancels on his own
-  judgement. A grant on a budget is the power to spend from it.
+- **Budgets are Njord's.** A budget is an allowance of one currency, drawn
+  from one account's limit, which Njord creates, lowers and cancels on his
+  own judgement. A grant on a budget is the power to spend from it.
 - **Spending is the treasury's own accounting.** A payment draws down its
   budget and its account's limit together, or fails, as an overdraft would.
   No tool is guarded; there is simply nothing left to spend.
@@ -32,13 +33,25 @@ nothing can read "how much, to whom" reliably out of arbitrary source. The
 treasury gives spending a typed shape, so the amount at risk becomes a number
 the owner sets, and Njord's judgement decides only how to use it.
 
-## Accounts and rails
+## Rails, currencies and accounts
 
-An account is one place funds are held on one rail, with whatever lets the
-treasury spend from it, a key for a chain, held by reference in a custody the
-treasury signs from. Networks, accounts and assets are named by the CAIP
-standards that Convex's x402 support already uses for networks, so a name
-means the same thing on every rail.
+A rail is how money moves: a Convex network, SEPA, a card network. A currency
+is what moves: GBP, CVM, a token. The two vary apart. One rail may carry
+several currencies, as a Convex network carries CVM and its fungible tokens,
+and one currency may move over several rails, as GBP goes by bank transfer or
+by card.
+
+A currency is named apart from any rail: ISO 4217 for fiat, CAIP-19 for an
+asset on a chain. A token belongs to its chain, so its name includes the
+network, and the same token on two chains is two currencies.
+
+An account is one place funds are held on one rail, possibly in several
+currencies, with whatever lets the treasury spend from it, a key for a chain,
+held by reference in a custody the treasury signs from. Accounts and
+recipients are named in their rail's own standard form, CAIP-10 on a chain
+and a `payto:` URI for a bank-style account, or a form the rail defines where
+none exists. The treasury stores and compares these names; only the rail
+reads them.
 
 A rail is a `Rail`: how one network reads a balance and makes a payment. A
 rail that fits an existing Covia operation delegates to it. The Convex rail
@@ -61,11 +74,17 @@ is the owner's as well, and stops budgets drawing beyond it.
 
 ## Budgets
 
-A budget is an allowance: permission to draw up to an amount of one asset
+A budget is an allowance: permission to draw up to an amount of one currency
 from one account, for a purpose or for an agent. Creating one moves nothing
 on the network. Njord creates, lowers and cancels budgets within what the
 account's limit has left, and the treasury refuses a budget that would take
 the account's budgets past it.
+
+A budget belongs to one account, so every budget sits under one limit and
+the owner can always see where its money would leave from. Where the owner
+allows it, Njord may move what remains of a budget to another account in the
+same currency, to pay GBP by card rather than by bank, say. The move must
+fit the new account's limit; what was already drawn stays on the old one.
 
 Budgets may add up to more than an account holds, so a payment within budget
 can still fail at the rail for want of funds. The treasury shows that
@@ -99,7 +118,7 @@ treasury decides only that it fits.
 | `Rail`, and `ConvexRail` delegating to Covia's Convex operations | the treasury |
 | Accounts: add an account by its key reference, list accounts with limit, drawn, budgets and balance | Njord |
 | Limits: set a limit | the operator, on the owner's approval |
-| Budgets: create, lower, cancel, list | Njord, with a grant on the account |
+| Budgets: create, lower, cancel, list; move to another account in the same currency | Njord, with a grant on the account, and for a move the owner's permission |
 | Pay: from a budget, to a recipient, an amount, a reason | the holder of a grant on the budget |
 | Ledger: read | Njord, Odin, the owner |
 | Grant abilities: manage an account; spend from a budget | issued by Njord's bridge |
@@ -112,6 +131,8 @@ treasury decides only that it fits.
   comes under the treasury.
 - How a contract call that spends, rather than a plain transfer, is paid
   through a rail.
+- How the owner allows budgets to move between accounts: for one budget,
+  or standing between particular accounts.
 - Whether budgets expire, and whether a limit may also renew each period.
 - How an owner's approval runs a raise without Brightside applying it, once
   Covia has an ask that runs one call on approval (covia#592).
