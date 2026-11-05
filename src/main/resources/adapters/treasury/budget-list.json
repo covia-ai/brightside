@@ -1,0 +1,21 @@
+{
+	"name": "Treasury budget list",
+	"description": "Lists budgets, or one account's: each one's account, currency, amount, what it has drawn and what remains, purpose and whether it is open.",
+	"operation": {
+		"adapter": "treasury:budget-list",
+		"toolName": "treasury_budget_list",
+		"readOnly": true,
+		"input": {
+			"type": "object",
+			"properties": {
+				"account": { "type": "string", "description": "Only this account's budgets" }
+			}
+		},
+		"output": {
+			"type": "object",
+			"properties": {
+				"budgets": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+			}
+		}
+	}
+}

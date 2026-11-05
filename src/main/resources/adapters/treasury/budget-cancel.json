@@ -1,0 +1,20 @@
+{
+	"name": "Treasury budget cancel",
+	"description": "Closes a budget: nothing more can be paid from it, and what it had not drawn returns to its account's spend limit.",
+	"operation": {
+		"adapter": "treasury:budget-cancel",
+		"toolName": "treasury_budget_cancel",
+		"input": {
+			"type": "object",
+			"properties": {
+				"id": { "type": "string", "description": "The budget's id" }
+			},
+			"required": ["id"]
+		},
+		"output": {
+			"type": "object",
+			"description": "The closed budget.",
+			"additionalProperties": true
+		}
+	}
+}

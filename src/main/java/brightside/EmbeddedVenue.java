@@ -7,6 +7,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import brightside.treasury.TreasuryAdapter;
+
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
@@ -84,6 +86,8 @@ public final class EmbeddedVenue implements AutoCloseable {
 		engine.registerAdapter(new BrightsideSkillsAdapter());
 		// Moltbook as typed operations; idle until the owner connects an account.
 		engine.registerAdapter(new MoltbookAdapter());
+		// The treasury Njord spends through: limits and budgets over accounts on rails.
+		engine.registerAdapter(new TreasuryAdapter());
 		// Covia's Discord module, in-process rather than as a loaded module jar:
 		// the same adapter, on Brightside's own classpath. With no bots it costs
 		// nothing; the owner's bot is created from Settings (see Discord).
@@ -235,6 +239,11 @@ public final class EmbeddedVenue implements AutoCloseable {
 	/** Brightside's Moltbook adapter, which keeps the owner's Moltbook record; null if it isn't registered. */
 	public MoltbookAdapter moltbook() {
 		return (engine().getAdapter("moltbook") instanceof MoltbookAdapter adapter) ? adapter : null;
+	}
+
+	/** The treasury; null if it isn't registered. */
+	public TreasuryAdapter treasury() {
+		return (engine().getAdapter("treasury") instanceof TreasuryAdapter adapter) ? adapter : null;
 	}
 
 	/**

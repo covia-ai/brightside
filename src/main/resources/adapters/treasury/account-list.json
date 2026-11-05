@@ -1,0 +1,19 @@
+{
+	"name": "Treasury account list",
+	"description": "Lists the treasury's accounts: each one's rail, name on that rail, currency, spend limit, what its budgets hold (committed) and what has been drawn from it.",
+	"operation": {
+		"adapter": "treasury:account-list",
+		"toolName": "treasury_account_list",
+		"readOnly": true,
+		"input": {
+			"type": "object",
+			"properties": {}
+		},
+		"output": {
+			"type": "object",
+			"properties": {
+				"accounts": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+			}
+		}
+	}
+}

@@ -1,0 +1,23 @@
+{
+	"name": "Treasury budget create",
+	"description": "Creates a budget: an allowance of an account's currency, for a purpose or an agent, within what the account's spend limit has left. Nothing moves on the network.",
+	"operation": {
+		"adapter": "treasury:budget-create",
+		"toolName": "treasury_budget_create",
+		"input": {
+			"type": "object",
+			"properties": {
+				"id": { "type": "string", "description": "The budget's id: lower-case letters, digits and hyphens" },
+				"account": { "type": "string", "description": "The account it draws on" },
+				"amount": { "type": "integer", "description": "How much it allows, in the currency's smallest unit" },
+				"purpose": { "type": "string", "description": "What it is for" }
+			},
+			"required": ["id", "account", "amount"]
+		},
+		"output": {
+			"type": "object",
+			"description": "The budget, with what remains of it.",
+			"additionalProperties": true
+		}
+	}
+}

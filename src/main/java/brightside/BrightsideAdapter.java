@@ -8,9 +8,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-import convex.auth.jwt.JWT;
 import convex.auth.ucan.Capability;
-import convex.auth.ucan.UCAN;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
@@ -32,7 +30,6 @@ import covia.api.Fields;
 import covia.venue.AdapterState;
 import covia.venue.Engine.UserPathTarget;
 import covia.venue.RequestContext;
-import covia.venue.UcanJwtValidator;
 import covia.venue.storage.ContentProvider;
 
 /**
@@ -133,8 +130,6 @@ public class BrightsideAdapter extends AAdapter {
 	private static final String OP_USER_DELETE = "v/ops/user/delete";
 	private static final long DEFAULT_ASK_TIMEOUT_MS = 30_000;
 	private static final long MAX_ASK_TIMEOUT_MS = 300_000;
-	/** Lifetime of the per-call delegations the bridges mint: long enough to submit, never to keep. */
-	private static final long BRIDGE_GRANT_SECONDS = 300;
 	private static final int MAX_SKILL_NAME = 64;
 	private static final Set<String> FEEDBACK_CATEGORIES = Set.of(
 		"failed-load", "missing-skill", "instruction-conflict", "missing-capability", "other");
@@ -871,32 +866,13 @@ public class BrightsideAdapter extends AAdapter {
 		return (text.length() <= max) ? text : text.substring(0, max - 1) + "…";
 	}
 
-	/**
-	 * A venue-signed UCAN — the same claims {@code ucan:issue} mints — granting
-	 * {@code aud} the single capability {@code can} over {@code with} for
-	 * {@link #BRIDGE_GRANT_SECONDS}, as the verified token map a request context
-	 * presents. It passes through Covia's own JWT trust boundary rather than
-	 * being trusted by construction. The venue is root authority for its own
-	 * resources and for the users it issued, which is exactly what the bridges
-	 * lend: it never signs for a foreign DID.
-	 */
+	/** A per-call grant the venue signs for what a bridge lends ({@link VenueGrants}). */
 	private ACell venueGrant(AString aud, AVector<ACell> att) {
-		long now = Utils.getCurrentTimestamp() / 1000;
-		AMap<AString, ACell> claims = Maps.of(
-			UCAN.ISS, engine.getDIDString(),
-			UCAN.AUD, aud,
-			UCAN.UCV, UCAN.VERSION,
-			UCAN.ATT, att,
-			UCAN.PRF, Vectors.empty());
-		claims = claims.assoc(UCAN.EXP, CVMLong.create(now + BRIDGE_GRANT_SECONDS));
-		AString jwt = JWT.signPublic(claims, engine.getKeyPair());
-		UCAN token = UcanJwtValidator.validateJWT(jwt, now, engine.didVerifier());
-		if (token == null) throw new IllegalStateException("The venue could not verify its own delegation");
-		return token.toMap();
+		return new VenueGrants(engine).grant(aud, att);
 	}
 
 	private static AMap<AString, ACell> cap(AString with, AString can) {
-		return Maps.of(Capability.WITH, with, Capability.CAN, can);
+		return VenueGrants.cap(with, can);
 	}
 
 	/** {@code timeout} in milliseconds: the default when absent, clamped to [0, MAX]. */

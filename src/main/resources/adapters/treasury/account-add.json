@@ -1,0 +1,22 @@
+{
+	"name": "Treasury account add",
+	"description": "Brings an account under the treasury on a payment rail, with a spend limit of nothing until the owner sets one. The rail checks the account and names its currency. For Convex: network, peer, address (#n), credential (the s/ name of its signing key) and custody (the DID of the user whose secret store holds it).",
+	"operation": {
+		"adapter": "treasury:account-add",
+		"toolName": "treasury_account_add",
+		"input": {
+			"type": "object",
+			"properties": {
+				"id": { "type": "string", "description": "The account's id in the treasury: lower-case letters, digits and hyphens" },
+				"rail": { "type": "string", "description": "The rail the account is on, e.g. convex" }
+			},
+			"required": ["id", "rail"],
+			"additionalProperties": true
+		},
+		"output": {
+			"type": "object",
+			"description": "The account as the treasury keeps it, with its limit, committed (what its budgets hold) and drawn.",
+			"additionalProperties": true
+		}
+	}
+}

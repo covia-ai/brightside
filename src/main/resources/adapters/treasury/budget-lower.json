@@ -1,0 +1,21 @@
+{
+	"name": "Treasury budget lower",
+	"description": "Lowers an open budget to a new amount, never below what it has already drawn.",
+	"operation": {
+		"adapter": "treasury:budget-lower",
+		"toolName": "treasury_budget_lower",
+		"input": {
+			"type": "object",
+			"properties": {
+				"id": { "type": "string", "description": "The budget's id" },
+				"amount": { "type": "integer", "description": "The new amount, in the currency's smallest unit" }
+			},
+			"required": ["id", "amount"]
+		},
+		"output": {
+			"type": "object",
+			"description": "The budget, with what remains of it.",
+			"additionalProperties": true
+		}
+	}
+}

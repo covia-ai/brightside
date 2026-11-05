@@ -1,0 +1,21 @@
+{
+	"name": "Treasury limit set",
+	"description": "Sets an account's spend limit: the running total the owner has approved for spending from it, in the currency's smallest unit. The owner's decision alone.",
+	"operation": {
+		"adapter": "treasury:limit-set",
+		"toolName": "treasury_limit_set",
+		"input": {
+			"type": "object",
+			"properties": {
+				"account": { "type": "string", "description": "The account's id" },
+				"limit": { "type": "integer", "description": "The new limit, zero or more, in the currency's smallest unit" }
+			},
+			"required": ["account", "limit"]
+		},
+		"output": {
+			"type": "object",
+			"description": "The account, with its new limit.",
+			"additionalProperties": true
+		}
+	}
+}
