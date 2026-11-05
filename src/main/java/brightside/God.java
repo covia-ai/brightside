@@ -31,8 +31,10 @@ import covia.grid.Venue;
  * ({@link #ask}), submitted as the calling user so the god sees who asked, and
  * one through which it acts ({@link #run}), callable by that god alone. An agent
  * cannot hold venue authority itself, so the run bridge lends it — for one of
- * the god's {@link #venueOperations} under the venue's authority, or one of its
- * {@link #sudoOperations} inside a user's namespace on their behalf. The
+ * the god's {@link #venueOperations} under the venue's authority, one of its
+ * {@link #sudoOperations} inside a user's namespace on their behalf, or one of
+ * its {@link #grantedOperations} as itself, under a grant for what that call
+ * touches and nothing more. The
  * allowlists, not the god's judgement, bound what it can do; its system prompt
  * carries the judgement. A god with an {@link #overseer} answers to it after
  * the fact: each change it makes through its run bridge carries a reason and
@@ -52,9 +54,11 @@ import covia.grid.Venue;
  * @param tools           its tools besides its run bridge and memory
  * @param venueOperations what it may run under the venue's authority
  * @param sudoOperations  what it may run inside a user's namespace, on their behalf
+ * @param grantedOperations what it may run as itself, granted per call by the operation's adapter ({@link CallGrants})
  */
 public record God(String id, String ask, String run, String overseer, String keeps, String systemPrompt,
-		String remembers, List<String> tools, Set<String> venueOperations, Set<String> sudoOperations) {
+		String remembers, List<String> tools, Set<String> venueOperations, Set<String> sudoOperations,
+		Set<String> grantedOperations) {
 
 	private static final Logger log = LoggerFactory.getLogger(God.class);
 
@@ -65,10 +69,10 @@ public record God(String id, String ask, String run, String overseer, String kee
 	private static final String MEMORY_PATH = "n/memory";
 	private static final long ADMIN_TIMEOUT_SECONDS = 30;
 
-	/** A god that keeps no user of its own. */
+	/** A god that keeps no user of its own and is granted no operations per call. */
 	public God(String id, String ask, String run, String overseer, String systemPrompt, String remembers,
 			List<String> tools, Set<String> venueOperations, Set<String> sudoOperations) {
-		this(id, ask, run, overseer, null, systemPrompt, remembers, tools, venueOperations, sudoOperations);
+		this(id, ask, run, overseer, null, systemPrompt, remembers, tools, venueOperations, sudoOperations, Set.of());
 	}
 
 	/** The god's DID on {@code venueDID}: a sub-principal of the venue. */

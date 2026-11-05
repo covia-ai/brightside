@@ -751,10 +751,17 @@ public class BrightsideAdapter extends AAdapter {
 		}
 	}
 
-	/** Runs one of {@code god}'s operations: as the venue without a user, else inside that user's namespace. */
+	/**
+	 * Runs one of {@code god}'s operations: as itself under a grant for that call,
+	 * as the venue without a user, else inside that user's namespace.
+	 */
 	private CompletableFuture<ACell> run(God god, String operation, ACell operationInput, AString user) {
 		try {
 			AString venueDID = engine.getDIDString();
+			if (god.grantedOperations().contains(operation)) {
+				if (user != null) throw new IllegalArgumentException(operation + " runs without a user");
+				return runGranted(god, operation, operationInput);
+			}
 			if (user == null) {
 				if (!god.venueOperations().contains(operation)) {
 					throw new IllegalArgumentException("Not a venue operation " + god.id() + " may run: " + operation
@@ -864,6 +871,22 @@ public class BrightsideAdapter extends AAdapter {
 
 	private static String clip(String text, int max) {
 		return (text.length() <= max) ? text : text.substring(0, max - 1) + "…";
+	}
+
+	/**
+	 * Runs a granted operation as the god itself, presenting a grant the venue
+	 * signs for exactly what the operation's adapter says this call touches. The
+	 * venue's own authority is never lent, so the adapter's checks decide.
+	 */
+	private CompletableFuture<ACell> runGranted(God god, String operation, ACell operationInput) {
+		AString venueDID = engine.getDIDString();
+		// Operations are installed under their adapter's name: v/ops/<adapter>/<op>.
+		String[] parts = operation.split("/");
+		Object adapter = (parts.length > 3 && "v".equals(parts[0]) && "ops".equals(parts[1])) ? engine.getAdapter(parts[2]) : null;
+		if (!(adapter instanceof CallGrants grants)) throw new IllegalStateException("No adapter grants " + operation);
+		ACell proof = venueGrant(Strings.create(god.did(venueDID.toString())), grants.capabilitiesFor(operation, operationInput));
+		RequestContext asGod = RequestContext.ofAgent(venueDID, Strings.create(god.id())).withProofs(Vectors.of(proof));
+		return engine.jobs().invokeInternal(operation, operationInput, asGod);
 	}
 
 	/** A per-call grant the venue signs for what a bridge lends ({@link VenueGrants}). */

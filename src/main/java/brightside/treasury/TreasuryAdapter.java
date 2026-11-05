@@ -11,6 +11,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.UnaryOperator;
 import java.util.regex.Pattern;
 
+import brightside.CallGrants;
+import brightside.VenueGrants;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
@@ -43,7 +45,7 @@ import covia.venue.RequestContext;
  * {@code accounts/<id>}, {@code budgets/<id>} and the {@code ledger} of
  * payments. Every change is one atomic update of that state.
  */
-public class TreasuryAdapter extends AAdapter {
+public class TreasuryAdapter extends AAdapter implements CallGrants {
 
 	/** Every operation, as installed under {@code v/ops/treasury/}. */
 	public static final List<String> OPS = List.of(
@@ -507,6 +509,34 @@ public class TreasuryAdapter extends AAdapter {
 		Throwable t = root(failure);
 		String m = t.getMessage();
 		return (m == null || m.isBlank()) ? t.getClass().getSimpleName() : m;
+	}
+
+	/**
+	 * What one call needs: its ability on the account or budget it names, or on
+	 * the treasury for a read. Setting a limit is never granted this way.
+	 */
+	@Override
+	public AVector<ACell> capabilitiesFor(String operation, ACell input) {
+		String op = operation.substring(operation.lastIndexOf('/') + 1);
+		return Vectors.of(switch (op) {
+			case "account-add" -> cap(ACCOUNTS, BUDGET);
+			case "account-list", "budget-list", "ledger" -> cap(ROOT, READ);
+			case "budget-create" -> cap(account(requiredId(input, K_ACCOUNT)), BUDGET);
+			case "budget-lower", "budget-cancel" -> {
+				String id = requiredId(input, K_ID);
+				AMap<AString, ACell> budget = budgetOf(state(), id);
+				if (budget == null) throw new IllegalArgumentException("No budget " + id);
+				yield cap(account(budget.get(K_ACCOUNT).toString()), BUDGET);
+			}
+			case "pay" -> cap(budget(requiredId(input, K_BUDGET)), SPEND);
+			case "limit-set" -> throw new IllegalArgumentException("An account's limit is the owner's to set");
+			default -> throw new IllegalArgumentException("Not a treasury operation: " + operation);
+		});
+	}
+
+	/** A capability over a venue-relative treasury resource. */
+	private AMap<AString, ACell> cap(String resource, AString ability) {
+		return VenueGrants.cap(Strings.create(engine.getDIDString() + "/" + resource), ability);
 	}
 
 	private void require(RequestContext ctx, String resource, AString ability) {

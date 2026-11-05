@@ -41,10 +41,11 @@ class TreasuryTest {
 	private static RequestContext asVenue;
 
 	@BeforeAll
-	static void boot() {
+	static void boot() throws Exception {
 		venue = shared.venue();
 		venue.treasury().addRail(new TestRail());
 		asVenue = venue.engine().venueContext();
+		Gods.ensureAll(venue, "v/test/ops/taskllm");
 	}
 
 	@Test
@@ -143,7 +144,42 @@ class TreasuryTest {
 		assertEquals(Strings.create(Njord.GOD.did(venue.did())), RT.getIn(payments.get(0), "by"), "the ledger says who paid");
 	}
 
+	@Test
+	void njordWorksTheTreasuryThroughHisBridge() throws Exception {
+		add("bridged", asVenue);
+		run("limit-set", Maps.of("account", "bridged", "limit", 100L), asVenue);
+
+		ACell made = asNjord(Maps.of("operation", "v/ops/treasury/budget-create",
+			"input", Maps.of("id", "bridged-a", "account", "bridged", "amount", 30L), "reason", "Hosting for the year."));
+		assertEquals(Strings.create(Odin.address(venue.did())), RT.getIn(made, "report", "address"), "reported to Odin");
+		ACell paid = asNjord(Maps.of("operation", "v/ops/treasury/pay",
+			"input", payment("bridged-a", "shop", 10), "reason", "The first month's hosting."));
+		assertEquals(Strings.create("paid"), RT.getIn(paid, "status"));
+		assertEquals(Strings.create(Njord.GOD.did(venue.did())), RT.getIn(paid, "by"));
+
+		assertTrue(failure(() -> asNjord(Maps.of("operation", "v/ops/treasury/pay",
+			"input", payment("bridged-a", "shop", 25), "reason", "More than the budget."))).contains("has 20 left"));
+		assertThrows(ExecutionException.class, () -> asNjord(Maps.of("operation", "v/ops/treasury/limit-set",
+			"input", Maps.of("account", "bridged", "limit", 1000L), "reason", "Raising my own limit.")), "the limit is the owner's");
+		assertThrows(ExecutionException.class, () -> asNjord(Maps.of("operation", "v/ops/treasury/pay",
+			"input", payment("bridged-a", "shop", 1))), "a payment needs his reason");
+		assertTrue(String.valueOf(asNjord(Maps.of("operation", "v/ops/treasury/ledger"))).contains("bridged-a"),
+			"a read needs no reason");
+		assertThrows(ExecutionException.class, () -> asGod(Thor.AGENT_ID, Thor.OP_RUN, Maps.of(
+			"operation", "v/ops/treasury/ledger")), "the treasury is Njord's");
+	}
+
 	// ------------------------------------------------------------------
+
+	private static ACell asNjord(AMap<AString, ACell> input) throws Exception {
+		return asGod(Njord.AGENT_ID, Njord.OP_RUN, input);
+	}
+
+	/** Invokes as a god's own sub-principal — exactly the context its run loop gives its tool calls. */
+	private static ACell asGod(String god, String op, AMap<AString, ACell> input) throws Exception {
+		RequestContext ctx = RequestContext.ofAgent(Strings.create(venue.did()), Strings.create(god));
+		return venue.engine().jobs().invokeOperation(op, input, ctx).future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+	}
 
 	private static ACell pay(String budget, String recipient, long amount) throws Exception {
 		return run("pay", payment(budget, recipient, amount), asVenue);
