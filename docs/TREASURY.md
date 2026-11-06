@@ -113,7 +113,9 @@ caller must hold a grant on that budget. In one step, saved before the rail
 is asked, the treasury draws the budget and the limit down and writes the
 ledger line; then it settles the line with what the rail said. Paid; not
 paid, when the rail is sure nothing moved, and the budget has the amount
-back; or unknown, when the rail cannot say, and it stays drawn.
+back; or unknown, when the rail cannot say, and it stays drawn. How a
+payment will instead settle a payable the treasury recorded first, so that
+it is paid at most once, is in [PAYMENTS.md](PAYMENTS.md).
 
 Today Njord is the only spender: his run bridge mints, for each call, a grant
 on the account or budget named and nothing broader. Once an agent can hold a
@@ -187,6 +189,7 @@ network.
   as that user, Njord's raw signing included.
 - The Inbox request to raise a limit, and Brightside applying it on the
   owner's approval.
+- Payables, and paying one by its ID ([PAYMENTS.md](PAYMENTS.md)).
 - `budget-move` and `treasury/move`.
 - Settling a payment left pending, by a stop between its draw and the
   rail's answer, or unknown: it stays drawn until something finds out what
