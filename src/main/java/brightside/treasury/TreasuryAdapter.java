@@ -368,8 +368,12 @@ public class TreasuryAdapter extends AAdapter implements CallGrants {
 			if (result != null) settled = RT.assocIn(settled, result, K_LEDGER, CVMLong.create(n), K_RESULT);
 			if (cause != null) settled = RT.assocIn(settled, Strings.create(rootMessage(cause)), K_LEDGER, CVMLong.create(n), K_ERROR);
 			if (status == NOT_PAID) {
-				long drawn = longOf(budgetOf(s, budgetId), K_DRAWN) - amount;
-				settled = RT.assocIn(settled, CVMLong.create(drawn), K_BUDGETS, Strings.create(budgetId), K_DRAWN);
+				AMap<AString, ACell> budget = budgetOf(s, budgetId);
+				CVMLong drawn = CVMLong.create(longOf(budget, K_DRAWN) - amount);
+				budget = budget.assoc(K_DRAWN, drawn);
+				// A budget cancelled meanwhile holds only what it drew, so it gives this back to the limit too.
+				if (CANCELLED.equals(budget.get(K_STATUS))) budget = budget.assoc(K_AMOUNT, drawn);
+				settled = RT.assocIn(settled, budget, K_BUDGETS, Strings.create(budgetId));
 			}
 			return settled;
 		});

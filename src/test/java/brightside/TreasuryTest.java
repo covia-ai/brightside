@@ -1,10 +1,14 @@
 package brightside;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -39,11 +43,12 @@ class TreasuryTest {
 
 	private static EmbeddedVenue venue;
 	private static RequestContext asVenue;
+	private static final TestRail rail = new TestRail();
 
 	@BeforeAll
 	static void boot() throws Exception {
 		venue = shared.venue();
-		venue.treasury().addRail(new TestRail());
+		venue.treasury().addRail(rail);
 		asVenue = venue.engine().venueContext();
 		Gods.ensureAll(venue, "v/test/ops/taskllm");
 	}
@@ -51,25 +56,25 @@ class TreasuryTest {
 	@Test
 	void budgetsStayWithinTheLimit() throws Exception {
 		add("limits", asVenue);
-		assertTrue(failure(() -> createBudget("limits-a", "limits", 1, asVenue)).contains("past its limit"),
-			"a new account's limit is nothing");
+		refused(() -> createBudget("limits-a", "limits", 1, asVenue));
+		assertNull(budget("limits-a"), "a new account's limit is nothing");
 
 		run("limit-set", Maps.of("account", "limits", "limit", 100L), asVenue);
 		createBudget("limits-a", "limits", 60, asVenue);
-		assertTrue(failure(() -> createBudget("limits-b", "limits", 41, asVenue)).contains("past its limit"));
+		refused(() -> createBudget("limits-b", "limits", 41, asVenue));
 		createBudget("limits-b", "limits", 40, asVenue);
 
 		run("budget-lower", Maps.of("id", "limits-a", "amount", 10L), asVenue);
-		assertTrue(failure(() -> run("budget-lower", Maps.of("id", "limits-a", "amount", 20L), asVenue))
-			.contains("only be lowered"));
+		refused(() -> run("budget-lower", Maps.of("id", "limits-a", "amount", 20L), asVenue));
+		assertEquals(10L, number(budget("limits-a"), "amount"), "a budget can only be lowered");
 		ACell cancelled = run("budget-cancel", Maps.of("id", "limits-b"), asVenue);
 		assertEquals(Strings.create("cancelled"), RT.getIn(cancelled, "status"));
-		assertTrue(failure(() -> run("budget-lower", Maps.of("id", "limits-b", "amount", 0L), asVenue))
-			.contains("cancelled"), "a closed budget stays closed");
+		refused(() -> run("budget-lower", Maps.of("id", "limits-b", "amount", 0L), asVenue));
+		assertEquals(Strings.create("cancelled"), RT.getIn(budget("limits-b"), "status"), "a closed budget stays closed");
 
 		// What was lowered and cancelled is the account's to budget again.
 		createBudget("limits-c", "limits", 90, asVenue);
-		assertEquals(100L, RT.ensureLong(RT.getIn(account("limits"), "committed")).longValue());
+		assertEquals(100L, number(account("limits"), "committed"));
 	}
 
 	@Test
@@ -80,19 +85,22 @@ class TreasuryTest {
 		run("limit-set", Maps.of("account", "other", "limit", 50L), asVenue);
 
 		RequestContext bare = njord();
-		assertTrue(failure(() -> createBudget("granted-a", "granted", 5, bare)).contains("treasury/budget"),
-			"Njord's own context holds nothing in the treasury");
-		assertThrows(Exception.class, () -> run("account-list", Maps.empty(), bare));
+		refused(() -> createBudget("granted-a", "granted", 5, bare));
+		assertNull(budget("granted-a"), "Njord's own context holds nothing in the treasury");
+		refused(() -> run("account-list", Maps.empty(), bare));
 
 		RequestContext budgeting = njord(cap(TreasuryAdapter.account("granted"), TreasuryAdapter.BUDGET));
 		createBudget("granted-a", "granted", 5, budgeting);
-		assertThrows(Exception.class, () -> createBudget("other-a", "other", 5, budgeting), "only the account granted");
-		assertThrows(Exception.class, () -> run("limit-set", Maps.of("account", "granted", "limit", 500L), budgeting),
-			"a budget grant is not the owner's limit");
+		refused(() -> createBudget("other-a", "other", 5, budgeting));
+		assertNull(budget("other-a"), "only the account granted");
+		refused(() -> run("limit-set", Maps.of("account", "granted", "limit", 500L), budgeting));
+		assertEquals(50L, number(account("granted"), "limit"), "a budget grant is not the owner's limit");
 
 		RequestContext reading = njord(cap(TreasuryAdapter.ROOT, TreasuryAdapter.READ));
-		assertTrue(String.valueOf(run("budget-list", Maps.of("account", "granted"), reading)).contains("granted-a"));
-		assertThrows(Exception.class, () -> createBudget("granted-b", "granted", 5, reading), "reading is not budgeting");
+		AVector<ACell> listed = RT.ensureVector(RT.getIn(run("budget-list", Maps.of("account", "granted"), reading), "budgets"));
+		assertEquals(Strings.create("granted-a"), RT.getIn(listed.get(0), "id"));
+		refused(() -> createBudget("granted-b", "granted", 5, reading));
+		assertNull(budget("granted-b"), "reading is not budgeting");
 	}
 
 	@Test
@@ -104,17 +112,18 @@ class TreasuryTest {
 		ACell line = pay("paying-a", "shop", 20);
 		assertEquals(Strings.create("paid"), RT.getIn(line, "status"));
 		assertEquals(Strings.create("shop"), RT.getIn(line, "recipient"));
-		assertTrue(failure(() -> pay("paying-a", "shop", 11)).contains("has 10 left"), "a budget caps what it pays");
+		refused(() -> pay("paying-a", "shop", 11));
+		assertEquals(20L, drawn("paying-a"), "a budget caps what it pays");
 
 		// The rail is sure nothing moved: the budget has it back.
-		assertTrue(failure(() -> pay("paying-a", TestRail.REFUSES, 10)).contains("Not paid"));
+		refused(() -> pay("paying-a", TestRail.REFUSES, 10));
 		assertEquals(20L, drawn("paying-a"));
 		// The rail cannot say: it stays drawn, and the ledger says so.
-		assertTrue(failure(() -> pay("paying-a", TestRail.LOSES, 10)).contains("not known"));
+		refused(() -> pay("paying-a", TestRail.LOSES, 10));
 		assertEquals(30L, drawn("paying-a"));
 
-		AVector<ACell> payments = RT.ensureVector(RT.getIn(run("ledger", Maps.of("budget", "paying-a"), asVenue), "payments"));
-		assertEquals(3, payments.count());
+		AVector<ACell> payments = payments("paying-a");
+		assertEquals(3, payments.count(), "a refused payment leaves no line");
 		assertEquals(Strings.create("not-paid"), RT.getIn(payments.get(1), "status"));
 		assertEquals(Strings.create("unknown"), RT.getIn(payments.get(2), "status"));
 	}
@@ -126,9 +135,28 @@ class TreasuryTest {
 		createBudget("lowered-a", "lowered", 100, asVenue);
 		pay("lowered-a", "shop", 40);
 		run("limit-set", Maps.of("account", "lowered", "limit", 50L), asVenue);
-		assertTrue(failure(() -> pay("lowered-a", "shop", 20)).contains("past its limit"),
-			"the owner's limit holds over a budget made before it was lowered");
+		refused(() -> pay("lowered-a", "shop", 20));
+		assertEquals(40L, drawn("lowered-a"), "the owner's limit holds over a budget made before it was lowered");
 		pay("lowered-a", "shop", 10);
+	}
+
+	@Test
+	void aCancelledBudgetGivesBackWhatItDidNotPay() throws Exception {
+		add("cancelling", asVenue);
+		run("limit-set", Maps.of("account", "cancelling", "limit", 100L), asVenue);
+		createBudget("cancelling-a", "cancelling", 30, asVenue);
+
+		// Cancelled while a payment is with the rail, which then says it did not pay.
+		CompletableFuture<ACell> answer = rail.hold("held");
+		CompletableFuture<ACell> paying = venue.engine().jobs()
+			.invokeOperation("v/ops/treasury/pay", payment("cancelling-a", "held", 10), asVenue).future();
+		rail.asked("held").get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		run("budget-cancel", Maps.of("id", "cancelling-a"), asVenue);
+		answer.completeExceptionally(new Rail.NotPaid("refused"));
+		assertThrows(ExecutionException.class, () -> paying.get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+
+		assertEquals(0L, drawn("cancelling-a"));
+		assertEquals(0L, number(account("cancelling"), "committed"), "the whole limit is the account's to budget again");
 	}
 
 	@Test
@@ -139,14 +167,16 @@ class TreasuryTest {
 		createBudget("spending-b", "spending", 5, asVenue);
 		RequestContext onA = njord(cap(TreasuryAdapter.budget("spending-a"), TreasuryAdapter.SPEND));
 		run("pay", payment("spending-a", "shop", 1), onA);
-		assertTrue(failure(() -> run("pay", payment("spending-b", "shop", 1), onA)).contains("treasury/spend"));
-		AVector<ACell> payments = RT.ensureVector(RT.getIn(run("ledger", Maps.of("budget", "spending-a"), asVenue), "payments"));
-		assertEquals(Strings.create(Njord.GOD.did(venue.did())), RT.getIn(payments.get(0), "by"), "the ledger says who paid");
+		refused(() -> run("pay", payment("spending-b", "shop", 1), onA));
+		assertEquals(0, payments("spending-b").count(), "only the budget granted");
+		assertEquals(Strings.create(Njord.GOD.did(venue.did())), RT.getIn(payments("spending-a").get(0), "by"), "the ledger says who paid");
 	}
 
 	@Test
 	void njordWorksTheTreasuryThroughHisBridge() throws Exception {
-		add("bridged", asVenue);
+		ACell added = asNjord(Maps.of("operation", "v/ops/treasury/account-add",
+			"input", Maps.of("id", "bridged", "rail", TestRail.NAME, "address", "bridged"), "reason", "The hosting account."));
+		assertEquals(0L, number(added, "limit"), "an account he adds can spend nothing yet");
 		run("limit-set", Maps.of("account", "bridged", "limit", 100L), asVenue);
 
 		ACell made = asNjord(Maps.of("operation", "v/ops/treasury/budget-create",
@@ -157,16 +187,25 @@ class TreasuryTest {
 		assertEquals(Strings.create("paid"), RT.getIn(paid, "status"));
 		assertEquals(Strings.create(Njord.GOD.did(venue.did())), RT.getIn(paid, "by"));
 
-		assertTrue(failure(() -> asNjord(Maps.of("operation", "v/ops/treasury/pay",
-			"input", payment("bridged-a", "shop", 25), "reason", "More than the budget."))).contains("has 20 left"));
-		assertThrows(ExecutionException.class, () -> asNjord(Maps.of("operation", "v/ops/treasury/limit-set",
-			"input", Maps.of("account", "bridged", "limit", 1000L), "reason", "Raising my own limit.")), "the limit is the owner's");
-		assertThrows(ExecutionException.class, () -> asNjord(Maps.of("operation", "v/ops/treasury/pay",
-			"input", payment("bridged-a", "shop", 1))), "a payment needs his reason");
-		assertTrue(String.valueOf(asNjord(Maps.of("operation", "v/ops/treasury/ledger"))).contains("bridged-a"),
-			"a read needs no reason");
-		assertThrows(ExecutionException.class, () -> asGod(Thor.AGENT_ID, Thor.OP_RUN, Maps.of(
-			"operation", "v/ops/treasury/ledger")), "the treasury is Njord's");
+		refused(() -> asNjord(Maps.of("operation", "v/ops/treasury/pay",
+			"input", payment("bridged-a", "shop", 25), "reason", "More than the budget.")));
+		assertEquals(10L, drawn("bridged-a"), "the budget caps what he pays");
+		refused(() -> asNjord(Maps.of("operation", "v/ops/treasury/limit-set",
+			"input", Maps.of("account", "bridged", "limit", 1000L), "reason", "Raising my own limit.")));
+		assertEquals(100L, number(account("bridged"), "limit"), "the limit is the owner's");
+		refused(() -> asNjord(Maps.of("operation", "v/ops/treasury/pay", "input", payment("bridged-a", "shop", 1))));
+		assertEquals(10L, drawn("bridged-a"), "a payment needs his reason");
+
+		asNjord(Maps.of("operation", "v/ops/treasury/budget-lower",
+			"input", Maps.of("id", "bridged-a", "amount", 20L), "reason", "Hosting costs less than I thought."));
+		assertEquals(20L, number(budget("bridged-a"), "amount"));
+		asNjord(Maps.of("operation", "v/ops/treasury/budget-cancel",
+			"input", Maps.of("id", "bridged-a"), "reason", "Hosting is paid for."));
+		assertEquals(Strings.create("cancelled"), RT.getIn(budget("bridged-a"), "status"));
+
+		AVector<ACell> ledger = RT.ensureVector(RT.getIn(asNjord(Maps.of("operation", "v/ops/treasury/ledger")), "payments"));
+		assertTrue(ledger.count() > 0, "a read needs no reason");
+		refused(() -> asGod(Thor.AGENT_ID, Thor.OP_RUN, Maps.of("operation", "v/ops/treasury/ledger")));
 	}
 
 	// ------------------------------------------------------------------
@@ -189,14 +228,36 @@ class TreasuryTest {
 		return Maps.of("budget", budget, "recipient", recipient, "amount", amount, "reason", "As the test agreed.");
 	}
 
+	private static AVector<ACell> payments(String budget) throws Exception {
+		return RT.ensureVector(RT.getIn(run("ledger", Maps.of("budget", budget), asVenue), "payments"));
+	}
+
 	private static long drawn(String budget) throws Exception {
-		AVector<ACell> budgets = RT.ensureVector(RT.getIn(run("budget-list", Maps.empty(), asVenue), "budgets"));
-		for (long i = 0; i < budgets.count(); i++) {
-			if (Strings.create(budget).equals(RT.getIn(budgets.get(i), "id"))) {
-				return RT.ensureLong(RT.getIn(budgets.get(i), "drawn")).longValue();
-			}
+		ACell found = budget(budget);
+		assertNotNull(found, "No budget " + budget);
+		return number(found, "drawn");
+	}
+
+	/** The budget as listed, or null when there is none. */
+	private static ACell budget(String id) throws Exception {
+		return find(RT.ensureVector(RT.getIn(run("budget-list", Maps.empty(), asVenue), "budgets")), id);
+	}
+
+	private static ACell account(String id) throws Exception {
+		ACell found = find(RT.ensureVector(RT.getIn(run("account-list", Maps.empty(), asVenue), "accounts")), id);
+		assertNotNull(found, "No account " + id);
+		return found;
+	}
+
+	private static ACell find(AVector<ACell> records, String id) {
+		for (long i = 0; i < records.count(); i++) {
+			if (Strings.create(id).equals(RT.getIn(records.get(i), "id"))) return records.get(i);
 		}
-		throw new AssertionError("No budget " + budget);
+		return null;
+	}
+
+	private static long number(ACell record, String field) {
+		return RT.ensureLong(RT.getIn(record, field)).longValue();
 	}
 
 	private static void add(String id, RequestContext ctx) throws Exception {
@@ -205,14 +266,6 @@ class TreasuryTest {
 
 	private static ACell createBudget(String id, String account, long amount, RequestContext ctx) throws Exception {
 		return run("budget-create", Maps.of("id", id, "account", account, "amount", amount), ctx);
-	}
-
-	private static ACell account(String id) throws Exception {
-		AVector<ACell> accounts = RT.ensureVector(RT.getIn(run("account-list", Maps.empty(), asVenue), "accounts"));
-		for (long i = 0; i < accounts.count(); i++) {
-			if (Strings.create(id).equals(RT.getIn(accounts.get(i), "id"))) return accounts.get(i);
-		}
-		throw new AssertionError("No account " + id);
 	}
 
 	/** Njord's own context, presenting a venue grant of {@code att} to him for this call. */
@@ -238,21 +291,34 @@ class TreasuryTest {
 		void call() throws Exception;
 	}
 
-	/** The message a refused call fails with. */
-	private static String failure(Call call) {
-		ExecutionException e = assertThrows(ExecutionException.class, call::call);
-		return String.valueOf(e.getCause().getMessage());
+	/** The call is refused: what it would have changed is for the caller to check. */
+	private static void refused(Call call) {
+		assertThrows(ExecutionException.class, call::call);
 	}
 
 	/**
 	 * A rail that names accounts by their {@code address} and moves nothing: it
-	 * pays anyone but {@link #REFUSES}, which it is sure it did not pay, and
-	 * {@link #LOSES}, which it cannot say.
+	 * pays anyone but {@link #REFUSES}, which it is sure it did not pay,
+	 * {@link #LOSES}, which it cannot say, and a recipient it was told to
+	 * {@link #hold}, which waits for the test's answer.
 	 */
 	static final class TestRail implements Rail {
 		static final String NAME = "test";
 		static final String REFUSES = "refuses";
 		static final String LOSES = "loses";
+
+		private final Map<String, CompletableFuture<ACell>> held = new ConcurrentHashMap<>();
+		private final Map<String, CompletableFuture<Void>> asked = new ConcurrentHashMap<>();
+
+		/** Holds payments to {@code recipient} until the returned future completes. */
+		CompletableFuture<ACell> hold(String recipient) {
+			return held.computeIfAbsent(recipient, r -> new CompletableFuture<>());
+		}
+
+		/** Completes once a payment to {@code recipient} has reached the rail, its draw saved. */
+		CompletableFuture<Void> asked(String recipient) {
+			return asked.computeIfAbsent(recipient, r -> new CompletableFuture<>());
+		}
 
 		@Override
 		public String name() {
@@ -280,7 +346,11 @@ class TreasuryTest {
 
 		@Override
 		public CompletableFuture<ACell> pay(AMap<AString, ACell> account, AString recipient, long amount) {
-			return switch (recipient.toString()) {
+			String to = recipient.toString();
+			asked(to).complete(null);
+			CompletableFuture<ACell> waiting = held.get(to);
+			if (waiting != null) return waiting;
+			return switch (to) {
 				case REFUSES -> CompletableFuture.failedFuture(new NotPaid("refused"));
 				case LOSES -> CompletableFuture.failedFuture(new IllegalStateException("no answer"));
 				default -> CompletableFuture.completedFuture(Maps.of("paid", amount));
