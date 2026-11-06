@@ -43,9 +43,9 @@ public interface Rail {
 	/**
 	 * Pays {@code amount}, in the account's currency's smallest unit, from the
 	 * account to {@code recipient}. Completes with what the rail reports of the
-	 * payment, kept on its ledger line. Fails with {@link NotPaid} only when the
-	 * rail is sure nothing was paid; any other failure leaves the payment
-	 * unknown, and the treasury keeps it drawn.
+	 * payment, kept on its ledger line. Throws or fails with {@link NotPaid}
+	 * only when the rail is sure nothing was paid; any other failure leaves the
+	 * payment unknown, and the treasury keeps it drawn.
 	 */
 	CompletableFuture<ACell> pay(AMap<AString, ACell> account, AString recipient, long amount);
 

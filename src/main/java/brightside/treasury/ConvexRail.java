@@ -4,7 +4,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
 
 import brightside.VenueGrants;
@@ -58,13 +57,15 @@ public final class ConvexRail implements Rail {
 	private static final Pattern CREDENTIAL = Pattern.compile("s/[A-Za-z0-9_-]{1,64}");
 
 	/**
-	 * Errors that mean the network refused or rolled back the transaction, so
-	 * nothing moved. Any other — a timeout, a lost connection — leaves it unknown.
+	 * Error codes in Convex's answer that mean the network refused or rolled back
+	 * the transaction, so nothing moved. Any other leaves it unknown: a timeout,
+	 * and {@code CONNECT}, which Convex also reports for a request a closing
+	 * connection left unanswered.
 	 */
 	private static final Set<String> NOT_APPLIED = Set.of(
 		"FUNDS", "NOBODY", "SEQUENCE", "SIGNATURE", "JUICE", "ARGUMENT", "CAST", "STATE", "TRUST",
 		"ASSERT", "COMPILE", "SYNTAX", "UNDECLARED", "BOUNDS", "ARITY", "DEPTH", "MEMORY", "ROLLBACK",
-		"LIMIT", "CONNECT");
+		"LIMIT");
 
 	private final Engine engine;
 
@@ -117,28 +118,38 @@ public final class ConvexRail implements Rail {
 		});
 	}
 
+	/**
+	 * Pays by when a failure happens, not by what it looks like. Anything wrong
+	 * before the payment is handed to Covia means nothing was sent. Once it is
+	 * handed over, Covia's jobs reword a failure on the way back, so a timeout or
+	 * a connection lost after sending cannot be told from one before: only
+	 * Convex's own answer that it refused the transaction says nothing moved.
+	 */
 	@Override
 	public CompletableFuture<ACell> pay(AMap<AString, ACell> account, AString recipient, long amount) {
-		Address to = address(recipient, "recipient");
-		AString custody = RT.ensureString(account.get(K_CUSTODY));
-		AMap<AString, ACell> transfer = withPeer(account, Maps.of(
-			K_ADDRESS, account.get(K_ADDRESS),
-			K_SEED, account.get(K_CREDENTIAL),
-			K_SOURCE, Strings.create("(transfer " + to + " " + amount + ")")));
-		// The key is used where it is kept, under a grant for that user alone.
-		ACell grant = new VenueGrants(engine).grant(Strings.create(engine.getDIDString()), Vectors.of(
-			VenueGrants.cap(custody, Abilities.USER_SUDO),
-			VenueGrants.cap(Strings.create(custody + "/"), Strings.create("*"))));
-		RequestContext asVenue = RequestContext.of(Strings.create(engine.getDIDString()), Vectors.of(grant));
-		AMap<AString, ACell> sudo = Maps.of(K_DID, custody, K_OPERATION, Strings.create(OP_TRANSACT), K_INPUT, transfer);
+		AMap<AString, ACell> sudo;
+		RequestContext asVenue;
+		try {
+			Address to = address(recipient, "recipient");
+			AString custody = RT.ensureString(account.get(K_CUSTODY));
+			if (custody == null) throw new IllegalStateException("The account names no custody");
+			AMap<AString, ACell> transfer = withPeer(account, Maps.of(
+				K_ADDRESS, account.get(K_ADDRESS),
+				K_SEED, account.get(K_CREDENTIAL),
+				K_SOURCE, Strings.create("(transfer " + to + " " + amount + ")")));
+			// The key is used where it is kept, under a grant for that user alone.
+			ACell grant = new VenueGrants(engine).grant(Strings.create(engine.getDIDString()), Vectors.of(
+				VenueGrants.cap(custody, Abilities.USER_SUDO),
+				VenueGrants.cap(Strings.create(custody + "/"), Strings.create("*"))));
+			asVenue = RequestContext.of(Strings.create(engine.getDIDString()), Vectors.of(grant));
+			sudo = Maps.of(K_DID, custody, K_OPERATION, Strings.create(OP_TRANSACT), K_INPUT, transfer);
+		} catch (RuntimeException e) {
+			throw new NotPaid("Not sent: " + e.getMessage());
+		}
 		return engine.jobs().invokeInternal(OP_USER_SUDO, sudo, asVenue).handle((result, failure) -> {
 			if (failure != null) {
-				// Refused before it was sent (the key, the grant, the peer) unless it timed out waiting.
-				Throwable cause = root(failure);
-				if (cause instanceof TimeoutException) {
-					throw new CompletionException(new IllegalStateException("Convex did not answer in time; whether it was paid is not known"));
-				}
-				throw new CompletionException(new NotPaid("Not sent: " + cause.getMessage()));
+				throw new CompletionException(new IllegalStateException(
+					"Convex gave no clear answer, so whether it was paid is not known: " + rootMessage(failure)));
 			}
 			AString error = RT.ensureString(RT.getIn(result, K_ERROR_CODE));
 			if (error == null) return result;
@@ -147,10 +158,10 @@ public final class ConvexRail implements Rail {
 		});
 	}
 
-	private static Throwable root(Throwable failure) {
+	private static String rootMessage(Throwable failure) {
 		Throwable t = failure;
 		while ((t instanceof CompletionException || t instanceof ExecutionException) && t.getCause() != null) t = t.getCause();
-		return t;
+		return (t.getMessage() == null) ? t.getClass().getSimpleName() : t.getMessage();
 	}
 
 	private static AMap<AString, ACell> withPeer(AMap<AString, ACell> account, AMap<AString, ACell> input) {

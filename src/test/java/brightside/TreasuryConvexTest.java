@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashMap;
 import java.util.List;
@@ -38,7 +37,8 @@ import covia.venue.RequestContext;
  * The treasury paying over Convex on a local network of one peer: an account
  * whose key is in Njord's treasury, a budget within the owner's limit, and a
  * payment that reaches the recipient and the ledger. A payment the network
- * refuses gives the budget its draw back.
+ * refuses gives the budget its draw back; one without a clear answer stays
+ * drawn.
  */
 class TreasuryConvexTest {
 
@@ -103,22 +103,45 @@ class TreasuryConvexTest {
 		Result held = genesis.query("(balance " + payee + ")").get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 		assertEquals(1_234L, RT.ensureLong(held.getValue()).longValue(), "the payee has it");
 
-		ACell listed = run("account-list", Maps.empty());
-		assertTrue(String.valueOf(listed).contains("convex:local/slip44:864"), "spent in CVM: " + listed);
-		ACell balance = RT.getIn(RT.ensureVector(RT.getIn(listed, "accounts")).get(0), "balance");
-		assertNotNull(balance, "the rail reads the balance: " + listed);
+		ACell main = RT.ensureVector(RT.getIn(run("account-list", Maps.empty()), "accounts")).stream()
+			.filter(a -> Strings.create("convex-main").equals(RT.getIn(a, "id"))).findFirst().orElseThrow();
+		assertEquals(Strings.create("convex:local/slip44:864"), RT.getIn(main, "currency"), "spent in CVM");
+		assertNotNull(RT.getIn(main, "balance"), "the rail reads the balance: " + main);
 	}
 
 	@Test
 	void aPaymentTheNetworkRefusesReturnsItsDraw() throws Exception {
 		run("budget-create", Maps.of("id", "too-much", "account", "convex-main", "amount", 2 * FLOAT - 10_000L));
 		Address payee = fromGenesis("(create-account 0x" + AKeyPair.generate().getAccountKey().toHexString() + ")");
-		ExecutionException e = assertThrows(ExecutionException.class, () -> run("pay", Maps.of("budget", "too-much",
+		assertThrows(ExecutionException.class, () -> run("pay", Maps.of("budget", "too-much",
 			"recipient", payee.toString(), "amount", FLOAT + 1, "reason", "More than the account holds.")));
-		assertTrue(e.getCause().getMessage().contains("Not paid"), e.getCause().getMessage());
-		ACell budget = RT.ensureVector(RT.getIn(run("budget-list", Maps.of("account", "convex-main")), "budgets")).stream()
-			.filter(b -> Strings.create("too-much").equals(RT.getIn(b, "id"))).findFirst().orElseThrow();
-		assertEquals(0L, RT.ensureLong(RT.getIn(budget, "drawn")).longValue(), "the budget has it back");
+		assertEquals(Strings.create("not-paid"), RT.getIn(lastPayment("too-much"), "status"));
+		assertEquals(0L, drawn("convex-main", "too-much"), "the budget has it back");
+	}
+
+	@Test
+	void aPaymentWithoutAClearAnswerStaysDrawn() throws Exception {
+		// A failure Covia reports from inside its jobs, here a peer it cannot
+		// reach, reads the same as one after the transaction was sent.
+		run("account-add", Maps.of("id", "convex-unreachable", "rail", "convex", "network", "convex:local", "peer", "localhost:0",
+			"address", account.toString(), "credential", "s/" + KEY, "custody", Njord.treasury(venue.did())));
+		run("limit-set", Maps.of("account", "convex-unreachable", "limit", 10_000L));
+		run("budget-create", Maps.of("id", "stranded", "account", "convex-unreachable", "amount", 5_000L));
+		assertThrows(ExecutionException.class, () -> run("pay", Maps.of("budget", "stranded",
+			"recipient", account.toString(), "amount", 1_000L, "reason", "To a peer that is not there.")));
+		assertEquals(Strings.create("unknown"), RT.getIn(lastPayment("stranded"), "status"));
+		assertEquals(1_000L, drawn("convex-unreachable", "stranded"), "it stays drawn until someone finds out");
+	}
+
+	private static ACell lastPayment(String budget) throws Exception {
+		var payments = RT.ensureVector(RT.getIn(run("ledger", Maps.of("budget", budget)), "payments"));
+		return payments.get(payments.count() - 1);
+	}
+
+	private static long drawn(String account, String budget) throws Exception {
+		ACell found = RT.ensureVector(RT.getIn(run("budget-list", Maps.of("account", account)), "budgets")).stream()
+			.filter(b -> Strings.create(budget).equals(RT.getIn(b, "id"))).findFirst().orElseThrow();
+		return RT.ensureLong(RT.getIn(found, "drawn")).longValue();
 	}
 
 	private static ACell run(String op, AMap<AString, ACell> input) throws Exception {
