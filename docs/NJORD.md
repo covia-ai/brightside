@@ -53,8 +53,9 @@ through his bridge, signed with a treasury key, on a local Convex network.
 He pays through the treasury where he can: from a budget he made, within the
 spend limit the owner set on its account, with every payment a ledger line.
 His bridge runs its operations as him, granted exactly the account or budget
-each names, and never lets him set a limit. How it works is in
-[TREASURY.md](TREASURY.md).
+each names. Adding accounts, setting their limits and holding their
+credentials are the owner's, in the app, and no operation of his reaches
+them. How it works is in [TREASURY.md](TREASURY.md).
 
 ## How he judges
 
@@ -98,5 +99,5 @@ content asked for.
 - Brightside fixes no network. The request names the peer, and a call that
   names none goes to Convex's public network, Covia's default.
 - The treasury's limits bind what he pays through it, but his raw signing
-  reaches any key he can use, a treasury account's included, until where
-  the treasury keeps its credentials is decided ([TREASURY.md](TREASURY.md)).
+  reaches any key he can use, a treasury account's included, until the
+  treasury holds its accounts' credentials itself ([TREASURY.md](TREASURY.md)).
