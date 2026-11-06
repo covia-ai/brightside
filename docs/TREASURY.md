@@ -18,8 +18,8 @@ are built, on Convex; the rest of this doc is ahead of the code where
 - **Limits are the owner's.** Each account has a spend limit: the total the
   owner has approved for spending from it. Only the owner sets it, and Njord
   asks for a raise through the Inbox.
-- **Budgets are Njord's.** A budget is an allowance of one currency, drawn
-  from one account's limit, which Njord creates, lowers and cancels on his
+- **Budgets are Njord's.** A budget is an allowance drawn from one account's
+  limit, in that account's currency, which Njord creates, lowers and cancels on his
   own judgement. A grant on a budget is the power to spend from it.
 - **Spending is the treasury's own accounting.** A payment draws down its
   budget and its account's limit together, or fails, as an overdraft would.
@@ -49,8 +49,10 @@ A currency is named apart from any rail: ISO 4217 for fiat, CAIP-19 for an
 asset on a chain. A token belongs to its chain, so its name includes the
 network, and the same token on two chains is two currencies.
 
-An account is one place funds are held on one rail, possibly in several
-currencies, with the credential that lets the treasury spend from it. What a
+An account is a balance of one currency on one rail, held by the owner or by
+a custodian, with the credential that lets the treasury spend from it. An
+address holding two currencies, CVM and a token on Convex say, is two
+accounts, each with its own limit. What a
 credential is belongs to the rail: a signing key on a chain, an API key for a
 card processor, a token for a bank. The treasury holds it itself, where no
 operation and no user of the venue can reach it, and hands it only to the
@@ -78,8 +80,8 @@ beyond it.
 
 ## Budgets
 
-A budget is an allowance: permission to draw up to an amount of one currency
-from one account, for a purpose or for an agent. Creating one moves nothing
+A budget is an allowance: permission to draw up to an amount from one
+account, in its currency, for a purpose or for an agent. Creating one moves nothing
 on the network. Njord creates, lowers and cancels budgets within what the
 account's limit has left, and the treasury refuses a budget that would take
 the account's budgets past it. A cancelled budget keeps only what it has
