@@ -68,20 +68,17 @@ sends it. The payable then stands as paid, unknown, or open again:
   returns that, until settling finds out what the rail did.
 
 The rail's reference is what settling works from. It is made when the
-payment is sent, not when the payable is recorded: on Convex it is the
-signed transaction, which carries the account's next sequence number, so
-signing early would let one unpaid payable block every later payment from
-that account. A card processor would take the payable's ID as its own
-idempotency key.
+payment is sent, not when the payable is recorded, so a payable left unpaid
+holds nothing up at the rail.
 
 Each ledger line names the payable it settled.
 
 ## Approval
 
 A payment Njord judges new to the owner — a new recipient, an unusual sum —
-goes to the Inbox as the payable itself. On the owner's approval Brightside
-pays exactly that payable through the treasury's Java API, so nothing can
-change between what is shown and what is sent.
+goes to the Inbox as the payable itself. On the owner's approval the app pays
+exactly that payable, so nothing can change between what is shown and what
+is sent.
 
 ## Grants
 
