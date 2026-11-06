@@ -62,7 +62,9 @@ rail that fits an existing Covia operation delegates to it. The Convex rail
 pays CVM: it reads through `convex/query` and pays a `transfer` through
 `convex/transact`, used inside the user whose store holds the key, so the key
 is resolved by Covia from its reference, never seen by the treasury, and
-every payment keeps Covia's job record. A rail without such an operation,
+every payment keeps Covia's job record. It counts a payment as not paid only
+when it failed before reaching Covia or Convex answered that it refused it;
+a timeout or a lost connection leaves it unknown. A rail without such an operation,
 x402 or a card processor say, carries its own code.
 
 ## Spend limits

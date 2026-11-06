@@ -851,7 +851,9 @@ public class BrightsideAdapter extends AAdapter {
 			log.warn("{} has no overseer named {} to report to", god.id(), god.overseer());
 			return CompletableFuture.completedFuture(outcome);
 		}
-		String where = (user != null) ? " in the namespace of " + user : " as the venue";
+		String where = (user != null) ? " in the namespace of " + user
+			: god.grantedOperations().contains(operation) ? " as itself, under a grant for that call alone"
+			: " as the venue";
 		AMap<AString, ACell> ask = Maps.of(
 			K_REQUEST, clip(god.id() + " has just run " + operation + where + ". Reason given: " + reason, 4000),
 			K_CONTEXT, clip("Input:\n" + JSON.toStringPretty(operationInput)
