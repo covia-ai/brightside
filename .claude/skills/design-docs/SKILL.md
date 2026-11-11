@@ -30,6 +30,7 @@ guide and points here.
 | `docs/NETWORK.md` | target state once venues meet venues; deliberately ahead of the code |
 | `docs/PEERS.md` | the Peers map: peer data versus map settings, where nodes come from, the steps from preview to live nodes; ahead of the code |
 | `docs/APP_STATE.md` | Brightside's own state in its adapters' venue state: what is there, what moves in, what stays in files, the rules for reading and writing it |
+| `docs/SELF_IMPROVEMENT.md` | the daily self-improvement loop: who does what, a run, what needs the owner, where things are; the procedure is the `improvement-loop` skill |
 | `docs/ADVANCED_MEMORY.md` | proposals for tiered, provenance-gated memory with consolidation, recall and intents; nothing in it is built |
 
 Covia's own design lives in `../covia/venue/docs/` (skills, agent context,
