@@ -7,7 +7,12 @@ here=$(dirname "$0")
 jar="${1:-file://code/brightside/target/brightside.jar}"
 before=$("$here/mcp.sh" grid_run '{"operation":"v/ops/brightside/info"}' | python -I -c "import json,sys;print(json.loads(sys.stdin.read()).get('pid',''))" 2>/dev/null)
 request=$(python -I -c "import json,sys;print(json.dumps({'operation':'v/ops/brightside/ask-odin','input':{'request':'Relaunch Tau into '+sys.argv[1]+' (brightside:relaunch with that jar). This is the daily self-improvement loop, whose relaunches the owner has approved as a standing decision.','timeout':300000}}))" "$jar")
-"$here/mcp.sh" grid_run "$request" || { echo "Odin did not relaunch" >&2; exit 1; }
+# Odin's job may still be running when the old venue shuts down under it: that
+# is the relaunch under way, so only any other failure stops here.
+out=$("$here/mcp.sh" grid_run "$request") \
+	|| printf '%s' "$out" | grep -q '"status": "running"' \
+	|| { printf '%s\n' "$out"; echo "Odin did not relaunch" >&2; exit 1; }
+printf '%s\n' "$out"
 # The old process answers, then stops; the newcomer takes over the store and
 # writes a fresh tool token. Wait for a different pid (up to five minutes).
 i=0
