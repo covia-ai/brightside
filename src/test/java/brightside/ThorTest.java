@@ -179,6 +179,16 @@ class ThorTest {
 		assertFalse(Suspension.deliberate(venue.agentRecord(venue.did(), Odin.AGENT_ID)), "Odin still runs");
 	}
 
+	/** His caps let him keep his own notes, which is where his memory lives. */
+	@Test
+	void thorKeepsHisMemoryUnderHisOwnCaps() throws Exception {
+		as(Thor.AGENT_ID, "v/ops/memory", Maps.of("command", "remember", "path", "n/memory",
+			"text", "The owner trusts the Discord bot.")).future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		ACell recalled = as(Thor.AGENT_ID, "v/ops/memory", Maps.of("command", "recall", "path", "n/memory"))
+			.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		assertTrue(String.valueOf(recalled).contains("Discord bot"), "recalled: " + recalled);
+	}
+
 	@Test
 	void thorWarnsTheOwnerThroughTheVenueInbox() throws Exception {
 		Job job = as(Thor.AGENT_ID, "v/ops/hitl/request", Hitl.request("I stopped thor-suspect")
