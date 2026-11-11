@@ -9,10 +9,11 @@ The design and its reasons are in `docs/SELF_IMPROVEMENT.md`; this is the
 procedure. Be quick and frugal: elapsed time and tokens are the measure, and
 the owner wants tokens left at the end of the week. Read diffs and logs, not
 whole files; no wide exploration; a subagent only for a read across many
-files. The run is bounded: once a chunk of work is done (an upgrade, or one
-substantial item with its trivial companions), wrap up rather than start
-another. Two hours is a soft ceiling: past it, finish what is in hand, leave
-the rest to the backlog and report.
+files. Work in chunks: an upgrade, or one substantial item with its trivial
+companions, each tested, committed and relaunched before the next. After a
+chunk, start another only if the run is still under an hour and the last
+chunk went smoothly; otherwise wrap up. Two hours is a soft ceiling: past
+it, finish what is in hand, leave the rest to the backlog and report.
 
 Names used below (Git Bash):
 
@@ -67,11 +68,12 @@ installed commit>` and build again.
   (`gh issue list --repo covia-ai/brightside --state open --label approved`),
   then the backlog: `$S/mcp.sh covia_read '{"path":"w/skill-feedback"}'`,
   entries without a `status`.
-- One consultation: `agent_chat` with `Improver`, new session, a brief of
+- Consult once per run: `agent_chat` with `Improver`, new session, a brief of
   today's state and the top candidates. Ask what hurts most, with the failing
-  action, and the smallest fix.
-- Do one substantial item and any number of trivial ones, each its own
-  commit that one `git revert` undoes. No drive-by edits.
+  action, and the smallest fix. A later chunk continues that session in a
+  line or two.
+- A chunk is one substantial item and any number of trivial ones, each its
+  own commit that one `git revert` undoes. No drive-by edits.
 - Substantive design (a new interface, skill family, operation or agent; a
   change to authority, startup or the loop) needs the owner: open an issue
   labelled `proposal` with the problem, the evidence and the design, and do
@@ -96,9 +98,10 @@ $S/relaunch.sh && $S/smoke.sh
 ```
 
 On success: `cp "$W/target/brightside.jar" ~/.brightside/code/last-good.jar`,
-then re-run the failing actions of the entries this run fixed. On failure:
-`$S/relaunch.sh file://code/last-good.jar`, `$S/smoke.sh`, do not merge,
-report.
+then re-run the failing actions of the entries this chunk fixed, and go back
+to step 4 for another chunk if the bound at the top allows. On failure:
+`$S/relaunch.sh file://code/last-good.jar`, `$S/smoke.sh`, revert this
+chunk's commits, stop taking chunks, and merge what passed.
 
 ## 6. Merge
 
