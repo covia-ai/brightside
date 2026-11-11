@@ -29,6 +29,7 @@ in the Covia repository).
 |---|---|---|
 | The owner's identity (display name, slug, user DID, operator label) | `owner` | `brightside` |
 | Chosen model | `model` | `brightside` |
+| The Brightside and Covia versions the store last started under ([LAUNCH.md](LAUNCH.md#the-startup-pass)) | `startup/versions` | `brightside` |
 | Voice preferences (read aloud, send after a pause) | `voice` | `brightside` |
 | Minimise to the tray, keep the tool token | `tray`, `toolToken` | `brightside` |
 | Peers map settings | `users/<did>/peers-map` | `brightside` |

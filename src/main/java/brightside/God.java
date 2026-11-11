@@ -21,6 +21,7 @@ import covia.api.Fields;
 import covia.grid.Job;
 import covia.grid.Venue;
 import covia.venue.Config;
+import covia.venue.Engine;
 
 /**
  * A god: one of the venue's own agents, specialised in one job on the owner's
@@ -146,29 +147,36 @@ public record God(String id, String ask, String run, String overseer, String kee
 	 * it keeps, if any, is registered first.
 	 */
 	public void ensure(EmbeddedVenue venue, String llmOperation) throws Exception {
-		Venue operator = venue.operator();
-		String kept = kept(venue.did());
-		if (kept != null && venue.engine().getVenueState().users().user(Strings.create(kept)) == null) {
+		ensure(venue.engine(), llmOperation);
+	}
+
+	/** As {@link #ensure(EmbeddedVenue, String)}, on {@code engine} — as the launch hook does ({@link Startup}). */
+	void ensure(Engine engine, String llmOperation) throws Exception {
+		String venueDID = engine.getDIDString().toString();
+		Venue operator = EmbeddedVenue.clientAs(engine, venueDID);
+		String kept = kept(venueDID);
+		if (kept != null && engine.getVenueState().users().user(Strings.create(kept)) == null) {
 			run(operator, "v/ops/user/create", Maps.of(Fields.DID, kept));
 			log.info("Registered {}'s own user {}", id, kept);
 		}
 		AMap<AString, ACell> config = config(llmOperation);
-		ACell record = venue.agentRecord(venue.did(), id);
+		ACell record = EmbeddedVenue.agentRecord(engine, venueDID, id);
 		if (record == null) {
 			try {
 				run(operator, "v/ops/agent/create", Maps.of(Fields.AGENT_ID, id, Fields.CONFIG, config));
-				log.info("Created {} at {}", id, address(venue.did()));
+				log.info("Created {} at {}", id, address(venueDID));
 				return;
 			} catch (Exception e) {
 				// Another ensure may have created it meanwhile; carry on as for an
 				// existing god, or fail if it is still not there.
-				record = venue.agentRecord(venue.did(), id);
+				record = EmbeddedVenue.agentRecord(engine, venueDID, id);
 				if (record == null) throw e;
 			}
 		}
 		if (!configured(record, config)) {
 			try {
 				run(operator, "v/ops/agent/update", Maps.of(Fields.AGENT_ID, id, Fields.CONFIG, config));
+				log.info("Brought {}'s configuration up to date", id);
 			} catch (Exception e) {
 				log.warn("Could not apply configuration to {} (stands until next time): {}", id, e.getMessage());
 				return;

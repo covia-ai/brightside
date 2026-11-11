@@ -222,6 +222,19 @@ public class BrightsideAdapter extends AAdapter {
 		adapterState().write(MODEL, Strings.create(llmOperation));
 	}
 
+	/** Where the versions the store last started under sit in this adapter's state ({@link Startup}). */
+	static final String STARTUP_VERSIONS = "startup/versions";
+
+	/** The Brightside and Covia versions the store last started under, or null if never recorded. */
+	@SuppressWarnings("unchecked")
+	AMap<AString, ACell> startupVersions() {
+		return (adapterState().read(STARTUP_VERSIONS) instanceof AMap<?, ?> m) ? (AMap<AString, ACell>) m : null;
+	}
+
+	void saveStartupVersions(AMap<AString, ACell> versions) {
+		adapterState().write(STARTUP_VERSIONS, versions);
+	}
+
 	/** Where the owner's identity sits in this adapter's state: one for the installation. */
 	static final String OWNER = "owner";
 
@@ -931,13 +944,18 @@ public class BrightsideAdapter extends AAdapter {
 		return Math.max(0, Math.min(MAX_ASK_TIMEOUT_MS, n.longValue()));
 	}
 
+	/** This build's version, from the jar's manifest; {@code "dev"} for a build run from source. */
+	static String version() {
+		String version = BrightsideAdapter.class.getPackage().getImplementationVersion();
+		return (version != null) ? version : "dev";
+	}
+
 	private AMap<AString, ACell> buildInfo() {
-		String version = getClass().getPackage().getImplementationVersion();
 		AString venueName = engine.getName();
 		AString did = engine.getDIDString();
 		return Maps.of(
 			K_APP, BrightSide.APP_NAME,
-			K_VERSION, (version != null) ? version : "dev",
+			K_VERSION, version(),
 			K_VENUE, (venueName != null) ? venueName.toString() : null,
 			K_DID, (did != null) ? did.toString() : null,
 			K_SKILLS, shippedSkills(),

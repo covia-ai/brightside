@@ -81,8 +81,9 @@ so he holds the venue's authority itself. Thor's and Njord's let them call
 any operation, read the venue's data and assets, keep their own notes and ask
 through the Inbox, but write nothing of the venue's, and an agent's run loop
 carries no delegations. Brightside sets each god's caps with the rest of its
-configuration, on the first chat message after a start and whenever the
-model changes (`God`). Each god has two narrow Brightside operations to bridge the gap.
+configuration at every launch, before any god can act
+([LAUNCH.md](LAUNCH.md#the-startup-pass)), and whenever the model changes
+(`God`). Each god has two narrow Brightside operations to bridge the gap.
 
 **Ask** (`brightside:ask-odin`, `brightside:alert-thor`,
 `brightside:ask-njord`) is callable by any authenticated user of the venue,

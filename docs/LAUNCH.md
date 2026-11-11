@@ -2,12 +2,14 @@
 
 How a Brightside process starts, what happens when one is already running, and
 how it stops or restarts. Code: `BrightSide`, `Takeover`, `Relaunch`,
-`EmbeddedVenue`, `TrayManager`.
+`EmbeddedVenue`, `Startup`, `TrayManager`.
 
 - **Nothing shows without live data behind it.** The unlock dialog or wizard
   comes first; the main window appears only once the venue is ready.
-- **A launch submits no jobs.** Everything read at startup is read
-  in-process; the agent is configured on the first message.
+- **Brightside's own state is put right before anything runs.** A startup
+  pass in Covia's launch hook migrates, repairs and verifies it, and submits
+  jobs only for what it changes. The owner's agent is configured on the first
+  message.
 - **Two processes cannot share the store**, so a newcomer asks the running
   instance to step aside with a request only the venue's own key can sign, and
   waits for it to release the store before opening it. A relaunch is such a
@@ -74,7 +76,8 @@ See [stdio setup](CONFIGURATION.md#from-a-stdio-mcp-client).
    built-in adapters are installed and configured secrets provisioned, before
    durable jobs are recovered and adapter workers start, so a job a crash left
    on one of Brightside's operations is recovered by its owner and the Discord
-   bots re-arm with everything else. A failure in the hook closes the
+   bots re-arm with everything else. The [startup pass](#the-startup-pass)
+   follows in the same hook. A failure in the hook closes the
    half-assembled server, so nothing is left holding the port or the store.
    `onVenueReady` binds the
    identity to the venue and moves any provider keys still in the vault into
@@ -83,9 +86,33 @@ See [stdio setup](CONFIGURATION.md#from-a-stdio-mcp-client).
    `<venueDID>:u:<slug>`: the agent record, the conversations, the agents list
    and the inbox are read in-process, any changed filesystem skill is imported
    and the conversation watcher starts. Nothing else is submitted: the agent
-   is created or reconfigured on the first message, and the gods with it, so
-   a launch writes no jobs. A failure while the chat binds is
-   reported in the window rather than left as a composer that never wakes.
+   is created or reconfigured on the first message, as are the gods on a
+   first run, before a model is stored. What the startup pass found wrong
+   and could not put right is shown in the window. A failure while the chat
+   binds is reported in the window rather than left as a composer that never
+   wakes.
+
+### The startup pass
+
+Brightside's own counterpart to Covia's migration, run by `Startup` in the
+launch hook once Brightside's adapters are registered: the store is current
+and no recovered job, schedule or agent has run yet, so what it puts right
+holds before anything acts. Each step is safe to run on every start, and none
+fails the launch.
+
+1. **Migrate.** The Brightside and Covia versions the store last started
+   under ([APP_STATE.md](APP_STATE.md)) are compared with this build's, and an
+   upgrade is logged. Brightside's own version-gated steps belong here, after
+   Covia's; there are none yet.
+2. **Repair.** The gods are brought up to date with the stored model,
+   their caps included, and one stopped by a fault is resumed
+   ([GODS.md](GODS.md)).
+3. **Verify.** Each god must be there, configured as it should be and not
+   stopped by a fault; anything else is logged and shown to the owner.
+
+The versions are recorded last, so a start that stops before then counts as
+an upgrade again. `StartupTest` launches a store twice and checks a god left
+with too much authority is narrowed before it can act.
 
 A first run that fails to launch reports on the wizard's last step, with
 Finish available again once the cause is dealt with.

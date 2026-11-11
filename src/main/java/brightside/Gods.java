@@ -5,6 +5,8 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import covia.venue.Engine;
+
 /**
  * The gods: the venue's own agents, each specialised in one job on the
  * owner's behalf — {@link Odin}, the administrator, {@link Thor}, the
@@ -39,9 +41,14 @@ public final class Gods {
 	 * still go ahead.
 	 */
 	public static void ensureAll(EmbeddedVenue venue, String llmOperation) {
+		ensureAll(venue.engine(), llmOperation);
+	}
+
+	/** As {@link #ensureAll(EmbeddedVenue, String)}, on {@code engine} — as the launch hook does ({@link Startup}). */
+	static void ensureAll(Engine engine, String llmOperation) {
 		for (God g : ALL) {
 			try {
-				g.ensure(venue, llmOperation);
+				g.ensure(engine, llmOperation);
 			} catch (Exception e) {
 				log.warn("{} is not available: {}", g.id(), e.toString());
 			}

@@ -563,6 +563,9 @@ public final class BrightSide {
 			startToolTokens();
 			if (clearToShow != null) SwingUtilities.invokeLater(clearToShow);
 			if (bound != null) startChatOnce(v, bound);
+			for (String problem : v.startup().problems()) {
+				SwingUtilities.invokeLater(() -> window.showSystemMessage(problem));
+			}
 			if (repaired != null) {
 				String notice = repaired.notice();
 				SwingUtilities.invokeLater(() -> window.showSystemMessage(notice));
@@ -1708,8 +1711,10 @@ public final class BrightSide {
 	}
 
 	/**
-	 * Keeps the {@link Gods} configured with the chat's model — on the first
-	 * message, so an assistant can reach them, and whenever the model changes.
+	 * Keeps the {@link Gods} configured with the chat's model on the first
+	 * message, and whenever the model changes. Each launch has already brought
+	 * them up to date with the stored model ({@link Startup}); this covers a
+	 * first run, before a model is stored, and a change of model.
 	 * A god already configured costs no job. Best-effort and off the calling
 	 * thread: the chat never waits on them.
 	 */

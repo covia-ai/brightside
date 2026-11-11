@@ -3,6 +3,7 @@ package brightside;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,10 +35,17 @@ public final class EmbeddedVenue implements AutoCloseable {
 	private static final Logger log = LoggerFactory.getLogger(EmbeddedVenue.class);
 
 	private final VenueServer server;
+	private final Startup.Report startup;
 	private final AtomicBoolean closed = new AtomicBoolean();
 
-	private EmbeddedVenue(VenueServer server) {
+	private EmbeddedVenue(VenueServer server, Startup.Report startup) {
 		this.server = server;
+		this.startup = startup;
+	}
+
+	/** What Brightside's startup pass found and did in this launch ({@link Startup}). */
+	public Startup.Report startup() {
+		return startup;
 	}
 
 	/**
@@ -62,11 +70,15 @@ public final class EmbeddedVenue implements AutoCloseable {
 	 * before durable jobs are recovered and adapter workers activated. So a job
 	 * a crash left on one of Brightside's own operations is recovered by the
 	 * adapter that owns it, and the Discord bots re-arm when every other worker
-	 * starts. A failure in the hook closes the half-assembled server before the
+	 * starts. Brightside's {@link Startup} pass follows in the same hook, so it
+	 * finds the store migrated by Covia and runs before any recovered work. A
+	 * failure in the hook closes the half-assembled server before the
 	 * exception reaches us, so nothing is left holding the port or the store.
 	 */
 	public static EmbeddedVenue launch(AMap<AString, ACell> config, BrightsideAdapter.App app) {
-		return new EmbeddedVenue(VenueServer.launch(config, List.of(), engine -> install(engine, app)));
+		AtomicReference<Startup.Report> startup = new AtomicReference<>();
+		VenueServer server = VenueServer.launch(config, List.of(), engine -> install(engine, app, startup));
+		return new EmbeddedVenue(server, startup.get());
 	}
 
 	/**
@@ -76,13 +88,17 @@ public final class EmbeddedVenue implements AutoCloseable {
 	 * from here, and closes it on failure as on {@link #close}.
 	 */
 	public static EmbeddedVenue launch(AMap<AString, ACell> config, AStore store, BrightsideAdapter.App app) {
-		return new EmbeddedVenue(VenueServer.launch(config, store, List.of(), engine -> install(engine, app)));
+		AtomicReference<Startup.Report> startup = new AtomicReference<>();
+		VenueServer server = VenueServer.launch(config, store, List.of(), engine -> install(engine, app, startup));
+		return new EmbeddedVenue(server, startup.get());
 	}
 
 	/** Brightside's part of the launch, in Covia's pre-start hook (see {@link #launch(AMap, BrightsideAdapter.App)}). */
-	private static CompletableFuture<Void> install(Engine engine, BrightsideAdapter.App app) {
+	private static CompletableFuture<Void> install(Engine engine, BrightsideAdapter.App app,
+			AtomicReference<Startup.Report> startup) {
 		// Brightside's venue adapters: operations, and the default skill library.
-		engine.registerAdapter(new BrightsideAdapter(app));
+		BrightsideAdapter brightside = new BrightsideAdapter(app);
+		engine.registerAdapter(brightside);
 		engine.registerAdapter(new BrightsideSkillsAdapter());
 		// Moltbook as typed operations; idle until the owner connects an account.
 		engine.registerAdapter(new MoltbookAdapter());
@@ -115,7 +131,9 @@ public final class EmbeddedVenue implements AutoCloseable {
 			log.warn("Voice typing is not available this launch — check venue.adapters.speech in config.json: {}",
 				e.getMessage());
 		}
-		// Registration is synchronous: nothing asynchronous for the venue to await.
+		// Registration and the startup pass are synchronous: nothing
+		// asynchronous for the venue to await.
+		startup.set(Startup.run(engine, brightside));
 		return CompletableFuture.completedFuture(null);
 	}
 
@@ -139,8 +157,13 @@ public final class EmbeddedVenue implements AutoCloseable {
 	 * user or the agent does not exist; reading creates neither.
 	 */
 	public ACell agentRecord(String userDID, String agentId) {
+		return agentRecord(engine(), userDID, agentId);
+	}
+
+	/** As {@link #agentRecord(String, String)}, on {@code engine} — usable in the launch hook. */
+	static ACell agentRecord(Engine engine, String userDID, String agentId) {
 		try {
-			User user = engine().getVenueState().users().user(Strings.create(userDID));
+			User user = engine.getVenueState().users().user(Strings.create(userDID));
 			return (user == null) ? null : user.agent(agentId).getRecord();
 		} catch (RuntimeException e) {
 			return null;
@@ -298,7 +321,12 @@ public final class EmbeddedVenue implements AutoCloseable {
 	 * freshly chosen {@code <venueDID>:u:<name>} principal just works.
 	 */
 	public Venue clientAs(String userDID) {
-		LocalVenue local = LocalVenue.create(engine());
+		return clientAs(engine(), userDID);
+	}
+
+	/** As {@link #clientAs(String)}, on {@code engine} — usable in the launch hook. */
+	static Venue clientAs(Engine engine, String userDID) {
+		LocalVenue local = LocalVenue.create(engine);
 		local.setUser(userDID);
 		return local;
 	}
