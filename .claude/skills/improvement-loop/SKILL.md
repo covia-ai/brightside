@@ -6,9 +6,13 @@ description: Run one pass of Tau's daily self-improvement loop - Covia upgrade w
 # Tau's improvement loop: one run
 
 The design and its reasons are in `docs/SELF_IMPROVEMENT.md`; this is the
-procedure. Be quick and frugal: elapsed time and tokens are the measure. Read
-diffs and logs, not whole files; no wide exploration; a subagent only for a
-read across many files. Aim to finish within an hour.
+procedure. Be quick and frugal: elapsed time and tokens are the measure, and
+the owner wants tokens left at the end of the week. Read diffs and logs, not
+whole files; no wide exploration; a subagent only for a read across many
+files. The run is bounded: once a chunk of work is done (an upgrade, or one
+substantial item with its trivial companions), wrap up rather than start
+another. Two hours is a soft ceiling: past it, finish what is in hand, leave
+the rest to the backlog and report.
 
 Names used below (Git Bash):
 

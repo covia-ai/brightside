@@ -7,8 +7,9 @@ to the owner. This is the loop's design; the procedure for one run is the
 `improvement-loop` Claude Code skill (`.claude/skills/improvement-loop/`).
 
 - **Rapid and frugal.** One run a day, measured by elapsed time and tokens.
-  Small changes go straight in; a run may conclude there is nothing worth
-  doing.
+  A run wraps up once it has done a chunk of work, with two hours as a soft
+  ceiling. Small changes go straight in; a run may conclude there is nothing
+  worth doing.
 - **Claude Code drives; Tau chooses.** The improvement agent says what hurts
   most, with evidence from the backlog; Claude Code makes the change in Tau's
   own checkout.
