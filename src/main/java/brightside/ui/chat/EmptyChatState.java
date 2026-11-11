@@ -1,5 +1,7 @@
 package brightside.ui.chat;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.GridBagConstraints;
@@ -27,7 +29,7 @@ import brightside.ui.components.Theme;
 final class EmptyChatState extends JPanel {
 
 	/** Until an agent is on the line. */
-	static final String DEFAULT_NAME = "Brightside";
+	static final String DEFAULT_NAME = APP_NAME;
 
 	private final JLabel greeting = Labels.title("");
 

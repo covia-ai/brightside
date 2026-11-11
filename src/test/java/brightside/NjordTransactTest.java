@@ -13,7 +13,8 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.io.TempDir;
+import java.nio.file.Path;
 
 import convex.api.Convex;
 import convex.core.Result;
@@ -50,8 +51,8 @@ class NjordTransactTest {
 	private static final long FLOAT = 100_000_000L;
 	private static final long PAYMENT = 1_000_000L;
 
-	@RegisterExtension
-	static final SharedVenue shared = new SharedVenue();
+	@TempDir
+	static Path home;
 
 	private static EmbeddedVenue venue;
 	private static Server peer;
@@ -72,12 +73,14 @@ class NjordTransactTest {
 		genesis.setAddress(Init.GENESIS_ADDRESS);
 		genesis.setKeyPair(genesisKey);
 
-		venue = shared.venue();
+		venue = EmbeddedVenue.launch(RT.castMap(RT.assocIn(SharedVenue.config(home),
+			Strings.create(endpoint), Strings.create("adapters"), Strings.create("convex"), Strings.create("peer"))));
 		Gods.ensureAll(venue, TASK_LLM);
 	}
 
 	@AfterAll
 	static void close() {
+		if (venue != null) venue.close();
 		if (genesis != null) genesis.close();
 		if (peer != null) peer.close();
 	}
@@ -128,7 +131,7 @@ class NjordTransactTest {
 
 	/** Invokes as Njord's own sub-principal — exactly the context his run loop gives his tool calls. */
 	private static ACell asNjord(AMap<AString, ACell> input) throws Exception {
-		RequestContext ctx = RequestContext.ofAgent(Strings.create(venue.did()), Strings.create(Njord.AGENT_ID));
+		RequestContext ctx = GodContexts.of(venue, Njord.AGENT_ID);
 		return venue.engine().jobs().invokeOperation(Njord.OP_RUN, input, ctx).future()
 			.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 	}

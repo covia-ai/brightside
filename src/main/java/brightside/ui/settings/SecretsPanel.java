@@ -1,5 +1,7 @@
 package brightside.ui.settings;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.util.List;
 
 import javax.swing.JButton;
@@ -172,7 +174,7 @@ public final class SecretsPanel extends SettingsPage {
 		if (entered == null) {
 			JPasswordField pass = new JPasswordField(24);
 			if (!Dialogs.confirmDanger(this,
-				"Enter your Brightside passphrase to " + verb + " \"" + name + "\"", pass)) return;
+				"Enter your " + APP_NAME + " passphrase to " + verb + " \"" + name + "\"", pass)) return;
 			entered = pass.getPassword();
 			pass.setText("");
 			if (entered.length == 0) return;

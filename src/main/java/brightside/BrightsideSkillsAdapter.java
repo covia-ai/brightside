@@ -5,6 +5,7 @@ import java.util.concurrent.CompletableFuture;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
+import covia.exception.InvalidInputException;
 import covia.adapter.AAdapter;
 import covia.venue.RequestContext;
 
@@ -249,6 +250,6 @@ public class BrightsideSkillsAdapter extends AAdapter {
 	public CompletableFuture<ACell> invokeFuture(RequestContext ctx, AMap<AString, ACell> meta, ACell input) {
 		// A skill source has no operations.
 		return CompletableFuture.failedFuture(
-			new IllegalArgumentException("brightsideskills exposes no operations"));
+			new InvalidInputException("brightsideskills exposes no operations"));
 	}
 }

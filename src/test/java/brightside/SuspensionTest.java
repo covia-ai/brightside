@@ -30,7 +30,7 @@ import covia.venue.AgentEvents;
  */
 class SuspensionTest {
 
-	private static final long TIMEOUT_SECONDS = 30;
+	private static final long TIMEOUT_SECONDS = 5;
 
 	@RegisterExtension
 	static final SharedVenue shared = new SharedVenue();
@@ -93,21 +93,22 @@ class SuspensionTest {
 		}
 
 		run("v/ops/agent/suspend", Maps.of(Fields.AGENT_ID, agent, "reason", "checking something"));
-		// Covia fails the cut-short task once it has recorded the suspension.
-		assertThrows(ExecutionException.class, () -> task.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+		// Suspension has committed; Covia keeps the task queued for an explicit resume.
+		assertFalse(task.isFinished(), "a deliberate stop preserves the queued task");
 		ACell record = venue.agentRecord(userDID, agent);
 		assertTrue(Suspension.deliberate(record), "stopped on purpose: " + record);
 		assertEquals("checking something", Suspension.reason(record), "and why, as whoever stopped it said");
 	}
 
 	@Test
-	void anAgentWhoseTurnFailsOnAVenueIsSuspendedByFault() throws Exception {
+	void anAgentWhoseSetupFailsOnAVenueIsSuspendedByFault() throws Exception {
 		String agent = "failed-turn";
 		run("v/ops/agent/create", Maps.of(Fields.AGENT_ID, agent, Fields.CONFIG,
-			Maps.of(Fields.OPERATION, "v/test/ops/error")));
-		Job task = request(agent);
+			Maps.of(Fields.OPERATION, AppConfig.DEFAULT_OPERATION, "llmOperation", "v/ops/missing/model")));
+		Job task = user.invoke("v/ops/agent/chat", Maps.of(Fields.AGENT_ID, agent, Fields.MESSAGE, "work"))
+			.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
-		// Covia fails the task once it has recorded the suspension.
+		// A broken setup suspends the agent and fails the chat it already took.
 		assertThrows(ExecutionException.class, () -> task.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
 		ACell record = venue.agentRecord(userDID, agent);
 		assertTrue(Suspension.byFault(record), "a failed turn: " + record);

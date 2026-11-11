@@ -1,5 +1,7 @@
 package brightside.peers;
 
+import static brightside.BrightSide.APP_NAME;
+
 import static brightside.peers.Node.Fact.list;
 import static brightside.peers.Node.Fact.of;
 
@@ -44,20 +46,20 @@ public final class SamplePeerSource implements PeerSource {
 
 	/** A home venue: its operator and its one user, each with agents. */
 	private static void home(List<Node> n) {
-		n.add(node("home", "Your Brightside", Node.VENUE, Node.SELF, Node.CONNECTED, null,
-			of("About", "This venue, running inside Brightside")));
+		n.add(node("home", "Your " + APP_NAME, Node.VENUE, Node.SELF, Node.CONNECTED, null,
+			of("About", "This venue, running inside " + APP_NAME)));
 		n.add(node("home#operator", "Operator", Node.PERSON, Node.OPERATOR, Node.CONNECTED, "home",
 			of("Role", "Runs the venue"), of("DID", P + "home")));
 		n.add(agent("home-odin", "Odin", Node.CONNECTED, "home#operator"));
 		n.add(node("home:u:robin", "Robin", Node.PERSON, Node.SELF, Node.CONNECTED, "home",
 			of("Role", "Owner"), of("DID", P + "home:u:robin")));
-		n.add(node("home-assistant", "Brightside", Node.AGENT, Node.MAIN, Node.CONNECTED, "home:u:robin"));
+		n.add(node("home-assistant", APP_NAME, Node.AGENT, Node.MAIN, Node.CONNECTED, "home:u:robin"));
 		n.add(agent("home-research", "Research", Node.IDLE, "home:u:robin"));
 	}
 
 	private static void others(List<Node> n) {
 		// Venues of people you trust: each its owner's, with their agents.
-		n.add(venue("alice-venue", "Alice's Brightside", Node.LINKED, Node.CONNECTED, "Alice's own venue", 2, 3));
+		n.add(venue("alice-venue", "Alice's " + APP_NAME, Node.LINKED, Node.CONNECTED, "Alice's own venue", 2, 3));
 		n.add(user("alice", "Alice", Node.TRUSTED, Node.CONNECTED, "alice-venue",
 			of("Address", "alice.brightside"), of("Reach", "Direct · 22 ms"), of("How you met", "Met 12 Aug, introduced by Sam"),
 			list("What they can do", "Read the Household space", "Ask your assistant about free time", "Message you freely"),
@@ -67,13 +69,13 @@ public final class SamplePeerSource implements PeerSource {
 		n.add(user("alice-ben", "Ben", Node.KNOWN, Node.IDLE, "alice-venue", of("How you met", "Alice's partner")));
 		n.add(agent("ben-assistant", "Ben's assistant", Node.IDLE, "alice-ben"));
 
-		n.add(venue("sam-venue", "Sam's Brightside", Node.LINKED, Node.IDLE, "Sam's own venue", 1, 1));
+		n.add(venue("sam-venue", "Sam's " + APP_NAME, Node.LINKED, Node.IDLE, "Sam's own venue", 1, 1));
 		n.add(user("sam", "Sam", Node.TRUSTED, Node.IDLE, "sam-venue",
 			of("Address", "sam.brightside"), of("Reach", "Direct · 61 ms"), of("How you met", "Met 3 Jul"),
 			list("What they can do", "Read the Climbing space", "Message you freely"), list("Shared with them", "Climbing")));
 		n.add(agent("sam-assistant", "Sam's assistant", Node.IDLE, "sam"));
 
-		n.add(venue("priya-venue", "Priya's Brightside", Node.LINKED, Node.OFFLINE, "Priya's own venue, last seen 4 days ago", 1, 1));
+		n.add(venue("priya-venue", "Priya's " + APP_NAME, Node.LINKED, Node.OFFLINE, "Priya's own venue, last seen 4 days ago", 1, 1));
 		n.add(user("priya", "Priya", Node.TRUSTED, Node.OFFLINE, "priya-venue",
 			of("Address", "priya.brightside"), of("Reach", "Last seen 4 days ago"), of("How you met", "Met 28 Sep"),
 			list("What they can do", "Message you, once you reply")));

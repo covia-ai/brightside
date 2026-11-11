@@ -96,8 +96,9 @@ content asked for.
   funds belong under keys made in the treasury.
 - Njord can make a treasury key, but the owner creates and funds its account
   from an existing holder.
-- Brightside fixes no network. The request names the peer, and a call that
-  names none goes to Convex's public network, Covia's default.
+- Brightside fixes no network. Calls use the venue's configured Convex peer;
+  other peers need the owner's relay configuration
+  ([CONFIGURATION.md](CONFIGURATION.md#convex-peer)).
 - The treasury's limits bind what he pays through it, but his raw signing
   reaches any key he can use, a treasury account's included, until the
   treasury holds its accounts' credentials itself ([TREASURY.md](TREASURY.md)).

@@ -58,7 +58,7 @@ class BrightsideAdapterTest {
 		Job job = client.invoke("v/ops/brightside/info", Maps.empty()).get(5, TimeUnit.SECONDS);
 		ACell result = job.future().get(5, TimeUnit.SECONDS);
 		assertNotNull(result);
-		assertEquals(Strings.create("Brightside"), RT.getIn(result, "app"));
+		assertEquals(Strings.create(BrightSide.APP_NAME), RT.getIn(result, "app"));
 		assertEquals(Strings.create(venue.did()), RT.getIn(result, "did"));
 		assertNotNull(RT.getIn(result, "version"), "reports a version");
 		assertEquals(ProcessHandle.current().info().startInstant().map(t -> Strings.create(t.toString())).orElse(null),

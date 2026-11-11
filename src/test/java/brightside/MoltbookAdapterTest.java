@@ -77,7 +77,7 @@ class MoltbookAdapterTest {
 		covia.venue.User user = venue.engine().getVenueState().users().ensure(did);
 		ACell before = user.get();
 		assertNull(venue.moltbook().record(did));
-		assertEquals(before, venue.engine().getVenueState().users().get(did).get(), "the person's record is untouched");
+		assertEquals(before, venue.engine().getVenueState().users().user(did).get(), "the person's record is untouched");
 		covia.venue.AdapterState state = venue.engine().adapterState("moltbook");
 		assertNull(state.read(state.userPath(did, "")), "and nothing is kept for them");
 	}

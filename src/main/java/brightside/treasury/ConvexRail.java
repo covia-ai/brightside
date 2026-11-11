@@ -17,6 +17,8 @@ import convex.core.data.Vectors;
 import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
 import convex.core.util.CAIP;
+import covia.exception.ConflictException;
+import covia.exception.InvalidInputException;
 import covia.api.Abilities;
 import covia.venue.Engine;
 import covia.venue.RequestContext;
@@ -81,15 +83,15 @@ public final class ConvexRail implements Rail {
 	@Override
 	public AMap<AString, ACell> account(ACell input) {
 		String network = TreasuryAdapter.requiredText(input, K_NETWORK, 64);
-		if (!NETWORK.matcher(network).matches()) throw new IllegalArgumentException("network must be a Convex CAIP-2 id, e.g. convex:main");
+		if (!NETWORK.matcher(network).matches()) throw new InvalidInputException("network must be a Convex CAIP-2 id, e.g. convex:main");
 		Address address = address(RT.getIn(input, K_ADDRESS), "address");
 		String credential = TreasuryAdapter.requiredText(input, K_CREDENTIAL, 66);
 		if (!CREDENTIAL.matcher(credential).matches()) {
-			throw new IllegalArgumentException("credential must name the signing key's secret, s/NAME");
+			throw new InvalidInputException("credential must name the signing key's secret, s/NAME");
 		}
 		String custody = TreasuryAdapter.requiredText(input, K_CUSTODY, 512);
 		if (!custody.startsWith(engine.getDIDString() + ":u:")) {
-			throw new IllegalArgumentException("custody must be one of this venue's users, the one holding the key");
+			throw new InvalidInputException("custody must be one of this venue's users, the one holding the key");
 		}
 		AMap<AString, ACell> account = Maps.of(
 			K_ACCOUNT, Strings.create(network + ":" + address.longValue()),
@@ -113,7 +115,7 @@ public final class ConvexRail implements Rail {
 		AMap<AString, ACell> input = withPeer(account, Maps.of(K_ADDRESS, address, K_SOURCE, Strings.create("(balance " + address + ")")));
 		return engine.jobs().invokeInternal(OP_QUERY, input, engine.venueContext()).thenApply(result -> {
 			CVMLong value = RT.ensureLong(RT.getIn(result, K_VALUE));
-			if (value == null) throw new IllegalStateException("Convex did not give a balance: " + RT.getIn(result, K_ERROR_CODE));
+			if (value == null) throw new ConflictException("Convex did not give a balance: " + RT.getIn(result, K_ERROR_CODE));
 			return value.longValue();
 		});
 	}
@@ -132,7 +134,7 @@ public final class ConvexRail implements Rail {
 		try {
 			Address to = address(recipient, "recipient");
 			AString custody = RT.ensureString(account.get(K_CUSTODY));
-			if (custody == null) throw new IllegalStateException("The account names no custody");
+			if (custody == null) throw new ConflictException("The account names no custody");
 			AMap<AString, ACell> transfer = withPeer(account, Maps.of(
 				K_ADDRESS, account.get(K_ADDRESS),
 				K_SEED, account.get(K_CREDENTIAL),
@@ -141,20 +143,20 @@ public final class ConvexRail implements Rail {
 			ACell grant = new VenueGrants(engine).grant(Strings.create(engine.getDIDString()), Vectors.of(
 				VenueGrants.cap(custody, Abilities.USER_SUDO),
 				VenueGrants.cap(Strings.create(custody + "/"), Strings.create("*"))));
-			asVenue = RequestContext.of(Strings.create(engine.getDIDString()), Vectors.of(grant));
+			asVenue = RequestContext.of(engine.getDIDString()).withProofs(Vectors.of(grant));
 			sudo = Maps.of(K_DID, custody, K_OPERATION, Strings.create(OP_TRANSACT), K_INPUT, transfer);
 		} catch (RuntimeException e) {
 			throw new NotPaid("Not sent: " + e.getMessage());
 		}
 		return engine.jobs().invokeInternal(OP_USER_SUDO, sudo, asVenue).handle((result, failure) -> {
 			if (failure != null) {
-				throw new CompletionException(new IllegalStateException(
+				throw new CompletionException(new ConflictException(
 					"Convex gave no clear answer, so whether it was paid is not known: " + rootMessage(failure)));
 			}
 			AString error = RT.ensureString(RT.getIn(result, K_ERROR_CODE));
 			if (error == null) return result;
 			if (NOT_APPLIED.contains(error.toString())) throw new CompletionException(new NotPaid("Convex refused it: " + error));
-			throw new CompletionException(new IllegalStateException("Convex answered " + error + "; whether it was paid is not known"));
+			throw new CompletionException(new ConflictException("Convex answered " + error + "; whether it was paid is not known"));
 		});
 	}
 
@@ -177,7 +179,7 @@ public final class ConvexRail implements Rail {
 		} catch (RuntimeException e) {
 			address = null;
 		}
-		if (address == null) throw new IllegalArgumentException(what + " must be a Convex address, #n");
+		if (address == null) throw new InvalidInputException(what + " must be a Convex address, #n");
 		return address;
 	}
 }

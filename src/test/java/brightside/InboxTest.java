@@ -136,8 +136,8 @@ class InboxTest {
 		assertEquals(Strings.create(venue.did()), RT.getIn(verdict, "iss"), "signed by the venue");
 		assertEquals(Strings.create(userDID), RT.getIn(verdict, "aud"), "for the requester");
 		AVector<ACell> att = RT.ensureVector(RT.getIn(verdict, "att"));
-		assertEquals(Strings.create("venue"), RT.getIn(att.get(0), "rootAuthority"),
-			"the venue is root authority for its own :u: user's resource: " + verdict);
+		assertEquals(Strings.create("owner"), RT.getIn(att.get(0), "rootAuthority"),
+			"the venue signs as root owner of its own :u: user's resource: " + verdict);
 
 		Inbox.Request done = find(id);
 		assertFalse(done.open());

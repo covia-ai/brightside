@@ -1,5 +1,7 @@
 package brightside.ui.files;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -63,10 +65,10 @@ final class PlaceActions {
 			change(p -> p.setReadOnly(name, selected), "“" + name + "” will be " + (selected ? "read-only" : "writable") + " after a restart");
 		});
 		menu.add(ro);
-		JMenuItem remove = new JMenuItem("Remove from Brightside…");
+		JMenuItem remove = new JMenuItem("Remove from " + APP_NAME + "…");
 		remove.addActionListener(e -> {
 			if (!Dialogs.confirmDanger(browser, "Remove folder", column(
-				Labels.text("Remove “" + name + "” from Brightside?"),
+				Labels.text("Remove “" + name + "” from " + APP_NAME + "?"),
 				Labels.small("Its files stay on this computer. Your assistant loses access after a restart.")))) return;
 			change(p -> p.removeFolder(name), "“" + name + "” goes after a restart");
 		});
@@ -109,7 +111,7 @@ final class PlaceActions {
 		JLabel problem = Labels.small(" ", Styles.ERROR);
 		problem.setVisible(false);
 		JPanel form = column(Labels.text("Name"), field, problem,
-			Labels.small("Stored inside Brightside, for you and your agents."));
+			Labels.small("Stored inside " + APP_NAME + ", for you and your agents."));
 		List<String> drives = browser.roots().stream().filter(r -> r.id().startsWith("dlfs:")).map(Root::name).toList();
 		while (Dialogs.form(browser, "New personal drive", form)) {
 			String name = field.getText().strip();

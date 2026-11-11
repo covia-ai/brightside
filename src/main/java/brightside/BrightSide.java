@@ -63,7 +63,8 @@ public final class BrightSide {
 
 	private static final Logger log = LoggerFactory.getLogger(BrightSide.class);
 
-	public static final String APP_NAME = "Brightside";
+	/** The product name shown to the owner; internal names stay stable. */
+	public static final String APP_NAME = "Tau";
 
 	/**
 	 * Preference keys for the look chosen in Settings → Theme: the mode (light or
@@ -275,13 +276,13 @@ public final class BrightSide {
 			// Started from a command line: nobody to ask, so nothing that would ask.
 			if (!takeoverAllowed && Takeover.isRunning(config.port())) {
 				log.info("--unlock: something already answers on port {}; leaving it running and exiting", config.port());
-				System.out.println("Brightside is already running on port " + config.port() + ".");
+				System.out.println(APP_NAME + " is already running on port " + config.port() + ".");
 				System.exit(0);
 				return;
 			}
 			remembered = (mode == Mode.UNLOCK) ? RememberedPassphrase.load(config.home()) : null;
 			if (remembered == null) {
-				String why = (mode == Mode.ONBOARD) ? "Brightside is not set up yet; run it without --unlock first."
+				String why = (mode == Mode.ONBOARD) ? APP_NAME + " is not set up yet; run it without --unlock first."
 					: "No passphrase is remembered; unlock once with Remember me ticked, or run without --unlock.";
 				log.error("--unlock: {}", why);
 				System.err.println(why);
@@ -313,7 +314,7 @@ public final class BrightSide {
 			if (takeOverUnasked()) {
 				log.info("Taking over from the instance on port {} without asking", config.port());
 			} else if (!confirmTakeover()) {
-				log.info("Another Brightside instance is running and takeover was declined; exiting");
+				log.info("Another " + APP_NAME + " instance is running and takeover was declined; exiting");
 				System.exit(0);
 				return;
 			}
@@ -376,7 +377,7 @@ public final class BrightSide {
 			}, this::onUnlockClosing);
 		}
 		unlockDialog.showUnlock(prefill);
-		if (takeoverApproved) unlockDialog.showNote("Another Brightside is running; it will hand over once you unlock.");
+		if (takeoverApproved) unlockDialog.showNote("Another " + APP_NAME + " is running; it will hand over once you unlock.");
 	}
 
 	/** The passphrase was accepted (or the identity recovered): drop the unlock dialog and bring up the window. */
@@ -411,7 +412,7 @@ public final class BrightSide {
 		System.err.println(message);
 		if (tookOver && !java.awt.GraphicsEnvironment.isHeadless()) {
 			Runnable tell = () -> JOptionPane.showMessageDialog(null,
-				"Brightside took over from the one that was running, then couldn't start:\n\n" + message,
+				APP_NAME + " took over from the one that was running, then couldn't start:\n\n" + message,
 				APP_NAME, JOptionPane.ERROR_MESSAGE);
 			try {
 				if (SwingUtilities.isEventDispatchThread()) tell.run();
@@ -487,12 +488,12 @@ public final class BrightSide {
 					return;
 				} catch (Exception e) {
 					log.warn("Could not take over the running instance on port {}: {}", port, e.toString());
-					startupFailed("Brightside is already running on this computer and couldn't be taken over"
+					startupFailed(APP_NAME + " is already running on this computer and couldn't be taken over"
 						+ " — please quit it (tray icon ▸ Quit) and try again.");
 					return;
 				}
 				if (!proceed) {
-					log.info("Another Brightside instance is running and takeover was cancelled; exiting");
+					log.info("Another " + APP_NAME + " instance is running and takeover was cancelled; exiting");
 					System.exit(0);
 					return;
 				}
@@ -511,16 +512,16 @@ public final class BrightSide {
 			try {
 				if (compacting) compacted = space.compact(storeConfig);
 				v = launchOn(venueConfig, compacted);
-			} catch (covia.venue.UnsupportedVersionException e) {
-				// Covia refuses a store newer than this build before writing anything.
-				log.error("The store is newer than this build", e);
-				startupFailed("This data store was written by a newer Brightside. Nothing was changed: start the"
-					+ " newer Brightside to open it.");
-				return;
 			} catch (RuntimeException | IOException e) {
+				if (EmbeddedVenue.isNewerStore(e)) {
+					log.error("The store is newer than this build", e);
+					startupFailed("This data store was written by a newer " + APP_NAME + ". Nothing was changed: start the"
+						+ " newer " + APP_NAME + " to open it.");
+					return;
+				}
 				if (StoreRepair.isInterruptedCollection(e)) {
 					log.error("The store was left part-way through a collection", e);
-					startupFailed("Brightside was stopped part-way through compacting its data store, and can't open"
+					startupFailed(APP_NAME + " was stopped part-way through compacting its data store, and can't open"
 						+ " it until that is put right by hand. Nothing has been lost: keep every venue.etch file in "
 						+ space.store().getParent() + " as it is; putting it right needs Convex's etch tools.");
 					return;
@@ -531,7 +532,7 @@ public final class BrightSide {
 				if (!StoreRepair.isUncleanClose(e)) throw e;
 				if (!config.repairStore()) {
 					log.error("The store was not closed cleanly and repairStore is off", e);
-					startupFailed("Brightside's data store wasn't closed cleanly last time. Set \"repairStore\": true"
+					startupFailed(APP_NAME + "'s data store wasn't closed cleanly last time. Set \"repairStore\": true"
 						+ " in config.json to have it repaired on launch, or restore a backup of venue.etch.");
 					return;
 				}
@@ -541,7 +542,7 @@ public final class BrightSide {
 					repaired = StoreRepair.repair(venueConfig);
 				} catch (IOException ioe) {
 					log.error("Store repair failed", ioe);
-					startupFailed("Brightside couldn't repair its data store: " + ioe.getMessage());
+					startupFailed(APP_NAME + " couldn't repair its data store: " + ioe.getMessage());
 					return;
 				}
 				log.warn("Store repaired — {}", repaired.summary());
@@ -596,19 +597,19 @@ public final class BrightSide {
 	 * Refused while exiting, before the venue is up and during another restart.
 	 */
 	private Runnable prepareRestart() throws Exception {
-		if (exiting.get()) throw new IllegalStateException("Brightside is shutting down");
+		if (exiting.get()) throw new covia.exception.ConflictException(APP_NAME + " is shutting down");
 		String seedHex = venueSeedHex;
 		if (venue == null || seedHex == null || launching != null) {
-			throw new IllegalStateException("Brightside is still starting up");
+			throw new covia.exception.ConflictException(APP_NAME + " is still starting up");
 		}
 		AppConfig fresh;
 		try {
 			fresh = AppConfig.load(configPath);
 			new covia.venue.Config(fresh.venueConfig());
 		} catch (Exception e) {
-			throw new IllegalStateException("config.json could not be used, so nothing was restarted: " + e.getMessage(), e);
+			throw new covia.exception.ConfigurationException("config.json could not be used, so nothing was restarted: " + e.getMessage(), e);
 		}
-		if (!restarting.compareAndSet(false, true)) throw new IllegalStateException("A restart is already under way");
+		if (!restarting.compareAndSet(false, true)) throw new covia.exception.ConflictException("A restart is already under way");
 		return () -> restartVenue(fresh, seedHex);
 	}
 
@@ -668,21 +669,21 @@ public final class BrightSide {
 	 * without the key — and while exiting. Never on the event thread.
 	 */
 	private ProcessHandle relaunch(covia.grid.AContent jar) throws Exception {
-		if (exiting.get()) throw new IllegalStateException("Brightside is already shutting down");
+		if (exiting.get()) throw new covia.exception.ConflictException(APP_NAME + " is already shutting down");
 		boolean[] asking = { false }, showing = { false };
 		SwingUtilities.invokeAndWait(() -> {
 			asking[0] = unlockDialog != null;
 			showing[0] = window != null && window.isShowing()
 				&& (window.getExtendedState() & java.awt.Frame.ICONIFIED) == 0;
 		});
-		if (asking[0]) throw new IllegalStateException("Brightside is locked; it can relaunch once the owner unlocks it");
+		if (asking[0]) throw new covia.exception.ConflictException(APP_NAME + " is locked; it can relaunch once the owner unlocks it");
 		List<String> options = relaunchOptions(showing[0], RememberedPassphrase.exists(config.home()));
 		if (jar == null) {
-			log.info("Relaunching: starting a new Brightside with {}", options);
+			log.info("Relaunching: starting a new " + APP_NAME + " with {}", options);
 			return Relaunch.start(configPath, options).toHandle();
 		}
 		Path staged = Relaunch.stage(jar, config.home());
-		log.info("Relaunching: starting a new Brightside from {} with {}", staged, options);
+		log.info("Relaunching: starting a new " + APP_NAME + " from {} with {}", staged, options);
 		return Relaunch.start(staged, configPath, options).toHandle();
 	}
 
@@ -727,11 +728,11 @@ public final class BrightSide {
 
 	private void startupFailed(Throwable t) {
 		if (unattended) {
-			unattendedFailed("Brightside couldn't start up: " + t + " (see the logs)");
+			unattendedFailed(APP_NAME + " couldn't start up: " + t + " (see the logs)");
 			return;
 		}
 		SwingUtilities.invokeLater(() -> {
-			if (unlockDialog != null) unlockDialog.showError("Sorry — Brightside couldn't start up. See the logs.");
+			if (unlockDialog != null) unlockDialog.showError("Sorry — " + APP_NAME + " couldn't start up. See the logs.");
 			else window.startupFailed(t);
 		});
 	}
@@ -1070,7 +1071,7 @@ public final class BrightSide {
 			AString owner = Strings.create(id.userDID(v.did())), operator = Strings.create(v.did());
 			covia.venue.SecretStore.Keys keys = v.secretKey();
 			// The owner's agents and the gods use the same key: both copies change together.
-			v.engine().getVenueState().transact(state -> {
+			v.engine().getVenueState().execute(state -> {
 				state.users().ensure(owner).secrets().store(p.secretName(), value, keys);
 				state.users().ensure(operator).secrets().store(p.secretName(), value, keys);
 			});
@@ -1123,7 +1124,7 @@ public final class BrightSide {
 	public void refreshSchedule() {
 		Venue reader = scheduleClient();
 		if (reader == null) {
-			SwingUtilities.invokeLater(() -> window.showSchedule(List.of(), "Brightside is still starting up."));
+			SwingUtilities.invokeLater(() -> window.showSchedule(List.of(), APP_NAME + " is still starting up."));
 			return;
 		}
 		Thread t = new Thread(() -> {
@@ -1179,7 +1180,7 @@ public final class BrightSide {
 	private void scheduleAction(String thread, SchedulePanel.Result done, ScheduleAction action, String failure) {
 		Venue reader = scheduleClient();
 		if (reader == null) {
-			done.done("Brightside is still starting up.", true);
+			done.done(APP_NAME + " is still starting up.", true);
 			return;
 		}
 		Thread t = new Thread(() -> {
@@ -1609,7 +1610,7 @@ public final class BrightSide {
 		// Already agreed at startup; otherwise the instance appeared since, so ask now.
 		if (!takeoverApproved && !takeOverUnasked() && !confirmTakeover()) return false;
 		takeoverApproved = false;
-		progress("Taking over from the running Brightside…");
+		progress("Taking over from the running " + APP_NAME + "…");
 		// Who is it? A Brightside holding our identity answers brightside:info
 		// to our key and names its store and process; anything else is refused.
 		Takeover.Instance other = Takeover.identify(port, venueSeedHex);
@@ -1620,17 +1621,17 @@ public final class BrightSide {
 		}
 		Takeover.requestShutdown(port, other.did(), venueSeedHex);
 		if (!Takeover.waitUntilDown(port, 20_000)) {
-			throw new IllegalStateException("the previous instance did not shut down in time");
+			throw new covia.exception.ConflictException("the previous instance did not shut down in time");
 		}
 		// The venue closes its port before it flushes and closes the store, so
 		// a quiet port is not a free store: wait for the process to go, then for
 		// the store file's lock to lift.
 		progress("Waiting for it to finish saving…");
 		if (!Takeover.waitUntilExited(other.pid(), 60_000)) {
-			throw new IllegalStateException("the previous instance did not exit in time");
+			throw new covia.exception.ConflictException("the previous instance did not exit in time");
 		}
 		if (!Takeover.waitUntilReleased(store, 20_000)) {
-			throw new IllegalStateException("the previous instance did not release the data store in time");
+			throw new covia.exception.ConflictException("the previous instance did not release the data store in time");
 		}
 		return true;
 	}
@@ -1642,9 +1643,9 @@ public final class BrightSide {
 	private void alreadyRunning() {
 		try {
 			SwingUtilities.invokeAndWait(() -> JOptionPane.showMessageDialog(null,
-				"Brightside seems to be running on this computer already"
+				APP_NAME + " seems to be running on this computer already"
 					+ " (something answers on port " + config.port() + ").\n\n"
-					+ "Quit it (tray icon ▸ Quit) before setting up a new Brightside here — or, to run two,\n"
+					+ "Quit it (tray icon ▸ Quit) before setting up a new " + APP_NAME + " here — or, to run two,\n"
 					+ "give this one another port in config.json.",
 				APP_NAME, JOptionPane.INFORMATION_MESSAGE));
 		} catch (Exception e) {
@@ -1666,7 +1667,7 @@ public final class BrightSide {
 					: (window != null && window.isShowing()) ? window : null;
 				// Remembered where the choice is made, undone in Settings → General → Startup.
 				javax.swing.JCheckBox always = new javax.swing.JCheckBox("Always take over without asking");
-				Object[] message = { "Brightside is already running on this computer.\n\nTake over from it?", always };
+				Object[] message = { APP_NAME + " is already running on this computer.\n\nTake over from it?", always };
 				int choice = JOptionPane.showOptionDialog(parent, message,
 					APP_NAME, JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE,
 					null, options, options[0]);
@@ -1923,7 +1924,7 @@ public final class BrightSide {
 				// window would say "starting up" for ever, and the trace would
 				// reach no one.
 				log.error("Could not bind the chat", e);
-				startupFailed("Brightside couldn't open the conversation (" + rootMessage(e) + "). See the logs.");
+				startupFailed(APP_NAME + " couldn't open the conversation (" + rootMessage(e) + "). See the logs.");
 			}
 		}, "brightside-chat");
 		t.setDaemon(true);
@@ -2738,7 +2739,7 @@ public final class BrightSide {
 	/** Opens General settings (once the venue is up). */
 	public void openSettings() {
 		if (venue == null || identity == null || vault == null) {
-			SwingUtilities.invokeLater(() -> window.showSystemMessage("Settings are available once Brightside has started."));
+			SwingUtilities.invokeLater(() -> window.showSystemMessage("Settings are available once " + APP_NAME + " has started."));
 			return;
 		}
 		SwingUtilities.invokeLater(window::showGeneralSettings);
@@ -2747,7 +2748,7 @@ public final class BrightSide {
 	/** Opens the Identity section of Settings. */
 	public void openProfile() {
 		if (venue == null || identity == null || vault == null) {
-			SwingUtilities.invokeLater(() -> window.showSystemMessage("Your identity is available once Brightside has started."));
+			SwingUtilities.invokeLater(() -> window.showSystemMessage("Your identity is available once " + APP_NAME + " has started."));
 			return;
 		}
 		SwingUtilities.invokeLater(window::showProfileSettings);
@@ -2782,7 +2783,7 @@ public final class BrightSide {
 	/** Opens the Auth section of Settings, once the venue is up. */
 	public void openAccessToken() {
 		if (venue == null || identity == null || vault == null || venueSeedHex == null) {
-			SwingUtilities.invokeLater(() -> window.showSystemMessage("Access tokens are available once Brightside has started."));
+			SwingUtilities.invokeLater(() -> window.showSystemMessage("Access tokens are available once " + APP_NAME + " has started."));
 			return;
 		}
 		SwingUtilities.invokeLater(window::showAuthSettings);
@@ -2891,7 +2892,7 @@ public final class BrightSide {
 		try {
 			Files.createDirectories(logHome.resolve("logs"));
 		} catch (IOException e) {
-			System.err.println("BrightSide: could not create log directory: " + e);
+			System.err.println(APP_NAME + ": could not create log directory: " + e);
 		}
 		try (InputStream is = BrightSide.class.getResourceAsStream("/brightside/logback.xml")) {
 			if (is == null) return;
@@ -2902,7 +2903,7 @@ public final class BrightSide {
 			ctx.putProperty("brightside.home", logHome.toString());
 			configurator.doConfigure(is);
 		} catch (Exception e) {
-			System.err.println("BrightSide: logging configuration failed: " + e);
+			System.err.println(APP_NAME + ": logging configuration failed: " + e);
 		}
 	}
 }

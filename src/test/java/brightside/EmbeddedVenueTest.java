@@ -1,7 +1,9 @@
 package brightside;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.URI;
@@ -26,6 +28,21 @@ class EmbeddedVenueTest {
 
 	@TempDir
 	Path home;
+
+	@Test
+	void aNewerStoreIsRecognisedThroughTheLaunchFailure() throws Exception {
+		try (StoreTestDirectory directory = new StoreTestDirectory()) {
+			var config = SharedVenue.config(directory.path())
+				.assoc(covia.venue.Config.STORE, convex.core.data.Strings.create(directory.path().resolve("venue.etch").toString()));
+			try (EmbeddedVenue venue = EmbeddedVenue.launch(config)) {
+				venue.engine().getVenueState().cursor().path(covia.lattice.Covia.VERSION)
+					.set(convex.core.data.prim.CVMLong.create(covia.venue.VenueState.CURRENT_VERSION + 1));
+			}
+			Exception failure = assertThrows(Exception.class, () -> EmbeddedVenue.launch(config));
+			assertTrue(EmbeddedVenue.isNewerStore(failure));
+			assertFalse(EmbeddedVenue.isNewerStore(new IllegalStateException("another failure")));
+		}
+	}
 
 	@Test
 	void launchesServesAndCloses() throws Exception {

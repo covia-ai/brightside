@@ -1,5 +1,7 @@
 package brightside.ui.inspect;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.util.EnumMap;
@@ -304,7 +306,7 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 			text.setLineWrap(true);
 			text.setWrapStyleWord(true);
 			JPanel form = Panels.column();
-			form.add(Labels.small("<html>Brightside will carry this conversation on from this summary, which you can edit."
+			form.add(Labels.small("<html>" + APP_NAME + " will carry this conversation on from this summary, which you can edit."
 				+ "<br>Every message is kept beneath it.</html>"));
 			form.add(new JScrollPane(text));
 			if (!Dialogs.form(this, "Compact this conversation?", form)) return;
@@ -320,14 +322,14 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 		Venue caller = client;
 		if (bound == null || caller == null || session == null) return;
 		ACell input = Maps.of("agentId", session.config().agentId(), "sessionId", id);
-		Toast.show(this, "Brightside is summarising the conversation…", "sparkles", Tone.MUTED);
+		Toast.show(this, APP_NAME + " is summarising the conversation…", "sparkles", Tone.MUTED);
 		caller.run("v/ops/agent/summarise", input).orTimeout(5, TimeUnit.MINUTES).whenComplete((out, e) -> {
 			String summary = (e == null) ? String.valueOf(RT.getIn(out, "response")) : null;
 			SwingUtilities.invokeLater(() -> {
 				if (feed != bound) return;
 				if (summary == null || summary.isBlank() || "null".equals(summary)) {
 					if (e != null) log.warn("Could not summarise the conversation", e);
-					Dialogs.warn(this, "Summary", "Sorry — Brightside couldn't summarise that conversation.");
+					Dialogs.warn(this, "Summary", "Sorry — " + APP_NAME + " couldn't summarise that conversation.");
 					return;
 				}
 				show.accept(summary);
@@ -355,7 +357,7 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 			} catch (Exception e) {
 				log.warn("Could not run {}", operation, e);
 				SwingUtilities.invokeLater(() -> {
-					if (feed == bound) chat.appendSystem("Sorry — Brightside couldn't change that conversation.");
+					if (feed == bound) chat.appendSystem("Sorry — " + APP_NAME + " couldn't change that conversation.");
 				});
 			}
 		});
@@ -369,7 +371,7 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 			SwingUtilities.invokeLater(() -> {
 				if (feed != bound) return;
 				if (snapshot != null && id.equals(snapshot.sessionId())) Clipboard.copy(SessionHistory.plainText(snapshot.items()));
-				else chat.appendSystem("Sorry — Brightside couldn't read that conversation.");
+				else chat.appendSystem("Sorry — " + APP_NAME + " couldn't read that conversation.");
 			});
 		});
 	}

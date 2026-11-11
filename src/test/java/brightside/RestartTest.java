@@ -32,7 +32,6 @@ import convex.core.data.AMap;
 import convex.core.data.AString;
 import convex.core.data.Blob;
 import convex.core.data.Maps;
-import convex.core.data.Strings;
 import convex.core.data.prim.CVMBool;
 import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
@@ -75,7 +74,7 @@ class RestartTest {
 			@Override
 			public Runnable prepareRestart() {
 				checks.incrementAndGet();
-				if (refuse.get()) throw new IllegalStateException("the app refuses");
+				if (refuse.get()) throw new covia.exception.ConflictException("the app refuses");
 				return restarted::countDown;
 			}
 		};
@@ -112,7 +111,7 @@ class RestartTest {
 			@Override
 			public ProcessHandle relaunch(AContent jar) throws Exception {
 				starts.incrementAndGet();
-				if (refuse.get()) throw new IllegalStateException("the app refuses");
+				if (refuse.get()) throw new covia.exception.ConflictException("the app refuses");
 				given.set((jar != null) ? jar.getBlob().toFlatBlob() : null);
 				return ProcessHandle.current();
 			}
@@ -159,9 +158,9 @@ class RestartTest {
 		assertArrayEquals(Files.readAllBytes(built), Files.readAllBytes(staged));
 		assertFalse(Files.exists(earlier), "an earlier copy goes");
 
-		assertThrows(IllegalArgumentException.class,
+		assertThrows(covia.exception.InvalidInputException.class,
 			() -> Relaunch.stage(content(jar(home.resolve("other.jar"), "some.other.Main")), home), "not Brightside");
-		assertThrows(IllegalArgumentException.class,
+		assertThrows(covia.exception.InvalidInputException.class,
 			() -> Relaunch.stage(BlobContent.of(Blob.wrap(new byte[] { 1, 2, 3 })), home), "not a jar at all");
 		try (var left = Files.list(run)) {
 			assertEquals(List.of(staged), left.toList(), "a refused jar leaves no copy behind");
@@ -200,7 +199,7 @@ class RestartTest {
 		Path classes = Path.of(Main.class.getProtectionDomain().getCodeSource().getLocation().toURI());
 		try (URLClassLoader other = new URLClassLoader(new URL[] { classes.toUri().toURL() }, null)) {
 			Class<?> elsewhere = Class.forName(Main.class.getName(), false, other);
-			assertThrows(IllegalStateException.class, () -> Relaunch.command(elsewhere, config, List.of("--takeover")));
+			assertThrows(covia.exception.ConflictException.class, () -> Relaunch.command(elsewhere, config, List.of("--takeover")));
 		}
 		assertEquals(config.toString(), Relaunch.command(Main.class, config, List.of("--takeover")).getLast(),
 			"this process's own program is started again");
@@ -221,7 +220,8 @@ class RestartTest {
 
 	/** Through Odin's bridge, as his own sub-principal — the context his run loop gives his tool calls. */
 	private static ACell asOdin(EmbeddedVenue venue, String op, AMap<AString, ACell> input) throws Exception {
-		RequestContext odin = RequestContext.ofAgent(Strings.create(venue.did()), Strings.create(Odin.AGENT_ID));
+		Odin.ensure(venue, AppConfig.ECHO_LLM_OPERATION); // as Brightside makes him at start, caps and all
+		RequestContext odin = GodContexts.of(venue, Odin.AGENT_ID);
 		return venue.engine().jobs().invokeOperation(Odin.OP_RUN, Maps.of("operation", op, "input", input), odin)
 			.future().get(10, TimeUnit.SECONDS);
 	}

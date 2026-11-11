@@ -12,6 +12,7 @@ import brightside.model.Providers;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
+import convex.core.data.AVector;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
 import convex.core.data.Vectors;
@@ -19,6 +20,7 @@ import convex.core.lang.RT;
 import covia.api.Fields;
 import covia.grid.Job;
 import covia.grid.Venue;
+import covia.venue.Config;
 
 /**
  * A god: one of the venue's own agents, specialised in one job on the owner's
@@ -30,7 +32,9 @@ import covia.grid.Venue;
  * {@link BrightsideAdapter}: one by which the owner's assistants reach it
  * ({@link #ask}), submitted as the calling user so the god sees who asked, and
  * one through which it acts ({@link #run}), callable by that god alone. An agent
- * cannot hold venue authority itself, so the run bridge lends it — for one of
+ * holds what its {@code caps} say. An {@link #unrestricted} god (Odin) holds the
+ * venue's authority directly; the others hold {@link #BROAD_CAPS} and none of
+ * the venue's. The run bridge lends what a god needs — for one of
  * the god's {@link #venueOperations} under the venue's authority, one of its
  * {@link #sudoOperations} inside a user's namespace on their behalf, or one of
  * its {@link #grantedOperations} as itself, under a grant for what that call
@@ -55,10 +59,11 @@ import covia.grid.Venue;
  * @param venueOperations what it may run under the venue's authority
  * @param sudoOperations  what it may run inside a user's namespace, on their behalf
  * @param grantedOperations what it may run as itself, granted per call by the operation's adapter ({@link CallGrants})
+ * @param unrestricted    whether its caps are everything its controller, the venue, can do
  */
 public record God(String id, String ask, String run, String overseer, String keeps, String systemPrompt,
 		String remembers, List<String> tools, Set<String> venueOperations, Set<String> sudoOperations,
-		Set<String> grantedOperations) {
+		Set<String> grantedOperations, boolean unrestricted) {
 
 	private static final Logger log = LoggerFactory.getLogger(God.class);
 
@@ -69,10 +74,41 @@ public record God(String id, String ask, String run, String overseer, String kee
 	private static final String MEMORY_PATH = "n/memory";
 	private static final long ADMIN_TIMEOUT_SECONDS = 30;
 
-	/** A god that keeps no user of its own and is granted no operations per call. */
+	private static final AString K_CAPS = Strings.intern("caps");
+
+	/**
+	 * The caps of a god that is not {@link #unrestricted}, in the venue's
+	 * namespace: call any operation (each still checks what it touches), read
+	 * the venue's data and assets, keep its own notes (its memory) and ask the
+	 * owner through the venue's Inbox. Nothing here writes the venue's state or
+	 * the treasury: that goes through its run bridge.
+	 */
+	static final AVector<ACell> BROAD_CAPS = Vectors.of(
+		cap("v/ops/", "invoke"),
+		cap("", "crud/read"),
+		cap("", "asset/read"),
+		cap("n/", "crud/write"),
+		cap("h/", "hitl/request"));
+
+	private static AMap<AString, ACell> cap(String with, String can) {
+		return Maps.of("with", with, "can", can);
+	}
+
+	/** A god that keeps no user of its own, is granted no operations per call and holds {@link #BROAD_CAPS}. */
 	public God(String id, String ask, String run, String overseer, String systemPrompt, String remembers,
 			List<String> tools, Set<String> venueOperations, Set<String> sudoOperations) {
-		this(id, ask, run, overseer, null, systemPrompt, remembers, tools, venueOperations, sudoOperations, Set.of());
+		this(id, ask, run, overseer, null, systemPrompt, remembers, tools, venueOperations, sudoOperations, Set.of(), false);
+	}
+
+	/** This god, holding everything the venue can do. */
+	public God asUnrestricted() {
+		return new God(id, ask, run, overseer, keeps, systemPrompt, remembers, tools, venueOperations,
+			sudoOperations, grantedOperations, true);
+	}
+
+	/** Its {@code config.caps}. */
+	ACell caps() {
+		return unrestricted ? Config.UNRESTRICTED : BROAD_CAPS;
 	}
 
 	/** The god's DID on {@code venueDID}: a sub-principal of the venue. */
@@ -112,7 +148,7 @@ public record God(String id, String ask, String run, String overseer, String kee
 	public void ensure(EmbeddedVenue venue, String llmOperation) throws Exception {
 		Venue operator = venue.operator();
 		String kept = kept(venue.did());
-		if (kept != null && venue.engine().getVenueState().users().get(Strings.create(kept)) == null) {
+		if (kept != null && venue.engine().getVenueState().users().user(Strings.create(kept)) == null) {
 			run(operator, "v/ops/user/create", Maps.of(Fields.DID, kept));
 			log.info("Registered {}'s own user {}", id, kept);
 		}
@@ -168,14 +204,18 @@ public record God(String id, String ask, String run, String overseer, String kee
 			// The venue's own library: venue, auth, adapters, agents.
 			"skillsets", Vectors.of(Strings.create("v/skills/root")),
 			// Multi-party by nature: record who sent each turn.
-			"recordCaller", true);
+			"recordCaller", true,
+			K_CAPS, caps());
 	}
 
 	/** Whether the record already holds every value {@code config} sets. Package-visible for tests. */
 	static boolean configured(ACell record, AMap<AString, ACell> config) {
 		ACell current = RT.getIn(record, Fields.CONFIG);
 		for (Map.Entry<AString, ACell> e : config.entrySet()) {
-			if (!java.util.Objects.equals(e.getValue(), RT.getIn(current, e.getKey()))) return false;
+			ACell held = RT.getIn(current, e.getKey());
+			// Covia stores caps: "unrestricted" as no caps entry.
+			if (held == null && K_CAPS.equals(e.getKey())) held = Config.UNRESTRICTED;
+			if (!java.util.Objects.equals(e.getValue(), held)) return false;
 		}
 		return true;
 	}

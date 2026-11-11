@@ -129,6 +129,16 @@ Brightside's defaults:
 - auto-create users
 - the MCP endpoint enabled at `http://127.0.0.1:8085/mcp`
 
+### Convex peer
+
+`venue.adapters.convex.peer` selects the peer for Convex queries and
+transactions, including treasury payments. It defaults to Covia's public
+Convex peer. A treasury account or request may name that same peer; a
+different peer is refused unless the owner enables
+`venue.adapters.convex.anyPeer`. Relayed peers also pass Covia's outbound
+host policy (`venue.adapters.http.allowedHosts`). For one local or private
+network, configure its peer directly.
+
 ### `chat`
 
 Describes the agent the window talks to. The agent is created on first use and

@@ -151,7 +151,7 @@ public final class Odin {
 		"the owner's decisions",
 		List.of("v/ops/brightside/alert-thor", "v/ops/hitl/request", "v/ops/hitl/list",
 			"v/ops/grid/job-status", "v/ops/grid/job-result"),
-		VENUE_OPERATIONS, SUDO_OPERATIONS);
+		VENUE_OPERATIONS, SUDO_OPERATIONS).asUnrestricted();
 
 	/** How an assistant asks Odin (callable by any authenticated user or their agents). */
 	public static final String OP_ASK = GOD.askOp();

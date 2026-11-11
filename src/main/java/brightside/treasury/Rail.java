@@ -26,14 +26,14 @@ public interface Rail {
 	 * treasury keeps for it: at least {@code account}, its name on this rail, and
 	 * {@code currency}, what it is spent in; anything else is the rail's own.
 	 *
-	 * @throws IllegalArgumentException when the input does not name a usable account
+	 * @throws covia.exception.InvalidInputException when the input does not name a usable account
 	 */
 	AMap<AString, ACell> account(ACell input);
 
 	/**
 	 * A recipient's name on this rail, in the form the rail pays to.
 	 *
-	 * @throws IllegalArgumentException when it is not a recipient this rail can pay
+	 * @throws covia.exception.InvalidInputException when it is not a recipient this rail can pay
 	 */
 	AString recipient(ACell recipient);
 

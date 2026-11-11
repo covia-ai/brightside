@@ -22,7 +22,8 @@ import convex.core.data.Strings;
 import convex.core.data.Vectors;
 import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
-import convex.core.util.Utils;
+import covia.exception.ConflictException;
+import covia.exception.InvalidInputException;
 import covia.adapter.AAdapter;
 import covia.venue.RequestContext;
 
@@ -155,7 +156,7 @@ public class TreasuryAdapter extends AAdapter implements CallGrants {
 				case "budget-list" -> done(budgetList(ctx, input));
 				case "pay" -> pay(ctx, input);
 				case "ledger" -> done(ledger(ctx, input));
-				default -> throw new IllegalArgumentException("Unknown treasury operation: " + getSubOperation(meta));
+				default -> throw new InvalidInputException("Unknown treasury operation: " + getSubOperation(meta));
 			};
 		} catch (Exception e) {
 			return CompletableFuture.failedFuture(e);
@@ -179,7 +180,7 @@ public class TreasuryAdapter extends AAdapter implements CallGrants {
 			throw new IllegalStateException("Rail " + rail.name() + " did not name the account and its currency");
 		}
 		update(state -> {
-			if (accountOf(state, id) != null) throw new IllegalStateException("Account " + id + " already exists");
+			if (accountOf(state, id) != null) throw new ConflictException("Account " + id + " already exists");
 			return RT.assocIn(state, record, K_ACCOUNTS, Strings.create(id));
 		});
 		return accountView(state(), record);
@@ -239,7 +240,7 @@ public class TreasuryAdapter extends AAdapter implements CallGrants {
 		String purpose = optionalText(input, K_PURPOSE, MAX_PURPOSE);
 		ACell state = update(s -> {
 			AMap<AString, ACell> account = existingAccount(s, accountId);
-			if (budgetOf(s, id) != null) throw new IllegalStateException("Budget " + id + " already exists");
+			if (budgetOf(s, id) != null) throw new ConflictException("Budget " + id + " already exists");
 			withinLimit(s, account, accountId, amount);
 			AMap<AString, ACell> budget = Maps.of(
 				K_ID, Strings.create(id),
@@ -261,9 +262,9 @@ public class TreasuryAdapter extends AAdapter implements CallGrants {
 		long amount = amount(input, K_AMOUNT, true);
 		ACell state = update(s -> {
 			AMap<AString, ACell> budget = openBudget(s, id);
-			if (amount > longOf(budget, K_AMOUNT)) throw new IllegalArgumentException("A budget can only be lowered");
+			if (amount > longOf(budget, K_AMOUNT)) throw new InvalidInputException("A budget can only be lowered");
 			if (amount < longOf(budget, K_DRAWN)) {
-				throw new IllegalArgumentException("Budget " + id + " has already drawn " + longOf(budget, K_DRAWN));
+				throw new InvalidInputException("Budget " + id + " has already drawn " + longOf(budget, K_DRAWN));
 			}
 			return RT.assocIn(s, CVMLong.create(amount), K_BUDGETS, Strings.create(id), K_AMOUNT);
 		});
@@ -314,7 +315,7 @@ public class TreasuryAdapter extends AAdapter implements CallGrants {
 		String reason = requiredText(input, K_REASON, MAX_REASON);
 		ACell before = state();
 		AMap<AString, ACell> known = budgetOf(before, budgetId);
-		if (known == null) throw new IllegalArgumentException("No budget " + budgetId);
+		if (known == null) throw new InvalidInputException("No budget " + budgetId);
 		Rail rail = rail(existingAccount(before, known.get(K_ACCOUNT).toString()).get(K_RAIL).toString());
 		AString recipient = rail.recipient(RT.getIn(input, K_RECIPIENT));
 		AString by = ctx.getCallerDID();
@@ -326,10 +327,10 @@ public class TreasuryAdapter extends AAdapter implements CallGrants {
 			AMap<AString, ACell> account = existingAccount(s, accountId);
 			long budgetDrawn = Math.addExact(longOf(budget, K_DRAWN), amount);
 			if (budgetDrawn > longOf(budget, K_AMOUNT)) {
-				throw new IllegalStateException("Budget " + budgetId + " has " + (longOf(budget, K_AMOUNT) - longOf(budget, K_DRAWN)) + " left");
+				throw new ConflictException("Budget " + budgetId + " has " + (longOf(budget, K_AMOUNT) - longOf(budget, K_DRAWN)) + " left");
 			}
 			if (Math.addExact(drawn(s, accountId), amount) > longOf(account, K_LIMIT)) {
-				throw new IllegalStateException("That would take account " + accountId + " past its limit of "
+				throw new ConflictException("That would take account " + accountId + " past its limit of "
 					+ longOf(account, K_LIMIT) + "; the owner raises a limit");
 			}
 			AVector<ACell> ledger = ledgerOf(s);
@@ -342,7 +343,7 @@ public class TreasuryAdapter extends AAdapter implements CallGrants {
 				K_CURRENCY, account.get(K_CURRENCY),
 				K_AMOUNT, CVMLong.create(amount),
 				K_REASON, Strings.create(reason),
-				K_AT, CVMLong.create(Utils.getCurrentTimestamp()),
+				K_AT, engine.currentTimestamp(),
 				K_STATUS, PENDING);
 			if (by != null) entry = entry.assoc(K_BY, by);
 			s = RT.assocIn(s, CVMLong.create(budgetDrawn), K_BUDGETS, Strings.create(budgetId), K_DRAWN);
@@ -380,7 +381,7 @@ public class TreasuryAdapter extends AAdapter implements CallGrants {
 		ACell entry = ledgerOf(state).get(n);
 		if (status == PAID) return entry;
 		String what = (status == NOT_PAID) ? "Not paid, and the budget has it back: " : "Whether it was paid is not known, so it stays drawn (ledger line " + n + "): ";
-		throw new CompletionException(new IllegalStateException(what + rootMessage(cause)));
+		throw new CompletionException(new ConflictException(what + rootMessage(cause)));
 	}
 
 	/** The payments made, oldest first, or one budget's. */
@@ -411,7 +412,7 @@ public class TreasuryAdapter extends AAdapter implements CallGrants {
 		long committed = Math.addExact(committed(state, accountId), more);
 		long limit = longOf(account, K_LIMIT);
 		if (committed > limit) {
-			throw new IllegalStateException("That would take account " + accountId + "'s budgets to " + committed
+			throw new ConflictException("That would take account " + accountId + "'s budgets to " + committed
 				+ ", past its limit of " + limit + "; the owner raises a limit");
 		}
 	}
@@ -468,14 +469,14 @@ public class TreasuryAdapter extends AAdapter implements CallGrants {
 
 	private static AMap<AString, ACell> existingAccount(ACell state, String id) {
 		AMap<AString, ACell> account = accountOf(state, id);
-		if (account == null) throw new IllegalArgumentException("No account " + id);
+		if (account == null) throw new InvalidInputException("No account " + id);
 		return account;
 	}
 
 	private static AMap<AString, ACell> openBudget(ACell state, String id) {
 		AMap<AString, ACell> budget = budgetOf(state, id);
-		if (budget == null) throw new IllegalArgumentException("No budget " + id);
-		if (!OPEN.equals(budget.get(K_STATUS))) throw new IllegalStateException("Budget " + id + " is " + budget.get(K_STATUS));
+		if (budget == null) throw new InvalidInputException("No budget " + id);
+		if (!OPEN.equals(budget.get(K_STATUS))) throw new ConflictException("Budget " + id + " is " + budget.get(K_STATUS));
 		return budget;
 	}
 
@@ -529,12 +530,12 @@ public class TreasuryAdapter extends AAdapter implements CallGrants {
 			case "budget-lower", "budget-cancel" -> {
 				String id = requiredId(input, K_ID);
 				AMap<AString, ACell> budget = budgetOf(state(), id);
-				if (budget == null) throw new IllegalArgumentException("No budget " + id);
+				if (budget == null) throw new InvalidInputException("No budget " + id);
 				yield cap(account(budget.get(K_ACCOUNT).toString()), BUDGET);
 			}
 			case "pay" -> cap(budget(requiredId(input, K_BUDGET)), SPEND);
-			case "limit-set" -> throw new IllegalArgumentException("An account's limit is the owner's to set");
-			default -> throw new IllegalArgumentException("Not a treasury operation: " + operation);
+			case "limit-set" -> throw new InvalidInputException("An account's limit is the owner's to set");
+			default -> throw new InvalidInputException("Not a treasury operation: " + operation);
 		});
 	}
 
@@ -550,13 +551,13 @@ public class TreasuryAdapter extends AAdapter implements CallGrants {
 	/** Demands {@code ability} on the account a budget draws on. */
 	private void requireOnAccountOf(RequestContext ctx, String budgetId, AString ability) {
 		AMap<AString, ACell> budget = budgetOf(state(), budgetId);
-		if (budget == null) throw new IllegalArgumentException("No budget " + budgetId);
+		if (budget == null) throw new InvalidInputException("No budget " + budgetId);
 		require(ctx, account(budget.get(K_ACCOUNT).toString()), ability);
 	}
 
 	private Rail rail(String name) {
 		Rail rail = rails.get(name);
-		if (rail == null) throw new IllegalArgumentException("No rail " + name + "; the treasury has " + rails.keySet());
+		if (rail == null) throw new InvalidInputException("No rail " + name + "; the treasury has " + rails.keySet());
 		return rail;
 	}
 
@@ -564,14 +565,14 @@ public class TreasuryAdapter extends AAdapter implements CallGrants {
 	static String requiredId(ACell input, AString key) {
 		String id = requiredText(input, key, 64);
 		if (!ID.matcher(id).matches()) {
-			throw new IllegalArgumentException(key + " must be lower-case letters, digits and hyphens");
+			throw new InvalidInputException(key + " must be lower-case letters, digits and hyphens");
 		}
 		return id;
 	}
 
 	static String requiredText(ACell input, AString key, int maxLength) {
 		String text = optionalText(input, key, maxLength);
-		if (text == null) throw new IllegalArgumentException(key + " is required");
+		if (text == null) throw new InvalidInputException(key + " is required");
 		return text;
 	}
 
@@ -580,17 +581,17 @@ public class TreasuryAdapter extends AAdapter implements CallGrants {
 		if (value == null) return null;
 		String text = value.toString().strip();
 		if (text.isEmpty()) return null;
-		if (text.length() > maxLength) throw new IllegalArgumentException(key + " must be at most " + maxLength + " characters");
+		if (text.length() > maxLength) throw new InvalidInputException(key + " must be at most " + maxLength + " characters");
 		return text;
 	}
 
 	/** A whole amount in the currency's smallest unit: positive, or with {@code zeroAllowed} not negative. */
 	static long amount(ACell input, AString key, boolean zeroAllowed) {
 		CVMLong n = RT.ensureLong(RT.getIn(input, key));
-		if (n == null) throw new IllegalArgumentException(key + " is required, as a whole number of the currency's smallest unit");
+		if (n == null) throw new InvalidInputException(key + " is required, as a whole number of the currency's smallest unit");
 		long v = n.longValue();
 		if (v < 0 || (v == 0 && !zeroAllowed)) {
-			throw new IllegalArgumentException(key + " must be " + (zeroAllowed ? "zero or more" : "more than zero"));
+			throw new InvalidInputException(key + " must be " + (zeroAllowed ? "zero or more" : "more than zero"));
 		}
 		return v;
 	}

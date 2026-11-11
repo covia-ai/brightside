@@ -1,5 +1,7 @@
 package brightside;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -85,7 +87,7 @@ public final class StoreSpace {
 		if (!value) {
 			Files.deleteIfExists(request());
 		} else if (!Files.exists(request())) {
-			Files.writeString(request(), "Compact " + store.getFileName() + " the next time Brightside starts.\n");
+			Files.writeString(request(), "Compact " + store.getFileName() + " the next time " + APP_NAME + " starts.\n");
 		}
 	}
 
@@ -145,10 +147,10 @@ public final class StoreSpace {
 
 		/** What to tell the owner, in their words. */
 		public String notice() {
-			if (!collected) return "Brightside tried to compact its data store, as asked, but couldn't. The log says why.";
-			return "Brightside compacted its data store, as asked: it now holds " + Sizes.of(after)
+			if (!collected) return APP_NAME + " tried to compact its data store, as asked, but couldn't. The log says why.";
+			return APP_NAME + " compacted its data store, as asked: it now holds " + Sizes.of(after)
 				+ ", down from " + Sizes.of(before) + "."
-				+ (oldFileWaits ? " The old file is removed the next time Brightside starts." : "");
+				+ (oldFileWaits ? " The old file is removed the next time " + APP_NAME + " starts." : "");
 		}
 	}
 

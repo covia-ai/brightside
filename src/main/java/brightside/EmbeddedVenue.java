@@ -101,7 +101,7 @@ public final class EmbeddedVenue implements AutoCloseable {
 		// Code sits this one out.
 		try {
 			engine.registerAdapter(new covia.adapter.claudecode.ClaudeCodeAdapter());
-		} catch (IllegalArgumentException | IllegalStateException e) {
+		} catch (covia.exception.ConfigurationException | IllegalArgumentException | IllegalStateException e) {
 			log.warn("Claude Code is not available this launch — check venue.adapters.claudecode in config.json: {}",
 				e.getMessage());
 		}
@@ -111,7 +111,7 @@ public final class EmbeddedVenue implements AutoCloseable {
 		// voice out of this launch rather than failing it.
 		try {
 			engine.registerAdapter(new covia.adapter.speech.SpeechAdapter());
-		} catch (IllegalArgumentException | IllegalStateException e) {
+		} catch (covia.exception.ConfigurationException | IllegalArgumentException | IllegalStateException e) {
 			log.warn("Voice typing is not available this launch — check venue.adapters.speech in config.json: {}",
 				e.getMessage());
 		}
@@ -123,6 +123,15 @@ public final class EmbeddedVenue implements AutoCloseable {
 		return server.getEngine();
 	}
 
+	/** A newer schema is refused before writing; VenueServer may wrap that refusal. */
+	static boolean isNewerStore(Throwable failure) {
+		for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+			if (cause instanceof covia.venue.UnsupportedVersionException) return true;
+			if (cause.getCause() == cause) break;
+		}
+		return false;
+	}
+
 	/**
 	 * {@code userDID}'s agent record, one immutable value read through the
 	 * user's agent component, with no job: what change detection compares and
@@ -131,7 +140,7 @@ public final class EmbeddedVenue implements AutoCloseable {
 	 */
 	public ACell agentRecord(String userDID, String agentId) {
 		try {
-			User user = engine().getVenueState().users().get(Strings.create(userDID));
+			User user = engine().getVenueState().users().user(Strings.create(userDID));
 			return (user == null) ? null : user.agent(agentId).getRecord();
 		} catch (RuntimeException e) {
 			return null;
@@ -197,7 +206,7 @@ public final class EmbeddedVenue implements AutoCloseable {
 	public covia.venue.SecretStore secrets(String userDID, boolean ensure) {
 		try {
 			var users = engine().getVenueState().users();
-			User user = ensure ? users.ensure(Strings.create(userDID)) : users.get(Strings.create(userDID));
+			User user = ensure ? users.ensure(Strings.create(userDID)) : users.user(Strings.create(userDID));
 			return (user == null) ? null : user.secrets();
 		} catch (Exception e) {
 			return null;
@@ -263,8 +272,8 @@ public final class EmbeddedVenue implements AutoCloseable {
 	/** The user's HITL inbox ({@code h/}): request id → record, straight from the in-process lattice. Null before the user exists. */
 	public AMap<AString, ACell> inbox(String userDID) {
 		try {
-			User user = engine().getVenueState().users().get(Strings.create(userDID));
-			return (user == null) ? null : user.getHitlRequests();
+			User user = engine().getVenueState().users().user(Strings.create(userDID));
+			return (user == null) ? null : convex.core.lang.RT.castMap(user.inbox().getAll());
 		} catch (Exception e) {
 			return null;
 		}

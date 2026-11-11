@@ -172,7 +172,7 @@ public final class Inbox {
 		List<Ask> asks = asks(RT.getIn(rec, Hitl.ASKS));
 		String id = str(RT.getIn(rec, Hitl.ID));
 		String title = str(RT.getIn(rec, Hitl.TITLE));
-		return new Request((id != null) ? id : key, str(RT.getIn(rec, Hitl.FROM)), str(RT.getIn(rec, Hitl.AGENT)),
+		return new Request((id != null) ? id : key, str(RT.getIn(rec, Hitl.CALLER)), str(RT.getIn(rec, Hitl.AGENT)),
 			(title != null) ? title : "(untitled request)", str(RT.getIn(rec, Hitl.DESCRIPTION)), asks,
 			str(RT.getIn(rec, Hitl.STATUS)), lng(RT.getIn(rec, Hitl.CREATED)), lng(RT.getIn(rec, Hitl.EXPIRES)),
 			response(RT.getIn(rec, Hitl.RESPONSE), asks), owner);

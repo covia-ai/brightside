@@ -1,5 +1,7 @@
 package brightside.ui.settings;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.awt.BorderLayout;
 
 import javax.swing.Box;
@@ -58,12 +60,12 @@ public final class ProfilePanel extends SettingsPage {
 	private static final String MASK = "•".repeat(64);
 	private static final String NONE = "—";
 
-	private static final String SWITCH_HINT = "Who Brightside acts as: you, for everyday use, or the venue operator "
+	private static final String SWITCH_HINT = "Who " + APP_NAME + " acts as: you, for everyday use, or the venue operator "
 		+ "(advanced) — the venue's own agents (the gods, Odin and Thor) and the venue's Inbox. Everything else is as yourself; "
-		+ "Brightside starts as you on every launch.";
-	private static final String NAME_HINT = "What Brightside and other people call you. Changing it does not change "
+		+ APP_NAME + " starts as you on every launch.";
+	private static final String NAME_HINT = "What " + APP_NAME + " and other people call you. Changing it does not change "
 		+ "your identity.";
-	private static final String OPERATOR_NAME_HINT = "What Brightside calls the venue operator — a label only; the "
+	private static final String OPERATOR_NAME_HINT = "What " + APP_NAME + " calls the venue operator — a label only; the "
 		+ "operator is the venue itself.";
 	private static final String USER_DID_HINT = "Your Covia user DID: the stable identity peers use for you. Your home "
 		+ "venue controls it; changing your name does not change it.";
@@ -177,7 +179,7 @@ public final class ProfilePanel extends SettingsPage {
 		seedActions.add(Box.createHorizontalStrut(2));
 		seedActions.add(copySeed);
 
-		principal.setToolTipText("Who Brightside acts as");
+		principal.setToolTipText("Who " + APP_NAME + " acts as");
 		principal.setEnabled(false);
 		principal.addActionListener(e -> {
 			Principal chosen = (Principal) principal.getSelectedItem();
@@ -239,7 +241,7 @@ public final class ProfilePanel extends SettingsPage {
 		char[] typed = null;
 		if (remembered == null) {
 			JPasswordField passphrase = new JPasswordField(24);
-			if (!Dialogs.confirmDanger(this, "Enter your Brightside passphrase to reveal the primary seed", passphrase)) return;
+			if (!Dialogs.confirmDanger(this, "Enter your " + APP_NAME + " passphrase to reveal the primary seed", passphrase)) return;
 			typed = passphrase.getPassword();
 			passphrase.setText("");
 			if (typed.length == 0) return;

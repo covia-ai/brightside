@@ -49,6 +49,7 @@ import covia.grid.Job;
 import covia.grid.Status;
 import covia.grid.Venue;
 import covia.venue.Engine;
+import covia.venue.Models;
 
 /**
  * Chats through the agent framework of a real venue, using the echo test LLM.
@@ -242,11 +243,14 @@ class ChatSessionTest {
 
 			ACell record = SessionHistory.readAgentValue(venue, agentId);
 			ACell pending = RT.getIn(record, "sessions", Blob.fromHex(sid), "pending");
-			assertTrue(pending instanceof AVector<?> vector && vector.count() >= 2,
-				"agent:message appends beyond the envelope already presented to the blocked cycle");
+			assertTrue(pending instanceof AVector<?> vector && vector.count() == 1,
+				"only the follow-up is queued: the blocked cycle already took the first message");
+			assertEquals(Strings.create("follow-up"), RT.getIn(((AVector<?>) pending).get(0), Fields.MESSAGE));
 
 			gate.release();
 			assertEquals(sid, first.get(5, TimeUnit.SECONDS).sessionId());
+			venue.run("v/ops/agent/trigger", Maps.of(Fields.AGENT_ID, agentId, "force", false))
+				.get(5, TimeUnit.SECONDS);
 		}
 	}
 
@@ -442,7 +446,7 @@ class ChatSessionTest {
 		// What the agent loop resolves from the stored configuration, by Covia's own rule.
 		@SuppressWarnings("unchecked")
 		AMap<AString, ACell> config = (AMap<AString, ACell>) RT.getIn(agentInfo(agentId), Fields.CONFIG);
-		Asset operation = engine.resolveAsset(AbstractLLMAdapter.getLLMOperation(config), engine.venueContext());
+		Asset operation = engine.resolveAsset(Models.llmOperation(config),engine.venueContext());
 		assertNotNull(operation, "the provider's own operation");
 		assertEquals(Strings.create(typed), AbstractLLMAdapter.resolveModel(engine, operation,
 			RT.ensureString(config.get(Strings.create("model"))), config, engine.venueContext()).modelId());

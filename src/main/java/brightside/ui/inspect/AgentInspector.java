@@ -1,5 +1,7 @@
 package brightside.ui.inspect;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -62,7 +64,7 @@ public final class AgentInspector {
 		title.add(state);
 		Chip kind = new Chip(a.standard() ? "Standard" : "Custom");
 		kind.setToolTipText(a.standard()
-			? "Brightside's standard agent: its model and instructions follow Settings and config.json."
+			? APP_NAME + "'s standard agent: its model and instructions follow Settings and config.json."
 			: "Created from the agents pane; it keeps the model and instructions it was given.");
 		title.add(kind);
 		h.add(title, "wmin 0, wrap");
@@ -91,7 +93,7 @@ public final class AgentInspector {
 		d.pair("Agent DID", a.did()).tip("The agent's own identifier, distinct from its owner's: what it acts and signs as.");
 		d.pair("Owner", a.ownerName() + "  ·  " + a.ownerDID()).tip("The user the agent belongs to and acts for.");
 		d.pair("Model", orDash(a.model())).tip("The model operation its replies run through.");
-		d.pair("Operation", orDash(a.operation())).tip("The agent operation Brightside invokes to chat with it.");
+		d.pair("Operation", orDash(a.operation())).tip("The agent operation " + APP_NAME + " invokes to chat with it.");
 		d.pair("Tasks", Long.toString(a.tasks())).tip("Tasks on the agent's queue.");
 		d.pair("Timeline", a.timelineLength() + " event" + (a.timelineLength() == 1 ? "" : "s"))
 			.tip("Events the venue has recorded on the agent's timeline.");

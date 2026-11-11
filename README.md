@@ -124,13 +124,17 @@ conversation or an agent for what you can do with it; everything else is under
 Maven Central; a SNAPSHOT needs the Covia checkout installed locally:
 
 ```bash
-cd ../covia && mvn clean install -DskipTests
+cd ../covia
+mvn -pl venue,workbench,covia-discord,covia-telegram,covia-claude-code,covia-speech -am install -DskipTests
+cd ../brightside
+mvn package
 ```
 
 Convex comes in through Covia as a Maven Central release, so `../convex`
 needs installing first (`mvn clean install -DskipTests` there too) only while
 Covia's own `convex.version` is a SNAPSHOT. If the build cannot resolve
-`ai.covia:venue`, that is why.
+`ai.covia:venue`, that is why. Install every module listed above together so
+the embedded runtime, shared UI and integrations all use the same snapshot.
 </details>
 
 ## Under the hood

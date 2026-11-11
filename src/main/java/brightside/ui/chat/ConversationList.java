@@ -1,5 +1,7 @@
 package brightside.ui.chat;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -154,7 +156,7 @@ public final class ConversationList extends JPanel {
 		menu.add(copy);
 
 		JMenuItem summarise = new JMenuItem("Summarise");
-		summarise.setToolTipText("Brightside's summary of this conversation; the conversation itself is unchanged");
+		summarise.setToolTipText(APP_NAME + "'s summary of this conversation; the conversation itself is unchanged");
 		summarise.addActionListener(e -> listener.onSummariseSession(sid));
 		menu.add(summarise);
 

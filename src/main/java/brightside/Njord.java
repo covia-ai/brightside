@@ -96,7 +96,7 @@ public final class Njord {
 		SYSTEM_PROMPT, "the owner's budgets, approved recipients, objectives and what you have paid",
 		List.of("v/ops/convex/query", "v/ops/brightside/alert-thor", "v/ops/hitl/request", "v/ops/hitl/list",
 			"v/ops/grid/job-status", "v/ops/grid/job-result"),
-		Set.of(), SUDO_OPERATIONS, TREASURY_OPERATIONS);
+		Set.of(), SUDO_OPERATIONS, TREASURY_OPERATIONS, false);
 
 	/** How an assistant asks for a payment or transaction (callable by any authenticated user or their agents). */
 	public static final String OP_ASK = GOD.askOp();

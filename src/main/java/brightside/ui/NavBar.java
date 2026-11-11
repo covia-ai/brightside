@@ -1,5 +1,7 @@
 package brightside.ui;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -122,7 +124,7 @@ public final class NavBar extends JPanel {
 				case SESSIONS -> "Chat with the agents and conversations panel";
 				case FILES -> "Browse folders and personal drives";
 				case SKILLS -> "The skills your assistant can discover, and what each reveals";
-				case PEERS -> "The people, devices and services your Brightside knows";
+				case PEERS -> "The people, devices and services your " + APP_NAME + " knows";
 				case INBOX -> "Requests from your agents waiting for your decision";
 				case SETTINGS -> "Identity, theme, model, vault and auth settings";
 			});

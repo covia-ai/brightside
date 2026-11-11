@@ -1,5 +1,7 @@
 package brightside;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.DirectoryStream;
@@ -69,7 +71,7 @@ final class Relaunch {
 		String main = mainClass(copy);
 		if (!Main.class.getName().equals(main)) {
 			Files.deleteIfExists(copy);
-			throw new IllegalArgumentException("That is not a Brightside jar"
+			throw new covia.exception.InvalidInputException("That is not a " + APP_NAME + " jar"
 				+ ((main != null) ? " (its main class is " + main + ")" : ""));
 		}
 		Path running = runningJar();
@@ -117,7 +119,7 @@ final class Relaunch {
 	 */
 	static List<String> command(Class<?> main, Path config, List<String> options) throws Exception {
 		if (main.getClassLoader() != ClassLoader.getSystemClassLoader()) {
-			throw new IllegalStateException("Brightside is running inside another program (such as mvn exec:java),"
+			throw new covia.exception.ConflictException(APP_NAME + " is running inside another program (such as mvn exec:java),"
 				+ " so it cannot start itself again: start it again the way it was started");
 		}
 		return command(Path.of(main.getProtectionDomain().getCodeSource().getLocation().toURI()), config, options);

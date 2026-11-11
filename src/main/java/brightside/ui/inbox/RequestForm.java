@@ -1,5 +1,7 @@
 package brightside.ui.inbox;
 
+import static brightside.BrightSide.APP_NAME;
+
 import static brightside.ui.inspect.Blocks.body;
 import static brightside.ui.inspect.Blocks.heading;
 
@@ -151,7 +153,7 @@ public final class RequestForm extends JPanel {
 			if (value == null) {
 				if (in.ask.required()) {
 					fail(in instanceof TokenInput
-						? "\"" + in.ask.prompt() + "\" needs a token signed with your own key, which Brightside "
+						? "\"" + in.ask.prompt() + "\" needs a token signed with your own key, which " + APP_NAME + " "
 							+ "can't provide yet — reject the request instead."
 						: "Answer the required questions first.");
 					return null;
@@ -416,7 +418,7 @@ public final class RequestForm extends JPanel {
 		TokenInput(Inbox.Ask ask) {
 			super(ask);
 			for (Inbox.Grant cap : ask.tokenCaps()) add(body("Wants " + grantLabel(cap), false));
-			add(Labels.small("Needs a token signed with your own key; Brightside can't sign one yet.", Styles.ERROR));
+			add(Labels.small("Needs a token signed with your own key; " + APP_NAME + " can't sign one yet.", Styles.ERROR));
 			finish();
 		}
 

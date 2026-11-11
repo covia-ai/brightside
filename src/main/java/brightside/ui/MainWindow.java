@@ -1,5 +1,7 @@
 package brightside.ui;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -332,7 +334,7 @@ public final class MainWindow extends JFrame {
 				try {
 					app.setCompactAtNextStart(value);
 				} catch (IOException e) {
-					Dialogs.warn(MainWindow.this, "Data store", "Brightside couldn't save that: " + e.getMessage());
+					Dialogs.warn(MainWindow.this, "Data store", APP_NAME + " couldn't save that: " + e.getMessage());
 				}
 				settingsScreen.general().refreshStore(app.storeReport());
 			}
@@ -349,7 +351,7 @@ public final class MainWindow extends JFrame {
 					try {
 						app.removeKeptOriginals();
 					} catch (IOException e) {
-						Dialogs.warn(MainWindow.this, "Data store", "Brightside couldn't remove them: " + e.getMessage());
+						Dialogs.warn(MainWindow.this, "Data store", APP_NAME + " couldn't remove them: " + e.getMessage());
 					}
 				}
 				settingsScreen.general().refreshStore(app.storeReport());
@@ -559,7 +561,7 @@ public final class MainWindow extends JFrame {
 			@Override public void removeFolder(String name) throws Exception { app.fileRoots().remove(name); }
 			@Override public void createDrive(String name) throws Exception {
 				brightside.PersonalDrives drives = app.personalDrives();
-				if (drives == null) throw new IllegalStateException("Unlock Brightside to make a drive.");
+				if (drives == null) throw new IllegalStateException("Unlock " + APP_NAME + " to make a drive.");
 				drives.create(name);
 			}
 			@Override public String folderNameProblem(String name) { return brightside.FileRoots.nameProblem(name); }
@@ -966,7 +968,7 @@ public final class MainWindow extends JFrame {
 	}
 
 	public void startupFailed(Throwable t) {
-		startupFailed("BrightSide couldn't start up. Technical details are in the log folder"
+		startupFailed(APP_NAME + " couldn't start up. Technical details are in the log folder"
 			+ " (Settings → General → Open logs folder).");
 	}
 
@@ -978,7 +980,7 @@ public final class MainWindow extends JFrame {
 			return;
 		}
 		if (CARD_WELCOME.equals(currentCard)) {
-			welcomePanel.setError("Sorry — BrightSide couldn't start up.");
+			welcomePanel.setError("Sorry — " + APP_NAME + " couldn't start up.");
 		}
 		chatPanel.appendError(message);
 	}

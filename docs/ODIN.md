@@ -12,15 +12,18 @@ stops — is in [GODS.md](GODS.md). This is what is his alone. Code: `Odin`.
   owner first, or declines.
 - **He is the wiser head.** Every change Thor or Njord makes is reported to
   him, and he takes a disagreement to the owner rather than undoing it.
-- **His reach is an allowlist** covering all of that. Money, the gods
-  themselves and the owner's Inbox stay out of it.
+- **He holds the venue's authority itself**: his caps are unrestricted. His
+  run bridge's allowlist covers the administration above and leaves out
+  money, the gods themselves and the owner's Inbox; his judgement, not
+  Covia, keeps him from reaching those another way.
 
 ## Why Odin
 
 The owner's assistants act with the owner's authority, inside the owner's
 namespace, and that is all they should hold. Administering the venue — an
 integration switched on, a user added, access granted — needs the venue's
-own authority, which Covia gives to no agent, and for good reason: an
+own authority, which Covia gives an agent only when its caps say so, and for
+good reason: an
 assistant reads untrusted content all day, and an assistant that could widen
 its own access could be talked into it.
 
@@ -98,5 +101,6 @@ that a slow answer is normal while the owner is being asked.
 
 ## Known limits
 
-- An agent cannot hold delegated venue authority, so his powers go through a
-  Brightside bridge rather than a grant of his own (covia#447).
+- His caps are unrestricted, so what his allowlist leaves out is kept from
+  him by his judgement and the tools he is offered: a skill he loads could
+  reach money or the Inbox directly.

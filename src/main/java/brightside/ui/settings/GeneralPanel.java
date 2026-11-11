@@ -1,5 +1,7 @@
 package brightside.ui.settings;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.util.stream.IntStream;
 
 import javax.swing.DefaultComboBoxModel;
@@ -73,9 +75,9 @@ public final class GeneralPanel extends SettingsPage {
 	private final JButton changeName;
 	private final JButton logout;
 	private final JCheckBox keepInTray = new JCheckBox("Keep running in the tray when I close the window");
-	private final JCheckBox minimiseToTray = new JCheckBox("Send Brightside to the tray when minimised");
+	private final JCheckBox minimiseToTray = new JCheckBox("Send " + APP_NAME + " to the tray when minimised");
 	private final JLabel trayNote = Labels.small(" ");
-	private final JCheckBox takeOver = new JCheckBox("Take over a Brightside that is already running, without asking");
+	private final JCheckBox takeOver = new JCheckBox("Take over a " + APP_NAME + " that is already running, without asking");
 	private final JCheckBox unlock = new JCheckBox("Unlock with my stored passphrase, without asking");
 	private final JLabel unlockNote = Labels.small("Store your passphrase on the unlock screen to use this.");
 	/** The pauses offered, in seconds, before "never". */
@@ -85,7 +87,7 @@ public final class GeneralPanel extends SettingsPage {
 	private final JLabel readAloudNote = Labels.small(
 		"Off: right-click a reply and choose Read aloud to hear just that one. Esc stops it.");
 	private final JLabel storeSize = new JLabel(" ");
-	private final JCheckBox compact = new JCheckBox("Compact it the next time Brightside starts");
+	private final JCheckBox compact = new JCheckBox("Compact it the next time " + APP_NAME + " starts");
 	private final JLabel keptNote = Labels.small(" ");
 	private final JPanel keptRow;
 	private final JButton hideToTray;
@@ -105,9 +107,9 @@ public final class GeneralPanel extends SettingsPage {
 
 		group("Account");
 		JPanel account = buttons();
-		changeName = action(account, "Change name…", "Change how Brightside addresses you; your identity stays the same",
+		changeName = action(account, "Change name…", "Change how " + APP_NAME + " addresses you; your identity stays the same",
 			host::changeName);
-		logout = action(account, "Lock", "Lock Brightside and ask for the passphrase again; it keeps running meanwhile",
+		logout = action(account, "Lock", "Lock " + APP_NAME + " and ask for the passphrase again; it keeps running meanwhile",
 			host::logout);
 
 		takeOver.setOpaque(false);
@@ -155,7 +157,7 @@ public final class GeneralPanel extends SettingsPage {
 		trayNote.setVisible(false); // until refresh says the tray is missing
 		addSpan(trayNote);
 		JPanel tray = buttons();
-		hideToTray = action(tray, "Hide to tray", "Hide this window and keep Brightside running", host::hideToTray);
+		hideToTray = action(tray, "Hide to tray", "Hide this window and keep " + APP_NAME + " running", host::hideToTray);
 
 		compact.setOpaque(false);
 		compact.setToolTipText("Starting takes a little longer that once; nothing in use is lost");
@@ -178,13 +180,13 @@ public final class GeneralPanel extends SettingsPage {
 		JPanel advanced = buttons();
 		dashboard = action(advanced, "Open dashboard", "The embedded venue's web dashboard, in your browser",
 			host::openDashboard);
-		action(advanced, "Open settings file", "Brightside's config.json, in its associated editor", host::openConfigFile);
+		action(advanced, "Open settings file", APP_NAME + "'s config.json, in its associated editor", host::openConfigFile);
 		action(advanced, "Open logs folder", "The local log files, for diagnostics", host::openLogsFolder);
 		action(advanced, "About", "Version, local address and technical identity", host::showAbout);
 
 		group("Application");
 		JPanel app = buttons();
-		JButton quit = action(app, "Quit Brightside", "Save everything and stop Brightside completely", host::quit);
+		JButton quit = action(app, "Quit " + APP_NAME, "Save everything and stop " + APP_NAME + " completely", host::quit);
 		Styles.classes(quit, Styles.ERROR);
 	}
 

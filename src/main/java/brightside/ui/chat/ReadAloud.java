@@ -1,5 +1,7 @@
 package brightside.ui.chat;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.awt.Component;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -129,7 +131,7 @@ final class ReadAloud {
 	private boolean confirmDownload(Voice.Speaking speaking) {
 		long mb = Math.max(10, Math.round(speaking.bytes() / 1e7) * 10);
 		return Dialogs.choose(SwingUtilities.getWindowAncestor(parent), "Set up reading aloud?",
-			"Brightside reads replies aloud on this computer, so nothing it says leaves it.\n"
+			APP_NAME + " reads replies aloud on this computer, so nothing it says leaves it.\n"
 			+ "It needs a one-off download of about " + mb + " MB for the voice.",
 			"Download", "Not now");
 	}

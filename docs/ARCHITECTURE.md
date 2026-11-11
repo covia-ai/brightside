@@ -163,6 +163,14 @@ a shutdown hook covers Ctrl-C and SIGTERM.
 
 ## Packaging
 
+The Covia version is selected in `pom.xml`; the snapshot build instructions
+are in [README.md](../README.md#try-it). Every in-process Covia module is
+the same version. Integration follows Covia's
+[embedder contract](../../covia/venue/docs/EMBEDDING.md): live-user components
+for reads, explicit workspace paths and transactions for writes, and the
+venue clock for timestamps and short-lived grants. Expected operation
+refusals use Covia's typed exceptions so their reason reaches the caller.
+
 The runnable jar is built by `maven-shade-plugin` with the services
 transformer, because Jetty, Javalin and LangChain4j rely on
 `META-INF/services`, and drops the venue's bundled OpenAPI plugin so the venue

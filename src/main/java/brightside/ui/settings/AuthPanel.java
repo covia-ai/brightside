@@ -1,5 +1,7 @@
 package brightside.ui.settings;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
@@ -91,15 +93,15 @@ public final class AuthPanel extends SettingsPage {
 
 		group(null);
 		addField("Authenticate as", "A bearer token for this venue's local API (Authorization: Bearer …). The user "
-			+ "reaches your own Brightside data; the venue operator is for administration only.", subject);
+			+ "reaches your own " + APP_NAME + " data; the venue operator is for administration only.", subject);
 		addField("Expires in", expiry);
 		addSpan(tokenScroll, "h 96!, gaptop 6");
 		addSpanLeft(copy);
 
 		keepToolToken.setOpaque(false);
-		keepToolToken.setToolTipText("Renewed every hour while Brightside runs, and removed when it quits");
+		keepToolToken.setToolTipText("Renewed every hour while " + APP_NAME + " runs, and removed when it quits");
 		group(null);
-		addField("Local tools", "While Brightside runs, keeps a user token valid for a day in tool-token.json in "
+		addField("Local tools", "While " + APP_NAME + " runs, keeps a user token valid for a day in tool-token.json in "
 			+ "your data folder, for tools on this computer such as Claude Code to read when they connect. Like a "
 			+ "remembered passphrase, anyone who can read your files can use it.", keepToolToken);
 	}

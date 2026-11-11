@@ -1,6 +1,6 @@
 # Design guidelines
 
-Brightside is a **self-sovereign personal agent**: a real consumer product that
+Tau is a **self-sovereign personal agent**: a real consumer product that
 happens to be powered by the Covia Grid. Its job is to be genuinely useful to
 the person who owns it, privately, on their own machine. When in doubt, favour
 the person in front of the screen over the platform behind it.
@@ -17,12 +17,17 @@ the person in front of the screen over the platform behind it.
 - **The assistant grows, remembers, and asks.** Skills it can author, a memory
   it keeps quietly, an Inbox for decisions only the owner can make.
 
+The provisional product name shown in the UI is **Tau** (τ, two times π).
+The repository, Java packages, operation namespaces and data paths retain
+their `brightside` names. Configured venue and assistant names are independent
+of the product name and are kept as configured.
+
 ## 1. Speak like a product, not a platform
 
 - Say "your assistant", "your name", "settings", "memory", "starting up".
 - Friendly, plain, second person: "What should I call you?", not "Enter a
   user identity".
-- Errors are human — "Brightside couldn't start up; details are in the logs" —
+- Errors are human — "Tau couldn't start up; details are in the logs" —
   never a stack trace or a `did:key:…` in the face.
 
 ## 2. Hide the machinery, don't remove it
@@ -65,10 +70,10 @@ settings file. The model is in [IDENTITY.md](IDENTITY.md).
 - **It can grow.** The assistant creates, refines and removes its own skills.
   The power to do so is gated the way a good product gates power: reachable
   on demand, reversible, and never in context until deliberately reached for.
-- **It can work on itself.** Brightside's own source is a Claude Code
-  project out of the box, cloned into Brightside's own directory on first
-  use, so the owner can have the assistant fix and extend Brightside; a
-  change takes effect once Brightside is relaunched into the new build, by
+- **It can work on itself.** Tau's own source is a Claude Code
+  project out of the box, cloned into Tau's own directory on first
+  use, so the owner can have the assistant fix and extend Tau; a
+  change takes effect once Tau is relaunched into the new build, by
   the owner or by Odin on their behalf.
 - **It learns from misses.** Concrete skill failures go to a private backlog
   through a narrow operation; ordinary task failures do not.

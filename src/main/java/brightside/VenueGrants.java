@@ -10,7 +10,6 @@ import convex.core.data.AVector;
 import convex.core.data.Maps;
 import convex.core.data.Vectors;
 import convex.core.data.prim.CVMLong;
-import convex.core.util.Utils;
 import covia.venue.Engine;
 import covia.venue.UcanJwtValidator;
 
@@ -35,7 +34,7 @@ public final class VenueGrants {
 
 	/** A grant to {@code aud} of the capabilities {@code att}, as the verified token map a request context presents. */
 	public ACell grant(AString aud, AVector<ACell> att) {
-		long now = Utils.getCurrentTimestamp() / 1000;
+		long now = engine.currentTimestamp().longValue() / 1000;
 		AMap<AString, ACell> claims = Maps.of(
 			UCAN.ISS, engine.getDIDString(),
 			UCAN.AUD, aud,

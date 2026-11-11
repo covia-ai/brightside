@@ -1,5 +1,7 @@
 package brightside;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -57,7 +59,7 @@ public final class StoreRepair {
 
 		/** What to tell the owner, in their words. */
 		public String notice() {
-			String base = "Brightside wasn't closed cleanly last time, so it checked and rebuilt its data store "
+			String base = APP_NAME + " wasn't closed cleanly last time, so it checked and rebuilt its data store "
 				+ "before starting. The previous file is kept as " + kept.getFileName() + " in case anything is missing.";
 			return (status == EtchRebuilder.Status.COMPLETE) ? base
 				: base + " The check could not read the whole old file, so anything written after the last save may be missing.";

@@ -410,7 +410,7 @@ class SessionHistoryTest {
 			new SessionHistory.Message("assistant", ""),
 			new SessionHistory.Message("user", "book the trip for Friday"),
 			new SessionHistory.Message("assistant", "Booked.")), items);
-		assertTrue(SessionHistory.plainText(items).contains("Brightside: (no reply)"), SessionHistory.plainText(items));
+		assertTrue(SessionHistory.plainText(items).contains(BrightSide.APP_NAME + ": (no reply)"), SessionHistory.plainText(items));
 	}
 
 	@Test

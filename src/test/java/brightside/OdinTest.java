@@ -137,7 +137,7 @@ class OdinTest {
 	void odinCanUndoAUserHeCreated() throws Exception {
 		AString made = Strings.create(venue.did() + ":u:odin-made");
 		asOdin(Odin.OP_RUN, Maps.of("operation", "v/ops/user/create", "input", Maps.of("did", made)));
-		assertNotNull(venue.engine().getVenueState().users().get(made), "created");
+		assertNotNull(venue.engine().getVenueState().users().user(made), "created");
 
 		asOdin(Odin.OP_RUN, Maps.of("operation", "v/ops/user/delete", "input", Maps.of("did", made)));
 		assertTrue(venue.engine().getVenueState().users().isDeleted(made), "and deleted again");
@@ -149,12 +149,12 @@ class OdinTest {
 		for (String did : new String[] { userDID, Njord.GOD.kept(venue.did()) }) {
 			AString account = Strings.create(did);
 			// Registered, so a refusal is the bridge's and not Covia's for a missing user.
-			if (venue.engine().getVenueState().users().get(account) == null) {
+			if (venue.engine().getVenueState().users().user(account) == null) {
 				run(venue.operator(), "v/ops/user/create", Maps.of("did", account));
 			}
 			assertThrows(Exception.class, () -> asOdin(Odin.OP_RUN, Maps.of(
 				"operation", "v/ops/user/delete", "input", Maps.of("did", account))), did);
-			assertNotNull(venue.engine().getVenueState().users().get(account), "still there: " + did);
+			assertNotNull(venue.engine().getVenueState().users().user(account), "still there: " + did);
 		}
 	}
 
@@ -168,13 +168,17 @@ class OdinTest {
 		assertNotNull(venue.agentRecord(userDID, "OdinMade"), "an assistant in the owner's namespace");
 		assertNull(venue.agentRecord(venue.did(), "OdinMade"), "not one of the venue's own");
 
-		// Acting for the owner he holds their namespace only, so he cannot make
-		// an assistant that reaches further than that.
-		assertThrows(Exception.class, () -> asOdin(Odin.OP_RUN, Maps.of(
+		// An omitted scope inherits the owner's authority, never Odin's venue authority.
+		asOdin(Odin.OP_RUN, Maps.of(
 			"operation", "v/ops/agent/create",
 			"input", Maps.of("agentId", "OdinUnbounded"),
-			"user", userDID)));
-		assertNull(venue.agentRecord(userDID, "OdinUnbounded"));
+			"user", userDID));
+		var agent = venue.engine().getVenueState().users().user(userDID).agent("OdinUnbounded");
+		assertEquals(Strings.create(userDID), agent.getController());
+		RequestContext created = venue.engine().context(Strings.create(userDID), Strings.create(userDID + ":g:OdinUnbounded"));
+		assertThrows(covia.exception.AuthException.class,
+			() -> venue.engine().requireUserPath(created, Strings.create(venue.did() + "/w/private"),
+				convex.auth.ucan.Capability.CRUD_READ, false), "no access to the venue owner's workspace");
 	}
 
 	@Test
@@ -228,7 +232,7 @@ class OdinTest {
 	}
 
 	private static Job odinJob(String op, AMap<AString, ACell> input) {
-		RequestContext odin = RequestContext.ofAgent(Strings.create(venue.did()), Strings.create(Odin.AGENT_ID));
+		RequestContext odin = GodContexts.of(venue, Odin.AGENT_ID);
 		return venue.engine().jobs().invokeOperation(op, input, odin);
 	}
 

@@ -1,5 +1,7 @@
 package brightside.ui.files;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
@@ -124,7 +126,7 @@ public final class FileBrowser extends JPanel {
 	private final EyeButton previewToggle = new EyeButton("Show file preview", "Hide file preview", 18);
 	private final JPanel sidebar = panel(new BorderLayout());
 	/** Under the sidebar: folder changes saved here wait for the next start. */
-	private final JLabel restart = Labels.html(Labels.escape("Folder changes apply when Brightside restarts."), 180, javax.swing.SwingConstants.LEFT);
+	private final JLabel restart = Labels.html(Labels.escape("Folder changes apply when " + APP_NAME + " restarts."), 180, javax.swing.SwingConstants.LEFT);
 	private final PlaceActions placeActions;
 	private final JSplitPane folderSplit;
 	private final ArrayDeque<Location> history = new ArrayDeque<>();

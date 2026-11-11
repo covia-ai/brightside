@@ -1,5 +1,7 @@
 package brightside.ui.onboarding;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
@@ -66,7 +68,7 @@ public final class UnlockPanel extends JPanel {
 		mark.setAlignmentX(CENTER_ALIGNMENT);
 		JLabel title = Labels.title("Welcome back");
 		title.setAlignmentX(CENTER_ALIGNMENT);
-		JLabel sub = Styles.classes(Labels.html("Enter your passphrase to unlock Brightside.", 420, SwingConstants.CENTER), Styles.MUTED);
+		JLabel sub = Styles.classes(Labels.html("Enter your passphrase to unlock " + APP_NAME + ".", 420, SwingConstants.CENTER), Styles.MUTED);
 		sub.setAlignmentX(CENTER_ALIGNMENT);
 
 		field.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Passphrase");
@@ -78,7 +80,7 @@ public final class UnlockPanel extends JPanel {
 		remember.setOpaque(false);
 		remember.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		JLabel info = Labels.icon(Lucide.icon("info", 16, Theme::muted));
-		info.setToolTipText("Anyone who can read files as your OS account can unlock Brightside. "
+		info.setToolTipText("Anyone who can read files as your OS account can unlock " + APP_NAME + ". "
 			+ "Only enable this on a computer and account you trust; untick it to delete the file.");
 		info.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		JPanel rememberRow = Panels.row();

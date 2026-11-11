@@ -12,9 +12,9 @@ design and motivation.
   moving money — sits with a god instead.
 - **A god is the venue's own agent.** It belongs to the venue principal, not
   to the owner's user, and answers to the owner alone.
-- **Power is a mechanism; judgement is a prompt.** What a god *can* do is an
-  allowlist enforced by its bridge. What it *should* do is its system prompt.
-  Neither is trusted to do the other's job.
+- **Power is a mechanism; judgement is a prompt.** What Thor and Njord *can*
+  do is an allowlist enforced by their bridges; Odin holds the venue's
+  authority outright. What a god *should* do is its system prompt.
 - **They check one another.** Gods that act on their own judgement report
   every change to Odin straight after. He takes a disagreement to the owner,
   who breaks the tie.
@@ -75,10 +75,13 @@ definition, its two bridge resources and a place in that list.
 
 ### The bridges
 
-Gods exist because assistants cannot act as the venue: venue authority is
-admitted only to the venue itself, never to an agent it owns, and an agent's
-run loop carries no delegations. Each god has two narrow Brightside
-operations to bridge the gap.
+Gods exist because assistants cannot act as the venue. An agent holds what
+its caps say, narrowing its owner's authority. Odin's caps are unrestricted,
+so he holds the venue's authority itself. Thor's and Njord's let them call
+any operation, read the venue's data and assets, keep their own notes and ask
+through the Inbox, but write nothing of the venue's, and an agent's run loop
+carries no delegations. Brightside sets each god's caps whenever it starts
+(`God`). Each god has two narrow Brightside operations to bridge the gap.
 
 **Ask** (`brightside:ask-odin`, `brightside:alert-thor`,
 `brightside:ask-njord`) is callable by any authenticated user of the venue,
@@ -128,12 +131,17 @@ answer reaches the god in the conversation that asked, whenever it comes.
 
 ### Deliberate stops
 
-Covia suspends an agent when a turn fails, and when someone stops it with
-`agent:suspend`. Brightside resumes the first kind by itself once the
+Covia suspends an agent when its setup or a fault prevents further work,
+and when someone stops it with `agent:suspend`. An ordinary task failure
+fails that task and lets the agent continue. Brightside resumes a fault
+suspension by itself once the
 configuration is re-applied, which is the usual cure. It never lifts the
 second: the chat with an agent stopped on purpose says so and points to the
 Inbox, and a god stopped on purpose stays stopped. `Suspension` tells the two
 apart.
+
+Suspension preserves queued tasks for an explicit resume. A chat message
+already taken by the stopped cycle fails with the reason for the stop.
 
 `OdinTest`, `ThorTest` and `NjordTest` exercise all of this against a real
 venue.

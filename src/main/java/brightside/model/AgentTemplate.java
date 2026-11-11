@@ -1,5 +1,7 @@
 package brightside.model;
 
+import static brightside.BrightSide.APP_NAME;
+
 import brightside.BrightsideSkillsAdapter;
 
 /**
@@ -29,7 +31,7 @@ public enum AgentTemplate {
 			+ "the user's voice, and produce clear, natural prose without unnecessary ornament.",
 		BrightsideSkillsAdapter.WRITING),
 	BLANK("Blank slate",
-		"Only a private-agent identity and the standard Brightside capabilities.",
+		"Only a private-agent identity and the standard " + APP_NAME + " capabilities.",
 		"You are %s, a private AI agent running on the user's own computer. Follow the user's instructions carefully.",
 		null);
 

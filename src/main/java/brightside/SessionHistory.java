@@ -1,5 +1,7 @@
 package brightside;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -397,13 +399,13 @@ public final class SessionHistory {
 		return titleOf(conversation);
 	}
 
-	/** The conversation as plain text ("You:" / "Brightside:" turns) — for copying out. */
+	/** The conversation as plain text, labelled with the sender or app name, for copying out. */
 	public static String plainText(List<Item> items) {
 		StringBuilder sb = new StringBuilder();
 		for (Item it : items) {
 			if (it instanceof Message m) {
 				String who = ROLE_USER.equals(m.role())
-					? (m.origin() != null ? m.origin() : "You") : "Brightside";
+					? (m.origin() != null ? m.origin() : "You") : APP_NAME;
 				String text = m.text().isBlank() ? "(no reply)" : m.text();
 				sb.append(who).append(": ").append(text).append("\n\n");
 			} else if (it instanceof Summary s) {

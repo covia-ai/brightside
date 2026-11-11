@@ -1,5 +1,7 @@
 package brightside.ui.settings;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -77,7 +79,7 @@ public final class ThemePanel extends JPanel {
 	}
 
 	private static final List<Accent> ACCENTS = List.of(
-		new Accent("Brightside", LAF.BRIGHTSIDE_ACCENT),
+		new Accent(APP_NAME, LAF.BRIGHTSIDE_ACCENT),
 		new Accent("Sky", "#3B82F6"),
 		new Accent("Teal", "#14B8A6"),
 		new Accent("Leaf", "#3FB950"),

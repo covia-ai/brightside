@@ -1,5 +1,7 @@
 package brightside.ui.onboarding;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -51,7 +53,7 @@ public final class RecoveryDialog extends JDialog {
 	private final JButton recover = Buttons.primary("Recover");
 
 	public RecoveryDialog(Window owner, Listener listener) {
-		super(owner, "Recover Brightside", ModalityType.APPLICATION_MODAL);
+		super(owner, "Recover " + APP_NAME, ModalityType.APPLICATION_MODAL);
 		this.listener = listener;
 		setContentPane(build());
 		pack();
@@ -63,7 +65,7 @@ public final class RecoveryDialog extends JDialog {
 		JPanel root = new JPanel(new BorderLayout());
 		root.setBorder(BorderFactory.createEmptyBorder(22, 26, 18, 26));
 
-		JLabel title = Labels.title("Recover Brightside");
+		JLabel title = Labels.title("Recover " + APP_NAME);
 		SelectableText sub = SelectableText.description("Restore access with your recovery phrase and set a new passphrase.");
 		SelectableText warn = SelectableText.description("Your conversations and memory are encrypted to your identity, "
 			+ "not your passphrase — so your 12- or 24-word recovery phrase reopens the existing vault. You'll set a "

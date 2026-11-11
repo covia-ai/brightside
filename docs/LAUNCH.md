@@ -252,9 +252,11 @@ hand ([CONFIGURATION.md](CONFIGURATION.md)).
 Etch only appends, so a value replaced or deleted stays in `venue.etch` until
 the store is collected: everything the lattice root still reaches is copied
 into a fresh file and the rest dropped. Covia can collect a running venue, but
-the store then spans two files until the venue next closes cleanly, and a
-crash in that time leaves files the launch-time repair cannot put right. The
-start is the safe point: nothing holds the store and nothing writes to it.
+the store can span two files. Etch recovers completed cutovers and discards
+an abandoned target that never held a checkpoint. A crash after a collection
+target was checkpointed and then changed can leave dirty files the
+launch-time repair cannot put right. The start is the safe point: nothing
+holds the store and nothing writes to it.
 
 So compaction is asked for, from Settings → General → Data store or by Odin
 (`brightside:storage`), and leaves a `venue.etch.compact` request beside the

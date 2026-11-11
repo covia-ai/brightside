@@ -22,7 +22,8 @@ import convex.core.data.prim.CVMBool;
 import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
 import convex.core.text.Text;
-import convex.core.util.Utils;
+import covia.exception.ConflictException;
+import covia.exception.InvalidInputException;
 import covia.adapter.AAdapter;
 import covia.api.Abilities;
 import covia.api.Fields;
@@ -206,7 +207,7 @@ public class MoltbookAdapter extends AAdapter {
 				case "notifications" -> notifications(ctx, key, input);
 				case "notifications-read" -> notificationsRead(key, input);
 				case "delete-post" -> call("DELETE", "/posts/" + segment(requiredText(input, K_ID, MAX_ID)), key, null);
-				default -> CompletableFuture.failedFuture(new IllegalArgumentException("Unknown moltbook operation: " + op));
+				default -> CompletableFuture.failedFuture(new InvalidInputException("Unknown moltbook operation: " + op));
 			};
 		} catch (Exception e) {
 			return CompletableFuture.failedFuture(e);
@@ -227,7 +228,7 @@ public class MoltbookAdapter extends AAdapter {
 	/** The caller's key, from their own secret store (or the venue's launch-provisioned secrets). */
 	private String apiKey(RequestContext ctx) {
 		String key = existingKey(ctx);
-		if (key == null) throw new IllegalStateException(NOT_SET_UP);
+		if (key == null) throw new ConflictException(NOT_SET_UP);
 		return key;
 	}
 
@@ -282,7 +283,7 @@ public class MoltbookAdapter extends AAdapter {
 		String name = requiredText(input, K_NAME, 64);
 		String description = optionalText(input, K_DESCRIPTION, 2000);
 		if (existingKey(ctx) != null) {
-			throw new IllegalStateException("Moltbook is already connected; the owner can forget it in "
+			throw new ConflictException("Moltbook is already connected; the owner can forget it in "
 				+ "Settings → Integrations → Moltbook before registering another account");
 		}
 		// Writing a secret needs the same authority secret:set demands — checked
@@ -295,15 +296,15 @@ public class MoltbookAdapter extends AAdapter {
 			try {
 				r = Moltbook.parseRegistration(response);
 			} catch (java.io.IOException e) {
-				throw new CompletionException(e);
+				throw new CompletionException(new covia.exception.ResponseException(e.getMessage(), e));
 			}
 			// The key and the record land together, and only if no key arrived meanwhile.
 			AString owner = ctx.getUserDID();
 			SecretStore.Keys keys = SecretStore.keys(engine.getKeyPair());
 			AMap<AString, ACell> record = Moltbook.record(name, r.claimUrl(), r.verificationCode());
-			engine.getVenueState().transact(draft -> {
+			engine.getVenueState().execute(draft -> {
 				if (!draft.users().ensure(owner).secrets().storeIfAbsent(Strings.create(Moltbook.KEY_SECRET), Strings.create(r.apiKey()), keys)) {
-					throw new IllegalStateException("Moltbook was connected while this registration ran; "
+					throw new ConflictException("Moltbook was connected while this registration ran; "
 						+ "the account just registered was not kept");
 				}
 				AdapterState state = draft.adapterState(getName(), owner);
@@ -382,7 +383,7 @@ public class MoltbookAdapter extends AAdapter {
 				path = "/posts";
 				query.put("submolt", requiredText(input, K_SUBMOLT, MAX_ID));
 			}
-			default -> throw new IllegalArgumentException("scope must be feed, following, all or submolt");
+			default -> throw new InvalidInputException("scope must be feed, following, all or submolt");
 		}
 		putOptional(query, "sort", optionalText(input, K_SORT, 16));
 		putOptional(query, "limit", optionalCount(input, K_LIMIT, 100));
@@ -431,7 +432,7 @@ public class MoltbookAdapter extends AAdapter {
 			K_TITLE, Strings.create(requiredText(input, K_TITLE, MAX_TITLE)));
 		String content = optionalText(input, K_CONTENT, MAX_CONTENT);
 		String url = optionalText(input, K_URL, 2000);
-		if (content == null && url == null) throw new IllegalArgumentException("A post needs content or a url");
+		if (content == null && url == null) throw new InvalidInputException("A post needs content or a url");
 		if (content != null) body = body.assoc(K_CONTENT, Strings.create(content));
 		if (url != null) body = body.assoc(K_URL, Strings.create(url)).assoc(K_TYPE, Strings.create("link"));
 		return call("POST", "/posts", key, body);
@@ -451,15 +452,15 @@ public class MoltbookAdapter extends AAdapter {
 		String direction = optionalText(input, K_DIRECTION, 8);
 		boolean down = "down".equals(direction);
 		if (direction != null && !down && !"up".equals(direction)) {
-			throw new IllegalArgumentException("direction must be up or down");
+			throw new InvalidInputException("direction must be up or down");
 		}
 		String path = switch (target) {
 			case "post" -> "/posts/" + id + (down ? "/downvote" : "/upvote");
 			case "comment" -> {
-				if (down) throw new IllegalArgumentException("Comments can only be upvoted");
+				if (down) throw new InvalidInputException("Comments can only be upvoted");
 				yield "/comments/" + id + "/upvote";
 			}
-			default -> throw new IllegalArgumentException("target must be post or comment");
+			default -> throw new InvalidInputException("target must be post or comment");
 		};
 		return call("POST", path, key, null);
 	}
@@ -469,7 +470,7 @@ public class MoltbookAdapter extends AAdapter {
 		query.put("q", requiredText(input, K_Q, MAX_QUERY));
 		String type = optionalText(input, K_TYPE, 16);
 		if (type != null && !List.of("posts", "comments", "all").contains(type)) {
-			throw new IllegalArgumentException("type must be posts, comments or all");
+			throw new InvalidInputException("type must be posts, comments or all");
 		}
 		putOptional(query, "type", type);
 		putOptional(query, "limit", optionalCount(input, K_LIMIT, 50));
@@ -599,7 +600,7 @@ public class MoltbookAdapter extends AAdapter {
 		return engine.jobs().invokeInternal(OP_WRITE, Maps.of(Fields.PATH, at, Fields.VALUE, full), ctx)
 			.handle((written, failure) -> {
 				if (failure != null) {
-					throw new CompletionException(new IllegalStateException(
+					throw new CompletionException(new ConflictException(
 						"Moltbook answered, but its answer could not be kept at " + path + ": " + rootMessage(failure)));
 				}
 				return summary.assoc(Fields.OUTPUT_PATH, at).assoc(Fields.BYTES, CVMLong.create(Cells.storageSize(full)));
@@ -612,7 +613,7 @@ public class MoltbookAdapter extends AAdapter {
 	 * millisecond and fixed width, so keys sort in time order.
 	 */
 	private String scratchPath(String op) {
-		long now = Utils.getCurrentTimestamp();
+		long now = engine.currentTimestamp().longValue();
 		long at = lastKept.updateAndGet(last -> Math.max(last + 1, now));
 		return "t/moltbook/" + op + "/" + Text.dateFormat(at);
 	}
@@ -623,7 +624,7 @@ public class MoltbookAdapter extends AAdapter {
 
 	private static String requiredText(ACell input, AString key, int maxLength) {
 		String text = optionalText(input, key, maxLength);
-		if (text == null) throw new IllegalArgumentException(key + " is required");
+		if (text == null) throw new InvalidInputException(key + " is required");
 		return text;
 	}
 
@@ -633,7 +634,7 @@ public class MoltbookAdapter extends AAdapter {
 		String text = value.toString().strip();
 		if (text.isEmpty()) return null;
 		if (text.length() > maxLength) {
-			throw new IllegalArgumentException(key + " must be at most " + maxLength + " characters");
+			throw new InvalidInputException(key + " must be at most " + maxLength + " characters");
 		}
 		return text;
 	}
@@ -643,7 +644,7 @@ public class MoltbookAdapter extends AAdapter {
 		ACell cell = RT.getIn(input, key);
 		if (cell == null) return null;
 		CVMLong n = RT.ensureLong(cell);
-		if (n == null || n.longValue() < 1) throw new IllegalArgumentException(key + " must be a positive whole number");
+		if (n == null || n.longValue() < 1) throw new InvalidInputException(key + " must be a positive whole number");
 		return Long.toString(Math.min(max, n.longValue()));
 	}
 

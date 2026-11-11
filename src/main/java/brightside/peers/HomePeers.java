@@ -1,5 +1,7 @@
 package brightside.peers;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -37,7 +39,7 @@ public final class HomePeers {
 			String userDID, String userName, List<Agent> userAgents, String mainAgent) {
 		List<Node> n = new ArrayList<>();
 		n.add(new Node(venueDID, venueName, Node.VENUE, Node.SELF, Node.CONNECTED, null,
-			List.of(Fact.of("About", "This venue, running inside Brightside"))));
+			List.of(Fact.of("About", "This venue, running inside " + APP_NAME))));
 		String admin = venueDID + OPERATOR_FRAGMENT;
 		n.add(new Node(admin, operatorName, Node.PERSON, Node.OPERATOR, Node.CONNECTED, venueDID,
 			List.of(Fact.of("Role", "Runs the venue"), Fact.of("DID", venueDID))));

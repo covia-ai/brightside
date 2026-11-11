@@ -13,7 +13,8 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.io.TempDir;
+import java.nio.file.Path;
 
 import convex.api.Convex;
 import convex.core.Result;
@@ -47,8 +48,8 @@ class TreasuryConvexTest {
 	private static final String KEY = "TREASURY_CONVEX_KEY";
 	private static final long FLOAT = 1_000_000_000L;
 
-	@RegisterExtension
-	static final SharedVenue shared = new SharedVenue();
+	@TempDir
+	static Path home;
 
 	private static EmbeddedVenue venue;
 	private static Server peer;
@@ -70,11 +71,12 @@ class TreasuryConvexTest {
 		genesis.setAddress(Init.GENESIS_ADDRESS);
 		genesis.setKeyPair(genesisKey);
 
-		venue = shared.venue();
+		venue = EmbeddedVenue.launch(RT.castMap(RT.assocIn(SharedVenue.config(home),
+			Strings.create(endpoint), Strings.create("adapters"), Strings.create("convex"), Strings.create("peer"))));
 		asVenue = venue.engine().venueContext();
 		Gods.ensureAll(venue, TASK_LLM);
 		// A key in Njord's treasury, made as he would make it, for an account the test funds.
-		RequestContext njord = RequestContext.ofAgent(Strings.create(venue.did()), Strings.create(Njord.AGENT_ID));
+		RequestContext njord = GodContexts.of(venue, Njord.AGENT_ID);
 		ACell made = venue.engine().jobs().invokeOperation(Njord.OP_RUN, Maps.of("operation", "v/ops/convex/generate-key",
 			"user", Njord.TREASURY, "input", Maps.of("name", KEY, "overwrite", true), "reason", "A key for the test treasury."),
 			njord).future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
@@ -88,6 +90,7 @@ class TreasuryConvexTest {
 
 	@AfterAll
 	static void close() {
+		if (venue != null) venue.close();
 		if (genesis != null) genesis.close();
 		if (peer != null) peer.close();
 	}

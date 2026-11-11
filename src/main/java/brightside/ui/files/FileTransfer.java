@@ -1,5 +1,7 @@
 package brightside.ui.files;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
@@ -112,7 +114,7 @@ final class FileTransfer extends TransferHandler {
 	private static DataFlavor local() {
 		try {
 			return new DataFlavor(DataFlavor.javaJVMLocalObjectMimeType + ";class=" + Carried.class.getName(),
-				"Brightside files", Carried.class.getClassLoader());
+				APP_NAME + " files", Carried.class.getClassLoader());
 		} catch (ClassNotFoundException e) {
 			throw new IllegalStateException(e);
 		}

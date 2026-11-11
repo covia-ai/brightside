@@ -1,5 +1,7 @@
 package brightside.ui.chat;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -596,7 +598,7 @@ public final class ChatPanel extends JPanel {
 		menu.add(fresh);
 
 		JMenuItem compact = new JMenuItem("Compact conversation…");
-		compact.setToolTipText("Ask Brightside to sum up the conversation so far and carry on from the summary");
+		compact.setToolTipText("Ask " + APP_NAME + " to sum up the conversation so far and carry on from the summary");
 		compact.setEnabled(hasSession && !busy);
 		compact.addActionListener(e -> confirmCompact());
 		menu.add(compact);
@@ -609,7 +611,7 @@ public final class ChatPanel extends JPanel {
 		menu.add(copy);
 
 		JMenuItem context = new JMenuItem("Context");
-		context.setToolTipText("What Brightside's model receives for this conversation");
+		context.setToolTipText("What " + APP_NAME + "'s model receives for this conversation");
 		context.setEnabled(hasSession);
 		context.addActionListener(e -> {
 			if (host != null) host.inspectConversation(sid);
@@ -637,7 +639,7 @@ public final class ChatPanel extends JPanel {
 		ChatSession s = session;
 		if (s == null || s.sessionId() == null || busy) return;
 		boolean go = Dialogs.choose(this, "Compact this conversation?",
-			"Brightside will sum up the conversation so far and carry on from the\n"
+			APP_NAME + " will sum up the conversation so far and carry on from the\n"
 			+ "summary, which keeps it quick and focused. Every message is kept: open\n"
 			+ "the summary here to read the earlier conversation again.",
 			"Compact", "Cancel");
@@ -922,7 +924,7 @@ public final class ChatPanel extends JPanel {
 	// Copy
 	// ------------------------------------------------------------------
 
-	/** The whole conversation as plain text ("You:" / "Brightside:" turns). */
+	/** The whole conversation as plain text, labelled with the sender or app name. */
 	public String conversationText() {
 		return SessionHistory.plainText(displayed);
 	}

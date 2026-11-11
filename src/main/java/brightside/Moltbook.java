@@ -125,30 +125,33 @@ public final class Moltbook {
 			b.method(method, HttpRequest.BodyPublishers.noBody());
 		}
 		long started = System.nanoTime();
-		return HTTP.sendAsync(b.build(), HttpResponse.BodyHandlers.ofString()).thenApply(response -> {
-			int status = response.statusCode();
-			String text = response.body();
-			if (log.isDebugEnabled()) {
-				// The path without its query (search terms are the owner's business).
-				int q = path.indexOf('?');
-				log.debug("{} {} → {} in {} ms", method, (q < 0) ? path : path.substring(0, q), status,
-					(System.nanoTime() - started) / 1_000_000);
-			}
-			if (status < 200 || status >= 300) {
-				String retryAfter = response.headers().firstValue("Retry-After").orElse(null);
-				throw new CompletionException(new IOException(errorOf(status, text, retryAfter)));
-			}
-			ACell parsed;
-			try {
-				parsed = parse(text);
-			} catch (IOException e) {
-				throw new CompletionException(e);
-			}
-			if (CVMBool.FALSE.equals(RT.getIn(parsed, K_SUCCESS))) {
-				throw new CompletionException(new IOException(errorOf(status, text)));
-			}
-			return parsed;
-		});
+		return HTTP.sendAsync(b.build(), HttpResponse.BodyHandlers.ofString())
+			.exceptionallyCompose(failure -> CompletableFuture.failedFuture(
+				new covia.exception.UnavailableException("Moltbook could not be reached; try again later", failure)))
+			.thenApply(response -> {
+				int status = response.statusCode();
+				String text = response.body();
+				if (log.isDebugEnabled()) {
+					// The path without its query (search terms are the owner's business).
+					int q = path.indexOf('?');
+					log.debug("{} {} → {} in {} ms", method, (q < 0) ? path : path.substring(0, q), status,
+						(System.nanoTime() - started) / 1_000_000);
+				}
+				if (status < 200 || status >= 300) {
+					String retryAfter = response.headers().firstValue("Retry-After").orElse(null);
+					throw new CompletionException(new covia.exception.ResponseException(errorOf(status, text, retryAfter)));
+				}
+				ACell parsed;
+				try {
+					parsed = parse(text);
+				} catch (IOException e) {
+					throw new CompletionException(new covia.exception.ResponseException(e.getMessage(), e));
+				}
+				if (CVMBool.FALSE.equals(RT.getIn(parsed, K_SUCCESS))) {
+					throw new CompletionException(new covia.exception.ResponseException(errorOf(status, text)));
+				}
+				return parsed;
+			});
 	}
 
 	/** {@link #call}, waited for; the failure is Moltbook's message. */

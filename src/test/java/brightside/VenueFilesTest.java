@@ -14,9 +14,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import brightside.files.FileSource;
 import brightside.files.VenueFiles;
 import convex.core.data.Maps;
-import convex.core.data.Strings;
-import covia.adapter.FileAdapter;
-import covia.venue.RequestContext;
 
 class VenueFilesTest {
 
@@ -26,13 +23,12 @@ class VenueFilesTest {
 		EmbeddedVenue venue = shared.venue();
 		String did = Identity.of("browser-local").userDID(venue.did());
 		VenueFiles browser = new VenueFiles(venue, did);
-		FileAdapter adapter = (FileAdapter) venue.engine().getAdapter("file");
-		var directory = adapter.resolve(RequestContext.of(Strings.create(did)), "files", "", true);
+		var root = browser.roots().stream().filter(r -> r.id().equals("file:files")).findFirst().orElseThrow();
+		var directory = root.local();
 		Files.createDirectory(directory.resolve("nested"));
 		Files.writeString(directory.resolve("nested/note.txt"), "<html>literal file content</html>");
 		Files.writeString(directory.resolve("z.txt"), "last");
 		long jobs = RecordedJobs.of(venue, did);
-		var root = browser.roots().stream().filter(r -> r.id().equals("file:files")).findFirst().orElseThrow();
 		var listing = browser.list(root, "").entries();
 		assertEquals("nested", listing.get(0).name());
 		assertTrue(listing.get(0).directory());

@@ -1,5 +1,7 @@
 package brightside.ui.settings;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.awt.Dimension;
 
 import javax.swing.Box;
@@ -74,7 +76,7 @@ public final class MoltbookPanel extends SettingsPage {
 	private void build() {
 		Documents.onChange(nameField, this::updateButtons);
 		Documents.onChange(keyField, this::updateButtons);
-		nameField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "e.g. BrightsideForMike");
+		nameField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "e.g. " + APP_NAME + "ForMike");
 		descriptionField.setLineWrap(true);
 		descriptionField.setWrapStyleWord(true);
 		JScrollPane descriptionScroll = new JScrollPane(descriptionField);

@@ -1,5 +1,7 @@
 package brightside.chat;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -28,6 +30,7 @@ import covia.exception.JobFailedException;
 import covia.grid.Job;
 import covia.grid.Status;
 import covia.grid.Venue;
+import covia.venue.Config;
 
 /**
  * One conversation with the configured chat agent on a venue.
@@ -300,7 +303,10 @@ public final class ChatSession {
 			"skillsets", Vectors.of(
 				Strings.create(USER_SKILLSET),
 				Strings.create(BrightsideSkillsAdapter.SKILLSET),
-				Strings.create(VENUE_SKILLSET)));
+				Strings.create(VENUE_SKILLSET)),
+			// The owner's own assistant may do whatever the owner can in their
+			// namespace; an agent left without caps could call no tool at all.
+			"caps", Config.UNRESTRICTED);
 		if (agentName != null) agentConfig = agentConfig.assoc(Strings.create("name"), Strings.create(agentName));
 		AMap<AString, ACell> input = Maps.of(Fields.AGENT_ID, config.agentId(), Fields.CONFIG, agentConfig);
 		if (status != null) {
@@ -390,7 +396,7 @@ public final class ChatSession {
 		return loads.assoc(Strings.create(CONTEXT_LOAD_KEY), Maps.of(
 			"op", CONTEXT_OP,
 			"input", input,
-			"label", "Brightside application context",
+			"label", APP_NAME + " application context",
 			"budget", 4000L,
 			"volatile", CVMBool.FALSE));
 	}
@@ -415,7 +421,7 @@ public final class ChatSession {
 
 		SuspendedException(String agent, String reason, Throwable cause) {
 			super(agent + " has been stopped on purpose" + ((reason != null) ? " (“" + reason + "”)" : "")
-				+ ", so Brightside won't restart it by itself. If Thor stopped it, his request in your Inbox says why"
+				+ ", so " + APP_NAME + " won't restart it by itself. If Thor stopped it, his request in your Inbox says why"
 				+ " and lets you resume it.", cause);
 		}
 	}

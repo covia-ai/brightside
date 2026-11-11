@@ -1,5 +1,7 @@
 package brightside.ui.onboarding;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Component;
@@ -129,7 +131,7 @@ public final class OnboardingWizard extends JPanel {
 		p.setBorder(BorderFactory.createEmptyBorder(28, 0, 4, 0));
 		JLabel mark = Labels.icon(new ImageIcon(Icons.icon(56)));
 		mark.setAlignmentX(CENTER_ALIGNMENT);
-		JLabel word = Labels.small("Brightside");
+		JLabel word = Labels.small(APP_NAME);
 		word.setAlignmentX(CENTER_ALIGNMENT);
 		p.add(mark);
 		p.add(Box.createVerticalStrut(6));
@@ -199,7 +201,7 @@ public final class OnboardingWizard extends JPanel {
 		c.add(strength);
 		c.add(Box.createVerticalStrut(16));
 		JLabel warn = copy("⚠  Keep your recovery phrase safe. It can reset a forgotten passphrase "
-			+ "and reopen retained Brightside data; provider API keys must be entered again.");
+			+ "and reopen retained " + APP_NAME + " data; provider API keys must be entered again.");
 		Styles.classes(warn, Styles.SMALL, Styles.MUTED);
 		c.add(warn);
 		return c;
@@ -339,9 +341,9 @@ public final class OnboardingWizard extends JPanel {
 		setError(" ", false);
 		((CardLayout) cards.getLayout()).show(cards, s.name());
 		switch (s) {
-			case WELCOME -> set("Welcome to Brightside", "Your assistant. Yours alone.", "Get started", true);
-			case PASSPHRASE -> set("Secure your Brightside",
-				"Everything Brightside remembers is encrypted on this computer with a passphrase only you know.",
+			case WELCOME -> set("Welcome to " + APP_NAME, "Your assistant. Yours alone.", "Get started", true);
+			case PASSPHRASE -> set("Secure your " + APP_NAME,
+				"Everything " + APP_NAME + " remembers is encrypted on this computer with a passphrase only you know.",
 				"Continue", true);
 			case IDENTITY -> set("Your identity",
 				"A key that's yours alone — what makes this <i>your</i> agent, not an account on someone's server.",
@@ -357,13 +359,13 @@ public final class OnboardingWizard extends JPanel {
 				prepConfirm();
 			}
 			case IMPORT -> set("Import your recovery phrase",
-				"Paste the 12 or 24 words from another Brightside, or any Convex BIP39 phrase.", "Continue", true);
+				"Paste the 12 or 24 words from another " + APP_NAME + ", or any Convex BIP39 phrase.", "Continue", true);
 			case NAME -> {
 				set("What should I call you?", "So your assistant can address you properly.", "Continue", true);
 				nameField.requestFocusInWindow();
 			}
 			case PROVIDER -> set("Choose your assistant's brain",
-				"Brightside thinks using a model you choose. Your key is stored encrypted, only on this computer.",
+				APP_NAME + " thinks using a model you choose. Your key is stored encrypted, only on this computer.",
 				"Finish", true);
 		}
 		dots.set(5, phase(s));

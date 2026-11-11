@@ -1,5 +1,7 @@
 package brightside.ui.settings;
 
+import static brightside.BrightSide.APP_NAME;
+
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 
@@ -43,7 +45,7 @@ public final class VaultPanel extends SettingsPage {
 
 	private void build() {
 		remember.setOpaque(false);
-		remember.setToolTipText("Anyone who can read the file as your OS account can unlock Brightside");
+		remember.setToolTipText("Anyone who can read the file as your OS account can unlock " + APP_NAME);
 		remember.addActionListener(e -> primary.setEnabled(remember.isSelected() != baseline));
 
 		primary.setEnabled(false);

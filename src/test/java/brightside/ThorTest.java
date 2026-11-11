@@ -69,6 +69,20 @@ class ThorTest {
 		assertTrue(God.configured(record, Thor.GOD.config(TASK_LLM)), "configured as ensured");
 	}
 
+	/**
+	 * Covia stores an unrestricted agent as one with no caps, which is also how
+	 * every agent made before caps mattered is stored. So ensure narrows such a
+	 * god to its own caps, and leaves Odin, who is unrestricted, as he is.
+	 */
+	@Test
+	void aGodStoredWithoutCapsIsNarrowedUnlessItIsOdin() {
+		AString caps = Strings.create("caps");
+		AMap<AString, ACell> thor = Thor.GOD.config(TASK_LLM);
+		assertFalse(God.configured(Maps.of(Fields.CONFIG, thor.dissoc(caps)), thor), "Thor is brought to his own caps");
+		AMap<AString, ACell> odin = Odin.GOD.config(TASK_LLM);
+		assertTrue(God.configured(Maps.of(Fields.CONFIG, odin.dissoc(caps)), odin), "Odin stays unrestricted");
+	}
+
 	@Test
 	void anAssistantAlertsThorAsTheOwner() throws Exception {
 		ACell snapshot = run(user, Thor.OP_ALERT, Maps.of(
@@ -191,7 +205,7 @@ class ThorTest {
 	}
 
 	private static Job as(String god, String op, AMap<AString, ACell> input) {
-		RequestContext ctx = RequestContext.ofAgent(Strings.create(venue.did()), Strings.create(god));
+		RequestContext ctx = GodContexts.of(venue, god);
 		return venue.engine().jobs().invokeOperation(op, input, ctx);
 	}
 

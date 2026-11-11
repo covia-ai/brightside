@@ -2,7 +2,6 @@ package brightside.files;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -51,7 +50,7 @@ public final class VenueFiles implements FileSource {
 		if (files != null) {
 			for (ACell r : vector(file("roots", Maps.empty()), "roots")) {
 				String name = text(r, "name");
-				roots.add(new Root("file:" + name, name, "Folder", RT.bool(RT.getIn(r, "readOnly")), local(name)));
+				roots.add(new Root("file:" + name, name, "Folder", RT.bool(RT.getIn(r, "readOnly")), local(r)));
 			}
 		}
 		if (drives != null) {
@@ -110,10 +109,13 @@ public final class VenueFiles implements FileSource {
 	}
 
 	/** Where a folder root is on this computer; null for one backed by a drive, or not there. */
-	private Path local(String name) {
+	private Path local(ACell root) {
 		try {
-			Path base = files.resolve(context, name, "", true);
-			return (base.getFileSystem() == FileSystems.getDefault()) ? base : null;
+			String kind = text(root, "kind");
+			if (!"host".equals(kind) && !"temp".equals(kind)) return null;
+			// Roots reports the canonical host path; stat checks access and existence.
+			file("stat", Maps.of("root", text(root, "name"), "path", ""));
+			return Path.of(text(root, "path"));
 		} catch (Exception e) {
 			return null;
 		}

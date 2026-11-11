@@ -21,8 +21,9 @@ import convex.core.data.prim.CVMBool;
 import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
 import convex.core.util.JSON;
-import convex.core.util.Utils;
 import convex.lattice.cursor.AForkableCursor;
+import covia.exception.ConflictException;
+import covia.exception.InvalidInputException;
 import covia.adapter.AAdapter;
 import covia.grid.AContent;
 import covia.api.Abilities;
@@ -151,7 +152,7 @@ public class BrightsideAdapter extends AAdapter {
 		 * the operation has answered.
 		 */
 		default Runnable prepareRestart() throws Exception {
-			throw new IllegalStateException("This Brightside cannot restart its venue");
+			throw new ConflictException("This Brightside cannot restart its venue");
 		}
 
 		/**
@@ -159,7 +160,7 @@ public class BrightsideAdapter extends AAdapter {
 		 * from {@code jar}, or the program this one runs when null, and returns its process.
 		 */
 		default ProcessHandle relaunch(AContent jar) throws Exception {
-			throw new IllegalStateException("This Brightside cannot start itself again");
+			throw new ConflictException("This Brightside cannot start itself again");
 		}
 	}
 
@@ -334,7 +335,7 @@ public class BrightsideAdapter extends AAdapter {
 			return op.equals(god.ask()) ? handleAsk(god, ctx, input) : handleRun(god, ctx, input);
 		}
 		return CompletableFuture.failedFuture(
-			new IllegalArgumentException("Unknown brightside operation: " + op));
+			new covia.exception.NotSupportedException("Unknown brightside operation: " + op));
 	}
 
 	/**
@@ -426,14 +427,14 @@ public class BrightsideAdapter extends AAdapter {
 			AString nameCell = RT.ensureString(RT.getIn(input, K_NAME));
 			String name = (nameCell != null) ? nameCell.toString() : null;
 			if (!isSkillPath(name)) {
-				throw new IllegalArgumentException(
+				throw new InvalidInputException(
 					"Skill name must be relative to w/skills (for example parent/child), at most 1024 characters; "
 					+ "each segment must be 1–64 lowercase letters, digits or hyphens, without leading or trailing hyphens");
 			}
 			AString path = Strings.create("w/skills/" + name);
 			UserPathTarget target = engine.requireUserPath(ctx, path, Capability.CRUD_DELETE, false);
 			boolean deleted = target.user() != null
-				&& target.user().workspaceRoot().delete(target.pathKeys());
+				&& target.user().workspace().delete(target.path().slice(1));
 			return CompletableFuture.completedFuture(Maps.of(
 				K_NAME, nameCell,
 				K_DELETED, CVMBool.of(deleted)));
@@ -470,7 +471,7 @@ public class BrightsideAdapter extends AAdapter {
 		try {
 			String category = requiredText(input, K_CATEGORY, 64);
 			if (!FEEDBACK_CATEGORIES.contains(category)) {
-				throw new IllegalArgumentException("Unknown skill-feedback category: " + category);
+				throw new InvalidInputException("Unknown skill-feedback category: " + category);
 			}
 			AString summary = Strings.create(requiredText(input, K_SUMMARY, 500));
 			AString details = optionalText(input, K_DETAILS, 4000);
@@ -486,7 +487,7 @@ public class BrightsideAdapter extends AAdapter {
 
 			AMap<AString, ACell> record = Maps.of(
 				K_ID, id,
-				K_CREATED, CVMLong.create(Utils.getCurrentTimestamp()),
+				K_CREATED, engine.currentTimestamp(),
 				K_CATEGORY, category,
 				K_SUMMARY, summary,
 				K_REPORTER, (ctx != null) ? ctx.getCallerDID() : null);
@@ -499,7 +500,13 @@ public class BrightsideAdapter extends AAdapter {
 			if (ctx != null && ctx.getSessionId() != null) {
 				record = record.assoc(K_SESSION_ID, Strings.create(ctx.getSessionId().toHexString()));
 			}
-			target.user().workspaceRoot().write(target.pathKeys(), record);
+			AMap<AString, ACell> feedback = record;
+			target.user().execute(draft -> {
+				var workspace = draft.workspace();
+				var relative = target.path().slice(1);
+				workspace.createPath(relative.slice(0, relative.count() - 1));
+				workspace.write(relative, feedback);
+			});
 			return CompletableFuture.completedFuture(Maps.of(
 				K_ID, id,
 				K_PATH, path,
@@ -513,10 +520,10 @@ public class BrightsideAdapter extends AAdapter {
 		AString value = RT.ensureString(RT.getIn(input, key));
 		String text = (value != null) ? value.toString().strip() : null;
 		if (text == null || text.isEmpty()) {
-			throw new IllegalArgumentException(key + " is required");
+			throw new InvalidInputException(key + " is required");
 		}
 		if (text.length() > maxLength) {
-			throw new IllegalArgumentException(key + " must be at most " + maxLength + " characters");
+			throw new InvalidInputException(key + " must be at most " + maxLength + " characters");
 		}
 		return text;
 	}
@@ -527,7 +534,7 @@ public class BrightsideAdapter extends AAdapter {
 		String text = value.toString().strip();
 		if (text.isEmpty()) return null;
 		if (text.length() > maxLength) {
-			throw new IllegalArgumentException(key + " must be at most " + maxLength + " characters");
+			throw new InvalidInputException(key + " must be at most " + maxLength + " characters");
 		}
 		return Strings.create(text);
 	}
@@ -541,7 +548,7 @@ public class BrightsideAdapter extends AAdapter {
 	private CompletableFuture<ACell> handleShutdown(RequestContext ctx) {
 		if (!isOperator(ctx)) {
 			return CompletableFuture.failedFuture(
-				new IllegalStateException("brightside:shutdown requires venue operator authority"));
+				new covia.exception.AuthException("brightside:shutdown requires venue operator authority"));
 		}
 		if (app != null) afterAnswering(app::shutdown, "brightside-shutdown");
 		return CompletableFuture.completedFuture(Maps.of(K_ACCEPTED, CVMBool.TRUE));
@@ -555,8 +562,8 @@ public class BrightsideAdapter extends AAdapter {
 	 */
 	private CompletableFuture<ACell> handleRestart(RequestContext ctx) {
 		try {
-			if (!isOperator(ctx)) throw new IllegalStateException("brightside:restart requires venue operator authority");
-			if (app == null) throw new IllegalStateException("This venue has no app to restart it");
+			if (!isOperator(ctx)) throw new covia.exception.AuthException("brightside:restart requires venue operator authority");
+			if (app == null) throw new ConflictException("This venue has no app to restart it");
 			afterAnswering(app.prepareRestart(), "brightside-restart");
 			return CompletableFuture.completedFuture(Maps.of(K_ACCEPTED, CVMBool.TRUE));
 		} catch (Exception e) {
@@ -576,19 +583,24 @@ public class BrightsideAdapter extends AAdapter {
 	 */
 	private CompletableFuture<ACell> handleRelaunch(RequestContext ctx, ACell input) {
 		try {
-			if (!isOperator(ctx)) throw new IllegalStateException("brightside:relaunch requires venue operator authority");
-			if (app == null) throw new IllegalStateException("This venue has no app to start again");
+			if (!isOperator(ctx)) throw new covia.exception.AuthException("brightside:relaunch requires venue operator authority");
+			if (app == null) throw new ConflictException("This venue has no app to start again");
 			AString jarRef = optionalText(input, K_JAR, 2000);
 			ProcessHandle started;
 			synchronized (relaunchLock) {
 				if (successor != null && successor.isAlive()) {
-					throw new IllegalStateException("A relaunch is already under way: the new Brightside (process "
+					throw new ConflictException("A relaunch is already under way: the new Brightside (process "
 						+ successor.pid() + ") is starting, or waiting for the passphrase");
 				}
 				AContent jar = null;
 				if (jarRef != null) {
-					ContentProvider.Resolved resolved = engine.resolveContent(jarRef, ctx);
-					if (resolved == null) throw new IllegalArgumentException("Nothing to relaunch from at " + jarRef);
+					ContentProvider.Resolved resolved;
+					try {
+						resolved = engine.resolveContent(jarRef, ctx);
+					} catch (java.nio.file.NoSuchFileException e) {
+						throw new covia.exception.NotFoundException("Nothing to relaunch from at " + jarRef, jarRef.toString());
+					}
+					if (resolved == null) throw new InvalidInputException("Nothing to relaunch from at " + jarRef);
 					jar = resolved.content();
 				}
 				started = app.relaunch(jar);
@@ -630,9 +642,9 @@ public class BrightsideAdapter extends AAdapter {
 	 */
 	private CompletableFuture<ACell> handleStorage(RequestContext ctx, ACell input) {
 		try {
-			if (!isOperator(ctx)) throw new IllegalStateException("brightside:storage requires venue operator authority");
+			if (!isOperator(ctx)) throw new covia.exception.AuthException("brightside:storage requires venue operator authority");
 			StoreSpace space = StoreSpace.of(engine.config());
-			if (space == null) throw new IllegalStateException("This venue's store is not a file, so it takes no disk to reclaim");
+			if (space == null) throw new ConflictException("This venue's store is not a file, so it takes no disk to reclaim");
 			Boolean compact = optionalBool(input, K_COMPACT);
 			if (compact != null) space.compactAtNextStart(compact);
 			List<StoreSpace.KeptOriginal> removed = Boolean.TRUE.equals(optionalBool(input, K_REMOVE_KEPT))
@@ -663,7 +675,7 @@ public class BrightsideAdapter extends AAdapter {
 		ACell value = RT.getIn(input, key);
 		if (value == null) return null;
 		if (value instanceof CVMBool b) return b.booleanValue();
-		throw new IllegalArgumentException(key + " must be true or false");
+		throw new InvalidInputException(key + " must be true or false");
 	}
 
 	// ------------------------------------------------------------------
@@ -684,7 +696,7 @@ public class BrightsideAdapter extends AAdapter {
 		try {
 			AString user = (ctx != null) ? ctx.getUserDID() : null;
 			if (user == null || engine.isPublicPrincipal(user)) {
-				throw new IllegalStateException(god.ask() + " requires an authenticated user of this venue");
+				throw new covia.exception.AuthException(god.ask() + " requires an authenticated user of this venue");
 			}
 			String request = requiredText(input, K_REQUEST, 4000);
 			AString context = optionalText(input, K_CONTEXT, 8000);
@@ -696,7 +708,7 @@ public class BrightsideAdapter extends AAdapter {
 
 			AString address = Strings.create(god.address(engine.getDIDString().toString()));
 			ACell proof = venueGrant(user, Vectors.of(cap(address, Abilities.AGENT_REQUEST)));
-			RequestContext asUser = RequestContext.of(user, Vectors.of(proof));
+			RequestContext asUser = RequestContext.of(user).withProofs(Vectors.of(proof));
 			AMap<AString, ACell> requestInput = Maps.of(
 				Fields.AGENT_ID, address,
 				K_INPUT, task,
@@ -722,7 +734,7 @@ public class BrightsideAdapter extends AAdapter {
 			AString venueDID = engine.getDIDString();
 			AString caller = (ctx != null) ? ctx.getCallerDID() : null;
 			if (caller == null || !caller.toString().equals(god.did(venueDID.toString()))) {
-				throw new IllegalStateException(god.run() + " may only be invoked by " + god.id());
+				throw new covia.exception.AuthException(god.run() + " may only be invoked by " + god.id());
 			}
 			String operation = requiredText(input, K_OPERATION, 200);
 			ACell operationInput = RT.getIn(input, K_INPUT);
@@ -731,7 +743,7 @@ public class BrightsideAdapter extends AAdapter {
 			// input and in the report to its overseer, where nothing redacts it.
 			AString seed = RT.ensureString(RT.getIn(operationInput, K_SEED));
 			if (seed != null && !covia.venue.Engine.isSecretRef(seed.toString())) {
-				throw new IllegalArgumentException("A seed goes by secret reference (s/NAME), never as a literal");
+				throw new InvalidInputException("A seed goes by secret reference (s/NAME), never as a literal");
 			}
 			AString named = optionalText(input, K_USER, 300);
 			// A god names the user it keeps by its slug.
@@ -759,35 +771,35 @@ public class BrightsideAdapter extends AAdapter {
 		try {
 			AString venueDID = engine.getDIDString();
 			if (god.grantedOperations().contains(operation)) {
-				if (user != null) throw new IllegalArgumentException(operation + " runs without a user");
+				if (user != null) throw new InvalidInputException(operation + " runs without a user");
 				return runGranted(god, operation, operationInput);
 			}
 			if (user == null) {
 				if (!god.venueOperations().contains(operation)) {
-					throw new IllegalArgumentException("Not a venue operation " + god.id() + " may run: " + operation
+					throw new InvalidInputException("Not a venue operation " + god.id() + " may run: " + operation
 						+ " (allowed: " + String.join(", ", new java.util.TreeSet<>(god.venueOperations())) + ")");
 				}
 				if (OP_USER_DELETE.equals(operation)) requireDeletable(RT.ensureString(RT.getIn(operationInput, Fields.DID)));
 				return engine.jobs().invokeInternal(operation, operationInput, engine.venueContext());
 			}
 			if (!god.sudoOperations().contains(operation)) {
-				throw new IllegalArgumentException("Not an operation " + god.id() + " may run in a user's namespace: "
+				throw new InvalidInputException("Not an operation " + god.id() + " may run in a user's namespace: "
 					+ operation + " (allowed: " + String.join(", ", new java.util.TreeSet<>(god.sudoOperations())) + ")");
 			}
 			if (!user.toString().startsWith(venueDID + ":u:")) {
-				throw new IllegalArgumentException("sudo is limited to this venue's own users; not " + user);
+				throw new InvalidInputException("sudo is limited to this venue's own users; not " + user);
 			}
 			// A user a god keeps for itself is that god's alone: its secrets are
 			// usable only as that user, so this is what keeps Njord's treasury his.
 			for (God keeper : Gods.ALL) {
 				if (keeper != god && user.toString().equals(keeper.kept(venueDID.toString()))) {
-					throw new IllegalArgumentException(user + " is kept by " + keeper.id() + " alone");
+					throw new InvalidInputException(user + " is kept by " + keeper.id() + " alone");
 				}
 			}
 			// And a god that keeps a user makes keys only there, in its own custody.
 			if (god.keeps() != null && OP_GENERATE_KEY.equals(operation)
 					&& !user.toString().equals(god.kept(venueDID.toString()))) {
-				throw new IllegalArgumentException(god.id() + " makes keys only in " + god.keeps());
+				throw new InvalidInputException(god.id() + " makes keys only in " + god.keeps());
 			}
 			// Covia bounds a sudo context to the presented proofs — the venue's own
 			// ambient authority does not leak in — so the delegation carries the
@@ -796,7 +808,7 @@ public class BrightsideAdapter extends AAdapter {
 			ACell proof = venueGrant(venueDID, Vectors.of(
 				cap(user, Abilities.USER_SUDO),
 				cap(Strings.create(user + "/"), Strings.create("*"))));
-			RequestContext operator = RequestContext.of(venueDID, Vectors.of(proof));
+			RequestContext operator = RequestContext.of(venueDID).withProofs(Vectors.of(proof));
 			AMap<AString, ACell> sudo = Maps.of(K_DID_FIELD, user, K_OPERATION, operation, K_INPUT, operationInput);
 			return engine.jobs().invokeInternal(OP_USER_SUDO, sudo, operator);
 		} catch (Exception e) {
@@ -814,11 +826,11 @@ public class BrightsideAdapter extends AAdapter {
 		String venueDID = engine.getDIDString().toString();
 		Identity owner = Identity.fromCell(owner());
 		if (owner != null && did.toString().equals(owner.userDID(venueDID))) {
-			throw new IllegalArgumentException(did + " is the owner's own account and cannot be deleted");
+			throw new InvalidInputException(did + " is the owner's own account and cannot be deleted");
 		}
 		for (God keeper : Gods.ALL) {
 			if (did.toString().equals(keeper.kept(venueDID))) {
-				throw new IllegalArgumentException(did + " is kept by " + keeper.id() + " and cannot be deleted");
+				throw new InvalidInputException(did + " is kept by " + keeper.id() + " and cannot be deleted");
 			}
 		}
 	}
@@ -885,10 +897,20 @@ public class BrightsideAdapter extends AAdapter {
 		// Operations are installed under their adapter's name: v/ops/<adapter>/<op>.
 		String[] parts = operation.split("/");
 		Object adapter = (parts.length > 3 && "v".equals(parts[0]) && "ops".equals(parts[1])) ? engine.getAdapter(parts[2]) : null;
-		if (!(adapter instanceof CallGrants grants)) throw new IllegalStateException("No adapter grants " + operation);
+		if (!(adapter instanceof CallGrants grants)) throw new ConflictException("No adapter grants " + operation);
 		ACell proof = venueGrant(Strings.create(god.did(venueDID.toString())), grants.capabilitiesFor(operation, operationInput));
-		RequestContext asGod = RequestContext.ofAgent(venueDID, Strings.create(god.id())).withProofs(Vectors.of(proof));
+		RequestContext asGod = asGranted(venueDID, god.id()).withProofs(Vectors.of(proof));
 		return engine.jobs().invokeInternal(operation, operationInput, asGod);
+	}
+
+	/**
+	 * A god of this venue acting with nothing of its own: an agent context
+	 * starts unrestricted, and an unrestricted agent of the venue holds the
+	 * venue's authority, so the scope is narrowed to nothing and only the
+	 * proofs it is given count.
+	 */
+	static RequestContext asGranted(AString venueDID, String godId) {
+		return RequestContext.ofAgent(venueDID, Strings.create(godId)).withCaps(Vectors.empty());
 	}
 
 	/** A per-call grant the venue signs for what a bridge lends ({@link VenueGrants}). */
@@ -905,7 +927,7 @@ public class BrightsideAdapter extends AAdapter {
 		ACell cell = RT.getIn(input, K_TIMEOUT);
 		if (cell == null) return DEFAULT_ASK_TIMEOUT_MS;
 		CVMLong n = RT.ensureLong(cell);
-		if (n == null) throw new IllegalArgumentException("timeout must be an integer number of milliseconds");
+		if (n == null) throw new InvalidInputException("timeout must be an integer number of milliseconds");
 		return Math.max(0, Math.min(MAX_ASK_TIMEOUT_MS, n.longValue()));
 	}
 

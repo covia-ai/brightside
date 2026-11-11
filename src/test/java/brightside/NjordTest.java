@@ -60,7 +60,7 @@ class NjordTest {
 	@Test
 	void njordKeepsATreasuryNoPersonCanBe() {
 		assertNotNull(venue.agentRecord(venue.did(), Njord.AGENT_ID), "one of the venue's gods");
-		assertNotNull(venue.engine().getVenueState().users().get(Strings.create(treasury)), "his treasury is registered");
+		assertNotNull(venue.engine().getVenueState().users().user(Strings.create(treasury)), "his treasury is registered");
 		assertNotEquals(Njord.TREASURY, Identity.of(Njord.TREASURY).slug(), "no name yields the treasury's slug");
 	}
 
@@ -131,7 +131,7 @@ class NjordTest {
 
 	/** Invokes as a god's own sub-principal — exactly the context its run loop gives its tool calls. */
 	private static ACell asGod(String god, String op, AMap<AString, ACell> input) throws Exception {
-		RequestContext ctx = RequestContext.ofAgent(Strings.create(venue.did()), Strings.create(god));
+		RequestContext ctx = GodContexts.of(venue, god);
 		return venue.engine().jobs().invokeOperation(op, input, ctx).future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 	}
 }

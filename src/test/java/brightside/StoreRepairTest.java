@@ -52,6 +52,8 @@ class StoreRepairTest {
 			store.close();
 			store = EtchStore.create(new File(c.getStore()), c.getEtchConfig());
 			store.startGC();
+			store.setRootData(Strings.create("checkpoint during the collection"));
+			store.flush();
 			store.setRootData(Strings.create("written during the collection"));
 			Runtime.getRuntime().halt(0);
 		}

@@ -1,5 +1,7 @@
 package brightside;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -165,11 +167,11 @@ public final class Takeover {
 		try {
 			response = run(port, token(did, keyPair), OP_INFO);
 		} catch (Exception e) {
-			throw new Refused("Something is listening on port " + port + " but it isn't answering as Brightside."
+			throw new Refused("Something is listening on port " + port + " but it isn't answering as " + APP_NAME + "."
 				+ " Stop it, or change the port in config.json, and try again.");
 		}
 		if (response.statusCode() == 401 || response.statusCode() == 403) {
-			throw new Refused("The Brightside already running on this computer has a different identity,"
+			throw new Refused("The " + APP_NAME + " already running on this computer has a different identity,"
 				+ " so this one can't ask it to stop. Quit it (tray icon ▸ Quit) and try again.");
 		}
 		ACell body = null;
@@ -182,7 +184,7 @@ public final class Takeover {
 		}
 		ACell app = RT.getIn(body, "app");
 		if (app == null) {
-			throw new Refused("Something is listening on port " + port + " but it isn't Brightside"
+			throw new Refused("Something is listening on port " + port + " but it isn't " + APP_NAME
 				+ " (HTTP " + response.statusCode() + "). Stop it, or change the port in config.json, and try again.");
 		}
 		return new Instance(app.toString(), text(RT.getIn(body, "version")), text(RT.getIn(body, "did")),
