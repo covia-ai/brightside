@@ -66,9 +66,9 @@ installed commit>` and build again.
 
 - Candidates, in this order:
   1. Open issues on `covia-ai/brightside`
-     (`gh issue list --repo covia-ai/brightside --state open`). One the owner
-     filed is approved work; one labelled `proposal` waits until it is also
-     labelled `approved`. Take one that fits a chunk, or a slice of a big one.
+     (`gh issue list --repo covia-ai/brightside --state open`). Take one that
+     fits a chunk, or a slice of a big one. A `question` issue is the owner's
+     to answer: once his comment settles it, act on the answer and close it.
   2. The backlog: `$S/mcp.sh covia_read '{"path":"w/skill-feedback"}'`,
      entries without a `status`.
   3. Improvements of your own: anything that would make Tau more useful, or
@@ -82,12 +82,15 @@ installed commit>` and build again.
   line or two.
 - A chunk is one substantial item and any number of trivial ones, each its
   own commit that one `git revert` undoes. No drive-by edits.
-- Substantive design (a new interface, skill family, operation or agent; a
-  change to authority, startup or the loop) needs the owner: open an issue
-  labelled `proposal` with the problem, the evidence and the design, and do
-  not build it until it is labelled `approved`. Small text edits and minor
-  fixes need no issue. A change to Covia's design: an issue here labelled
-  `upstream` and `proposal`. A Covia bug: report it at once on
+- Bug fixes and minor tweaks: just do them; they need no issue. A major
+  enhancement may have an issue as its record, opened when the work starts
+  and closed by its commit.
+- An open design question (how something should work, where the evidence
+  does not settle it; anything touching authority, startup or the loop
+  itself) goes to the owner: an issue labelled `question` that tags `@mikera`,
+  with the problem, the evidence, the options and your recommendation. Build
+  around it, not through it, until he answers. A question about Covia's
+  design is asked the same way, saying so in the title. A Covia bug: report it at once on
   `covia-ai/covia` (search for an existing issue first and extend it), with
   the smallest reproduction and no exploit detail; work around it in Tau only
   if the fix is not Tau's to make, and name the issue.
@@ -118,6 +121,6 @@ blocks it, leave it and report. Never push.
 ## 7. Report
 
 The final message, under 15 lines, plain words: first what needs the owner
-(proposals opened, upstream requests, failures, anything stopped), then what
+(questions opened, failures, anything stopped), then what
 was reported to Covia, then what
 changed (commits, Covia, checks).

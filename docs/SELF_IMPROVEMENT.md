@@ -8,13 +8,13 @@ to the owner. This is the loop's design; the procedure for one run is the
 
 - **Rapid and frugal.** One run a day, measured by elapsed time and tokens.
   A run works in chunks and starts another only while it is under an hour
-  and going well, with two hours as a soft ceiling. Small changes go straight in; a run may conclude there is nothing
-  worth doing.
-- **Claude Code drives; Tau chooses.** The improvement agent says what hurts
-  most, with evidence from the backlog; Claude Code makes the change in Tau's
-  own checkout.
-- **The owner decides design.** A substantive design change, or one Covia
-  should make, is a GitHub issue that waits for the owner's approval.
+  and going well, with two hours as a soft ceiling.
+- **A collaboration.** Claude Code and Tau's improvement agent agree what to
+  do, from the owner's issues, the backlog and their own ideas; Claude Code
+  makes the change in Tau's own checkout.
+- **The owner settles open design questions.** Bug fixes and minor tweaks go
+  straight in; a question the evidence does not settle is a GitHub issue
+  that tags the owner.
 - **Machines check, not opinions.** Health is a scripted smoke check, and a
   backlog item closes when its failing action works again.
 - **Every relaunch can be undone.** The last good build is kept, and a failed
@@ -25,9 +25,9 @@ to the owner. This is the loop's design; the procedure for one run is the
 | Who | Part |
 |---|---|
 | Claude Code, from a scheduled task on the owner's computer | runs the loop: upgrades, implements, tests, relaunches, merges, reports |
-| Improver, the improvement agent | keeps the backlog honest, picks what hurts most, tries things, reviews proposals |
+| Improver, the improvement agent | keeps the backlog honest, says what hurts most, weighs Claude Code's ideas, tries things |
 | Tau's assistant and gods | report misses and ideas to the backlog as they meet them; Odin relaunches Tau |
-| The owner | approves proposals and upstream requests, pushes, releases |
+| The owner | files issues, answers design questions, pushes, releases |
 
 Improver is an agent in the owner's namespace, forked from Tau's main agent
 so it has the same tools and skills, with caps unrestricted and the
@@ -44,10 +44,9 @@ the skill's `agent.json`; each run applies it.
    A run that upgrades makes no other improvements. A change to Covia's store
    formats stops the upgrade for the owner, since a migrated store cannot go
    back without a backup.
-3. **Improve.** Open issues first (the owner's are approved work; the loop's
-   own proposals wait for `approved`), then the backlog, then Claude Code's
-   own ideas, which it agrees with Improver before building. One substantial
-   item and any trivial ones per chunk, each a commit one revert undoes.
+3. **Improve.** Open issues first, then the backlog, then Claude Code's own
+   ideas, agreed with Improver before building. One substantial item and any
+   trivial ones per chunk, each a commit one revert undoes.
 4. **Relaunch and check.** Build, ask Odin to relaunch into it, run the smoke
    check. On failure, relaunch the last good build and stop.
 5. **Merge and report.** Fast-forward `develop` to the loop branch; report
@@ -55,13 +54,16 @@ the skill's `agent.json`; each run applies it.
 
 ## What needs the owner
 
-- A substantive design change: a new interface, skill family, operation or
-  agent, or a change to authority, startup or the loop itself. Opened as an
-  issue labelled `proposal`; built once labelled `approved`.
-- A change to Covia's design: labelled `upstream` and `proposal`. The loop
-  never edits Covia. A Covia bug is different: the loop reports it straight
-  away as an issue on `covia-ai/covia`, with the smallest reproduction and no
-  exploit detail.
+- An open design question: how something should work where the evidence
+  does not settle it, or anything touching authority, startup or the loop
+  itself. Asked as an issue labelled `question` that tags the owner, with the
+  options and a recommendation; the loop works around it until he answers,
+  then acts and closes it. A question about Covia's design is asked the same
+  way. Bug fixes and minor tweaks need no issue; a major enhancement may have
+  one as its record.
+- The loop never edits Covia. A Covia bug it reports straight away as an
+  issue on `covia-ai/covia`, with the smallest reproduction and no exploit
+  detail.
 - Pushing and releasing.
 
 The loop and the agents also leave alone, without the owner's word: any
@@ -75,7 +77,7 @@ and history ([GODS.md](GODS.md), [LAUNCH.md](LAUNCH.md#the-startup-pass)).
 |---|---|
 | The loop's checkout | `~/.brightside/code/brightside`, Tau's own Claude Code project: on the owner's machine a worktree on branch `improve` |
 | The backlog | `w/skill-feedback`, written by the skill-feedback operation: misses under their category, ideas under `improvement`; the loop marks entries `resolved` |
-| Proposals and approved work | GitHub issues on `covia-ai/brightside` |
+| Work and design questions | GitHub issues on `covia-ai/brightside` |
 | The last good build | `~/.brightside/code/last-good.jar` (`file://code/last-good.jar` to Odin) |
 | The Covia commit last installed | `~/.brightside/code/.covia-installed`, built from `../covia`'s committed `develop`, never its working tree |
 | The schedule | a local scheduled task, `brightside-improve`, daily at 21:00 |
