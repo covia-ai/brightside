@@ -170,9 +170,9 @@ reveals. Descriptions live in the skill files; this is the shape.
   `claudecode` skill with Brightside's judgement), `git` (the checkouts in the
   `code` root — cloning, reading one directly with the file reads — and the
   version-control judgement: what is local and reversible, what needs the
-  owner's word), `self-improvement` (working on Brightside's own code through
-  Claude Code — the checkout, the rulebook, build, test, restart — with the
-  info tool). Brightside's own source is a project by default; the rest are
+  owner's word), `self-improvement` (working on Tau's own code through
+  Claude Code — the checkout, the rulebook, build, test, relaunch — and its
+  part in the daily loop, with the info tool). Brightside's own source is a project by default; the rest are
   the owner's to declare ([CONFIGURATION.md](CONFIGURATION.md#claude-code)).
 - `moltbook` — taking part on Moltbook with its operations, a check-in reading the notifications before marking them read → `moltbook-setup`.
 - `introduction` — greeting guidance and how it presents what it can do, from its skills index; loaded rather than pinned.
@@ -188,7 +188,8 @@ the index and open their own families.
   `self-improvement` is the path: agree the change, hand it to Claude Code one
   bounded task at a time, verify by the tests, and report; the change takes
   effect once Odin relaunches Brightside into the new build, when the owner
-  wants it running.
+  wants it running. A daily loop does this on its own
+  ([SELF_IMPROVEMENT.md](SELF_IMPROVEMENT.md)).
 
 - The assistant writes its own skills to `w/skills/<name>`. `skill-authoring`
   brings the lattice write tool for that purpose and a Brightside deletion
@@ -207,7 +208,9 @@ the index and open their own families.
 - A narrow always-on operation appends concrete misses — a failed load, a
   missing skill, an instruction that contradicts observed tools — under
   `w/skill-feedback/<job-id>`. It chooses the path itself and cannot write
-  elsewhere. Ordinary task failures are not backlog.
+  elsewhere. Ordinary task failures are not backlog; an improvement worth
+  making to Tau is, under its own category. The self-improvement loop works
+  this backlog ([SELF_IMPROVEMENT.md](SELF_IMPROVEMENT.md)).
 
 ## Tests
 

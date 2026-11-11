@@ -133,7 +133,7 @@ public class BrightsideAdapter extends AAdapter {
 	private static final long MAX_ASK_TIMEOUT_MS = 300_000;
 	private static final int MAX_SKILL_NAME = 64;
 	private static final Set<String> FEEDBACK_CATEGORIES = Set.of(
-		"failed-load", "missing-skill", "instruction-conflict", "missing-capability", "other");
+		"failed-load", "missing-skill", "instruction-conflict", "missing-capability", "improvement", "other");
 
 	/**
 	 * What the desktop app does for its lifecycle operations. An app that can

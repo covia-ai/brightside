@@ -1,6 +1,6 @@
 {
 	"name": "Report Skill Feedback",
-	"description": "Records one concrete skill-system miss in the caller's private append-only w/skill-feedback log. Use when a skill fails to load, an expected skill is absent, required capability is missing, or loaded instructions contradict observed reality. The operation chooses the path and cannot write anywhere else.",
+	"description": "Records one concrete skill-system miss in the caller's private append-only w/skill-feedback log. Use when a skill fails to load, an expected skill is absent, required capability is missing, or loaded instructions contradict observed reality; or, as category improvement, an improvement worth making to Tau or its skills, for the self-improvement loop. The operation chooses the path and cannot write anywhere else.",
 	"dateCreated": "2026-08-27T00:00:00Z",
 	"operation": {
 		"adapter": "brightside:report-skill-feedback",
@@ -11,7 +11,7 @@
 			"properties": {
 				"category": {
 					"type": "string",
-					"enum": ["failed-load", "missing-skill", "instruction-conflict", "missing-capability", "other"]
+					"enum": ["failed-load", "missing-skill", "instruction-conflict", "missing-capability", "improvement", "other"]
 				},
 				"summary": { "type": "string", "minLength": 1, "maxLength": 500 },
 				"details": { "type": "string", "maxLength": 4000 },
