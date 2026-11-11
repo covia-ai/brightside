@@ -72,8 +72,11 @@ installed commit>` and build again.
   change to authority, startup or the loop) needs the owner: open an issue
   labelled `proposal` with the problem, the evidence and the design, and do
   not build it until it is labelled `approved`. Small text edits and minor
-  fixes need no issue. A change Covia should make: an issue labelled
-  `upstream` and `proposal`.
+  fixes need no issue. A change to Covia's design: an issue here labelled
+  `upstream` and `proposal`. A Covia bug: report it at once on
+  `covia-ai/covia` (search for an existing issue first and extend it), with
+  the smallest reproduction and no exploit detail; work around it in Tau only
+  if the fix is not Tau's to make, and name the issue.
 - Test as AGENTS.md says (`mvn -q -o test`); commit by file name; the message
   says what changed and names the issue (`Fixes #N`).
 - Close a backlog entry by re-running its `failedAction` once relaunched,
@@ -102,4 +105,5 @@ blocks it, leave it and report. Never push.
 
 The final message, under 15 lines, plain words: first what needs the owner
 (proposals opened, upstream requests, failures, anything stopped), then what
+was reported to Covia, then what
 changed (commits, Covia, checks).

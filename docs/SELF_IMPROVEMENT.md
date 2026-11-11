@@ -55,8 +55,10 @@ the skill's `agent.json`; each run applies it.
 - A substantive design change: a new interface, skill family, operation or
   agent, or a change to authority, startup or the loop itself. Opened as an
   issue labelled `proposal`; built once labelled `approved`.
-- A change Covia should make: labelled `upstream` and `proposal`. The loop
-  never edits Covia.
+- A change to Covia's design: labelled `upstream` and `proposal`. The loop
+  never edits Covia. A Covia bug is different: the loop reports it straight
+  away as an issue on `covia-ai/covia`, with the smallest reproduction and no
+  exploit detail.
 - Pushing and releasing.
 
 The loop and the agents also leave alone, without the owner's word: any
