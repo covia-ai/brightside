@@ -64,13 +64,18 @@ installed commit>` and build again.
 
 ## 4. Improve (not on an upgrade run)
 
-- Candidates: approved issues first
-  (`gh issue list --repo covia-ai/brightside --state open --label approved`),
-  then the backlog: `$S/mcp.sh covia_read '{"path":"w/skill-feedback"}'`,
-  entries without a `status`, then improvements of your own: anything you
-  noticed that would make Tau more useful or more idiomatic Covia. It is a
-  collaboration: put your own ideas to Improver in the consultation and build
-  the ones you agree on.
+- Candidates, in this order:
+  1. Open issues on `covia-ai/brightside`
+     (`gh issue list --repo covia-ai/brightside --state open`). One the owner
+     filed is approved work; one labelled `proposal` waits until it is also
+     labelled `approved`. Take one that fits a chunk, or a slice of a big one.
+  2. The backlog: `$S/mcp.sh covia_read '{"path":"w/skill-feedback"}'`,
+     entries without a `status`.
+  3. Improvements of your own: anything that would make Tau more useful, or
+     more idiomatic Covia and Lattice. Bring two or three to the consultation.
+- It is a collaboration: put the candidates, yours included, to Improver and
+  build what you agree on. Conclude there is nothing worth doing only after
+  weighing all three kinds.
 - Consult once per run: `agent_chat` with `Improver`, new session, a brief of
   today's state and the top candidates. Ask what hurts most, with the failing
   action, and the smallest fix. A later chunk continues that session in a
@@ -91,7 +96,6 @@ installed commit>` and build again.
 - Close a backlog entry by re-running its `failedAction` once relaunched,
   then `covia_write` `w/skill-feedback/<id>/status` = `resolved` and
   `.../resolution` = what was done (commit or issue).
-- Nothing worth doing is a valid outcome: then close stale entries.
 
 ## 5. Relaunch and check (when main code or resources changed)
 

@@ -44,7 +44,8 @@ the skill's `agent.json`; each run applies it.
    A run that upgrades makes no other improvements. A change to Covia's store
    formats stops the upgrade for the owner, since a migrated store cannot go
    back without a backup.
-3. **Improve.** Approved issues first, then the backlog, then Claude Code's
+3. **Improve.** Open issues first (the owner's are approved work; the loop's
+   own proposals wait for `approved`), then the backlog, then Claude Code's
    own ideas, which it agrees with Improver before building. One substantial
    item and any trivial ones per chunk, each a commit one revert undoes.
 4. **Relaunch and check.** Build, ask Odin to relaunch into it, run the smoke
