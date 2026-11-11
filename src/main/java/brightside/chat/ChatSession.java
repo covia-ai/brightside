@@ -283,12 +283,13 @@ public final class ChatSession {
 				Maps.of(
 					"op", MEMORY_RECALL_OP,
 					"input", Maps.of("path", SHARED_MEMORY_PATH),
-					"label", "What you know about the user, shared with their other assistants — edit with path "
-						+ SHARED_MEMORY_PATH),
+					"label", "What you know about the user, shared with their other assistants and empty until one "
+						+ "records something — edit with path " + SHARED_MEMORY_PATH),
 				Maps.of(
 					"op", MEMORY_RECALL_OP,
 					"input", Maps.of("path", MEMORY_PATH),
-					"label", "Your private memory of the user — edit with path " + MEMORY_PATH)),
+					"label", "Your private memory of the user, empty until you record something — edit with path "
+						+ MEMORY_PATH)),
 			// No Brightside skill is pinned by default. The one app-owned load is a
 			// read-only context operation; owner pins are preserved and shipped skills
 			// are selected from their descriptions on demand.

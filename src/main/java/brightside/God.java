@@ -208,7 +208,8 @@ public record God(String id, String ask, String run, String overseer, String kee
 			"context", Vectors.of(Maps.of(
 				"op", MEMORY_RECALL_OP,
 				"input", Maps.of("path", MEMORY_PATH),
-				"label", "Your memory of " + remembers + " — edit with path " + MEMORY_PATH)),
+				"label", "Your memory of " + remembers + ", empty until you record something — edit with path "
+					+ MEMORY_PATH)),
 			// The venue's own library: venue, auth, adapters, agents.
 			"skillsets", Vectors.of(Strings.create("v/skills/root")),
 			// Multi-party by nature: record who sent each turn.
