@@ -67,7 +67,10 @@ installed commit>` and build again.
 - Candidates: approved issues first
   (`gh issue list --repo covia-ai/brightside --state open --label approved`),
   then the backlog: `$S/mcp.sh covia_read '{"path":"w/skill-feedback"}'`,
-  entries without a `status`.
+  entries without a `status`, then improvements of your own: anything you
+  noticed that would make Tau more useful or more idiomatic Covia. It is a
+  collaboration: put your own ideas to Improver in the consultation and build
+  the ones you agree on.
 - Consult once per run: `agent_chat` with `Improver`, new session, a brief of
   today's state and the top candidates. Ask what hurts most, with the failing
   action, and the smallest fix. A later chunk continues that session in a
