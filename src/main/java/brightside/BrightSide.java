@@ -14,6 +14,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Predicate;
 
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
@@ -563,6 +564,17 @@ public final class BrightSide {
 			startToolTokens();
 			if (clearToShow != null) SwingUtilities.invokeLater(clearToShow);
 			if (bound != null) startChatOnce(v, bound);
+			if (bound != null) {
+				// The same guard Settings → Model applies: a model whose provider has
+				// no key would otherwise fail the first message with a raw error.
+				String op = currentModelOp();
+				Providers.Provider keyless = keylessProvider(op, this::keyResolves);
+				if (keyless != null) {
+					String notice = "No " + keyless.label() + " API key is set, so " + op
+						+ " can't answer yet. Add the key in Settings → Model and it takes effect straight away.";
+					SwingUtilities.invokeLater(() -> window.showSystemMessage(notice));
+				}
+			}
 			for (String problem : v.startup().problems()) {
 				SwingUtilities.invokeLater(() -> window.showSystemMessage(problem));
 			}
@@ -991,6 +1003,12 @@ public final class BrightSide {
 		v.secrets(did, true).storeIfAbsent(Strings.create(name), Strings.create(value), v.secretKey());
 	}
 
+	/** The provider of {@code modelOp} when it needs an API key that {@code resolves} does not find, else null. */
+	static Providers.Provider keylessProvider(String modelOp, Predicate<String> resolves) {
+		Providers.Provider p = Providers.byId(Providers.providerOf(modelOp));
+		return (p != null && p.needsApiKey() && !resolves.test(p.secretName())) ? p : null;
+	}
+
 	/** Whether {@code s/<name>} currently resolves for the named user's agents. */
 	private boolean keyResolves(String name) {
 		EmbeddedVenue v = venue;
@@ -1024,13 +1042,12 @@ public final class BrightSide {
 			app.saveModel(op);
 			v.durable();
 		}
-		Providers.Provider p = Providers.byId(providerId);
-		boolean keyLive = p == null || !p.needsApiKey() || keyResolves(p.secretName());
-		if (!keyLive) {
+		Providers.Provider keyless = keylessProvider(op, this::keyResolves);
+		if (keyless != null) {
 			// Saved, but no key resolves for this provider yet — switching the
 			// running agent to it now would fail at the model call. A key added
 			// in Settings → Model takes effect immediately, so no restart needed.
-			String label = (p != null) ? p.label() : providerId;
+			String label = keyless.label();
 			SwingUtilities.invokeLater(() -> window.showSystemMessage(
 				"Saved. Add the " + label + " API key (Settings → Model) and it takes effect straight away."));
 			return;

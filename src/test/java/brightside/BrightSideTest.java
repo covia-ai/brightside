@@ -38,6 +38,14 @@ final class BrightSideTest {
 	}
 
 	@Test
+	void aModelWhoseProviderHasNoKeyIsFlagged() {
+		assertEquals("anthropic", BrightSide.keylessProvider(AppConfig.DEFAULT_LLM_OPERATION, name -> false).id());
+		assertEquals(null, BrightSide.keylessProvider(AppConfig.DEFAULT_LLM_OPERATION, "ANTHROPIC_API_KEY"::equals));
+		assertEquals(null, BrightSide.keylessProvider("v/models/ollama/llama3", name -> false), "a local provider needs no key");
+		assertEquals(null, BrightSide.keylessProvider("v/test/ops/llm", name -> false), "not a model path");
+	}
+
+	@Test
 	void theCommandLineNamesAConfigAndMayAskToUnlock() {
 		assertEquals(new BrightSide.Launch(AppConfig.DEFAULT_FILE, false, false), BrightSide.Launch.parse());
 		java.nio.file.Path other = java.nio.file.Path.of("other", "config.json").toAbsolutePath().normalize();
