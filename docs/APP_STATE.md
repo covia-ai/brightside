@@ -73,4 +73,5 @@ window is drawn in, and the folder roots the venue is configured with.
   venue ([covia#587](https://github.com/covia-ai/covia/issues/587)) and the
   venue's own replication rules.
 - Until lattice subscriptions exist upstream, screens notice changes by
-  comparing immutable values, as the inbox and sessions already do.
+  comparing immutable values. The Inbox's domain binding is described in
+  [ARCHITECTURE.md](ARCHITECTURE.md#key-decisions).

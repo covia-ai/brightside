@@ -531,13 +531,13 @@ public final class MainWindow extends JFrame {
 		mainDeck.add(settingsScreen, MAIN_SETTINGS);
 		inboxScreen = new brightside.ui.inbox.InboxScreen(new brightside.ui.inbox.RequestForm.Listener() {
 			@Override
-			public void onAnswer(String id, brightside.Inbox.Answer answer) {
-				app.answerRequest(id, answer);
+			public void onAnswer(brightside.Inbox.Request request, brightside.Inbox.Answer answer) {
+				app.answerRequest(request, answer);
 			}
 
 			@Override
-			public void onReject(String id, String reason) {
-				app.rejectRequest(id, reason);
+			public void onReject(brightside.Inbox.Request request, String reason) {
+				app.rejectRequest(request, reason);
 			}
 		});
 		mainDeck.add(inboxScreen, MAIN_INBOX);
@@ -712,7 +712,7 @@ public final class MainWindow extends JFrame {
 		conversations.setSessions(List.of(), null);
 		agentList.setAgents(List.of(), null, null);
 		currentAgentId = null;
-		setInbox(List.of());
+		clearInbox();
 		settingsScreen.profile().clearSensitive();
 		settingsScreen.integrations().clearSensitive();
 		settingsScreen.schedule().clear();
@@ -935,9 +935,18 @@ public final class MainWindow extends JFrame {
 		navBar.setBadge(NavBar.Tab.INBOX, brightside.Inbox.pending(requests));
 	}
 
+	public void clearInbox() {
+		inboxScreen.clear();
+		navBar.setBadge(NavBar.Tab.INBOX, 0);
+	}
+
+	public void showInboxReadFailure() {
+		inboxScreen.showReadFailure();
+	}
+
 	/** A line under the open request: the result of the last answer or rejection. */
-	public void showInboxNotice(String text) {
-		inboxScreen.showNotice(text);
+	public void showInboxNotice(brightside.Inbox.Request request, String text) {
+		inboxScreen.showNotice(request, text);
 	}
 
 	/** Switch to the Inbox tab. */

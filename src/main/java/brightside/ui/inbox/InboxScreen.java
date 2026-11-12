@@ -1,7 +1,7 @@
 package brightside.ui.inbox;
 
 import java.awt.BorderLayout;
-import java.awt.Component;
+import java.awt.event.HierarchyEvent;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,10 +40,13 @@ public final class InboxScreen extends JPanel {
 	/** How many requests are open, beside the title; hidden when none are. */
 	private final Chip waiting = new Chip(" ");
 	private final JLabel notice = Labels.small(" ");
+	private final JLabel readFailure = Labels.small("Couldn't refresh the inbox. Trying again…");
 	private final EmptyState empty = new EmptyState("inbox", Tone.MUTED, "Nothing is waiting for you",
 		"When one of your agents needs a decision only you can make, it asks here.").bare();
-	/** Cards by request id, in display order. */
+	/** Cards by owner and request id, in display order. */
 	private final Map<String, RequestCard> cards = new LinkedHashMap<>();
+	private List<Inbox.Request> requests = List.of();
+	private boolean dirty;
 
 	public InboxScreen(RequestForm.Listener listener) {
 		super(new BorderLayout());
@@ -60,7 +63,17 @@ public final class InboxScreen extends JPanel {
 
 		add(header, BorderLayout.NORTH);
 		add(Scrolls.vertical(Scrolls.hugTop(column)), BorderLayout.CENTER);
-		add(notice, BorderLayout.SOUTH);
+		JPanel notices = Panels.column();
+		notice.setAlignmentX(LEFT_ALIGNMENT);
+		readFailure.setAlignmentX(LEFT_ALIGNMENT);
+		readFailure.setBorder(BorderFactory.createEmptyBorder(6, 18, 0, 18));
+		readFailure.setVisible(false);
+		notices.add(readFailure);
+		notices.add(notice);
+		add(notices, BorderLayout.SOUTH);
+		addHierarchyListener(e -> {
+			if ((e.getChangeFlags() & HierarchyEvent.SHOWING_CHANGED) != 0) renderIfShowing();
+		});
 		setRequests(List.of());
 	}
 
@@ -70,9 +83,20 @@ public final class InboxScreen extends JPanel {
 	 * changed request gets a fresh card that inherits the old one's fold state.
 	 */
 	public void setRequests(List<Inbox.Request> requests) {
+		this.requests = List.copyOf(requests);
+		readFailure.setVisible(false);
+		dirty = true;
+		renderIfShowing();
+	}
+
+	/** Preserve cards while hidden and reconcile the latest snapshot when shown. */
+	private void renderIfShowing() {
+		if (!dirty || !isShowing()) return;
+		dirty = false;
 		Map<String, RequestCard> next = new LinkedHashMap<>();
 		for (Inbox.Request r : requests) {
-			RequestCard old = cards.get(r.id());
+			String key = InboxBinding.key(r);
+			RequestCard old = cards.get(key);
 			RequestCard card;
 			if (old != null && old.request().equals(r)) {
 				card = old;
@@ -80,7 +104,7 @@ public final class InboxScreen extends JPanel {
 				boolean expanded = (old != null) ? old.expanded() : r.open();
 				card = new RequestCard(r, listener, expanded);
 			}
-			next.put(r.id(), card);
+			next.put(key, card);
 		}
 		cards.clear();
 		cards.putAll(next);
@@ -103,14 +127,24 @@ public final class InboxScreen extends JPanel {
 		column.repaint();
 	}
 
-	/** A line under the column: the result of the last answer or rejection. Frees any form that was sending. */
-	public void showNotice(String text) {
-		notice.setText(text);
-		for (RequestCard card : cards.values()) card.form().setBusy(false);
+	/** Principal changes and logout discard drafts, even while the screen is hidden. */
+	public void clear() {
+		cards.clear();
+		column.removeAll();
+		notice.setText(" ");
+		setRequests(List.of());
 	}
 
-	/** The card for a request id, or null. Package-visible for the app's own checks. */
-	Component card(String id) {
-		return cards.get(id);
+	/** Read failures retain the snapshot and drafts; a successful read clears this note. */
+	public void showReadFailure() {
+		readFailure.setVisible(true);
 	}
+
+	/** A response completes only its own form; other requests may still be sending. */
+	public void showNotice(Inbox.Request request, String text) {
+		notice.setText(text);
+		RequestCard card = cards.get(InboxBinding.key(request));
+		if (card != null) card.form().setBusy(false);
+	}
+
 }

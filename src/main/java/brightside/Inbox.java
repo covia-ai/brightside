@@ -12,6 +12,7 @@ import convex.core.data.AMap;
 import convex.core.data.AString;
 import convex.core.data.AVector;
 import convex.core.data.MapEntry;
+import convex.core.data.Vectors;
 import convex.core.data.prim.CVMBool;
 import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
@@ -19,6 +20,8 @@ import convex.core.util.JSON;
 import covia.grid.Job;
 import covia.grid.Venue;
 import covia.grid.hitl.Hitl;
+import covia.venue.User;
+import covia.venue.Users;
 
 /**
  * The owner's human-in-the-loop inbox ({@code h/}): what agents are asking this
@@ -78,6 +81,36 @@ public final class Inbox {
 	}
 
 	private Inbox() {
+	}
+
+	/**
+	 * The domain source for one owner's view: their Inbox and the operator's.
+	 * Resolves current users on each read so a removed account clears its part
+	 * of the view. Reads use typed domain components, create nothing, and let
+	 * failures propagate rather than presenting them as an empty inbox.
+	 */
+	public static final class Source {
+		private final Users users;
+		private final String owner, operator;
+
+		public Source(Users users, String owner, String operator) {
+			this.users = java.util.Objects.requireNonNull(users);
+			this.owner = java.util.Objects.requireNonNull(owner);
+			this.operator = java.util.Objects.requireNonNull(operator);
+		}
+
+		public AVector<ACell> read() {
+			return Vectors.of(owner.equals(operator) ? null : read(owner), read(operator));
+		}
+
+		private ACell read(String did) {
+			User user = users.user(did);
+			return user == null ? null : user.inbox().getAll();
+		}
+
+		public List<Request> project(AVector<ACell> snapshot) {
+			return merge(parse(snapshot.get(0), owner), parse(snapshot.get(1), operator));
+		}
 	}
 
 	/** Every request in the inbox value (id → record): open ones newest first, then the rest newest first. */

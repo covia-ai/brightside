@@ -54,10 +54,10 @@ public final class RequestForm extends JPanel {
 
 	/** The owner's decision; the app resolves it through {@code hitl:respond}. */
 	public interface Listener {
-		void onAnswer(String id, Inbox.Answer answer);
+		void onAnswer(Inbox.Request request, Inbox.Answer answer);
 
 		/** {@code reason} may be empty. */
-		void onReject(String id, String reason);
+		void onReject(Inbox.Request request, String reason);
 	}
 
 	private final Inbox.Request request;
@@ -107,13 +107,13 @@ public final class RequestForm extends JPanel {
 				Inbox.Answer answer = collect();
 				if (answer == null) return;
 				setBusy(true);
-				listener.onAnswer(request.id(), answer);
+				listener.onAnswer(request, answer);
 			});
 			rejectButton.addActionListener(e -> {
 				String reason = Dialogs.prompt(this, "Reject request", "Reason (optional):", "");
 				if (reason == null) return;
 				setBusy(true);
-				listener.onReject(request.id(), reason.trim());
+				listener.onReject(request, reason.trim());
 			});
 			JPanel buttons = Panels.row();
 			buttons.add(answerButton);
@@ -140,7 +140,7 @@ public final class RequestForm extends JPanel {
 		answerButton.setEnabled(!busy);
 		rejectButton.setEnabled(!busy);
 		Styles.classes(status, Styles.SMALL, busy ? Styles.MUTED : Styles.ERROR);
-		if (busy) status.setText("Sending…");
+		status.setText(busy ? "Sending…" : " ");
 	}
 
 	/** The answer as entered, or null (with the reason shown) if a required ask is unanswered. */

@@ -37,6 +37,7 @@ import brightside.model.Providers;
 import brightside.ui.LAF;
 import brightside.ui.MainWindow;
 import brightside.ui.TrayManager;
+import brightside.ui.inbox.InboxBinding;
 import brightside.ui.onboarding.OnboardingWizard;
 import brightside.ui.onboarding.UnlockDialog;
 import brightside.ui.onboarding.UnlockPanel;
@@ -93,9 +94,7 @@ public final class BrightSide {
 	/** The disk the running venue's store takes; null until it is up, or for a store that is not a file. */
 	private volatile StoreSpace storeSpace;
 	private volatile ChatSession chat;
-	private volatile LatticeWatcher inboxWatcher; // event thread; the owner's h/ inbox
-	private final java.util.Set<String> notifiedRequests = java.util.concurrent.ConcurrentHashMap.newKeySet();
-	private volatile List<Inbox.Request> inboxRequests = List.of(); // the owner's and the venue's, as shown
+	private volatile InboxBinding inboxBinding; // replaced with the venue or acting principal
 	private volatile Identity identity;
 	private volatile covia.grid.Venue client; // in-process client for the acting user
 	private volatile String userDID; // the acting user's DID (for in-process lattice reads)
@@ -642,15 +641,15 @@ public final class BrightSide {
 		try {
 			log.info("Restarting the venue");
 			chatBindings.incrementAndGet(); // a bind still in flight is for the old venue
-			LatticeWatcher oldInbox = inboxWatcher;
-			inboxWatcher = null;
+			InboxBinding oldInbox = inboxBinding;
+			inboxBinding = null;
 			chat = null;
 			client = null;
 			actingAsOperator = false; // every launch starts as the user
 			chatStarted.set(false);
 			godsEnsured.set(false);
 			SwingUtilities.invokeAndWait(() -> {
-				if (oldInbox != null) oldInbox.stop();
+				if (oldInbox != null) oldInbox.close();
 				window.closeSessions();
 				if (unlockDialog != null) unlockDialog.showProgress("Restarting…");
 				else window.showChatStartup();
@@ -891,9 +890,8 @@ public final class BrightSide {
 		}
 		locked = true;
 		chatBindings.incrementAndGet();
-		LatticeWatcher oldInbox = inboxWatcher;
-		inboxWatcher = null;
-		notifiedRequests.clear();
+		InboxBinding oldInbox = inboxBinding;
+		inboxBinding = null;
 		chat = null;
 		client = null;
 		userDID = null;
@@ -904,7 +902,7 @@ public final class BrightSide {
 		chatStarted.set(false);
 		renewToolToken(); // with nobody unlocked, that is none
 		SwingUtilities.invokeLater(() -> {
-			if (oldInbox != null) oldInbox.stop();
+			if (oldInbox != null) oldInbox.close();
 			window.userLoggedOut();
 			window.setVisible(false);
 			showUnlockDialog(null);
@@ -2023,10 +2021,6 @@ public final class BrightSide {
 		List<SessionHistory.Session> sessionList = (record != null) ? SessionHistory.sessionsOf(record) : List.of();
 		List<AgentRef> agentRefs = listAgents(v, did, aid,
 			target.operator() ? Odin.AGENT_ID : config.chat().agentId());
-		// The inbox is per user, not per agent: (re)bind it with the user. It
-		// shows the venue's own requests too — the app is the operator.
-		convex.core.data.ACell inboxValue = (bind == Bind.AGENT_SWITCH) ? null : inboxes(v, did);
-		List<Inbox.Request> inbox = parseInboxes(v, did, inboxValue);
 		log.info("Chatting as {} with agent '{}' — showing {} live message(s) across {} saved conversation(s)",
 			id.label(), aid, turns.size(), sessionList.size());
 
@@ -2052,7 +2046,7 @@ public final class BrightSide {
 			}
 			window.bindSessions(v, did, session, sessionList);
 			window.setAgents(agentRefs, aid, defaultAgentId());
-			if (bind != Bind.AGENT_SWITCH) bindInbox(v, did, inboxValue, inbox);
+			if (inboxBinding == null || bind == Bind.FIRST || bind == Bind.PRINCIPAL_SWITCH) bindInbox(v, did);
 			if (tray != null) tray.setTooltip(APP_NAME + " — " + id.name() + (actingAsOperator ? " (" + id.operatorName() + ")" : ""));
 		});
 	}
@@ -2185,99 +2179,69 @@ public final class BrightSide {
 	// Inbox (HITL requests to the owner)
 	// ------------------------------------------------------------------
 
-	/**
-	 * Shows the owner's inbox and watches its value. Event thread; called whenever
-	 * the acting user (re)binds. Requests already waiting just badge the tab —
-	 * only ones that arrive while running get a tray balloon.
-	 */
-	private void bindInbox(EmbeddedVenue v, String did, convex.core.data.ACell value, List<Inbox.Request> requests) {
-		LatticeWatcher old = inboxWatcher;
-		if (old != null) old.stop();
-		notifiedRequests.clear();
-		for (Inbox.Request r : requests) if (r.open()) notifiedRequests.add(r.id());
-		inboxRequests = requests;
-		window.setInbox(requests);
-		inboxWatcher = new LatticeWatcher(() -> inboxes(v, did), value, () -> window.isShowing(), this::onInboxChanged);
-		inboxWatcher.start();
-	}
-
-	/**
-	 * The owner's inbox and the venue's own, as one value the watcher can
-	 * compare. The venue's holds what the {@link Gods} ask their owner; the person at
-	 * the keyboard is that owner, so it belongs in the same Inbox.
-	 */
-	private static convex.core.data.ACell inboxes(EmbeddedVenue v, String did) {
-		// As the operator the two are one inbox; list it once.
-		convex.core.data.ACell own = did.equals(v.did()) ? null : v.inbox(did);
-		return convex.core.data.Vectors.of(own, v.inbox(v.did()));
-	}
-
-	private static List<Inbox.Request> parseInboxes(EmbeddedVenue v, String did, convex.core.data.ACell value) {
-		if (!(value instanceof convex.core.data.AVector<?> pair) || pair.count() != 2) return List.of();
-		return Inbox.merge(Inbox.parse((convex.core.data.ACell) pair.get(0), did),
-			Inbox.parse((convex.core.data.ACell) pair.get(1), v.did()));
-	}
-
-	/** The inbox value changed: refresh the tab and badge; balloon each request seen waiting for the first time. */
-	private void onInboxChanged(convex.core.data.ACell value) {
-		EmbeddedVenue v = venue;
-		String did = userDID;
-		List<Inbox.Request> requests = (v != null && did != null) ? parseInboxes(v, did, value) : List.of();
-		inboxRequests = requests;
-		window.setInbox(requests);
-		for (Inbox.Request r : requests) {
-			if (r.open() && notifiedRequests.add(r.id()) && tray != null) {
-				tray.notify(APP_NAME + " needs your decision", r.title());
-			}
-		}
+	/** Bind cards, badge and arrivals to the same owner's domain snapshots. Event thread. */
+	private void bindInbox(EmbeddedVenue v, String did) {
+		InboxBinding old = inboxBinding;
+		if (old != null) old.close();
+		window.clearInbox();
+		inboxBinding = new InboxBinding(v.inboxes(did), () -> window.isShowing() && !locked && !exiting.get(),
+			window::setInbox, request -> {
+				if (tray != null) tray.notify(APP_NAME + " needs your decision", request.title());
+			}, error -> {
+				log.warn("Could not refresh the inbox", error);
+				window.showInboxReadFailure();
+			});
+		inboxBinding.start();
 	}
 
 	/**
 	 * Answer a request as the inbox's owner — the named user, or the operator for
 	 * a request to the venue — never as an agent; then refresh the inbox.
 	 */
-	public void answerRequest(String id, Inbox.Answer answer) {
-		respond(id, c -> Inbox.answer(c, id, answer), "Answered.");
+	public void answerRequest(Inbox.Request request, Inbox.Answer answer) {
+		respond(request, c -> Inbox.answer(c, request.id(), answer), "Answered.");
 	}
 
-	public void rejectRequest(String id, String reason) {
-		respond(id, c -> Inbox.reject(c, id, reason), "Rejected.");
+	public void rejectRequest(Inbox.Request request, String reason) {
+		respond(request, c -> Inbox.reject(c, request.id(), reason), "Rejected.");
 	}
 
 	private interface InboxAction {
 		void run(Venue client) throws Exception;
 	}
 
-	private void respond(String id, InboxAction action, String done) {
-		Venue c = (id != null) ? clientFor(id) : null;
-		if (c == null) return;
+	private void respond(Inbox.Request request, InboxAction action, String done) {
+		if (!SwingUtilities.isEventDispatchThread()) {
+			SwingUtilities.invokeLater(() -> respond(request, action, done));
+			return;
+		}
+		InboxBinding bound = inboxBinding;
+		EmbeddedVenue v = venue;
+		if (request == null || bound == null || v == null || locked || exiting.get()) return;
+		if (!bound.canRespond(request)) {
+			window.showInboxNotice(request, "That request has changed. Refreshing…");
+			bound.refresh();
+			return;
+		}
+		Venue c = v.did().equals(request.owner()) ? v.operator() : v.clientAs(request.owner());
 		Thread t = new Thread(() -> {
 			String note;
 			try {
 				action.run(c);
 				note = done;
 			} catch (Exception e) {
-				log.warn("Could not respond to request {}: {}", id, e.toString());
+				log.warn("Could not respond to request {}: {}", request.id(), e.toString());
 				note = "Sorry — that didn't go through: " + rootMessage(e);
 			}
 			String n = note;
 			SwingUtilities.invokeLater(() -> {
-				window.showInboxNotice(n);
-				LatticeWatcher w = inboxWatcher;
-				if (w != null) w.checkNow();
+				if (inboxBinding != bound || locked || exiting.get()) return;
+				window.showInboxNotice(request, n);
+				bound.refresh();
 			});
 		}, "brightside-hitl-respond");
 		t.setDaemon(true);
 		t.start();
-	}
-
-	/** The client that owns the inbox holding request {@code id}: the named user's, or the operator's for the venue's own. */
-	private Venue clientFor(String id) {
-		EmbeddedVenue v = venue;
-		for (Inbox.Request r : inboxRequests) {
-			if (id.equals(r.id())) return (v != null && v.did().equals(r.owner())) ? v.operator() : client;
-		}
-		return client;
 	}
 
 	private static String rootMessage(Throwable e) {
@@ -2728,9 +2692,13 @@ public final class BrightSide {
 
 	/** Force an immediate lattice value compare and refresh the transcript if it changed. */
 	public void refreshNow() {
+		if (!SwingUtilities.isEventDispatchThread()) {
+			SwingUtilities.invokeLater(this::refreshNow);
+			return;
+		}
 		window.refreshSessions();
-		LatticeWatcher i = inboxWatcher;
-		if (i != null) i.checkNow();
+		InboxBinding i = inboxBinding;
+		if (i != null) i.refresh();
 		if (window.isSkillsShowing()) refreshSkills();
 	}
 
@@ -2869,8 +2837,8 @@ public final class BrightSide {
 		log.info("Exit requested");
 		SwingUtilities.invokeLater(() -> {
 			if (window != null) window.closeSessions();
-			LatticeWatcher i = inboxWatcher;
-			if (i != null) i.stop();
+			InboxBinding i = inboxBinding;
+			if (i != null) i.close();
 			if (window != null) window.setVisible(false);
 			if (unlockDialog != null) unlockDialog.dispose();
 			if (tray != null) tray.remove();

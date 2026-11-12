@@ -292,6 +292,11 @@ public final class EmbeddedVenue implements AutoCloseable {
 		return covia.venue.SecretStore.keys(engine().getKeyPair());
 	}
 
+	/** The domain source for the person's Inbox view, including requests to the venue operator. */
+	public Inbox.Source inboxes(String userDID) {
+		return new Inbox.Source(engine().getVenueState().users(), userDID, did());
+	}
+
 	/** The user's HITL inbox ({@code h/}): request id → record, straight from the in-process lattice. Null before the user exists. */
 	public AMap<AString, ACell> inbox(String userDID) {
 		try {

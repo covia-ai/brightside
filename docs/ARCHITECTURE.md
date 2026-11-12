@@ -69,6 +69,22 @@ only while it is showing: its timers and feeds run, and a stale view renders,
 only on screen, so an update or a theme switch costs nothing for what is out
 of sight.
 
+**Domain views bind immutable snapshots to Swing.** The Inbox composes Covia's
+typed Inbox components through an owner-bound source. `ui/binding/LatticeBinding`
+reads and projects off the event thread, compares snapshots, coalesces refreshes
+and delivers on the event thread. Each binding lives for one venue and principal;
+closing it discards late results. Missing data clears the relevant part of the
+view; a failed read retains the last snapshot and reports a separate, retryable
+failure. Polling supplies refreshes until general lattice subscriptions exist
+upstream; agent events remain available to the session views.
+
+The Inbox cards, badge and arrival notifications share one projection. The
+window's visibility controls observation for the badge; the Inbox renders its
+latest snapshot when shown, retaining unchanged cards and drafts by owner and
+request id. Principal changes discard those drafts. Responses still use the
+venue's HITL operation as the request's owner; their completion belongs to the
+binding that submitted them, so it cannot update a different user's view.
+
 **Storage is managed where it is browsed, and distinguishes installation
 access from personal data.** `FileRoots` persists folder access for the next
 launch; `PersonalDrives` uses the acting user's DLFS operations and prepares
