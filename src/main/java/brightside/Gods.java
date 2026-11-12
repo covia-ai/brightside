@@ -10,7 +10,7 @@ import covia.venue.Engine;
 /**
  * The gods: the venue's own agents, each specialised in one job on the
  * owner's behalf — {@link Odin}, the administrator, {@link Thor}, the
- * guardian, and {@link Njord}, the treasurer. Add one by giving it a
+ * guardian, {@link Njord}, the treasurer, and {@link Eir}, the healer. Add one by giving it a
  * {@link God} definition, its two bridge resources under
  * {@code adapters/brightside/}, and a place in {@link #ALL}.
  */
@@ -18,7 +18,7 @@ public final class Gods {
 
 	private static final Logger log = LoggerFactory.getLogger(Gods.class);
 
-	public static final List<God> ALL = List.of(Odin.GOD, Thor.GOD, Njord.GOD);
+	public static final List<God> ALL = List.of(Odin.GOD, Thor.GOD, Njord.GOD, Eir.GOD);
 
 	private Gods() {
 	}

@@ -1,0 +1,32 @@
+{
+	"name": "Ask Eir",
+	"description": "Ask Eir, this Tau's healer, to repair something broken in Tau itself: an agent stopped by a fault, a setup error (a model route, a tool or skill that does not resolve, an adapter or MCP server that is down), a skill that does not load, something an upgrade left out of date. Not for a task that went wrong or a tool that rejected bad input. Eir diagnoses, repairs what loses nothing, and asks the owner through their Inbox before anything that replaces their work; she sees who is asking. Best-effort synchronous: waits up to `timeout` milliseconds (default 30000) for her outcome and returns it; otherwise returns a snapshot {id, status: STARTED, address, sessionId} — poll job_result(id=<that id>, timeout=<ms>) for the outcome. Set timeout=0 to ask and carry on.",
+	"operation": {
+		"adapter": "brightside:ask-eir",
+		"toolName": "ask_eir",
+		"internal": false,
+		"input": {
+			"type": "object",
+			"properties": {
+				"request": {
+					"type": "string",
+					"description": "What is broken: which agent, skill, adapter or setting, what fails and when it started. Self-contained — Eir sees only this. Up to 4000 characters."
+				},
+				"context": {
+					"type": "string",
+					"description": "Optional evidence: the exact error, what you tried, what changed before it broke. Up to 8000 characters."
+				},
+				"timeout": {
+					"type": "integer",
+					"description": "Milliseconds to wait for Eir's outcome. Default 30000; 0 returns a snapshot at once; at most 300000."
+				}
+			},
+			"required": ["request"]
+		},
+		"output": {
+			"type": "object",
+			"description": "Eir's outcome — what was broken, what she repaired, what waits for the owner — or a {id, status: STARTED, address, sessionId} snapshot to poll.",
+			"additionalProperties": true
+		}
+	}
+}

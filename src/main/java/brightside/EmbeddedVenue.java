@@ -37,15 +37,51 @@ public final class EmbeddedVenue implements AutoCloseable {
 	private final VenueServer server;
 	private final Startup.Report startup;
 	private final AtomicBoolean closed = new AtomicBoolean();
+	private CompletableFuture<ACell> repair;
 
 	private EmbeddedVenue(VenueServer server, Startup.Report startup) {
 		this.server = server;
 		this.startup = startup;
 	}
 
+	/** The venue just launched: asks Eir about what its startup pass found, if anything. */
+	private static EmbeddedVenue started(VenueServer server, Startup.Report startup) {
+		EmbeddedVenue venue = new EmbeddedVenue(server, startup);
+		venue.repair = venue.askEir();
+		return venue;
+	}
+
 	/** What Brightside's startup pass found and did in this launch ({@link Startup}). */
 	public Startup.Report startup() {
 		return startup;
+	}
+
+	/**
+	 * Eir's repair of what this launch's startup pass found — problems it could
+	 * not repair, or an upgrade to check the owner's account against — or null
+	 * when there was nothing for her. It completes with her outcome.
+	 */
+	public CompletableFuture<ACell> startupRepair() {
+		return repair;
+	}
+
+	/**
+	 * Asks Eir, as the venue operator, about this launch's startup report, once
+	 * the venue is serving and she can work. Null when the report holds nothing
+	 * for her or she does not exist, as before any model is chosen.
+	 */
+	private CompletableFuture<ACell> askEir() {
+		if (startup == null) return null;
+		String venueDID = did();
+		if (agentRecord(venueDID, Eir.AGENT_ID) == null) return null;
+		Identity owner = Identity.fromCell(brightside().owner());
+		String request = Eir.afterStart(startup, (owner != null) ? owner.userDID(venueDID) : null);
+		if (request == null) return null;
+		log.info("Asking Eir to look at this start: {}", request);
+		return Eir.ask(operator(), request, null).exceptionally(e -> {
+			log.warn("Could not ask Eir to look at this start: {}", e.toString());
+			return null;
+		});
 	}
 
 	/**
@@ -78,7 +114,7 @@ public final class EmbeddedVenue implements AutoCloseable {
 	public static EmbeddedVenue launch(AMap<AString, ACell> config, BrightsideAdapter.App app) {
 		AtomicReference<Startup.Report> startup = new AtomicReference<>();
 		VenueServer server = VenueServer.launch(config, List.of(), engine -> install(engine, app, startup));
-		return new EmbeddedVenue(server, startup.get());
+		return started(server, startup.get());
 	}
 
 	/**
@@ -90,7 +126,7 @@ public final class EmbeddedVenue implements AutoCloseable {
 	public static EmbeddedVenue launch(AMap<AString, ACell> config, AStore store, BrightsideAdapter.App app) {
 		AtomicReference<Startup.Report> startup = new AtomicReference<>();
 		VenueServer server = VenueServer.launch(config, store, List.of(), engine -> install(engine, app, startup));
-		return new EmbeddedVenue(server, startup.get());
+		return started(server, startup.get());
 	}
 
 	/** Brightside's part of the launch, in Covia's pre-start hook (see {@link #launch(AMap, BrightsideAdapter.App)}). */

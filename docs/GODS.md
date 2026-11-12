@@ -12,8 +12,8 @@ design and motivation.
   moving money — sits with a god instead.
 - **A god is the venue's own agent.** It belongs to the venue principal, not
   to the owner's user, and answers to the owner alone.
-- **Power is a mechanism; judgement is a prompt.** What Thor and Njord *can*
-  do is an allowlist enforced by their bridges; Odin holds the venue's
+- **Power is a mechanism; judgement is a prompt.** What Thor, Njord and Eir
+  *can* do is an allowlist enforced by their bridges; Odin holds the venue's
   authority outright. What a god *should* do is its system prompt.
 - **They check one another.** Gods that act on their own judgement report
   every change to Odin straight after. He takes a disagreement to the owner,
@@ -28,11 +28,13 @@ design and motivation.
 | Odin, the administrator | changes that need administrator rights; the wiser head the others answer to | [ODIN.md](ODIN.md) |
 | Thor, the guardian | responds to reported threats; can stop and restrict agents at once | [THOR.md](THOR.md) |
 | Njord, the treasurer | keeps the signing keys; every financial transaction goes through him | [NJORD.md](NJORD.md) |
+| Eir, the healer | repairs faults in Tau itself; Tau calls her when its own cure fails | [EIR.md](EIR.md) |
 
 They work as one team. An assistant that meets an attack tells Thor. One that
-needs a change it cannot make asks Odin, and one that needs to pay asks
-Njord. Odin and Njord tell Thor when a request looks like an attack, and
-Thor and Njord answer to Odin for what they do.
+needs a change it cannot make asks Odin, one that needs to pay asks Njord,
+and one that meets a fault in Tau asks Eir. Odin and Njord tell Thor when a
+request looks like an attack, and Thor, Njord and Eir answer to Odin for
+what they do.
 
 ## When a job deserves a god
 
@@ -77,7 +79,7 @@ definition, its two bridge resources and a place in that list.
 
 Gods exist because assistants cannot act as the venue. An agent holds what
 its caps say, narrowing its owner's authority. Odin's caps are unrestricted,
-so he holds the venue's authority itself. Thor's and Njord's let them call
+so he holds the venue's authority itself. The others' let them call
 any operation, read the venue's data, assets and jobs, keep their own notes and ask
 through the Inbox, but write nothing of the venue's, and an agent's run loop
 carries no delegations. Brightside sets each god's caps with the rest of its
@@ -109,7 +111,7 @@ for exactly what that call touches, named by the operation's adapter
 
 ### Answering to an overseer
 
-A god may have an overseer; Thor's and Njord's is Odin. Then anything the
+A god may have an overseer; Thor's, Njord's and Eir's is Odin. Then anything the
 venue does not declare read-only needs a reason. Once it is done, the run
 bridge reports it — operation, input, outcome and reason — to the overseer
 through the overseer's ask bridge, as the god, without waiting for a
@@ -137,7 +139,8 @@ Covia suspends an agent when its setup or a fault prevents further work,
 and when someone stops it with `agent:suspend`. An ordinary task failure
 fails that task and lets the agent continue. Brightside resumes a fault
 suspension by itself once the
-configuration is re-applied, which is the usual cure. It never lifts the
+configuration is re-applied, which is the usual cure; when that does not
+cure the owner's assistant, Brightside asks Eir ([EIR.md](EIR.md)). It never lifts the
 second: the chat with an agent stopped on purpose says so and points to the
 Inbox, and a god stopped on purpose stays stopped. `Suspension` tells the two
 apart.
@@ -145,5 +148,5 @@ apart.
 Suspension preserves queued tasks for an explicit resume. A chat message
 already taken by the stopped cycle fails with the reason for the stop.
 
-`OdinTest`, `ThorTest` and `NjordTest` exercise all of this against a real
+`OdinTest`, `ThorTest`, `NjordTest` and `EirTest` exercise all of this against a real
 venue.

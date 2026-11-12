@@ -1,0 +1,34 @@
+{
+	"name": "Run a repair operation",
+	"description": "Executes one operation with the venue's authority. Eir only. Without `user`: v/ops/user/list|info (this venue's users), v/ops/venue/adapters|show-config (its setup), v/ops/venue/adapter/enable|disable|configure, v/ops/mcp/refresh|tools-list (its MCP servers), v/ops/secret/list (the venue's secret names, never values), v/ops/file/roots|list|stat|read (the logs root holds Tau's log, brightside.log), v/ops/brightside/storage (compaction at the next start), v/ops/brightside/restart (the venue stops and starts again inside the app; the startup check repairs the gods), v/ops/brightside/relaunch (a new instance takes over from this one). With `user`: runs the operation inside that user's namespace on their behalf (user:sudo, this venue's own users only). To look: v/ops/covia/read|list|inspect|slice|aggregate, v/ops/agent/list|info|context|sessions|session-read, v/ops/skills/list|read, v/ops/secret/list (names only), v/ops/scheduler/list, v/ops/hitl/list, v/ops/oauth/status. To repair: v/ops/agent/resume {agentId} lets an agent stopped by a fault run again, v/ops/agent/update {agentId, config} changes its configuration (a recursive merge: vectors such as tools replace, maps merge, a null value removes a key), v/ops/agent/reload-context|compact-session|cancel-task|delete-session|suspend, v/ops/skills/import, v/ops/brightside/delete-skill, v/ops/covia/write|copy|delete. Anything else is refused, and the venue's own agents are out of reach. Anything that changes state needs `reason`, and is reported to Odin with its input and outcome as soon as it is done; the output then carries report {address, id}. Every run is a recorded job.",
+	"operation": {
+		"adapter": "brightside:eir-run",
+		"toolName": "eir_run",
+		"internal": false,
+		"input": {
+			"type": "object",
+			"properties": {
+				"operation": {
+					"type": "string",
+					"description": "The full operation path, e.g. v/ops/agent/resume."
+				},
+				"input": {
+					"type": "object",
+					"description": "The operation's own input, exactly as its schema describes."
+				},
+				"user": {
+					"type": "string",
+					"description": "Optional: a user DID of this venue. When present the operation runs inside that user's namespace on their behalf, and must be one of the namespace operations."
+				},
+				"reason": {
+					"type": "string",
+					"description": "Required for any operation that changes state: the fault, its cause and why this repair. Odin receives it with the outcome. Up to 2000 characters."
+				}
+			},
+			"required": ["operation"]
+		},
+		"output": {
+			"description": "The operation's own output; after a change, with report {address, id}: the task that told Odin."
+		}
+	}
+}

@@ -81,8 +81,8 @@ public final class Startup {
 			if (record == null) {
 				problems.add(god.id() + " couldn't be set up. Details are in the logs.");
 			} else if (!God.configured(record, god.config(model))) {
-				problems.add(god.id() + "'s settings couldn't be brought up to date, so he may hold more or less"
-					+ " than he should. Details are in the logs.");
+				problems.add(god.id() + "'s settings couldn't be brought up to date, so it may hold more or less"
+					+ " than it should. Details are in the logs.");
 			} else if (Suspension.byFault(record)) {
 				problems.add(god.id() + " is stopped by a fault and couldn't be resumed. Details are in the logs.");
 			}

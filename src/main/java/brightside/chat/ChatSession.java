@@ -3,6 +3,7 @@ package brightside.chat;
 import static brightside.BrightSide.APP_NAME;
 
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -13,6 +14,7 @@ import org.slf4j.LoggerFactory;
 
 import brightside.AppConfig;
 import brightside.BrightsideSkillsAdapter;
+import brightside.Eir;
 import brightside.Suspension;
 import brightside.model.Providers;
 import convex.core.data.ACell;
@@ -135,6 +137,8 @@ public final class ChatSession {
 	private volatile long sessionGeneration;
 	private boolean pendingResume;
 	private boolean agentReady;
+	/** Eir's repair of the agent, asked when resuming did not cure a fault; see {@link #askEir}. */
+	private CompletableFuture<ACell> repair;
 	/** Runs once when the agent is first ready; see {@link #whenReady}. */
 	private Runnable onReady;
 	/** The chat job whose reply is being awaited, or null. */
@@ -402,6 +406,32 @@ public final class ChatSession {
 			"volatile", CVMBool.FALSE));
 	}
 
+	/**
+	 * Asks Eir to repair this session's agent, stopped by a fault that resuming
+	 * it did not cure: a fault in the harness, not a task that went wrong. Not
+	 * again while she is still on it. Best-effort; logged, never thrown.
+	 */
+	private synchronized void askEir(Exception failure) {
+		if (repair != null && !repair.isDone()) return;
+		ACell info = agentInfo();
+		if (!Suspension.byFault(info)) return;
+		AString error = RT.ensureString(RT.getIn(info, Fields.ERROR));
+		String request = Eir.afterFault(config.agentId(), (error != null) ? error.toString() : failure.getMessage());
+		log.warn("Agent '{}' is still stopped by a fault after resuming; asking Eir", config.agentId());
+		repair = Eir.ask(venue, request, null).exceptionally(e -> {
+			log.warn("Could not ask Eir to repair '{}': {}", config.agentId(), e.toString());
+			return null;
+		});
+	}
+
+	/**
+	 * Eir's repair of this session's agent, asked when resuming did not cure a
+	 * fault; null if none has been asked. It completes with her outcome.
+	 */
+	public synchronized CompletableFuture<ACell> repair() {
+		return repair;
+	}
+
 	/** Clears a suspension (SUSPENDED → SLEEPING). Best-effort; logged, never thrown. */
 	private void resume() {
 		try {
@@ -495,9 +525,14 @@ public final class ChatSession {
 				if (Suspension.deliberate(info)) throw new SuspendedException(displayName(), Suspension.reason(info), e);
 				log.warn("Agent is suspended ({}); resuming and retrying", e.getMessage());
 				resume();
-				Reply reply = sendOnce(message, accepted);
-				pendingResume = false;
-				return reply;
+				try {
+					Reply reply = sendOnce(message, accepted);
+					pendingResume = false;
+					return reply;
+				} catch (Exception again) {
+					askEir(again);
+					throw again;
+				}
 			}
 			// A resumed session the venue no longer knows: drop it and retry once.
 			// Only for that error — a model or key failure must not mint a fresh

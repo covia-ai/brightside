@@ -61,7 +61,7 @@ public final class ProfilePanel extends SettingsPage {
 	private static final String NONE = "—";
 
 	private static final String SWITCH_HINT = "Who " + APP_NAME + " acts as: you, for everyday use, or the venue operator "
-		+ "(advanced) — the venue's own agents (the gods, Odin and Thor) and the venue's Inbox. Everything else is as yourself; "
+		+ "(advanced) — the venue's own agents (the gods: Odin, Thor, Njord and Eir) and the venue's Inbox. Everything else is as yourself; "
 		+ APP_NAME + " starts as you on every launch.";
 	private static final String NAME_HINT = "What " + APP_NAME + " and other people call you. Changing it does not change "
 		+ "your identity.";

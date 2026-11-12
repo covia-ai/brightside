@@ -36,7 +36,7 @@ owns it.
 | Skills, tools and memory | `SKILLS.md` |
 | Startup, takeover, restart and relaunch, store repair, tray, exit | `LAUNCH.md` |
 | Venue, user and agent principals | `IDENTITY.md` |
-| The gods; Odin, Thor, Njord; the treasury | `GODS.md`, `ODIN.md`, `THOR.md`, `NJORD.md`, `TREASURY.md`, `PAYMENTS.md` |
+| The gods; Odin, Thor, Njord, Eir; the treasury | `GODS.md`, `ODIN.md`, `THOR.md`, `NJORD.md`, `EIR.md`, `TREASURY.md`, `PAYMENTS.md` |
 | Vault, keys, recovery, network exposure | `SECURITY.md` |
 | First run, unlock, recovery, settings | `ONBOARDING.md` |
 | `config.json`, files, integrations, reaching the venue from other tools | `CONFIGURATION.md` |

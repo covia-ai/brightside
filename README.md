@@ -50,8 +50,9 @@ conversation is a click away, and it can read its own history when you ask
 what you talked about last week.
 
 **It has a team.** Your assistant stays ordinary on purpose: it reads untrusted
-content all day, so it never holds the keys. Three super-user agents do —
-**Odin** the administrator, **Thor** the guardian and **Njord** the treasurer.
+content all day, so it never holds the keys. Four super-user agents do —
+**Odin** the administrator, **Thor** the guardian, **Njord** the treasurer
+and **Eir** the healer.
 They answer to you alone, check one another, and bring any decision that is
 yours to your Inbox ([docs/GODS.md](docs/GODS.md)).
 

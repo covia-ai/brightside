@@ -140,8 +140,8 @@ reveals. Descriptions live in the skill files; this is the shape.
 - `lattice` — structured data and its scopes, with the edit tools → Covia's
   `assets`, `secrets`.
 - `files` — Brightside's file roots with the file tools → `vault`, `dlfs`.
-- `diagnostics` — job records with the read-only and job tools → `sessions`,
-  `brightside-logs`.
+- `diagnostics` — job records with the read-only and job tools, and asking
+  Eir to repair a fault ([EIR.md](EIR.md)) → `sessions`, `brightside-logs`.
 - `harness` — how Brightside works internally → `etch`, `convex-lattice`.
 - `automation` — reminders and routines with the scheduler tools → Covia's
   `tasks` and `orchestration`, Brightside's `hitl`.

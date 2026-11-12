@@ -1,9 +1,9 @@
 {
   "name": "diagnostics",
-  "description": "Diagnosing Tau from read-only evidence: what happened to a job, why work failed, stalled or never ran. Load for failures, stuck or slow work, audit trails or errors; then sessions for a conversation's transcript, tool calls and exact model context, brightside-logs for the application's logs.",
+  "description": "Diagnosing Tau from read-only evidence: what happened to a job, why work failed, stalled or never ran, and asking Eir to repair a fault in Tau itself. Load for failures, stuck or slow work, audit trails or errors; then sessions for a conversation's transcript, tool calls and exact model context, brightside-logs for the application's logs.",
   "content": {
     "contentType": "text/markdown",
-    "inline": "# Diagnostics\n\nRead existing evidence before retrying: a retry can create a second job. Jobs are the general evidence — durable execution records under `j/`. List or inspect `j` to find IDs, then read `j/<id>` for the exact record: the operation, caller, input, status and timestamps, plus output or error when terminal; its `prev` chain keeps earlier states. Slice or aggregate a large history rather than reading it whole. Job-status polls a known job without starting work; job-result fetches a known job's result — check status first and wait a bounded time for unfinished work. Read-only operations may intentionally leave no job.\n\nDo not diagnose by rerunning the operation. Distinguish a long-running STARTED job from a failed one, and report observed state separately from inference.\n\nNarrower evidence has its own skill:\n\n- **sessions** — a conversation's transcript, raw frames, tool activity and the exact model context.\n- **brightside-logs** — the application's rolling log files.\n"
+    "inline": "# Diagnostics\n\nRead existing evidence before retrying: a retry can create a second job. Jobs are the general evidence — durable execution records under `j/`. List or inspect `j` to find IDs, then read `j/<id>` for the exact record: the operation, caller, input, status and timestamps, plus output or error when terminal; its `prev` chain keeps earlier states. Slice or aggregate a large history rather than reading it whole. Job-status polls a known job without starting work; job-result fetches a known job's result — check status first and wait a bounded time for unfinished work. Read-only operations may intentionally leave no job.\n\nDo not diagnose by rerunning the operation. Distinguish a long-running STARTED job from a failed one, and report observed state separately from inference.\n\nA fault in Tau itself is Eir's to repair: an agent stopped by a fault, a setup error (a model route, a tool or skill that does not resolve, an adapter or MCP server that is down), a skill that does not load, something an upgrade left out of date. Ask her with `ask_eir`, giving the exact error and when it started. A task that went wrong, or a tool that rejected bad input, is not a fault: fix your own work instead. Eir repairs what loses nothing and asks the owner before anything else; tell the owner which she did.\n\nNarrower evidence has its own skill:\n\n- **sessions** — a conversation's transcript, raw frames, tool activity and the exact model context.\n- **brightside-logs** — the application's rolling log files.\n"
   },
   "skill": {
     "tools": [
@@ -13,7 +13,8 @@
       "v/ops/covia/slice",
       "v/ops/covia/aggregate",
       "v/ops/job/status",
-      "v/ops/job/result"
+      "v/ops/job/result",
+      "v/ops/brightside/ask-eir"
     ],
     "skills": [
       "v/skills/brightside/diagnostics/sessions",

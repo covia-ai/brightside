@@ -1,6 +1,7 @@
 package brightside;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -42,6 +43,7 @@ class StartupTest {
 				assertNull(report.from(), "a store never started by this pass has no versions");
 				assertTrue(report.problems().isEmpty(), "with no model chosen there is nothing to check: " + report.problems());
 				assertNull(first.agentRecord(first.did(), Thor.AGENT_ID), "and no god is made before one is");
+				assertNull(first.startupRepair(), "nor is Eir asked anything");
 
 				first.brightside().saveModel(TASK_LLM);
 				Gods.ensureAll(first, TASK_LLM);
@@ -64,6 +66,8 @@ class StartupTest {
 				assertTrue(God.configured(second.agentRecord(second.did(), Odin.AGENT_ID), Odin.GOD.config(TASK_LLM)),
 					"Odin is as he should be, unrestricted");
 				assertEquals(report.to(), second.brightside().startupVersions(), "this start's versions are recorded");
+				assertNotNull(second.startupRepair(), "an upgrade asks Eir to check the owner's account");
+				assertNotNull(second.startupRepair().get(TIMEOUT_SECONDS, TimeUnit.SECONDS), "and she answers");
 			}
 		}
 	}

@@ -21,6 +21,7 @@ guide and points here.
 | `docs/ODIN.md` | Odin, a sub-article of GODS.md: why an administrator, what he may do, how he judges, checking the other gods |
 | `docs/THOR.md` | Thor, a sub-article of GODS.md: why a guardian, responding to reported threats, what he may and may never change, known limits |
 | `docs/NJORD.md` | Njord, a sub-article of GODS.md: why a treasurer, custody of the keys, how he judges a payment, known limits |
+| `docs/EIR.md` | Eir, a sub-article of GODS.md: why a healer, what reaches her, what she repairs and what she asks first, upgrades, known limits |
 | `docs/TREASURY.md` | the treasury Njord spends through: rails, currencies and accounts, spend limits, budgets, paying, grants and operations, what is not built yet |
 | `docs/PAYMENTS.md` | how a payment will settle a payable the treasury recorded first, so it is paid at most once; ahead of the code |
 | `docs/SECURITY.md` | the recovery invariant, key hierarchy, algorithms, file roles, recovery procedure, network exposure, limitations |
