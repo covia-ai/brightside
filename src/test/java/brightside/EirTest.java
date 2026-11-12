@@ -140,10 +140,15 @@ class EirTest {
 	@Test
 	void aStartAsksEirOnlyWhenItFoundSomething() {
 		AMap<AString, ACell> now = Maps.of("brightside", "2", "covia", "2");
-		assertNull(Eir.afterStart(new Startup.Report(null, now, List.of()), userDID), "a first start");
-		assertNull(Eir.afterStart(new Startup.Report(now, now, List.of()), userDID), "the same build again");
-		assertNotNull(Eir.afterStart(new Startup.Report(now, now, List.of("Thor is stopped.")), userDID), "a problem");
-		assertNotNull(Eir.afterStart(new Startup.Report(Maps.of("brightside", "1", "covia", "1"), now, List.of()), userDID),
+		assertNull(Eir.afterStart(new Startup.Report(null, now, List.of()), null, userDID), "a first start");
+		assertNull(Eir.afterStart(new Startup.Report(now, now, List.of()), null, userDID), "the same build again");
+		Startup.Report stopped = new Startup.Report(now, now, List.of("Thor is stopped."));
+		assertNotNull(Eir.afterStart(stopped, null, userDID), "a problem");
+		assertNull(Eir.afterStart(stopped, Eir.problems(stopped), userDID),
+			"but not the same problem again, as after a restart she brought about");
+		assertNotNull(Eir.afterStart(new Startup.Report(now, now, List.of("Odin is stopped.")), Eir.problems(stopped), userDID),
+			"a different one is new");
+		assertNotNull(Eir.afterStart(new Startup.Report(Maps.of("brightside", "1", "covia", "1"), now, List.of()), null, userDID),
 			"an upgrade");
 	}
 

@@ -7,8 +7,10 @@ import java.util.concurrent.CompletableFuture;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
+import convex.core.data.AVector;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
+import convex.core.data.Vectors;
 import convex.core.lang.RT;
 import covia.grid.Job;
 import covia.grid.Venue;
@@ -187,14 +189,17 @@ public final class Eir {
 
 	/**
 	 * What Tau asks Eir after a start: the problems its startup check could not
-	 * repair, and the account check an upgrade calls for. Null when the start
-	 * found nothing for her.
+	 * repair, unless she was already asked about exactly these, and the account
+	 * check an upgrade calls for. Null when the start found nothing new for her.
+	 * A god's problem is beyond her reach but for a restart, which comes back
+	 * here: asking once is what keeps that from going round.
 	 *
+	 * @param asked    the problems she was last asked about ({@link #problems}), or null
 	 * @param ownerDID the owner's user DID, or null if none is bound yet
 	 */
-	static String afterStart(Startup.Report report, String ownerDID) {
+	static String afterStart(Startup.Report report, ACell asked, String ownerDID) {
 		StringBuilder request = new StringBuilder();
-		if (!report.problems().isEmpty()) {
+		if (!report.problems().isEmpty() && !problems(report).equals(asked)) {
 			request.append("Tau's startup check found problems it could not repair. It has already re-applied"
 				+ " each god's configuration and resumed any stopped by a fault, so starting again will not"
 				+ " help by itself:\n");
@@ -219,6 +224,11 @@ public final class Eir {
 	public static String afterFault(String agentId, String error) {
 		return "The owner's assistant " + agentId + " is stopped by a fault. Tau has already re-applied its configuration and resumed it, and it failed"
 			+ " again" + (error != null ? ": " + error : ".") + " Diagnose and repair it.";
+	}
+
+	/** A start's problems as Tau records them once Eir has been asked. */
+	static AVector<ACell> problems(Startup.Report report) {
+		return Vectors.of(report.problems().stream().map(Strings::create).toArray(ACell[]::new));
 	}
 
 	private static String versions(AMap<AString, ACell> v) {

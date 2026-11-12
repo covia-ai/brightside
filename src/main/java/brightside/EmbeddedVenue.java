@@ -74,8 +74,10 @@ public final class EmbeddedVenue implements AutoCloseable {
 		if (startup == null) return null;
 		String venueDID = did();
 		if (agentRecord(venueDID, Eir.AGENT_ID) == null) return null;
-		Identity owner = Identity.fromCell(brightside().owner());
-		String request = Eir.afterStart(startup, (owner != null) ? owner.userDID(venueDID) : null);
+		BrightsideAdapter brightside = brightside();
+		Identity owner = Identity.fromCell(brightside.owner());
+		String request = Eir.afterStart(startup, brightside.startupAsked(), (owner != null) ? owner.userDID(venueDID) : null);
+		brightside.saveStartupAsked(startup.problems().isEmpty() ? null : Eir.problems(startup));
 		if (request == null) return null;
 		log.info("Asking Eir to look at this start: {}", request);
 		return Eir.ask(operator(), request, null).exceptionally(e -> {

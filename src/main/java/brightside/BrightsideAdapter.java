@@ -237,6 +237,23 @@ public class BrightsideAdapter extends AAdapter {
 		adapterState().write(STARTUP_VERSIONS, versions);
 	}
 
+	/**
+	 * Where the startup problems Eir was last asked about sit, so a start that
+	 * finds the same ones — her own restart among them — does not ask again.
+	 */
+	static final String STARTUP_ASKED = "startup/asked";
+
+	/** The startup problems Eir was last asked about, or null if none. */
+	ACell startupAsked() {
+		return adapterState().read(STARTUP_ASKED);
+	}
+
+	/** Records the problems Eir has been asked about; null clears them. */
+	void saveStartupAsked(ACell problems) {
+		if (problems == null) adapterState().delete(STARTUP_ASKED);
+		else adapterState().write(STARTUP_ASKED, problems);
+	}
+
 	/** Where the owner's identity sits in this adapter's state: one for the installation. */
 	static final String OWNER = "owner";
 

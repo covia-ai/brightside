@@ -46,6 +46,8 @@ Tau asks her by itself, as the venue operator or as the owner:
   repair: a god missing, misconfigured or still stopped by a fault
   ([LAUNCH.md](LAUNCH.md#the-startup-pass)). The request says the pass has
   already re-applied and resumed, so starting again will not help by itself.
+  She is asked once about a given set of problems: a later start that finds
+  the same ones, as after a restart she brought about, does not ask again.
 - **After an upgrade**, once per new version: she checks the owner's account
   against it.
 - **When the owner's assistant stays stopped by a fault** after Tau resumed it
