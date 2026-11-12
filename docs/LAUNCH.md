@@ -255,13 +255,19 @@ stops. `RestartTest` runs both on a venue whose app does nothing.
 
 ## Exit and flush
 
-`exit()` closes the session view's feed and subscription, stops the inbox
-watcher, hides the window, removes the tray icon and closes
+`exit()` closes the session view's feed and subscription, closes the inbox
+binding, hides the window, removes the tray icon and closes
 the `VenueServer` on a background thread before `System.exit`. A launch still
 in progress is waited for first (bounded), so a quit from the unlock dialog
 mid-boot still ends with a cleanly closed store. A Convex `Shutdown` hook at
-`SERVICE`, the level Covia gives embedders, does the same on Ctrl-C and SIGTERM. `EmbeddedVenue.close()` is
-idempotent.
+`SERVICE`, the level Covia gives embedders, does the same on Ctrl-C and SIGTERM.
+
+The JVM can start shutting down while the exit thread is still closing: on
+Ctrl-C, or when its last non-daemon thread ends, since the exit thread is a
+daemon. Convex's Etch hook closes the store file at the later `ETCH` level, so
+`EmbeddedVenue.close()` is idempotent in the way `VenueServer.close()` is: a
+second caller waits for a close under way to finish, and the `SERVICE` hook
+holds the store open until the venue's final save is done.
 
 ## When the store was not closed cleanly
 

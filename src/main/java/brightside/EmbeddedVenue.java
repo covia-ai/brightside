@@ -2,7 +2,6 @@ package brightside;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.slf4j.Logger;
@@ -36,7 +35,6 @@ public final class EmbeddedVenue implements AutoCloseable {
 
 	private final VenueServer server;
 	private final Startup.Report startup;
-	private final AtomicBoolean closed = new AtomicBoolean();
 	private CompletableFuture<ACell> repair;
 
 	private EmbeddedVenue(VenueServer server, Startup.Report startup) {
@@ -403,10 +401,15 @@ public final class EmbeddedVenue implements AutoCloseable {
 		return (name == null || name.toString().isBlank()) ? "Covia Venue" : name.toString();
 	}
 
-	/** Flushes venue state and stops the server. Idempotent. */
+	/**
+	 * Flushes venue state, stops the server and closes the store. Idempotent: a
+	 * caller that finds a close under way waits for it to finish, as
+	 * {@link VenueServer#close()} does. Exit closes the venue on its own thread
+	 * and the JVM's shutdown hook closes it again, and Convex's Etch hook closes
+	 * the store file after that, so the hook must not return before the save.
+	 */
 	@Override
 	public void close() {
-		if (!closed.compareAndSet(false, true)) return;
 		server.close();
 	}
 }
