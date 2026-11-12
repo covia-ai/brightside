@@ -128,6 +128,8 @@ Brightside's defaults:
 - anonymous HTTP and MCP access disabled; local tools must authenticate
 - auto-create users
 - the MCP endpoint enabled at `http://127.0.0.1:8085/mcp`
+- `maxToolIterations` 1000, so an agent's turn is not cut off after Covia's
+  default of 30 tool calls
 
 ### Convex peer
 

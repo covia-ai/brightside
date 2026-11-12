@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import brightside.AppConfig;
+import convex.core.data.Maps;
 import covia.api.Fields;
 import covia.venue.Config;
 
@@ -39,6 +40,8 @@ class AppConfigTest {
 		Config venue = new Config(c.venueConfig());
 		assertFalse(venue.isPublicAccess(), "anonymous venue access is disabled");
 		assertTrue(venue.isMCPAuthRequired(), "MCP requires a bearer-authenticated caller");
+		assertTrue(venue.getMaxToolIterations() > new Config(Maps.empty()).getMaxToolIterations(),
+			"a turn may make more tool calls than Covia's default allows");
 	}
 
 	@Test

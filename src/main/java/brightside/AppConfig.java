@@ -198,6 +198,10 @@ public final class AppConfig {
 			// This is a private personal venue: HTTP and MCP require authentication.
 			Config.AUTH, Maps.of(Config.PUBLIC, Maps.of(Config.ENABLED, false)),
 			Config.ALLOW_PRIVATE_NETWORK, true,
+			// A turn is not cut off after Covia's default of 30 tool calls: long
+			// work such as working through a feed needs more. Covia should have
+			// no default limit at all (covia#694).
+			Config.MAX_TOOL_ITERATIONS, 1000L,
 			// Confined host-file roots: a durable area Tau may manage, the
 			// source checkouts the assistant works on (Tau's own at
 			// code/brightside, see ClaudeCode), and a server-enforced read-only
