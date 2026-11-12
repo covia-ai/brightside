@@ -141,7 +141,7 @@ public final class ConvexRail implements Rail {
 				K_SOURCE, Strings.create("(transfer " + to + " " + amount + ")")));
 			// The key is used where it is kept, under a grant for that user alone.
 			ACell grant = new VenueGrants(engine).grant(Strings.create(engine.getDIDString()), Vectors.of(
-				VenueGrants.cap(custody, Abilities.USER_SUDO),
+				VenueGrants.cap(custody, Abilities.ADMIN_SUDO),
 				VenueGrants.cap(Strings.create(custody + "/"), Strings.create("*"))));
 			asVenue = RequestContext.of(engine.getDIDString()).withProofs(Vectors.of(grant));
 			sudo = Maps.of(K_DID, custody, K_OPERATION, Strings.create(OP_TRANSACT), K_INPUT, transfer);

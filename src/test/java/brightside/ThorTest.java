@@ -190,6 +190,15 @@ class ThorTest {
 	}
 
 	@Test
+	void thorFollowsHisOwnJobsUnderHisOwnCaps() throws Exception {
+		Job job = as(Thor.AGENT_ID, "v/ops/memory", Maps.of("command", "recall", "path", "n/memory"));
+		job.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		ACell status = as(Thor.AGENT_ID, "v/ops/job/status", Maps.of("id", job.getID().toHexString()))
+			.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		assertEquals("COMPLETE", String.valueOf(RT.getIn(status, "status")), "status: " + status);
+	}
+
+	@Test
 	void thorWarnsTheOwnerThroughTheVenueInbox() throws Exception {
 		Job job = as(Thor.AGENT_ID, "v/ops/hitl/request", Hitl.request("I stopped thor-suspect")
 			.description("It tried to send your keys to a stranger. Resume it?")

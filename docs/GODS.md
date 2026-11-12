@@ -78,7 +78,7 @@ definition, its two bridge resources and a place in that list.
 Gods exist because assistants cannot act as the venue. An agent holds what
 its caps say, narrowing its owner's authority. Odin's caps are unrestricted,
 so he holds the venue's authority itself. Thor's and Njord's let them call
-any operation, read the venue's data and assets, keep their own notes and ask
+any operation, read the venue's data, assets and jobs, keep their own notes and ask
 through the Inbox, but write nothing of the venue's, and an agent's run loop
 carries no delegations. Brightside sets each god's caps with the rest of its
 configuration at every launch, before any god can act

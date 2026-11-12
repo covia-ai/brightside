@@ -740,7 +740,7 @@ public class BrightsideAdapter extends AAdapter {
 	 * sub-principal and the bridge supplies the operator context — for one of
 	 * the god's venue operations, or for one of its namespace operations run on
 	 * a user's behalf through {@code user:sudo} under a per-call venue-rooted
-	 * {@code user/sudo} delegation. The god's allowlists, not the caller, bound
+	 * {@code admin/sudo} delegation. The god's allowlists, not the caller, bound
 	 * what the venue context is lent for. For a god with an overseer, anything
 	 * that changes state needs a {@code reason}, and is reported once it is done.
 	 */
@@ -821,7 +821,7 @@ public class BrightsideAdapter extends AAdapter {
 			// namespace scope as well as the sudo right. The allowlist above is what
 			// bounds the operation; the scope only lets its points of action pass.
 			ACell proof = venueGrant(venueDID, Vectors.of(
-				cap(user, Abilities.USER_SUDO),
+				cap(user, Abilities.ADMIN_SUDO),
 				cap(Strings.create(user + "/"), Strings.create("*"))));
 			RequestContext operator = RequestContext.of(venueDID).withProofs(Vectors.of(proof));
 			AMap<AString, ACell> sudo = Maps.of(K_DID_FIELD, user, K_OPERATION, operation, K_INPUT, operationInput);

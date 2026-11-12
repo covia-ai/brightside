@@ -80,7 +80,7 @@ public record God(String id, String ask, String run, String overseer, String kee
 	/**
 	 * The caps of a god that is not {@link #unrestricted}, in the venue's
 	 * namespace: call any operation (each still checks what it touches), read
-	 * the venue's data and assets, keep its own notes (its memory) and ask the
+	 * the venue's data, assets and jobs, keep its own notes (its memory) and ask the
 	 * owner through the venue's Inbox. Nothing here writes the venue's state or
 	 * the treasury: that goes through its run bridge.
 	 */
@@ -88,6 +88,7 @@ public record God(String id, String ask, String run, String overseer, String kee
 		cap("v/ops/", "invoke"),
 		cap("", "crud/read"),
 		cap("", "asset/read"),
+		cap("j/", "job/read"),
 		cap("n/", "crud/write"),
 		cap("h/", "hitl/request"));
 
