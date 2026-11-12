@@ -111,7 +111,7 @@ public final class Thor {
 	public static final God GOD = new God(AGENT_ID, "alert-thor", "thor-run", Odin.AGENT_ID, SYSTEM_PROMPT,
 		"threats seen and the owner's decisions",
 		List.of("v/ops/brightside/ask-odin", "v/ops/hitl/request", "v/ops/hitl/list",
-			"v/ops/grid/job-status", "v/ops/grid/job-result"),
+			"v/ops/job/status", "v/ops/job/result"),
 		VENUE_OPERATIONS, SUDO_OPERATIONS);
 
 	/** How an assistant reports a suspected attack (callable by any authenticated user or their agents). */

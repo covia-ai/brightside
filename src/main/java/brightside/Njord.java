@@ -95,7 +95,7 @@ public final class Njord {
 	public static final God GOD = new God(AGENT_ID, "ask-njord", "njord-run", Odin.AGENT_ID, TREASURY,
 		SYSTEM_PROMPT, "the owner's budgets, approved recipients, objectives and what you have paid",
 		List.of("v/ops/convex/query", "v/ops/brightside/alert-thor", "v/ops/hitl/request", "v/ops/hitl/list",
-			"v/ops/grid/job-status", "v/ops/grid/job-result"),
+			"v/ops/job/status", "v/ops/job/result"),
 		Set.of(), SUDO_OPERATIONS, TREASURY_OPERATIONS, false);
 
 	/** How an assistant asks for a payment or transaction (callable by any authenticated user or their agents). */

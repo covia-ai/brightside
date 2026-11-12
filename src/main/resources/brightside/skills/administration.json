@@ -8,8 +8,8 @@
   "skill": {
     "tools": [
       "v/ops/brightside/ask-odin",
-      "v/ops/grid/job-status",
-      "v/ops/grid/job-result"
+      "v/ops/job/status",
+      "v/ops/job/result"
     ]
   }
 }

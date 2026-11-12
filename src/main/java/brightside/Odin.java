@@ -150,7 +150,7 @@ public final class Odin {
 	public static final God GOD = new God(AGENT_ID, "ask-odin", "odin-run", null, SYSTEM_PROMPT,
 		"the owner's decisions",
 		List.of("v/ops/brightside/alert-thor", "v/ops/hitl/request", "v/ops/hitl/list",
-			"v/ops/grid/job-status", "v/ops/grid/job-result"),
+			"v/ops/job/status", "v/ops/job/result"),
 		VENUE_OPERATIONS, SUDO_OPERATIONS).asUnrestricted();
 
 	/** How an assistant asks Odin (callable by any authenticated user or their agents). */
