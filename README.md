@@ -99,7 +99,7 @@ Ideas and disagreement are welcome — open an issue.
 
 ## Try it
 
-You need **Java 21+** (25 recommended) and **Maven 3.7+**.
+You need **Java 21+** (25 recommended) and **Maven 3.9+**.
 
 ```bash
 git clone https://github.com/covia-ai/brightside.git
