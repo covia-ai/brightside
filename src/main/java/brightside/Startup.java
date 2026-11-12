@@ -6,6 +6,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import brightside.chat.AgentSetup;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
@@ -48,8 +49,16 @@ public final class Startup {
 	 * @param from     the Brightside and Covia versions the store last started under, or null if never recorded
 	 * @param to       this start's versions
 	 * @param problems what verification found, in words for the owner; empty when all is well
+	 * @param setupChanged whether what Tau brings its agents up to date with, its standard setup and
+	 *                 shipped skills ({@link AgentSetup#fingerprint}), differs from the last start's
 	 */
-	public record Report(AMap<AString, ACell> from, AMap<AString, ACell> to, List<String> problems) {
+	public record Report(AMap<AString, ACell> from, AMap<AString, ACell> to, List<String> problems,
+			boolean setupChanged) {
+		/** A report whose agent setup is as the last start left it. */
+		public Report(AMap<AString, ACell> from, AMap<AString, ACell> to, List<String> problems) {
+			this(from, to, problems, false);
+		}
+
 		/** Whether this build differs from the one the store last started under. */
 		public boolean upgraded() {
 			return from != null && !from.equals(to);
@@ -64,8 +73,13 @@ public final class Startup {
 		String model = brightside.model();
 		if (model != null) Gods.ensureAll(engine, model);
 		List<String> problems = verify(engine, model);
+		// A store that never started has no agents of the owner's to bring up to date.
+		String setup = AgentSetup.fingerprint();
+		ACell recorded = brightside.startupSetup();
+		boolean setupChanged = from != null && (recorded == null || !setup.equals(recorded.toString()));
 		brightside.saveStartupVersions(to);
-		return new Report(from, to, problems);
+		brightside.saveStartupSetup(setup);
+		return new Report(from, to, problems, setupChanged);
 	}
 
 	private static void migrate(AMap<AString, ACell> from, AMap<AString, ACell> to) {

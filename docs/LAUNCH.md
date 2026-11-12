@@ -110,9 +110,10 @@ fails the launch.
 3. **Verify.** Each god must be there, configured as it should be and not
    stopped by a fault; anything else is logged and shown to the owner.
 
-Once the venue is serving, Brightside asks Eir to repair what verification
-found, and after an upgrade to check the owner's account against the new
-version ([EIR.md](EIR.md)).
+The pass also records a fingerprint of Tau's standard agent setup and shipped
+skills. Once the venue is serving, Brightside asks Eir to repair what
+verification found, and, after an upgrade or when that fingerprint changed, to
+bring the owner's account up to date ([EIR.md](EIR.md)).
 
 The versions are recorded last, so a start that stops before then counts as
 an upgrade again. `StartupTest` launches a store twice and checks a god left

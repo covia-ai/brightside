@@ -13,11 +13,13 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 
+import brightside.chat.AgentSetup;
 import brightside.vault.Vault;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
 import convex.core.data.Maps;
+import convex.core.data.Strings;
 import convex.core.data.prim.CVMLong;
 import covia.api.Fields;
 import covia.venue.Config;
@@ -52,11 +54,15 @@ class StartupTest {
 					Fields.CONFIG, Maps.of("caps", Config.UNRESTRICTED))).get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
 					.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 				first.brightside().saveStartupVersions(Maps.of("brightside", "0.0.1", "covia", "0.0.1"));
+				first.brightside().saveStartupSetup("an older setup");
 			}
 
 			try (EmbeddedVenue second = launch(home)) {
 				Startup.Report report = second.startup();
 				assertTrue(report.upgraded(), "an older build's store is an upgrade: " + report);
+				assertTrue(report.setupChanged(), "with an older agent setup");
+				assertEquals(Strings.create(AgentSetup.fingerprint()), second.brightside().startupSetup(),
+					"this start's setup is recorded");
 				assertTrue(report.problems().isEmpty(), "and every god checks out: " + report.problems());
 				ACell thor = second.agentRecord(second.did(), Thor.AGENT_ID);
 				assertTrue(God.configured(thor, Thor.GOD.config(TASK_LLM)), "Thor is back to his own caps");

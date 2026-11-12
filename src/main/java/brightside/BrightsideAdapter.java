@@ -4,6 +4,8 @@ import static brightside.BrightSide.APP_NAME;
 
 import java.util.concurrent.CompletableFuture;
 
+import brightside.chat.AgentSetup;
+import brightside.chat.ChatSession;
 import brightside.model.Providers;
 
 import java.util.List;
@@ -102,6 +104,11 @@ public class BrightsideAdapter extends AAdapter {
 	private static final AString K_ERROR = Strings.intern("error");
 	private static final AString K_REPORTER = Strings.intern("reporter");
 	private static final AString K_AGENT_ID = Strings.intern("agentId");
+	private static final AString K_OUTCOME = Strings.intern("outcome");
+	private static final AString K_RESUMED = Strings.intern("resumed");
+	private static final String OP_AGENT_INFO = "v/ops/agent/info";
+	private static final String OP_AGENT_UPDATE = "v/ops/agent/update";
+	private static final String OP_AGENT_RESUME = "v/ops/agent/resume";
 	private static final AString K_SESSION_ID = Strings.intern("sessionId");
 	private static final AString K_USER_NAME = Strings.intern("userName");
 	private static final AString K_MODEL_OPERATION = Strings.intern("modelOperation");
@@ -237,6 +244,18 @@ public class BrightsideAdapter extends AAdapter {
 		adapterState().write(STARTUP_VERSIONS, versions);
 	}
 
+	/** Where the fingerprint of the agent setup the store last started with sits ({@link AgentSetup#fingerprint}). */
+	static final String STARTUP_SETUP = "startup/setup";
+
+	/** The agent setup fingerprint the store last started with, or null if never recorded. */
+	ACell startupSetup() {
+		return adapterState().read(STARTUP_SETUP);
+	}
+
+	void saveStartupSetup(String fingerprint) {
+		adapterState().write(STARTUP_SETUP, Strings.create(fingerprint));
+	}
+
 	/**
 	 * Where the startup problems Eir was last asked about sit, so a start that
 	 * finds the same ones — her own restart among them — does not ask again.
@@ -329,6 +348,7 @@ public class BrightsideAdapter extends AAdapter {
 		installAsset("brightside/restart", "/adapters/brightside/restart.json");
 		installAsset("brightside/relaunch", "/adapters/brightside/relaunch.json");
 		installAsset("brightside/storage", "/adapters/brightside/storage.json");
+		installAsset("brightside/upgrade-agent", "/adapters/brightside/upgrade-agent.json");
 		for (God god : Gods.ALL) {
 			installAsset("brightside/" + god.ask(), "/adapters/brightside/" + god.ask() + ".json");
 			installAsset("brightside/" + god.run(), "/adapters/brightside/" + god.run() + ".json");
@@ -361,6 +381,9 @@ public class BrightsideAdapter extends AAdapter {
 		}
 		if ("storage".equals(op)) {
 			return handleStorage(ctx, input);
+		}
+		if ("upgrade-agent".equals(op)) {
+			return handleUpgradeAgent(ctx, input);
 		}
 		God god = Gods.byBridge(op);
 		if (god != null) {
@@ -446,6 +469,53 @@ public class BrightsideAdapter extends AAdapter {
 		} else {
 			text.append("- Model processing uses ").append(operation)
 				.append("; do not assume that operation runs locally.\n");
+		}
+	}
+
+	/**
+	 * Brings one of the caller's agents that Tau made onto Tau's current setup:
+	 * only its standard parts ({@link AgentSetup#STANDARD}), keeping its prompt,
+	 * model, name, caps and the owner's own pins, and the model and owner's name
+	 * its Tau context load was told. An agent without that load is not Tau's and
+	 * is refused. It runs as the caller, in the caller's namespace, so it gives
+	 * nobody more than they hold, and it creates nothing: Eir runs it, and making
+	 * agents is not hers. An agent already up to date costs no update; one a
+	 * failed turn suspended is resumed, one stopped on purpose stays stopped.
+	 */
+	private CompletableFuture<ACell> handleUpgradeAgent(RequestContext ctx, ACell input) {
+		try {
+			AString agentId = Strings.create(requiredText(input, K_AGENT_ID, 200));
+			return engine.jobs().invokeInternal(OP_AGENT_INFO, Maps.of(Fields.AGENT_ID, agentId), ctx)
+				.thenCompose(info -> {
+					ACell held = RT.getIn(info, Fields.CONFIG);
+					@SuppressWarnings("unchecked")
+					AMap<AString, ACell> loads = (RT.getIn(held, Fields.LOADS) instanceof AMap<?, ?> m)
+						? (AMap<AString, ACell>) m : null;
+					String[] told = AgentSetup.contextInput(loads);
+					if (told[0] == null) {
+						throw new InvalidInputException(agentId + " is not an agent " + APP_NAME
+							+ " made: it has no " + ChatSession.CONTEXT_LOAD_KEY + " load");
+					}
+					AString operation = RT.ensureString(RT.getIn(held, Fields.OPERATION));
+					AMap<AString, ACell> update = AgentSetup.standard(AgentSetup.config(
+						(operation != null) ? operation.toString() : AppConfig.DEFAULT_OPERATION,
+						told[0], "", told[1], null, null, loads));
+					boolean current = God.configured(info, update);
+					CompletableFuture<ACell> updated = current ? CompletableFuture.completedFuture(null)
+						: engine.jobs().invokeInternal(OP_AGENT_UPDATE,
+							Maps.of(Fields.AGENT_ID, agentId, Fields.CONFIG, update), ctx);
+					boolean resume = Suspension.byFault(info);
+					return updated
+						.thenCompose(u -> resume
+							? engine.jobs().invokeInternal(OP_AGENT_RESUME, Maps.of(Fields.AGENT_ID, agentId), ctx)
+							: CompletableFuture.completedFuture(null))
+						.thenApply(r -> (ACell) Maps.of(
+							K_AGENT_ID, agentId,
+							K_OUTCOME, Strings.create(current ? "unchanged" : "updated"),
+							K_RESUMED, CVMBool.of(resume)));
+				});
+		} catch (Exception e) {
+			return CompletableFuture.failedFuture(e);
 		}
 	}
 

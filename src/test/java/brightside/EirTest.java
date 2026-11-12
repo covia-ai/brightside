@@ -14,12 +14,14 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import brightside.chat.AgentSetup;
 import brightside.chat.ChatSession;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
+import convex.core.data.Vectors;
 import convex.core.lang.RT;
 import covia.api.Fields;
 import covia.grid.Job;
@@ -101,6 +103,37 @@ class EirTest {
 	}
 
 	@Test
+	void anUpgradeBringsTausPartsUpToDateAndKeepsTheOwners() throws Exception {
+		String agent = "eir-upgrade";
+		new ChatSession(user, echoChat(agent)).ensureAgent();
+		AMap<AString, ACell> narrowed = Maps.of("caps", Vectors.of(Maps.of("with", "w/", "can", "crud/read")));
+		run(user, "v/ops/agent/update", Maps.of(Fields.AGENT_ID, agent, Fields.CONFIG,
+			narrowed.assoc(Strings.create("tools"), Vectors.empty())
+				.assoc(Strings.create("systemPrompt"), Strings.create("The owner's own words."))));
+
+		AMap<AString, ACell> upgrade = Maps.of("operation", "v/ops/brightside/upgrade-agent",
+			"input", Maps.of(Fields.AGENT_ID, agent), "user", userDID, "reason", "Tau's setup changed.");
+		ACell first = asEir(upgrade);
+		assertEquals(Strings.create("updated"), RT.getIn(first, "outcome"), String.valueOf(first));
+		ACell config = RT.getIn(venue.agentRecord(userDID, agent), Fields.CONFIG);
+		assertEquals(RT.getIn(AgentSetup.config(AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "", null,
+			null, null, null), "tools"), RT.getIn(config, "tools"), "Tau's tools are back");
+		assertEquals(Strings.create("The owner's own words."), RT.getIn(config, "systemPrompt"), "the prompt is kept");
+		assertEquals(narrowed.get(Strings.create("caps")), RT.getIn(config, "caps"), "and so are the caps the owner set");
+
+		assertEquals(Strings.create("unchanged"), RT.getIn(asEir(upgrade), "outcome"), "a second upgrade finds nothing to do");
+	}
+
+	@Test
+	void anUpgradeRefusesAnAgentTauDidNotMake() throws Exception {
+		run(user, "v/ops/agent/create", Maps.of(Fields.AGENT_ID, "eir-foreign",
+			Fields.CONFIG, Maps.of("operation", AppConfig.DEFAULT_OPERATION)));
+		assertThrows(Exception.class, () -> run(user, "v/ops/brightside/upgrade-agent",
+			Maps.of(Fields.AGENT_ID, "eir-foreign")), "it has no Tau context load");
+		assertNull(RT.getIn(venue.agentRecord(userDID, "eir-foreign"), Fields.CONFIG, "tools"), "and is left as it was");
+	}
+
+	@Test
 	void eirNeverRevealsSecretsAnswersForTheOwnerOrGrants() {
 		for (String op : new String[] { "v/ops/secret/extract", "v/ops/secret/set", "v/ops/hitl/respond",
 			"v/ops/agent/create", "v/ops/agent/delete", "v/ops/agent/chat", "v/ops/scheduler/schedule" }) {
@@ -150,6 +183,8 @@ class EirTest {
 			"a different one is new");
 		assertNotNull(Eir.afterStart(new Startup.Report(Maps.of("brightside", "1", "covia", "1"), now, List.of()), null, userDID),
 			"an upgrade");
+		assertNotNull(Eir.afterStart(new Startup.Report(now, now, List.of(), true), null, userDID),
+			"a changed agent setup on the same version");
 	}
 
 	private static AppConfig.Chat echoChat(String agentId) {

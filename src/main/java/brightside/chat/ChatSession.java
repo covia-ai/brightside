@@ -13,17 +13,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import brightside.AppConfig;
-import brightside.BrightsideSkillsAdapter;
 import brightside.Eir;
 import brightside.Suspension;
-import brightside.model.Providers;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
-import convex.core.data.Vectors;
-import convex.core.data.prim.CVMBool;
 import convex.core.lang.RT;
 import convex.core.util.JSON;
 import covia.adapter.AgentAdapter;
@@ -32,7 +28,6 @@ import covia.exception.JobFailedException;
 import covia.grid.Job;
 import covia.grid.Status;
 import covia.grid.Venue;
-import covia.venue.Config;
 
 /**
  * One conversation with the configured chat agent on a venue.
@@ -87,7 +82,7 @@ public final class ChatSession {
 	 * skills.)
 	 */
 	public static final String VENUE_SKILLSET = "v/skills/root";
-	private static final String MEMORY_OP = "v/ops/memory";
+	static final String MEMORY_OP = "v/ops/memory";
 	/**
 	 * The bounded, hierarchical read: one call renders a subtree's shape and
 	 * sample values within a byte budget, so the assistant sees the structure
@@ -102,7 +97,7 @@ public final class ChatSession {
 	 * read/write tool and cannot be.
 	 */
 	static final String MEMORY_RECALL_OP = "v/ops/memory-recall";
-	private static final String SKILL_FEEDBACK_OP = "v/ops/brightside/report-skill-feedback";
+	static final String SKILL_FEEDBACK_OP = "v/ops/brightside/report-skill-feedback";
 	/**
 	 * The harness's conversation-compaction control. Covia offers it only to an
 	 * agent that names it (covia#464): without it the context-budget notice at
@@ -260,59 +255,8 @@ public final class ChatSession {
 		if (agentReady) return true;
 		ACell info = agentInfo();
 		String status = agentStatus(info);
-		AMap<AString, ACell> desiredLoads = desiredLoads(configuredLoads(info));
-		Providers.Route route = Providers.route(config.llmOperation());
-		AMap<AString, ACell> agentConfig = Maps.of(
-			Fields.OPERATION, config.operation(),
-			"llmOperation", route.operation(),
-			"model", route.model(),
-			"systemPrompt", config.systemPrompt(),
-			// Read-only workspace access (covia read/list) on top of the tools
-			// below — so it can look into its own namespace out of the box.
-			"defaultTools", true,
-			// The bounded inspect (the default pack stops at read and list), the
-			// memory tool, a narrow append-only channel for concrete skill misses,
-			// and the harness's compact control so a long conversation can be
-			// summarised in place. None exposes general workspace mutation.
-			// Broader capabilities (writes, HTTP, files, agents, telegram/discord…)
-			// arrive by discovering and loading the skills that grant them — see
-			// skillsets below — so authority stays deliberate rather than always-on.
-			"tools", Vectors.of(Strings.create(INSPECT_OP), Strings.create(MEMORY_OP),
-				Strings.create(SKILL_FEEDBACK_OP), Strings.create(COMPACT_TOOL)),
-			"toolCallTimeoutMs", TOOL_CALL_TIMEOUT_MS,
-			// Pin memory into every turn's context, through the read-only recall op;
-			// the memory tool above is for edits. What the owner is like, shared by
-			// all their assistants (w/memory), then this one's own (n/memory).
-			"context", Vectors.of(
-				Maps.of(
-					"op", MEMORY_RECALL_OP,
-					"input", Maps.of("path", SHARED_MEMORY_PATH),
-					"label", "What you know about the user, shared with their other assistants and empty until one "
-						+ "records something — edit with path " + SHARED_MEMORY_PATH),
-				Maps.of(
-					"op", MEMORY_RECALL_OP,
-					"input", Maps.of("path", MEMORY_PATH),
-					"label", "Your private memory of the user, empty until you record something — edit with path "
-						+ MEMORY_PATH)),
-			// No Brightside skill is pinned by default. The one app-owned load is a
-			// read-only context operation; owner pins are preserved and shipped skills
-			// are selected from their descriptions on demand.
-			"loads", desiredLoads,
-			// Replace the old two-entry compatibility vector. Brightside's complete
-			// skillset below is an explicit source, so lookup does not depend on Covia
-			// #415's unresolved operator-pin child expansion.
-			"skills", Vectors.empty(),
-			// Discovery surface: the user's own skills plus the venue's shipped
-			// library and Brightside's everyday-work skills. The agent loads only the
-			// body (and any tools) relevant to the current task.
-			"skillsets", Vectors.of(
-				Strings.create(USER_SKILLSET),
-				Strings.create(BrightsideSkillsAdapter.SKILLSET),
-				Strings.create(VENUE_SKILLSET)),
-			// The owner's own assistant may do whatever the owner can in their
-			// namespace; an agent left without caps could call no tool at all.
-			"caps", Config.UNRESTRICTED);
-		if (agentName != null) agentConfig = agentConfig.assoc(Strings.create("name"), Strings.create(agentName));
+		AMap<AString, ACell> agentConfig = AgentSetup.config(config.operation(), config.llmOperation(),
+			config.systemPrompt(), userName, agentName, pinnedSkill, configuredLoads(info));
 		AMap<AString, ACell> input = Maps.of(Fields.AGENT_ID, config.agentId(), Fields.CONFIG, agentConfig);
 		if (status != null) {
 			if (!updateExisting) return ready();
@@ -381,29 +325,6 @@ public final class ChatSession {
 	private static AMap<AString, ACell> configuredLoads(ACell info) {
 		ACell loads = RT.getIn(info, Fields.CONFIG, Fields.LOADS);
 		return (loads instanceof AMap<?, ?>) ? (AMap<AString, ACell>) loads : null;
-	}
-
-	/** Owner pins plus Brightside context. */
-	private AMap<AString, ACell> desiredLoads(AMap<AString, ACell> existing) {
-		AMap<AString, ACell> loads = (existing != null) ? existing : Maps.empty();
-
-		if (pinnedSkill != null && !loads.containsKey(Strings.create(pinnedSkill))) {
-			loads = loads.assoc(Strings.create(pinnedSkill), Maps.of(
-				"skill", CVMBool.TRUE,
-				"budget", 8000L,
-				"label", pinnedSkill.substring(pinnedSkill.lastIndexOf('/') + 1)));
-		}
-
-		AMap<AString, ACell> input = Maps.of("modelOperation", config.llmOperation());
-		if (userName != null && !userName.isBlank()) {
-			input = input.assoc(Strings.create("userName"), Strings.create(userName));
-		}
-		return loads.assoc(Strings.create(CONTEXT_LOAD_KEY), Maps.of(
-			"op", CONTEXT_OP,
-			"input", input,
-			"label", APP_NAME + " application context",
-			"budget", 4000L,
-			"volatile", CVMBool.FALSE));
 	}
 
 	/**

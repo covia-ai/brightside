@@ -48,8 +48,9 @@ Tau asks her by itself, as the venue operator or as the owner:
   already re-applied and resumed, so starting again will not help by itself.
   She is asked once about a given set of problems: a later start that finds
   the same ones, as after a restart she brought about, does not ask again.
-- **After an upgrade**, once per new version: she checks the owner's account
-  against it.
+- **After an upgrade**, or when a start finds Tau's standard agent setup or
+  a shipped skill changed since the last one: she brings the owner's account
+  up to date with it.
 - **When the owner's assistant stays stopped by a fault** after Tau resumed it
   and retried the message (`ChatSession`). While she is on it, the same fault
   does not ask her again.
@@ -64,7 +65,8 @@ Inside any of this venue's users' namespaces she can read what a diagnosis
 needs — agents, their sessions and context, skills, workspace data, secret
 names, schedules — and repair agents (re-apply or change a configuration,
 resume, reload context, compact or delete a conversation, cancel a task,
-stop one), skills (import, write, delete) and workspace data. As the venue
+stop one, bring one Tau made onto its current setup), skills (import,
+write, delete) and workspace data. As the venue
 she can read its setup and Tau's log (the read-only `logs` file root),
 enable, disable or configure an adapter, refresh an MCP server, compact the
 store at the next start, and restart or relaunch Tau — the start that brings
@@ -81,12 +83,20 @@ the owner first, saying exactly what would change.
 
 ### Upgrades
 
-After a new version she looks for what it leaves out of date in the owner's
-account. A skill of the owner's in `w/skills` with the name of one Tau ships
+After a new version, or a change to Tau's agent setup or shipped skills, she
+brings the owner's account up to date. Each agent Tau made goes onto Tau's
+current setup through `brightside:upgrade-agent`, which changes only Tau's
+own parts and keeps the agent's prompt, model, name, caps and the owner's
+pins ([SKILLS.md](SKILLS.md#what-the-assistant-starts-with)); that loses
+nothing, so she does it and reports. A skill of the owner's in `w/skills` with the name of one Tau ships
 shadows it ([SKILLS.md](SKILLS.md#namespaces)); when the owner's looks like an
 older copy rather than their own variant, she offers to replace it, showing
 what differs. An agent whose tools or loads name something that no longer
 resolves, or that Covia keeps only for compatibility, gets the same offer.
+
+A loop night that changes a shipped skill or the setup is enough to bring her
+in, so the owner's agents pick up the loop's work the next start. Each agent
+she upgrades is a change Odin is told about.
 
 ## What is never hers
 

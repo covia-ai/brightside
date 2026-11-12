@@ -1,0 +1,28 @@
+{
+	"name": "Upgrade an agent to Tau's current setup",
+	"description": "Brings one of your agents that Tau made onto Tau's current standard setup: its operation, tools, memory pins, skill sources and the Tau context load. Its prompt, model, name, caps and your own pinned skills are kept, so nothing of yours is lost. An agent without the Tau context load is not one Tau made and is refused; nothing is created. An agent already up to date is left as it is. An agent a failed turn suspended is resumed; one stopped on purpose stays stopped.",
+	"operation": {
+		"adapter": "brightside:upgrade-agent",
+		"toolName": "brightside_upgrade_agent",
+		"input": {
+			"type": "object",
+			"properties": {
+				"agentId": {
+					"type": "string",
+					"description": "The agent's id in your namespace, as agent_list shows it.",
+					"minLength": 1,
+					"maxLength": 200
+				}
+			},
+			"required": ["agentId"]
+		},
+		"output": {
+			"type": "object",
+			"properties": {
+				"agentId": { "type": "string" },
+				"outcome": { "type": "string", "enum": ["updated", "unchanged"], "description": "Whether its standard parts were brought up to date or already were." },
+				"resumed": { "type": "boolean", "description": "Whether it was resumed after a failed turn had suspended it." }
+			}
+		}
+	}
+}

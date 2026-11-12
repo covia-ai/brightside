@@ -56,9 +56,10 @@ hold goes in the context line or in the message itself.
 
 ## What the assistant starts with
 
-`ChatSession` applies this configuration on the owner's first message from the
-app after each launch; until then, scheduled runs and other channels use the
-one last applied:
+Every agent Tau makes for the owner, the main assistant and those made from a
+template, gets the same setup from `AgentSetup`. `ChatSession` applies it to the
+main assistant on the owner's first message from the app after each launch;
+until then, scheduled runs and other channels use the one last applied:
 
 - **Skillsets** `w/skills`, `v/skills/brightside`, `v/skills/root`, in that
   order. No skill is pinned, except in an agent made from a template for one
@@ -84,6 +85,15 @@ one last applied:
 The configured system prompt owns the assistant's name and role. Runtime facts
 come from that context load. Working methods and everything optional stay in
 skills. Those three jobs are kept apart on purpose.
+
+Tau's own parts of that setup are the operation, tools, memory pins, skill
+sources and the context load. The prompt, model, name, caps and the owner's
+own pins belong to the agent: they are written when it is created and kept
+after. `brightside:upgrade-agent` brings an existing agent that Tau made (it
+carries the `brightside-context` load) onto Tau's current parts and leaves
+the rest; it creates nothing. When a start finds Tau's parts or a shipped
+skill changed since the last one, Brightside asks Eir to upgrade the owner's
+agents ([EIR.md](EIR.md#upgrades)).
 
 ## How a load works
 

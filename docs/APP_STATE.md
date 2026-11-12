@@ -30,6 +30,7 @@ in the Covia repository).
 | The owner's identity (display name, slug, user DID, operator label) | `owner` | `brightside` |
 | Chosen model | `model` | `brightside` |
 | The Brightside and Covia versions the store last started under ([LAUNCH.md](LAUNCH.md#the-startup-pass)) | `startup/versions` | `brightside` |
+| A fingerprint of the agent setup and shipped skills the store last started with ([SKILLS.md](SKILLS.md#what-the-assistant-starts-with)) | `startup/setup` | `brightside` |
 | The startup problems Eir was last asked about, so the same ones do not ask her again ([EIR.md](EIR.md)) | `startup/asked` | `brightside` |
 | Voice preferences (read aloud, send after a pause) | `voice` | `brightside` |
 | Minimise to the tray, keep the tool token | `tray`, `toolToken` | `brightside` |

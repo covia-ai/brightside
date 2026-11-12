@@ -88,6 +88,7 @@ public final class Eir {
 		"v/ops/agent/compact-session",
 		"v/ops/agent/cancel-task",
 		"v/ops/agent/delete-session",
+		"v/ops/brightside/upgrade-agent",
 		"v/ops/skills/list",
 		"v/ops/skills/read",
 		"v/ops/skills/import",
@@ -135,11 +136,14 @@ public final class Eir {
 		- Changes to Tau itself — users, integrations, access grants — are Odin's: ask him, with your \
 		diagnosis. A fault in Tau's own code is for the owner: say what fails and where.
 
-		After an upgrade, check the owner's account against the new version. A skill of theirs in w/skills \
-		that shares a name with one Tau ships under v/skills/brightside shadows it: when theirs looks like an \
-		older copy rather than their own variant, offer to replace it, showing what differs. An agent whose \
-		tools or loads name something that no longer resolves, or that Covia keeps only for compatibility, gets \
-		the same offer. Leave the owner's own variants and choices alone.
+		After an upgrade, bring the owner's account up to date with it. Each agent of theirs that Tau made \
+		carries the brightside-context load; put it onto Tau's current setup with v/ops/brightside/upgrade-agent, \
+		which changes only Tau's standard parts and keeps the agent's prompt, model, name, caps and the owner's \
+		pins, so it loses nothing: do it and report. A skill of theirs in w/skills that shares a name with one \
+		Tau ships under v/skills/brightside shadows it: when theirs looks like an older copy rather than their \
+		own variant, offer to replace it, showing what differs. An agent whose own tools or loads name something \
+		that no longer resolves, or that Covia keeps only for compatibility, gets the same offer. Leave the \
+		owner's own variants and choices alone.
 
 		Odin checks your work: every change you make is reported to him, with the reason you give, as soon as \
 		it is done. Make the reason true and complete — the fault, its cause, and why this repair. Keep in your \
@@ -206,12 +210,17 @@ public final class Eir {
 			for (String problem : report.problems()) request.append("- ").append(problem).append('\n');
 			request.append("Diagnose and repair them.\n");
 		}
-		if (report.upgraded()) {
+		if (report.upgraded() || report.setupChanged()) {
 			if (!request.isEmpty()) request.append('\n');
-			request.append("Tau has been upgraded: it last started as ").append(versions(report.from()))
-				.append(" and now runs ").append(versions(report.to())).append(". Check ")
+			if (report.upgraded()) {
+				request.append("Tau has been upgraded: it last started as ").append(versions(report.from()))
+					.append(" and now runs ").append(versions(report.to())).append(". ");
+			} else {
+				request.append("Tau's standard agent setup or its shipped skills have changed since it last started. ");
+			}
+			request.append("Bring ")
 				.append((ownerDID != null) ? "the owner's account (" + ownerDID + ")" : "the owner's account")
-				.append(" against the new version and offer the owner any updates it needs.");
+				.append(" up to date with it, as your instructions describe.");
 		}
 		return request.isEmpty() ? null : request.toString();
 	}
