@@ -79,12 +79,24 @@ class AppConfigTest {
 	}
 
 	@Test
-	void templateMatchesTheDefaults() {
+	void templateChoosesANewAssistantWithTheSameRuntimeDefaults() {
 		AppConfig fromTemplate = AppConfig.parse(AppConfig.DEFAULT_TEMPLATE, home);
 		AppConfig fromEmpty = AppConfig.parse("{}", home);
 		assertEquals(fromEmpty.theme(), fromTemplate.theme());
 		assertEquals(fromEmpty.venueConfig(), fromTemplate.venueConfig());
-		assertEquals(fromEmpty.chat(), fromTemplate.chat());
+		assertEquals(BrightSide.APP_NAME, fromTemplate.chat().agentId());
+		assertEquals(fromEmpty.chat().operation(), fromTemplate.chat().operation());
+		assertEquals(fromEmpty.chat().llmOperation(), fromTemplate.chat().llmOperation());
+		assertEquals(AppConfig.parse("{chat:{agentId:'Tau'}}", home).chat(), fromTemplate.chat());
+	}
+
+	@Test
+	void configuredAssistantIdentitySurvivesProductNaming() {
+		AppConfig legacy = AppConfig.parse("{chat:{agentId:'Brightside'}}", home);
+		assertEquals(AppConfig.parse("{}", home).chat(), legacy.chat());
+		AppConfig custom = AppConfig.parse("{chat:{agentId:'Robin',systemPrompt:'Owner-defined persona'}}", home);
+		assertEquals("Robin", custom.chat().agentId());
+		assertEquals("Owner-defined persona", custom.chat().systemPrompt());
 	}
 
 	@Test
@@ -93,8 +105,19 @@ class AppConfigTest {
 		AppConfig c = AppConfig.load(file);
 		assertTrue(Files.exists(file));
 		assertEquals(AppConfig.DEFAULT_TEMPLATE, Files.readString(file));
+		assertEquals(BrightSide.APP_NAME, c.chat().agentId());
+		assertEquals(c.chat(), AppConfig.load(file).chat());
 		assertEquals(file.getParent(), c.home());
 		assertEquals(file.getParent().resolve("venue.etch").toString(), c.venueConfig().get(Config.STORE).toString());
+	}
+
+	@Test
+	void loadingAnExistingConfigKeepsItsImplicitAssistant() throws IOException {
+		Path file = home.resolve("config.json");
+		String original = "{chat:{llmOperation:'v/test/ops/llm'}}";
+		Files.writeString(file, original);
+		assertEquals("Brightside", AppConfig.load(file).chat().agentId());
+		assertEquals(original, Files.readString(file));
 	}
 
 	@Test

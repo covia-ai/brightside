@@ -9,8 +9,8 @@
 	<version>0.1.0-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
-	<name>Brightside</name>
-	<description>Brightside — a Covia desktop companion: an embedded Covia venue with a chat window, living in the system tray.</description>
+	<name>Tau</name>
+	<description>Tau — a Covia desktop companion: an embedded Covia venue with a chat window, living in the system tray.</description>
 	<url>https://github.com/covia-ai/brightside</url>
 
 	<licenses>

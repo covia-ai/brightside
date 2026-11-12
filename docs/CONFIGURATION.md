@@ -74,15 +74,15 @@ everyday launches, Settings → General → Startup offers the same two choices
   "repairStore": true,                  // rebuild the store on launch after a crash
 
   "venue": {                            // a Covia venue config map
-    "name": "Brightside Venue",
+    "name": "Tau",
     "port": 8085
   },
 
   "chat": {
-    "agentId": "Brightside",            // agent at <venue DID>/g/Brightside
+    "agentId": "Tau",                  // agent in your namespace
     "operation": "v/ops/llmagent/chat", // transition operation
     "llmOperation": "v/models/anthropic/claude-sonnet-5-5",
-    "systemPrompt": "You are Brightside, ..."
+    "systemPrompt": "You are Tau, ..."
   }
 }
 ```
@@ -148,7 +148,7 @@ and across configuration changes.
 
 | Key | Meaning |
 |---|---|
-| `agentId` | The agent's id under your namespace — `<venueDID>:u:<name>/g/<agentId>`. |
+| `agentId` | The agent's id under your namespace — `<venueDID>:u:<name>/g/<agentId>`. Fresh and implicit defaults are described in [Agent identity](IDENTITY.md#agent-identity). |
 | `operation` | The transition operation driving each turn. Default `v/ops/llmagent/chat`. |
 | `llmOperation` | The model operation. Default `v/models/anthropic/claude-sonnet-5-5`. OpenRouter and Ollama serve more models than the venue catalogues: `v/models/openrouter/<vendor>/<model>` or `v/models/ollama/<model>` names any of them, and one the catalogue lacks runs through the provider's own operation with that model. |
 | `systemPrompt` | The assistant's identity, role and tone. Dynamic owner/model context comes from Brightside's read-only context operation; task detail belongs in on-demand skills. |
@@ -501,7 +501,7 @@ you give it. Behind the scenes it makes you a principal on your own venue:
 ```
 u:<name>                                  the principal
 <venueDID>:u:<name>                       your DID
-<venueDID>:u:<name>/g/Brightside          your agent
+<venueDID>:u:<name>/g/<agentId>           your agent
 ```
 
 Here `<name>` is the stable, DID-safe slug chosen on first setup, not the

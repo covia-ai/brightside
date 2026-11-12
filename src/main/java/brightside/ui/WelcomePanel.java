@@ -1,15 +1,15 @@
 package brightside.ui;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.event.ActionEvent;
-import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
-import javax.swing.BoxLayout;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
@@ -61,7 +61,7 @@ public final class WelcomePanel extends JPanel {
 		JLabel mark = Labels.icon(new ImageIcon(Icons.icon(72)));
 		mark.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-		JLabel hello = Labels.muted("Welcome to " + brightside.BrightSide.APP_NAME);
+		JLabel hello = Labels.muted("Welcome to " + APP_NAME);
 		hello.setAlignmentX(Component.CENTER_ALIGNMENT);
 
 		title.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -104,22 +104,16 @@ public final class WelcomePanel extends JPanel {
 
 		add(column);
 
-		// Enter submits.
-		field.getInputMap(JComponent.WHEN_FOCUSED).put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "submit");
-		field.getActionMap().put("submit", new AbstractAction() {
+		field.addActionListener(e -> submit());
+		getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT).put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "cancel");
+		getActionMap().put("cancel", new AbstractAction() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				submit();
+				if (cancel.isVisible() && cancel.isEnabled()) cancel.doClick();
 			}
 		});
 		cont.addActionListener(e -> submit());
 		Documents.onChange(field, this::refresh);
-		field.addKeyListener(new KeyAdapter() {
-			@Override
-			public void keyPressed(KeyEvent e) {
-				if (e.getKeyCode() == KeyEvent.VK_ESCAPE && cancel.isVisible()) listener.onCancel();
-			}
-		});
 		refresh();
 	}
 
@@ -170,10 +164,11 @@ public final class WelcomePanel extends JPanel {
 	}
 
 	private void refresh() {
-		cont.setEnabled(nameValid());
+		cont.setEnabled(field.isEnabled() && nameValid());
 	}
 
 	private void submit() {
+		if (!field.isEnabled()) return;
 		if (!nameValid()) {
 			setError("Please enter a name.");
 			return;

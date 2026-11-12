@@ -1,5 +1,7 @@
 package brightside;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -50,9 +52,10 @@ public final class AppConfig {
 	public static final Path DEFAULT_FILE = HOME.resolve("config.json");
 
 	public static final int DEFAULT_PORT = 8085;
-	public static final String DEFAULT_VENUE_NAME = "Brightside";
+	public static final String DEFAULT_VENUE_NAME = APP_NAME;
 	public static final String DEFAULT_THEME = "dark";
 
+	/** Implicit id for existing configurations; fresh configurations explicitly choose Tau. */
 	public static final String DEFAULT_AGENT_ID = "Brightside";
 	/** Plain persona chat transition — the recommended choice for a chat agent. */
 	public static final String DEFAULT_OPERATION = "v/ops/llmagent/chat";
@@ -60,8 +63,10 @@ public final class AppConfig {
 	public static final String DEFAULT_LLM_OPERATION = "v/models/anthropic/claude-sonnet-5-5";
 	/** Test LLM that echoes the last user message — an offline chat backend. */
 	public static final String ECHO_LLM_OPERATION = "v/test/ops/llm";
-	public static final String DEFAULT_SYSTEM_PROMPT =
-		"You are Brightside, a private personal AI assistant running on the user's own computer, "
+	public static final String DEFAULT_SYSTEM_PROMPT = defaultSystemPrompt(DEFAULT_AGENT_ID);
+
+	private static String defaultSystemPrompt(String name) {
+		return "You are " + name + ", a private personal AI assistant running on the user's own computer, "
 		+ "powered by the Covia Grid (keep that under the hood unless they ask). Be warm, concise and "
 		+ "genuinely helpful, and use the user's name naturally rather than in every message. Follow "
 		+ "your loaded skills, and quietly keep your memory of what the user is like and prefers, so it "
@@ -70,6 +75,7 @@ public final class AppConfig {
 		+ "reply is delivered back to that same place. In a public channel everyone can read it — write "
 		+ "for that audience, and keep anything meant only for the user out of it (raise it with them "
 		+ "privately instead).";
+	}
 	/**
 	 * Chat settings: which agent the window talks to and how it is configured.
 	 * A reply has no deadline: a turn takes as long as its model and tool calls
@@ -82,7 +88,7 @@ public final class AppConfig {
 	/** Written to a fresh config file so users have a commented starting point. */
 	public static final String DEFAULT_TEMPLATE = """
 		{
-			// Brightside configuration — edit and restart Brightside to apply.
+			// Tau configuration — edit and restart Tau to apply.
 			// Every key is optional; delete this file to restore the defaults.
 			// Your chosen name is kept in the venue store (not here).
 
@@ -90,22 +96,22 @@ public final class AppConfig {
 			// in the app (Settings → Theme) are remembered in prefs.properties and win over this.
 			"theme": "dark",
 
-			// If Brightside wasn't closed cleanly (a crash, a power cut), its data
+			// If Tau wasn't closed cleanly (a crash, a power cut), its data
 			// store is rebuilt on the next launch and the old file kept beside it.
 			// Set false to be stopped instead, and restore a backup by hand.
 			"repairStore": true,
 
 			// The embedded Covia venue. Any Covia venue config key is accepted here
-			// and replaces Brightside's default for that key. Defaults: bound to
+			// and replaces Tau's default for that key. Defaults: bound to
 			// 127.0.0.1, encrypted persistent store at ~/.brightside/venue.etch,
 			// anonymous access disabled, users auto-created, MCP endpoint enabled,
 			// plus confined files and code (writable) and logs (read-only) roots.
 			// Claude Code projects go under "adapters": {"claudecode": {"projects":
-			// {...}}} here; Brightside's own source is one by default (docs/CONFIGURATION.md).
+			// {...}}} here; Tau's own source is one by default (docs/CONFIGURATION.md).
 			// Voice typing transcribes on this computer; "adapters": {"speech": {...}}
 			// can choose another engine or model (docs/CONFIGURATION.md).
 			"venue": {
-				"name": "Brightside",
+				"name": "Tau",
 				"port": 8085
 				// Model API keys do NOT belong in this file. Enter them in the app
 				// (Settings → Model) — they are stored encrypted in the vault
@@ -116,16 +122,16 @@ public final class AppConfig {
 			// The agent the chat window talks to. Created on first use at
 			// <your DID>/g/<agentId>; the settings below are re-applied on startup.
 			"chat": {
-				"agentId": "Brightside",
+				"agentId": "Tau",
 				"operation": "v/ops/llmagent/chat",
 				// Model operation used for replies. The model chosen in the app
 				// (onboarding or Settings → Model) is kept in the venue store
 				// and takes precedence over this key.
 				// Use "v/test/ops/llm" for an offline echo bot.
 				"llmOperation": "v/models/anthropic/claude-sonnet-5-5"
-				// How the assistant should behave. Leave it out to use Brightside's
+				// How the assistant should behave. Leave it out to use Tau's
 				// default persona (a warm, private personal assistant):
-				// ,"systemPrompt": "You are Brightside, ..."
+				// ,"systemPrompt": "You are Tau, ..."
 			}
 		}
 		""";
@@ -142,11 +148,12 @@ public final class AppConfig {
 		this.repairStore = bool(raw, "repairStore", true);
 		this.venue = FileRoots.apply(merge(defaultVenue(home), RT.ensureMap(raw.get(Strings.create("venue")))), home);
 		AMap<AString, ACell> c = RT.ensureMap(raw.get(Strings.create("chat")));
+		String agentId = string(c, "agentId", DEFAULT_AGENT_ID);
 		this.chat = new Chat(
-			string(c, "agentId", DEFAULT_AGENT_ID),
+			agentId,
 			string(c, "operation", DEFAULT_OPERATION),
 			string(c, "llmOperation", DEFAULT_LLM_OPERATION),
-			string(c, "systemPrompt", DEFAULT_SYSTEM_PROMPT));
+			string(c, "systemPrompt", defaultSystemPrompt(agentId)));
 	}
 
 	/**
@@ -191,22 +198,22 @@ public final class AppConfig {
 			// This is a private personal venue: HTTP and MCP require authentication.
 			Config.AUTH, Maps.of(Config.PUBLIC, Maps.of(Config.ENABLED, false)),
 			Config.ALLOW_PRIVATE_NETWORK, true,
-			// Confined host-file roots: a durable area Brightside may manage, the
-			// source checkouts the assistant works on (Brightside's own at
+			// Confined host-file roots: a durable area Tau may manage, the
+			// source checkouts the assistant works on (Tau's own at
 			// code/brightside, see ClaudeCode), and a server-enforced read-only
 			// view of its operational logs.
 			Config.FILE, Maps.of(Config.ROOTS, Maps.of(
 				"files", Maps.of(
 					"path", files.toString(),
-					"description", "Brightside-managed local files"),
+					"description", APP_NAME + "-managed local files"),
 				ClaudeCode.CODE_DIR, Maps.of(
 					"path", code.toString(),
-					"description", "Source checkouts the assistant works on; Brightside's own source at "
+					"description", "Source checkouts the assistant works on; " + APP_NAME + "'s own source at "
 						+ ClaudeCode.PROJECT + " (a Claude Code project)"),
 				"logs", Maps.of(
 					"path", logs.toString(),
 					Config.READ_ONLY, true,
-					"description", "Brightside operational logs (read-only)"))),
+					"description", APP_NAME + " operational logs (read-only)"))),
 			// MCP endpoint so local agent tooling can connect to the venue.
 			Fields.MCP, Maps.of(),
 			// Voice typing transcribes on this computer, so what the owner says

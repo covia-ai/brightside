@@ -1,6 +1,6 @@
 <div align="center">
 
-# ☀️ Brightside
+# τ Tau
 
 **Your own agent. On your own machine. Under your own identity.**
 
@@ -21,13 +21,13 @@ you leaves the house unless you send it. It remembers yesterday. It learns how
 you like things done and keeps that as a skill of its own. And when something
 is your call, it asks you, and waits.
 
-That is Brightside. There is no account to create, no server to trust, no
+That is Tau. There is no account to create, no server to trust, no
 telemetry. Everything it is — your conversations, its memory, every skill it
 learns — sits in one folder on your disk that you can read, back up or delete.
 
 <div align="center">
 
-<img src="docs/images/screenshot.png" alt="Brightside stellar map" width="820">
+<img src="docs/images/screenshot.png" alt="Tau stellar map" width="820">
 
 </div>
 
@@ -78,7 +78,7 @@ authority you granted and money you allowed — is something else entirely.
 
 Every other local-first assistant is an isolated singleton wearing its owner's
 API key. Two of them, belonging to two different people, have no way to
-establish who the other is, to agree to anything or to settle up. Brightside
+establish who the other is, to agree to anything or to settle up. Tau
 is built for the second kind. Your agent has an identity it can prove, only
 the authority you gave it, and a treasurer who can pay — so when it meets
 another agent, who they are, what they agree and how they settle up is
@@ -139,7 +139,7 @@ the embedded runtime, shared UI and integrations all use the same snapshot.
 
 ## Under the hood
 
-Brightside is not a wrapper around a chat box. It runs a complete
+Tau is not a wrapper around a chat box. It runs a complete
 [Covia](https://covia.ai) venue — engine, tools, encrypted state, an agent
 framework and an MCP/A2A/HTTP surface — inside its own process, with a quiet
 desktop app in front. The venue binds to loopback only. Skills are data, not

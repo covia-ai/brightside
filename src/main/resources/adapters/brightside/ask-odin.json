@@ -1,6 +1,6 @@
 {
 	"name": "Ask Odin",
-	"description": "Send a request to Odin, this Brightside's administrator, for a change that needs administrator rights — integrations and adapters, venue settings, users, access grants, or repairs to your own configuration. Odin decides whether to do it, ask the owner through their Inbox, or decline; he sees who is asking. Best-effort synchronous: waits up to `timeout` milliseconds (default 30000) for his answer and returns it; otherwise returns a snapshot {id, status: STARTED, address, sessionId} — poll grid_job_result(id=<that id>, timeout=<ms>) for the outcome, which may take as long as the owner takes to answer him. Set timeout=0 for pure async.",
+	"description": "Send a request to Odin, this Tau's administrator, for a change that needs administrator rights — integrations and adapters, venue settings, users, access grants, or repairs to your own configuration. Odin decides whether to do it, ask the owner through their Inbox, or decline; he sees who is asking. Best-effort synchronous: waits up to `timeout` milliseconds (default 30000) for his answer and returns it; otherwise returns a snapshot {id, status: STARTED, address, sessionId} — poll grid_job_result(id=<that id>, timeout=<ms>) for the outcome, which may take as long as the owner takes to answer him. Set timeout=0 for pure async.",
 	"operation": {
 		"adapter": "brightside:ask-odin",
 		"toolName": "ask_odin",

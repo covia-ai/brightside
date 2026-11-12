@@ -36,6 +36,8 @@ public final class Styles {
 	public static final String SECONDARY = "secondary";
 	public static final String TINTED = "tinted";
 	public static final String LINK = "link";
+	public static final String NAVIGATION = "navigation";
+	public static final String NAVIGATION_ACTIVE = "navigationActive";
 
 	private Styles() {
 	}

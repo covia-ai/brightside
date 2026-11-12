@@ -44,7 +44,23 @@ import brightside.ui.components.Theme;
 public final class NavBar extends JPanel {
 
 	public enum Tab {
-		HOME, SESSIONS, FILES, SKILLS, PEERS, INBOX, SETTINGS
+		HOME("Home", "house", "Your conversation"),
+		SESSIONS("Sessions", "messages-square", "Browse assistants and saved conversations"),
+		FILES("Files", "folder", "Browse folders and personal drives"),
+		SKILLS("Skills", "book-open", "What your assistant can help with"),
+		PEERS("Peers", "orbit", "The people, devices and services your " + APP_NAME + " knows"),
+		INBOX("Inbox", "inbox", "Requests waiting for your decision"),
+		SETTINGS("Settings", "settings", "Personalise and manage " + APP_NAME);
+
+		final String label;
+		final String glyph;
+		final String hint;
+
+		Tab(String label, String glyph, String hint) {
+			this.label = label;
+			this.glyph = glyph;
+			this.hint = hint;
+		}
 	}
 
 	public interface Listener {
@@ -67,20 +83,14 @@ public final class NavBar extends JPanel {
 		row.setOpaque(false);
 		row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
 		row.setBorder(BorderFactory.createEmptyBorder(6, 0, 6, 0));
-		addItem(row, Tab.HOME, "Home");
-		addItem(row, Tab.SESSIONS, "Sessions");
-		addItem(row, Tab.FILES, "Files");
-		addItem(row, Tab.SKILLS, "Skills");
-		addItem(row, Tab.PEERS, "Peers");
-		addItem(row, Tab.INBOX, "Inbox");
-		addItem(row, Tab.SETTINGS, "Settings");
+		for (Tab tab : Tab.values()) addItem(row, tab);
 		add(row);
 		setActive(active);
 	}
 
-	private void addItem(JPanel row, Tab tab, String label) {
+	private void addItem(JPanel row, Tab tab) {
 		if (!items.isEmpty()) row.add(Box.createHorizontalStrut(8));
-		Item it = new Item(tab, label);
+		Item it = new Item(tab);
 		items.add(it);
 		row.add(it);
 	}
@@ -109,8 +119,8 @@ public final class NavBar extends JPanel {
 	private final class Item extends PressButton {
 		private final Tab tab;
 
-		Item(Tab tab, String label) {
-			super(label);
+		Item(Tab tab) {
+			super(tab.label);
 			this.tab = tab;
 			setIcon(new TabIcon());
 			setHorizontalTextPosition(SwingConstants.CENTER);
@@ -119,15 +129,7 @@ public final class NavBar extends JPanel {
 			setMargin(new Insets(6, 10, 5, 10));
 			setPreferredSize(new Dimension(84, 58));
 			setMaximumSize(new Dimension(84, 58));
-			setToolTipText(switch (tab) {
-				case HOME -> "Your conversation";
-				case SESSIONS -> "Chat with the agents and conversations panel";
-				case FILES -> "Browse folders and personal drives";
-				case SKILLS -> "The skills your assistant can discover, and what each reveals";
-				case PEERS -> "The people, devices and services your " + APP_NAME + " knows";
-				case INBOX -> "Requests from your agents waiting for your decision";
-				case SETTINGS -> "Identity, theme, model, vault and auth settings";
-			});
+			setToolTipText(tab.hint);
 			onPress(() -> listener.onSelect(tab));
 			getModel().addChangeListener(e -> repaint()); // rollover brightens the glyph
 		}
@@ -135,8 +137,7 @@ public final class NavBar extends JPanel {
 		void refreshLook() {
 			boolean on = tab == active;
 			setSelected(on);
-			Styles.classes(this, on ? Styles.ACCENT : Styles.MUTED);
-			Styles.style(this, on ? "font: bold -3" : "font: -3");
+			Styles.classes(this, on ? Styles.NAVIGATION_ACTIVE : Styles.NAVIGATION);
 			repaint();
 		}
 
@@ -148,9 +149,9 @@ public final class NavBar extends JPanel {
 		 * so reporting anything else would shift the two apart on a scaled display.
 		 */
 		private final class TabIcon implements Icon {
-			private final Icon accent = Lucide.icon(glyph(tab), ICON, Theme::accent);
-			private final Icon bright = Lucide.icon(glyph(tab), ICON, Theme::foreground);
-			private final Icon quiet = Lucide.icon(glyph(tab), ICON, Theme::muted);
+			private final Icon accent = Lucide.icon(tab.glyph, ICON, Theme::accentText);
+			private final Icon bright = Lucide.icon(tab.glyph, ICON, Theme::foreground);
+			private final Icon quiet = Lucide.icon(tab.glyph, ICON, Theme::muted);
 
 			@Override
 			public int getIconWidth() {
@@ -181,26 +182,13 @@ public final class NavBar extends JPanel {
 		}
 	}
 
-	/** The Lucide icon file for a tab. */
-	private static String glyph(Tab tab) {
-		return switch (tab) {
-			case HOME -> "house";
-			case SESSIONS -> "messages-square";
-			case FILES -> "folder";
-			case SKILLS -> "book-open";
-			case PEERS -> "orbit";
-			case INBOX -> "inbox";
-			case SETTINGS -> "settings";
-		};
-	}
-
 	/** A small filled disc with the count, top-right of the icon. */
 	private static void drawBadge(Graphics2D g2, String text, int cx, int cy) {
 		g2.setFont(g2.getFont().deriveFont(Font.BOLD, UIScale.scale(9f)));
 		FontMetrics fm = g2.getFontMetrics();
 		int h = UIScale.scale(14);
 		int w = Math.max(h, fm.stringWidth(text) + UIScale.scale(6));
-		g2.setColor(Theme.accent());
+		g2.setColor(Theme.accentDark());
 		g2.fillRoundRect(cx - w / 2, cy, w, h, h, h);
 		g2.setColor(Color.WHITE);
 		g2.drawString(text, cx - fm.stringWidth(text) / 2f, cy + (h + fm.getAscent() - fm.getDescent()) / 2f);

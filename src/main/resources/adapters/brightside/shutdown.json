@@ -1,6 +1,6 @@
 {
-	"name": "Shut down Brightside",
-	"description": "Cleanly shuts down this Brightside desktop process — flushes the venue store and exits — so a newly launched instance can take over. Venue-operator only: the caller must authenticate as the venue's own DID (a venue-signed token).",
+	"name": "Shut down Tau",
+	"description": "Cleanly shuts down this Tau desktop process — flushes the venue store and exits — so a newly launched instance can take over. Venue-operator only: the caller must authenticate as the venue's own DID (a venue-signed token).",
 	"operation": {
 		"adapter": "brightside:shutdown",
 		"input": {

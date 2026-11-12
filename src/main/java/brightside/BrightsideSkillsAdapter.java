@@ -1,5 +1,7 @@
 package brightside;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.util.concurrent.CompletableFuture;
 
 import convex.core.data.ACell;
@@ -233,7 +235,7 @@ public class BrightsideSkillsAdapter extends AAdapter {
 
 	@Override
 	public String getDescription() {
-		return "Brightside's default skill library: everyday work and "
+		return APP_NAME + "'s default skill library: everyday work and "
 			+ "self-authoring skills under v/skills/brightside.";
 	}
 

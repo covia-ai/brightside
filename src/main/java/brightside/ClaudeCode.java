@@ -1,5 +1,7 @@
 package brightside;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -144,7 +146,7 @@ public final class ClaudeCode {
 			long n = (projects == null) ? 0 : projects.count();
 			ACell own = (projects == null) ? null : RT.getIn(projects, PROJECT, PATH);
 			log.info("Claude Code: {} project(s) for {}{}", n, userDID,
-				own == null ? "" : "; Brightside's own source at " + own);
+				own == null ? "" : "; " + APP_NAME + "'s own source at " + own);
 		} catch (RuntimeException e) {
 			log.warn("Could not make the Claude Code projects the owner's: {}", e.getMessage());
 		}
@@ -172,7 +174,7 @@ public final class ClaudeCode {
 		}
 		AMap<AString, ACell> spec = Maps.of(
 			PATH, Strings.create(dir.toString()),
-			DESCRIPTION, Strings.create("Brightside's own source, worked on without asking (auto mode, developer tools allowed). Empty until cloned from "
+			DESCRIPTION, Strings.create(APP_NAME + "'s own source, worked on without asking (auto mode, developer tools allowed). Empty until cloned from "
 				+ REPOSITORY + " (git clone " + REPOSITORY + " .); then build with mvn package and run its tests with mvn test."),
 			OPTIONS, Maps.of(
 				Strings.create("permissionMode"), Strings.create("auto"),

@@ -1,5 +1,7 @@
 package brightside;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.util.concurrent.CompletableFuture;
 
 import brightside.model.Providers;
@@ -152,7 +154,7 @@ public class BrightsideAdapter extends AAdapter {
 		 * the operation has answered.
 		 */
 		default Runnable prepareRestart() throws Exception {
-			throw new ConflictException("This Brightside cannot restart its venue");
+			throw new ConflictException("This " + APP_NAME + " cannot restart its venue");
 		}
 
 		/**
@@ -160,7 +162,7 @@ public class BrightsideAdapter extends AAdapter {
 		 * from {@code jar}, or the program this one runs when null, and returns its process.
 		 */
 		default ProcessHandle relaunch(AContent jar) throws Exception {
-			throw new ConflictException("This Brightside cannot start itself again");
+			throw new ConflictException("This " + APP_NAME + " cannot start itself again");
 		}
 	}
 
@@ -296,7 +298,7 @@ public class BrightsideAdapter extends AAdapter {
 
 	@Override
 	public String getDescription() {
-		return "Brightside desktop app operations. brightside:info reports app and "
+		return APP_NAME + " desktop app operations. brightside:info reports app and "
 			+ "venue diagnostics; further app-specific operations live here.";
 	}
 
@@ -383,8 +385,8 @@ public class BrightsideAdapter extends AAdapter {
 			}
 			appendProcessingContext(text, modelOperation);
 			appendClock(text);
-			text.append("- Conversation history, memory and skills are stored in the owner's local encrypted Brightside vault. Do not imply that model processing is local unless the configured model route is local.\n")
-				.append("- Follow the configured assistant name, role and working style. Keep Covia and venue plumbing out of everyday conversation unless the owner asks how Brightside works.\n")
+			text.append("- Conversation history, memory and skills are stored in the owner's local encrypted " + APP_NAME + " vault. Do not imply that model processing is local unless the configured model route is local.\n")
+				.append("- Follow the configured assistant name, role and working style. Keep Covia and venue plumbing out of everyday conversation unless the owner asks how " + APP_NAME + " works.\n")
 				.append("- When the owner wants something you have no tool for, load the skill whose [Skills] line covers that task, then any child it points to for the specific job.\n")
 				.append("- Treat any key, token, password or seed as valuable unless the owner says otherwise: never echo one or keep it outside the secret store, and load security before creating, showing or sending one.\n")
 				.append("- Memory is for the owner's preferences and standing decisions, kept short: what every assistant should know in w/memory, which all their assistants share; what only your own work for them needs in n/memory. It is not a log or a notebook: job records and past conversations already hold what happened.\n")
@@ -602,7 +604,7 @@ public class BrightsideAdapter extends AAdapter {
 			ProcessHandle started;
 			synchronized (relaunchLock) {
 				if (successor != null && successor.isAlive()) {
-					throw new ConflictException("A relaunch is already under way: the new Brightside (process "
+					throw new ConflictException("A relaunch is already under way: the new " + APP_NAME + " (process "
 						+ successor.pid() + ") is starting, or waiting for the passphrase");
 				}
 				AContent jar = null;

@@ -74,7 +74,11 @@ An agent is `<userDID>:g:<agentId>`, the same `g` namespace its record lives
 in. A bare path in its configuration, `w/skills` or `n/memory`, still means
 the owner's namespace: the DID says who acted, not whose data a path names.
 
-The default agent is `Brightside` (`chat.agentId`). A new agent's id is the
+Fresh configurations choose `Tau` as the default agent (`chat.agentId`).
+Configurations that omit this key keep the implicit `Brightside` id, so an
+existing assistant retains its memory and conversations. Without an explicit
+system prompt, the default persona uses the configured agent id as its name.
+A new agent's id is the
 name the owner typed, with anything a path cannot carry turned into `-`, and it
 never changes; the display name is the id unless the record sets one. What
 makes an agent itself is its record: its system prompt, its model, its private

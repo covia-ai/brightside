@@ -17,7 +17,8 @@ the person in front of the screen over the platform behind it.
 - **The assistant grows, remembers, and asks.** Skills it can author, a memory
   it keeps quietly, an Inbox for decisions only the owner can make.
 
-The provisional product name shown in the UI is **Tau** (τ, two times π).
+The provisional product name shown in the UI, tool descriptions and shipped
+skills is **Tau** (τ, two times π).
 The repository, Java packages, operation namespaces and data paths retain
 their `brightside` names. Configured venue and assistant names are independent
 of the product name and are kept as configured.

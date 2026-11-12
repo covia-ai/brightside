@@ -1,5 +1,7 @@
 package brightside;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -40,7 +42,7 @@ import io.modelcontextprotocol.spec.McpSchema.JSONRPCResponse;
 final class McpStdio {
 
 	private static final String CONNECTION_FAILED =
-		"Brightside MCP connection failed. Unlock Brightside, enable "
+		APP_NAME + " MCP connection failed. Unlock " + APP_NAME + ", enable "
 		+ "'Keep a token for local tools' in Settings > Auth, then reconnect the client.";
 	private static final TypeRef<Map<String, String>> HEADERS = new TypeRef<>() {};
 	private final McpJsonMapper json = McpJsonDefaults.getMapper();

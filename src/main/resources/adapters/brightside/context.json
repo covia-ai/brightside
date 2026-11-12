@@ -1,6 +1,6 @@
 {
-	"name": "Brightside Context",
-	"description": "Assembles read-only runtime context for a Brightside chat agent from the authenticated owner and configured model route.",
+	"name": "Tau Context",
+	"description": "Assembles read-only runtime context for a Tau chat agent from the authenticated owner and configured model route.",
 	"operation": {
 		"adapter": "brightside:context",
 		"readOnly": true,

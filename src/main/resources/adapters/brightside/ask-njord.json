@@ -1,6 +1,6 @@
 {
 	"name": "Ask Njord",
-	"description": "Ask Njord, this Brightside's treasurer, to make a payment, transfer or any Convex transaction: he holds the signing keys, and every transaction that spends the owner's funds goes through him. He pays only what is well evidenced and consistent with what the owner wants, may ask the owner through their Inbox first, and declines the rest; he sees who is asking. Best-effort synchronous: waits up to `timeout` milliseconds (default 30000) for his outcome and returns it; otherwise returns a snapshot {id, status: STARTED, address, sessionId} — poll grid_job_result(id=<that id>, timeout=<ms>) for the outcome, which may take as long as the owner takes to answer him. Set timeout=0 for pure async.",
+	"description": "Ask Njord, this Tau's treasurer, to make a payment, transfer or any Convex transaction: he holds the signing keys, and every transaction that spends the owner's funds goes through him. He pays only what is well evidenced and consistent with what the owner wants, may ask the owner through their Inbox first, and declines the rest; he sees who is asking. Best-effort synchronous: waits up to `timeout` milliseconds (default 30000) for his outcome and returns it; otherwise returns a snapshot {id, status: STARTED, address, sessionId} — poll grid_job_result(id=<that id>, timeout=<ms>) for the outcome, which may take as long as the owner takes to answer him. Set timeout=0 for pure async.",
 	"operation": {
 		"adapter": "brightside:ask-njord",
 		"toolName": "ask_njord",

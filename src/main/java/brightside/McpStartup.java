@@ -1,5 +1,7 @@
 package brightside;
 
+import static brightside.BrightSide.APP_NAME;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -18,11 +20,11 @@ final class McpStartup {
 
 	static final String LOCK_FILE = "mcp-startup.lock";
 	static final Duration TIMEOUT = Duration.ofSeconds(30);
-	static final String SETUP_REQUIRED = "To start Brightside automatically, unlock it once with "
+	static final String SETUP_REQUIRED = "To start " + APP_NAME + " automatically, unlock it once with "
 		+ "'Remember me' enabled and enable 'Keep a token for local tools' in Settings > Auth.";
-	static final String START_FAILED = "Brightside could not start automatically. "
+	static final String START_FAILED = APP_NAME + " could not start automatically. "
 		+ "Open it to check the saved passphrase and see the logs.";
-	static final String TIMED_OUT = "Brightside is still starting. Reconnect the MCP client once it is ready.";
+	static final String TIMED_OUT = APP_NAME + " is still starting. Reconnect the MCP client once it is ready.";
 
 	@FunctionalInterface
 	interface Starter {

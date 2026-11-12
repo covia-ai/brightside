@@ -1,6 +1,6 @@
 {
-	"name": "Restart Brightside",
-	"description": "Restarts Brightside's venue inside the running app: re-reads config.json, then, just after answering, saves and closes the venue and starts it again from the same store, picking up config changes and any compaction asked for. No new process, and no passphrase needed. The work in flight is cut off and resumes once the venue is back: a call cut off after this answer was cut off because the restart worked, so never restart again for that. Refused when config.json cannot be used (nothing stops then), while Brightside is still starting, and during another restart. New code needs brightside:relaunch instead. Venue-operator only.",
+	"name": "Restart Tau",
+	"description": "Restarts Tau's venue inside the running app: re-reads config.json, then, just after answering, saves and closes the venue and starts it again from the same store, picking up config changes and any compaction asked for. No new process, and no passphrase needed. The work in flight is cut off and resumes once the venue is back: a call cut off after this answer was cut off because the restart worked, so never restart again for that. Refused when config.json cannot be used (nothing stops then), while Tau is still starting, and during another restart. New code needs brightside:relaunch instead. Venue-operator only.",
 	"operation": {
 		"adapter": "brightside:restart",
 		"input": {
