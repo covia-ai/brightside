@@ -57,7 +57,10 @@ import net.miginfocom.swing.MigLayout;
  * what is next, how much repeats and how the last runs went; below it one
  * card per event shows when it runs next (counting down live), how often, and
  * how its last run went, with <em>Run now</em>, <em>Cancel</em> and a fold-out
- * of the details. Reading is a read ({@link Schedule}); the two buttons are
+ * of the details, its input among them. A run that fired but never started
+ * says so; one still going says for how long, and whether that is too long is
+ * the owner's call. The conversation an agent's run worked in opens from its
+ * card. Reading is a read ({@link Schedule}); the two buttons are
  * actions, each confirmed first.
  */
 @SuppressWarnings("serial")
@@ -80,6 +83,9 @@ public final class SchedulePanel extends SettingsPage {
 		 * {@code everyMillis} (0: once); {@code done} as above.
 		 */
 		void schedule(String operation, ACell input, long afterMillis, long everyMillis, boolean track, Result done);
+
+		/** Open the conversation {@code sessionId} of agent {@code agentId}, as the chat shows it. */
+		void openConversation(String agentId, String sessionId);
 	}
 
 	/** How an action went: a note for the action bar, and whether it is an error. */
@@ -220,10 +226,11 @@ public final class SchedulePanel extends SettingsPage {
 	private void buildSummary(long now) {
 		Schedule.Event next = events.get(0);
 		long repeating = events.stream().filter(Schedule.Event::recurring).count();
-		long failed = events.stream().filter(e -> "FAILED".equals(e.lastStatus())
-			|| "TIMEOUT".equals(e.lastStatus()) || "REJECTED".equals(e.lastStatus())).count();
+		long failed = events.stream().filter(Schedule.Event::failed).count();
 		long waiting = events.stream().filter(e -> "INPUT_REQUIRED".equals(e.lastStatus())
 			|| "AUTH_REQUIRED".equals(e.lastStatus())).count();
+		Schedule.Event longest = events.stream().filter(Schedule.Event::running)
+			.min(java.util.Comparator.comparingLong(Schedule.Event::lastFiredAt)).orElse(null);
 
 		summary.add(new StatTile("clock", Tone.ACCENT, "Next up", relative(next.nextAt(), now), next.title()));
 		summary.add(new StatTile("repeat", Tone.ACCENT, "Scheduled", plural(events.size(), "event"),
@@ -233,6 +240,10 @@ public final class SchedulePanel extends SettingsPage {
 		} else if (waiting > 0) {
 			summary.add(new StatTile("circle-pause", Tone.WARNING, "Last runs", waiting + " waiting for you",
 				"Answer in your Inbox"));
+		} else if (longest != null) {
+			long running = events.stream().filter(Schedule.Event::running).count();
+			summary.add(new StatTile("loader-circle", Tone.ACCENT, "Last runs", running + " running",
+				(running == 1 ? "For " : "The longest for ") + elapsed(now - longest.lastFiredAt())));
 		} else {
 			summary.add(new StatTile("circle-check", Tone.SUCCESS, "Last runs", "No failures", "Of those tracked"));
 		}
@@ -248,6 +259,7 @@ public final class SchedulePanel extends SettingsPage {
 		final JLabel next = Styles.classes(new JLabel(), Styles.STRONG);
 		final JLabel nextAt = Labels.small("");
 		final JLabel lastWhen = Labels.small("");
+		final JLabel outcome;
 		final JButton run = Buttons.icon(Lucide.icon("play", 16, Theme::muted), "Run now");
 		final JButton cancel = Buttons.icon(Lucide.icon("trash-2", 16, Theme::muted), "Cancel…");
 		final JButton fold = Buttons.icon(null, null);
@@ -285,7 +297,8 @@ public final class SchedulePanel extends SettingsPage {
 			// How the last run went.
 			JPanel last = column();
 			last.add(Labels.small("Last run"));
-			last.add(lastOutcome(e), "gaptop 2");
+			outcome = lastOutcome(e);
+			last.add(outcome, "gaptop 2");
 			last.add(lastWhen, "gaptop 1");
 			card.add(last, "aligny top");
 
@@ -346,6 +359,7 @@ public final class SchedulePanel extends SettingsPage {
 			nextAt.setText(absolute(event.nextAt()));
 			nextAt.setToolTipText(exact(event.nextAt()));
 			lastWhen.setText(event.lastFiredAt() > 0 ? relative(event.lastFiredAt(), now) : " ");
+			if (event.running()) outcome.setText("Running for " + elapsed(now - event.lastFiredAt()));
 			lastWhen.setToolTipText(event.lastFiredAt() > 0 ? exact(event.lastFiredAt()) : null);
 		}
 
@@ -393,8 +407,12 @@ public final class SchedulePanel extends SettingsPage {
 			JPopupMenu m = new JPopupMenu();
 			item(m, "Run now", "play", this::onRun).setEnabled(run.isEnabled());
 			item(m, details.isVisible() ? "Hide details" : "Show details", null, this::toggle);
+			if (event.lastSession() != null) {
+				item(m, "Open conversation", "message-square", this::openConversation)
+					.setToolTipText("The conversation " + event.lastAgent() + " had on the last run");
+			}
 			item(m, "New from this…", "plus", () -> newEvent(Draft.like(event), null, Fault.NONE))
-				.setToolTipText("A new event with this one's operation and timing; its input isn't listed, so add it");
+				.setToolTipText("A new event with this one's operation, input and timing");
 			m.addSeparator();
 			if (event.operation() != null) item(m, "Copy operation", "copy", () -> Clipboard.copy(event.operation(), card));
 			item(m, "Copy handle", null, () -> Clipboard.copy(event.handle(), card));
@@ -403,6 +421,10 @@ public final class SchedulePanel extends SettingsPage {
 			m.addSeparator();
 			item(m, "Cancel…", "trash-2", this::onCancel).setEnabled(cancel.isEnabled());
 			return m;
+		}
+
+		void openConversation() {
+			host.openConversation(event.lastAgent(), event.lastSession());
 		}
 
 		void busy(boolean on, String note) {
@@ -473,12 +495,12 @@ public final class SchedulePanel extends SettingsPage {
 
 		static final Draft EMPTY = new Draft("", "", 1, Unit.HOURS, false, 1, Unit.DAYS, true);
 
-		/** A new event shaped like {@code e}: its operation, repeat and tracking; the input is not listed. */
+		/** A new event shaped like {@code e}: its operation, input, repeat and tracking. */
 		static Draft like(Schedule.Event e) {
 			Object[] every = Unit.of(e.recurring() ? e.everyMillis() : DAY);
 			Object[] first = Unit.of(e.recurring() ? e.everyMillis() : HOUR);
-			return new Draft(e.operation() != null ? e.operation() : "", "", (Integer) first[0], (Unit) first[1],
-				e.recurring(), (Integer) every[0], (Unit) every[1], e.tracked());
+			return new Draft(e.operation() != null ? e.operation() : "", inputText(e.input()), (Integer) first[0],
+				(Unit) first[1], e.recurring(), (Integer) every[0], (Unit) every[1], e.tracked());
 		}
 	}
 
@@ -602,7 +624,16 @@ public final class SchedulePanel extends SettingsPage {
 		detail(d, "Last run", e.lastFiredAt() > 0 ? exact(e.lastFiredAt()) : "Not yet", false);
 		detail(d, "History", e.tracked() ? "Each run is kept in your job history"
 			: "Runs aren't kept, so how they went isn't known", false);
+		detail(d, "Input", inputText(e.input()).isEmpty() ? null : inputText(e.input()), true);
 		if (e.lastJob() != null) detail(d, "Last job", e.lastJob(), true);
+		if (e.lastSession() != null) {
+			d.add(Labels.small("Conversation"), "aligny top");
+			JButton open = new JButton("Open " + e.lastAgent() + "'s conversation",
+				Lucide.icon("message-square", 14, Theme::muted));
+			open.setToolTipText("What the last run did, step by step, as the chat shows it");
+			open.addActionListener(a -> host.openConversation(e.lastAgent(), e.lastSession()));
+			d.add(open, "growx 0");
+		}
 		if (e.lastError() != null) {
 			d.add(Labels.small("Error"), "aligny top");
 			SelectableText err = new SelectableText(e.lastError()).tone(Styles.ERROR);
@@ -624,8 +655,12 @@ public final class SchedulePanel extends SettingsPage {
 		d.add(line, "growx, wmin 0");
 	}
 
-	private static JComponent lastOutcome(Schedule.Event e) {
+	private static JLabel lastOutcome(Schedule.Event e) {
 		if (e.lastFiredAt() <= 0) return outcome("hourglass", Tone.MUTED, "Not run yet", null);
+		if (e.couldNotStart()) {
+			return outcome("circle-alert", Tone.ERROR, "Couldn't start",
+				"It fired but never started, so it left no record; check its operation and input");
+		}
 		String s = e.lastStatus();
 		if (s == null) {
 			return e.tracked() ? outcome("history", Tone.MUTED, "Ran", null)
@@ -684,6 +719,22 @@ public final class SchedulePanel extends SettingsPage {
 
 	private static String everyUnit(long n, String unit) {
 		return (n == 1) ? "Every " + unit : "Every " + n + " " + unit + "s";
+	}
+
+	/** How long something has been going: "under a minute", "13 minutes", "2 hours 5 minutes", "3 days". */
+	static String elapsed(long millis) {
+		if (millis < MINUTE) return "under a minute";
+		if (millis < HOUR) return plural(millis / MINUTE, "minute");
+		if (millis < DAY) {
+			long minutes = (millis % HOUR) / MINUTE;
+			return plural(millis / HOUR, "hour") + (minutes > 0 ? " " + plural(minutes, "minute") : "");
+		}
+		return plural(millis / DAY, "day");
+	}
+
+	/** An event's input as the New dialog and the details show it: pretty JSON, or nothing. */
+	static String inputText(ACell input) {
+		return (input == null) ? "" : convex.core.util.JSON.toStringPretty(input);
 	}
 
 	private static String plural(long n, String unit) {

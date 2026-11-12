@@ -69,6 +69,9 @@ class ScheduleTest {
 		assertTrue(first.tracked());
 		assertEquals(Status.COMPLETE.toString(), first.lastStatus());
 		assertNull(first.lastError());
+		assertFalse(first.failed() || first.couldNotStart() || first.running(), "it ran and finished");
+		assertEquals(Maps.of("path", "w"), first.input(), "what it is given each time is listed");
+		assertNull(first.lastSession(), "a run that is not an agent's has no conversation");
 
 		assertFalse(second.recurring());
 		assertEquals(0, second.lastFiredAt(), "not run yet");
@@ -78,6 +81,46 @@ class ScheduleTest {
 
 		String other = Identity.of("schedule-other").userDID(venue.did());
 		assertTrue(Schedule.list(venue.clientAs(other)).isEmpty(), "another user's events are not shown");
+	}
+
+	@Test
+	void aTrackedRunThatCannotStartIsAFailure() throws Exception {
+		EmbeddedVenue venue = shared.venue();
+		Venue client = venue.clientAs(Identity.of("schedule-unstartable").userDID(venue.did()));
+		// The scheduler takes an operation that does not resolve (covia-ai/covia#639);
+		// the app's own dialog refuses one.
+		ACell scheduled = run(client, "v/ops/scheduler/schedule", Maps.of(
+			"operation", "v/ops/no/such-op", "after", HOUR, "repeat", Maps.of("every", HOUR), "track", true));
+		try {
+			run(client, "v/ops/scheduler/trigger", Maps.of("handle", RT.getIn(scheduled, "handle")));
+		} catch (Exception e) {
+			// The fire fails; what matters is what the schedule shows afterwards.
+		}
+		Schedule.Event event = Schedule.list(client).get(0);
+		assertTrue(event.lastFiredAt() > 0, "it fired");
+		// Today the fire leaves no job, so it reads as could not start; once
+		// Covia records a failed job instead, it reads as failed. Either way the
+		// page must not say "no failures".
+		assertEquals(event.lastJob() == null, event.couldNotStart(), "no job means it could not start");
+		assertTrue(event.failed(), "which counts as a failure");
+	}
+
+	@Test
+	void anAgentsRunOpensItsConversation() throws Exception {
+		EmbeddedVenue venue = shared.venue();
+		String did = Identity.of("schedule-agent").userDID(venue.did());
+		Venue client = venue.clientAs(did);
+		String agent = "schedule-worker";
+		new brightside.chat.ChatSession(client, new AppConfig.Chat(agent, "v/test/ops/taskcomplete",
+			AppConfig.ECHO_LLM_OPERATION, "")).ensureAgent();
+		String handle = Schedule.schedule(client, "v/ops/agent/request",
+			Maps.of("agentId", agent, "input", Maps.of("task", "Check in")), HOUR, HOUR, true);
+		Schedule.runNow(client, handle, 30_000);
+
+		Schedule.Event event = Schedule.list(client).get(0);
+		assertNotNull(event.lastJob());
+		assertEquals(agent, event.lastAgent(), "the run was the agent's");
+		assertNotNull(event.lastSession(), "and worked in a conversation of its own, which the card opens");
 	}
 
 	@Test

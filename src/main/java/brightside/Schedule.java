@@ -53,13 +53,36 @@ public final class Schedule {
 	 * null when it is not tracked or not known. {@code purpose} is what the
 	 * event is for, in words: the description it was scheduled with, else the
 	 * task or message it hands an agent; null when it says neither.
+	 * {@code input} is what the operation is given each time, null for none.
+	 * {@code lastAgent} and {@code lastSession} are the agent and conversation
+	 * the last tracked run worked in, null when it was not an agent's.
 	 */
 	public record Event(String handle, String operation, String label, long nextAt, long everyMillis,
 			long lastFiredAt, String lastJob, String lastStatus, String lastError, boolean tracked,
-			String purpose) {
+			String purpose, ACell input, String lastAgent, String lastSession) {
 
 		public boolean recurring() {
 			return everyMillis > 0;
+		}
+
+		/**
+		 * Whether the last run fired but never started: a tracked run keeps a job,
+		 * and Covia records none when the fire cannot start (covia-ai/covia#639).
+		 * A failed job, once Covia records one, reads as {@code FAILED} instead.
+		 */
+		public boolean couldNotStart() {
+			return tracked && lastFiredAt > 0 && lastJob == null;
+		}
+
+		/** Whether the last run is still going: queued or started. */
+		public boolean running() {
+			return "PENDING".equals(lastStatus) || "STARTED".equals(lastStatus);
+		}
+
+		/** Whether the last run failed, could not start, timed out or was refused. */
+		public boolean failed() {
+			return couldNotStart() || "FAILED".equals(lastStatus) || "TIMEOUT".equals(lastStatus)
+				|| "REJECTED".equals(lastStatus);
 		}
 
 		/** The event's name on screen: what it is for when it says, else its operation's. */
@@ -92,15 +115,21 @@ public final class Schedule {
 			String lastJob = hex(RT.getIn(e, "lastJob"));
 			String status = null;
 			String error = null;
+			String agent = null;
+			String session = null;
 			if (lastJob != null) {
 				AMap<AString, ACell> job = jobStatus(client, lastJob);
-				status = (job != null) ? str(job.get(Fields.STATUS)) : null;
-				error = (job != null) ? str(job.get(Fields.ERROR)) : null;
+				if (job != null) {
+					status = str(job.get(Fields.STATUS));
+					error = str(job.get(Fields.ERROR));
+					agent = str(job.get(Fields.AGENT_ID));
+					session = hex(job.get(Fields.SESSION_ID));
+				}
 			}
 			String label = (op == null) ? "Unknown operation" : labels.computeIfAbsent(op, o -> label(client, o));
 			list.add(new Event(handle, op, label, num(RT.getIn(e, "time")), num(RT.getIn(e, "repeat", "every")),
 				num(RT.getIn(e, "lastFired")), lastJob, status, error, CVMBool.TRUE.equals(RT.getIn(e, "track")),
-				purpose(e)));
+				purpose(e), RT.getIn(e, Fields.INPUT), agent, (agent != null) ? session : null));
 		}
 		return list;
 	}

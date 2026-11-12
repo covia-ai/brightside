@@ -520,6 +520,11 @@ public final class MainWindow extends JFrame {
 					boolean track, SchedulePanel.Result done) {
 				app.scheduleNew(operation, input, afterMillis, everyMillis, track, done);
 			}
+
+			@Override
+			public void openConversation(String agentId, String sessionId) {
+				MainWindow.this.openConversation(agentId, sessionId);
+			}
 		});
 		VaultPanel vaultPanel = new VaultPanel(app::forgetRememberedPassphrase);
 		AuthPanel authPanel = new AuthPanel(app::mintAccessToken, app::keepToolToken, app::setKeepToolToken);
@@ -777,6 +782,17 @@ public final class MainWindow extends JFrame {
 		if (agentId != null && !agentId.equals(currentAgentId)) app.switchAgent(agentId);
 		views.setAgent(agentId);
 		views.select(SessionViews.View.AGENT);
+	}
+
+	/**
+	 * Shows agent {@code agentId}'s conversation {@code sessionId} in the chat,
+	 * switching to that agent first if another is on screen.
+	 */
+	public void openConversation(String agentId, String sessionId) {
+		if (agentId == null || sessionId == null) return;
+		selectTab(NavBar.Tab.SESSIONS);
+		if (agentId.equals(currentAgentId)) views.openSession(sessionId);
+		else app.switchAgent(agentId, sessionId);
 	}
 
 	/** Switch the bottom-nav content between the chat screens and settings. */

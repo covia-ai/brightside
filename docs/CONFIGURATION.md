@@ -749,22 +749,26 @@ save in flight ([covia#589](https://github.com/covia-ai/covia/issues/589)).
 routines and check-ins that you, your assistant or any of your agents
 scheduled through the venue's scheduler (the `automation` skill), soonest
 first. A summary at the top says what is next, how many events repeat, and
-whether any tracked run failed or is waiting for you. Each event's card shows
-when it runs next, counting down while the page is open, how often it
-repeats, and how its last run went. Click a card to open its details: the
-operation, exact times, whether runs are kept in your job history, the last
-job and any error, each copyable.
+whether any tracked run failed, is waiting for you or is still going. Each
+event's card shows when it runs next, counting down while the page is open,
+how often it repeats, and how its last run went. A tracked run that fired but
+never started says *Couldn't start* and counts as a failure: the scheduler
+keeps no record of such a fire
+([covia#639](https://github.com/covia-ai/covia/issues/639)). A run still
+going says for how long; whether that is too long is yours to judge. Click a
+card to open its details: the operation, its input, exact times, whether runs
+are kept in your job history, the last job and any error, each copyable. When
+the last run was an agent's, *Open conversation* shows what it did, step by
+step, in that agent's chat.
 
 *New…* schedules any operation by reference, with a JSON5 input, a first run
 and an optional repeat; an operation that doesn't resolve is refused there
 rather than failing when it fires. *Run now* fires an event straight away; a
 repeating one stays on its schedule. *Cancel* stops it for good, and asks
 first. Right-click a card for these and more: *New from this…* starts a new
-event with the same operation and timing, and the operation, handle, last
-job and error can each be copied. The scheduler does not list an event's
-input yet ([covia#583](https://github.com/covia-ai/covia/issues/583)), so
-*New from this…* leaves it for you to add, and an event can't be edited in
-place: cancel it and schedule again.
+event with the same operation, input and timing, and the operation, handle,
+last job and error can each be copied. An event can't be edited in place:
+cancel it and schedule again.
 
 Scheduling, running and cancelling each leave a job record; looking at the
 page does not. Acting as the venue operator shows and manages the venue's own

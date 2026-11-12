@@ -166,14 +166,18 @@ public final class BrightSide {
 		FIRST, NAME_CHANGE, AGENT_SWITCH, PRINCIPAL_SWITCH
 	}
 
-	/** Identity and request order captured before a background bind starts. */
-	private record ChatTarget(long generation, String did, String sessionId, boolean operator) {
+	/**
+	 * Identity and request order captured before a background bind starts.
+	 * {@code open} is the conversation an agent switch should show, null for the
+	 * agent's latest.
+	 */
+	private record ChatTarget(long generation, String did, String sessionId, boolean operator, String open) {
 	}
 
-	private ChatTarget chatTarget(EmbeddedVenue venue, Identity identity) {
+	private ChatTarget chatTarget(EmbeddedVenue venue, Identity identity, String open) {
 		ChatSession current = chat;
 		return new ChatTarget(chatBindings.incrementAndGet(), actingDID(identity, venue),
-			current == null ? null : current.sessionId(), actingAsOperator);
+			current == null ? null : current.sessionId(), actingAsOperator, open);
 	}
 
 	/**
@@ -1852,10 +1856,15 @@ public final class BrightSide {
 	}
 
 	private void startChatBackground(EmbeddedVenue v, Identity id, AppConfig.Chat chatConfig, Bind bind) {
+		startChatBackground(v, id, chatConfig, bind, null);
+	}
+
+	/** As above, showing conversation {@code open} once bound (null: the agent's latest, on a switch). */
+	private void startChatBackground(EmbeddedVenue v, Identity id, AppConfig.Chat chatConfig, Bind bind, String open) {
 		// The operator's agents keep the configuration their records hold — a
 		// god's is owned by God.ensure, never by the chat's persona config.
 		boolean configureExisting = !actingAsOperator && chatConfig.agentId().equals(config.chat().agentId());
-		startChatBackground(v, id, chatConfig, bind, configureExisting);
+		startChatBackground(v, id, chatConfig, bind, configureExisting, open);
 	}
 
 	// ------------------------------------------------------------------
@@ -1935,7 +1944,12 @@ public final class BrightSide {
 
 	private void startChatBackground(EmbeddedVenue v, Identity id, AppConfig.Chat chatConfig, Bind bind,
 			boolean configureExisting) {
-		ChatTarget target = chatTarget(v, id);
+		startChatBackground(v, id, chatConfig, bind, configureExisting, null);
+	}
+
+	private void startChatBackground(EmbeddedVenue v, Identity id, AppConfig.Chat chatConfig, Bind bind,
+			boolean configureExisting, String open) {
+		ChatTarget target = chatTarget(v, id, open);
 		Thread t = new Thread(() -> {
 			try {
 				startChat(v, id, chatConfig, bind, configureExisting, target);
@@ -1953,7 +1967,7 @@ public final class BrightSide {
 
 	/** Binds a chat session to {@code id}'s principal and prepares its conversation view. */
 	private void startChat(EmbeddedVenue v, Identity id, AppConfig.Chat chatConfig, Bind bind) {
-		startChat(v, id, chatConfig, bind, true, chatTarget(v, id));
+		startChat(v, id, chatConfig, bind, true, chatTarget(v, id, null));
 	}
 
 	private void startChat(EmbeddedVenue v, Identity id, AppConfig.Chat chatConfig, Bind bind,
@@ -2014,7 +2028,7 @@ public final class BrightSide {
 		SessionHistory.Snapshot history = switch (bind) {
 			case FIRST -> null;
 			case NAME_CHANGE -> (viewed != null) ? SessionHistory.snapshotOf(record, viewed) : null;
-			case AGENT_SWITCH, PRINCIPAL_SWITCH -> SessionHistory.snapshotOf(record, null);
+			case AGENT_SWITCH, PRINCIPAL_SWITCH -> SessionHistory.snapshotOf(record, target.open());
 		};
 		if (history != null) session.resume(history.sessionId());
 		List<SessionHistory.Item> turns = (history != null) ? history.items() : List.of();
@@ -2057,10 +2071,15 @@ public final class BrightSide {
 
 	/** Switch the chat to another existing agent (from the agents pane). */
 	public void switchAgent(String agentId) {
+		switchAgent(agentId, null);
+	}
+
+	/** As {@link #switchAgent(String)}, showing its conversation {@code sessionId} (null: its latest). */
+	public void switchAgent(String agentId, String sessionId) {
 		EmbeddedVenue v = venue;
 		Identity id = identity;
 		if (v == null || id == null || agentId == null) return;
-		startChatBackground(v, id, chatConfigFor(agentId), Bind.AGENT_SWITCH);
+		startChatBackground(v, id, chatConfigFor(agentId), Bind.AGENT_SWITCH, sessionId);
 	}
 
 	/** Create a general-purpose agent using the current default model. */
