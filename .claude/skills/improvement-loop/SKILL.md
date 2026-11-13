@@ -36,8 +36,9 @@ never push, never release.
 - `$S/smoke.sh`. If Tau is not running (exit 2 from `mcp.sh`), start it
   from a copy of `~/.brightside/code/last-good.jar` with
   `javaw -jar <copy> --unlock --takeover` (PowerShell `Start-Process`), then
-  `$S/relaunch.sh file://code/last-good.jar` so that Tau, not this session,
-  owns the process. Any other failed check: report it; fixing it is this
+  `$S/relaunch.sh file://code/last-good.jar`: the process this session
+  starts sits in the session's Windows job and ends with it, while the one
+  Tau relaunches into leaves the job and runs on. Any other failed check: report it; fixing it is this
   run's work.
 
 ## 2. The improvement agent

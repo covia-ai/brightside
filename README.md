@@ -7,7 +7,7 @@
 *And it writes its own skills.*
 
 [![Licence: EPL 2.0](https://img.shields.io/badge/licence-EPL--2.0-blue.svg)](LICENSE)
-[![Java 21+](https://img.shields.io/badge/Java-21%2B-orange.svg)](https://adoptium.net/)
+[![Java 25+](https://img.shields.io/badge/Java-25%2B-orange.svg)](https://adoptium.net/)
 [![Built on Covia](https://img.shields.io/badge/built%20on-Covia%20Grid-7c4dff.svg)](https://covia.ai)
 [![Status: early preview](https://img.shields.io/badge/status-early%20preview-yellow.svg)](#where-this-is-going)
 
@@ -100,7 +100,7 @@ Ideas and disagreement are welcome — open an issue.
 
 ## Try it
 
-You need **Java 21+** (25 recommended) and **Maven 3.9+**.
+You need **Java 25+** and **Maven 3.9+**.
 
 ```bash
 git clone https://github.com/covia-ai/brightside.git

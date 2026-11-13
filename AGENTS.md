@@ -8,7 +8,7 @@ named principal, with an agent on that venue. It is a product, not a demo
 
 ## Build and test
 
-- Java 21+, Maven 3.9+. `covia.version` in `pom.xml` names the Covia line. A
+- Java 25+, Maven 3.9+. `covia.version` in `pom.xml` names the Covia line. A
   SNAPSHOT needs every Covia module the pom names (`venue`, `workbench` and the
   in-process `covia-*` modules) installed from `../covia`: `-pl venue -am`
   alone leaves the others stale.

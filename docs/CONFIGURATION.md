@@ -424,7 +424,7 @@ One project exists without any configuration: **`brightside`**, Brightside's
 own source, at `~/.brightside/code/brightside`. Brightside creates the
 directory empty; the assistant clones the repository into it when you first
 ask it to work on Brightside, and from then on can fix and extend the app —
-building needs Java 21 and Maven on your computer, and the change takes
+building needs Java 25 and Maven on your computer, and the change takes
 effect when you run the new build. In that project Claude Code works in its
 `auto` permission mode with the everyday developer tools allowed outright —
 its own file, search and sub-agent tools, and the shell commands of
@@ -569,7 +569,7 @@ HTTP headers or handling a token themselves:
 ```
 
 Replace the jar path with the absolute path to your build or installation.
-Use Java 21 or later, giving its executable's absolute path if the client
+Use Java 25 or later, giving its executable's absolute path if the client
 cannot find `java`.
 
 1. Set up Brightside and unlock it once with *Remember me* enabled if you want

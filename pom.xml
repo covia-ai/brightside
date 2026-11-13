@@ -36,7 +36,7 @@
 	</scm>
 
 	<properties>
-		<maven.compiler.release>21</maven.compiler.release>
+		<maven.compiler.release>25</maven.compiler.release>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
@@ -212,7 +212,7 @@
 				<version>3.6.1</version>
 				<configuration>
 					<!-- Tests boot real venue engines; keep the desktop out of it. -->
-					<argLine>-Djava.awt.headless=true</argLine>
+					<argLine>-Djava.awt.headless=true --enable-native-access=ALL-UNNAMED</argLine>
 				</configuration>
 			</plugin>
 
@@ -261,8 +261,9 @@
 									<mainClass>${main.class}</mainClass>
 									<manifestEntries>
 										<Multi-Release>true</Multi-Release>
-										<!-- FlatLaf loads a native helper library; without this Java 22+
-										     warns on every launch and will eventually refuse. -->
+										<!-- FlatLaf loads a native helper library, and the relaunch calls
+										     Windows directly (WindowsProcess); without this Java warns on
+										     every launch and will eventually refuse. -->
 										<Enable-Native-Access>ALL-UNNAMED</Enable-Native-Access>
 										<Implementation-Title>${project.name}</Implementation-Title>
 										<Implementation-Version>${project.version}</Implementation-Version>

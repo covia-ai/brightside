@@ -210,6 +210,13 @@ stops. `RestartTest` runs both on a venue whose app does nothing.
   IDE, which then carries on outside the IDE (`Relaunch`, as the MCP bridge
   starts the app). Windows locks a running jar, so a jar launch never picks
   up a build that replaced its file.
+- The newcomer outlives whatever started this instance. Windows puts a child
+  process in its parent's job, and whoever owns a job can end everything in
+  it at once: a Claude Code session ends the processes its commands started
+  when the session's own process goes, however many relaunches later. So on
+  Windows `Relaunch` starts the newcomer outside the job (`WindowsProcess`),
+  and the MCP bridge starts the app the same way. A job that forbids leaving
+  keeps it, with a warning in the log. `WindowsProcessTest` covers it.
 - `jar` names another Brightside jar instead: any content reference the venue
   resolves for the caller, such as `file://code/brightside/target/brightside.jar`
   for Brightside's own build, a DLFS path or an asset, read under the

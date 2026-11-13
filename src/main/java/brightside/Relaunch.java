@@ -13,6 +13,9 @@ import java.util.List;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import covia.grid.AContent;
 
 /**
@@ -28,6 +31,7 @@ final class Relaunch {
 	static final String RUN_DIR = "run";
 	private static final String PREFIX = "brightside-";
 	private static final String SUFFIX = ".jar";
+	private static final Logger log = LoggerFactory.getLogger(Relaunch.class);
 
 	private Relaunch() {
 	}
@@ -35,7 +39,9 @@ final class Relaunch {
 	/**
 	 * Starts it with {@code options} and the configuration file. The new process
 	 * outlives this one, so it never inherits a pipe this process owns: its
-	 * output is discarded and its input closed. It writes its own log.
+	 * output is discarded and its input closed. It writes its own log. On
+	 * Windows it is also started outside this process's job, where the job
+	 * allows that, so it outlives whatever started this one ({@link WindowsProcess}).
 	 */
 	static Process start(Path config, List<String> options) throws Exception {
 		return start(command(config, options));
@@ -47,6 +53,14 @@ final class Relaunch {
 	}
 
 	private static Process start(List<String> command) throws IOException {
+		if (WindowsProcess.isWindows()) {
+			WindowsProcess child = WindowsProcess.start(command);
+			if (!child.brokeAway()) {
+				log.warn("The new process {} could not leave this one's Windows job, so it ends if that job is ended",
+					child.pid());
+			}
+			return child;
+		}
 		ProcessBuilder builder = new ProcessBuilder(command);
 		builder.redirectOutput(ProcessBuilder.Redirect.DISCARD);
 		builder.redirectError(ProcessBuilder.Redirect.DISCARD);
