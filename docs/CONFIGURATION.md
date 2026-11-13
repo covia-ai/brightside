@@ -774,6 +774,27 @@ Scheduling, running and cancelling each leave a job record; looking at the
 page does not. Acting as the venue operator shows and manages the venue's own
 schedule instead.
 
+## Jobs
+
+*Settings → Jobs* lists everything that has run or is running for the acting
+principal: chats, agent tasks, scheduled runs, tool calls that were kept,
+anything run through the venue. The newest are first. Filter by how a job
+stands (active, waiting for you, failed, completed, cancelled; several at
+once), by who started it (you, your agents, or others acting for you, such as
+the gods) and by when (today, this week, all time). A scheduled run counts as
+whoever scheduled it, because a job's record doesn't say a schedule started it
+([covia#701](https://github.com/covia-ai/covia/issues/701)).
+
+Each row shows the job's status, what it was for, what it ran, who started it,
+when, and for how long. Select one to act on it from the bar below the list,
+or right-click it: pause or resume it where the work supports that, cancel it,
+send it a message (an answer it asked for, or a word for the agent running
+it), open the agent conversation it worked in, or copy its id or error.
+Double-click a job, or press Enter, for its detail: every field of its record,
+with its input, output, error and history in full, each copyable. The
+breadcrumb leads back to the list, and through the jobs it ran inside. Looking
+leaves no job record; each action leaves one.
+
 ## Secrets
 
 *Settings → Secrets* lists the acting user's encrypted secret store on the

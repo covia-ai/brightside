@@ -526,10 +526,27 @@ public final class MainWindow extends JFrame {
 				MainWindow.this.openConversation(agentId, sessionId);
 			}
 		});
+		brightside.ui.jobs.JobsScreen jobsScreen = new brightside.ui.jobs.JobsScreen(new brightside.ui.jobs.JobsScreen.Host() {
+			@Override
+			public void control(brightside.JobList.Job job, brightside.ui.jobs.JobsScreen.Control control, String message,
+					brightside.ui.jobs.JobsScreen.Result done) {
+				app.controlJob(job, control, message, done);
+			}
+
+			@Override
+			public void openConversation(String agentId, String sessionId) {
+				MainWindow.this.openConversation(agentId, sessionId);
+			}
+
+			@Override
+			public void shown() {
+				app.refreshJobs();
+			}
+		});
 		VaultPanel vaultPanel = new VaultPanel(app::forgetRememberedPassphrase);
 		AuthPanel authPanel = new AuthPanel(app::mintAccessToken, app::keepToolToken, app::setKeepToolToken);
 		settingsScreen = new SettingsScreen(generalPanel, themePanel, modelPanel, profilePanel, integrationsPanel,
-			schedulePanel, secretsPanel, vaultPanel, authPanel);
+			schedulePanel, jobsScreen, secretsPanel, vaultPanel, authPanel);
 
 		mainDeck = new JPanel(mainCards);
 		mainDeck.add(split, MAIN_CHAT);
@@ -949,6 +966,24 @@ public final class MainWindow extends JFrame {
 	public void setInbox(List<brightside.Inbox.Request> requests) {
 		inboxScreen.setRequests(requests);
 		navBar.setBadge(NavBar.Tab.INBOX, brightside.Inbox.pending(requests));
+	}
+
+	/** A snapshot of {@code owner}'s jobs for Settings → Jobs. */
+	public void setJobs(convex.core.data.Index<convex.core.data.Blob, convex.core.data.ACell> jobs, String owner) {
+		settingsScreen.jobs().setJobs(jobs, owner);
+	}
+
+	public void clearJobs() {
+		settingsScreen.jobs().clear();
+	}
+
+	public void showJobsReadFailure() {
+		settingsScreen.jobs().showReadFailure();
+	}
+
+	/** Whether Settings → Jobs is on screen, so its jobs are worth reading. */
+	public boolean isJobsShowing() {
+		return isShowing() && settingsScreen.jobs().isShowing();
 	}
 
 	public void clearInbox() {

@@ -317,7 +317,7 @@ public final class JobList {
 	 * The lowest job id Covia can give a job submitted at {@code millis}: its
 	 * 48-bit creation time followed by zeros (covia-ai/covia#700).
 	 */
-	static Blob idAt(long millis) {
+	public static Blob idAt(long millis) {
 		byte[] key = new byte[8];
 		long prefix = millis << 16;
 		for (int i = 7; i >= 0; i--) {
@@ -325,6 +325,14 @@ public final class JobList {
 			prefix >>>= 8;
 		}
 		return Blob.wrap(key);
+	}
+
+	/** Job {@code id} (hex) in {@code index}, {@code owner}'s jobs, summarised; null when it is not there. */
+	public static Job find(Index<Blob, ACell> index, String owner, String id) {
+		if (index == null || id == null) return null;
+		Blob key = Blob.fromHex(id.startsWith("0x") ? id.substring(2) : id);
+		MapEntry<Blob, ACell> entry = (key != null) ? index.getEntry(key) : null;
+		return (entry == null) ? null : project(entry.getKey(), RT.ensureMap(entry.getValue()), owner);
 	}
 
 	/** A row's summary of one record. */

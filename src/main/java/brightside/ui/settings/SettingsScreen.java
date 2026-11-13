@@ -40,7 +40,7 @@ public final class SettingsScreen extends JPanel {
 		THEME("Theme", "palette", false),
 		// What the assistant runs on and reaches.
 		MODEL("Model", "sparkles", true), INTEGRATIONS("Integrations", "plug", false),
-		SCHEDULE("Schedule", "calendar-clock", false),
+		SCHEDULE("Schedule", "calendar-clock", false), JOBS("Jobs", "list-checks", false),
 		// Keys and access.
 		SECRETS("Secrets", "key-round", true), VAULT("Vault", "lock", false), AUTH("Auth", "ticket", false);
 
@@ -71,13 +71,14 @@ public final class SettingsScreen extends JPanel {
 	private final ProfilePanel profile;
 	private final IntegrationsPanel integrations;
 	private final SchedulePanel schedule;
+	private final brightside.ui.jobs.JobsScreen jobs;
 	private final SecretsPanel secrets;
 	private final VaultPanel vault;
 	private final AuthPanel auth;
 
 	public SettingsScreen(GeneralPanel general, ThemePanel theme, ModelPanel model, ProfilePanel profile,
-			IntegrationsPanel integrations, SchedulePanel schedule, SecretsPanel secrets, VaultPanel vault,
-			AuthPanel auth) {
+			IntegrationsPanel integrations, SchedulePanel schedule, brightside.ui.jobs.JobsScreen jobs,
+			SecretsPanel secrets, VaultPanel vault, AuthPanel auth) {
 		super(new BorderLayout());
 		this.general = general;
 		this.theme = theme;
@@ -85,6 +86,7 @@ public final class SettingsScreen extends JPanel {
 		this.profile = profile;
 		this.integrations = integrations;
 		this.schedule = schedule;
+		this.jobs = jobs;
 		this.secrets = secrets;
 		this.vault = vault;
 		this.auth = auth;
@@ -96,6 +98,7 @@ public final class SettingsScreen extends JPanel {
 		content.add(model, Tab.MODEL.name());
 		content.add(integrations, Tab.INTEGRATIONS.name());
 		content.add(schedule, Tab.SCHEDULE.name());
+		content.add(jobs, Tab.JOBS.name());
 		content.add(secrets, Tab.SECRETS.name());
 		content.add(vault, Tab.VAULT.name());
 		content.add(auth, Tab.AUTH.name());
@@ -163,6 +166,10 @@ public final class SettingsScreen extends JPanel {
 
 	public SchedulePanel schedule() {
 		return schedule;
+	}
+
+	public brightside.ui.jobs.JobsScreen jobs() {
+		return jobs;
 	}
 
 	public SecretsPanel secrets() {

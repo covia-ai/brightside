@@ -85,6 +85,15 @@ request id. Principal changes discard those drafts. Responses still use the
 venue's HITL operation as the request's owner; their completion belongs to the
 binding that submitted them, so it cannot update a different user's view.
 
+The Jobs page binds the acting principal's `Jobs` lattice component, their
+`j/` index, the same way, while it is on screen. Covia keys that index by job
+id and ids rise with creation time, so `JobList` finds a time range with
+`Index.seek` and counts rows back from the end, reading records only to filter
+by status or starter. The list is a `JList` over a model that projects a row's
+summary only when the list asks for it, and a fixed cell size means it asks
+only for the rows on screen, however long the history. Actions go through
+Covia's Job tools as the principal.
+
 **Storage is managed where it is browsed, and distinguishes installation
 access from personal data.** `FileRoots` persists folder access for the next
 launch; `PersonalDrives` uses the acting user's DLFS operations and prepares
