@@ -91,7 +91,11 @@ and history ([GODS.md](GODS.md), [LAUNCH.md](LAUNCH.md#the-startup-pass)).
 
 Relaunching through Odin means Tau starts its successor itself, so the
 running app does not depend on the Claude session that asked. Odin keeps the
-owner's standing decision that the loop's relaunches are approved.
+owner's standing decision that the loop's relaunches are approved, and still
+judges each one: every request says why, with what changed and how it was
+tested, or what failed for a rollback. When relaunches come without reasons,
+or thrash between builds, he holds and asks the owner through the Inbox, and
+the loop reports what he asked rather than asking again.
 
 Reports and issues quote the backlog and logs as they are. An owner whose
 data is not test data says so in the repository's `CLAUDE.local.md`, and the

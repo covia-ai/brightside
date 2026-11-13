@@ -38,10 +38,11 @@ never push, never release.
 - `$S/smoke.sh`. If Tau is not running (exit 2 from `mcp.sh`), start it
   from a copy of `~/.brightside/code/last-good.jar` with
   `javaw -jar <copy> --unlock --takeover` (PowerShell `Start-Process`), then
-  `$S/relaunch.sh file://code/last-good.jar`: the process this session
-  starts sits in the session's Windows job and ends with it, while the one
-  Tau relaunches into leaves the job and runs on. Any other failed check: report it; fixing it is this
-  run's work.
+  `$S/relaunch.sh "Tau was down (say why, from its log); started from the
+  last good build, relaunched so Tau owns its process" file://code/last-good.jar`:
+  the process this session starts sits in the session's Windows job and ends
+  with it, while the one Tau relaunches into leaves the job and runs on. Any
+  other failed check: report it; fixing it is this run's work.
 
 ## 2. The improvement agent
 
@@ -128,14 +129,23 @@ and `diff`, read only). Narrow it to the change that broke Tau.
 
 ```bash
 cd "$W" && mvn -q package -DskipTests
-$S/relaunch.sh && $S/smoke.sh
+$S/relaunch.sh "<what changed, and how it was tested>" && $S/smoke.sh
 ```
+
+Odin judges every relaunch, so the reason says what this one is for: what
+changed since the build Tau runs, and the tests that passed ("Fixes #40:
+the inbox notifies from the tray; tests: 463 green"); a rollback says what
+failed. The script sends the build's commit and the rollback with it. When it
+fails because Odin held, it prints what he asked: answer that in the next
+request, or report it for the owner. Never send the same relaunch again
+without the reasons he asked for.
 
 On success: `cp "$W/target/brightside.jar" ~/.brightside/code/last-good.jar`,
 then re-run the failing actions of the entries this chunk fixed, and go to
 step 4: after an upgrade always, after an improvement if the bound at the top
 allows. On failure:
-`$S/relaunch.sh file://code/last-good.jar` and `$S/smoke.sh`. For an
+`$S/relaunch.sh "<what failed>; rolling back" file://code/last-good.jar` and
+`$S/smoke.sh`. For an
 upgrade, then debug it as step 3 says. For an improvement, revert this
 chunk's commits, stop taking chunks, and merge what passed.
 
