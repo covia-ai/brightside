@@ -74,6 +74,9 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 		/** Read what the agent is, answering through {@link #showAgent}. */
 		void loadAgent(String agentId, int version);
 
+		/** Give the agent new instructions, from its Agent tab. */
+		void saveInstructions(String agentId, String instructions);
+
 		/** Show a skill or directory in the library — the Skills screen — by its path. */
 		void showSkill(String path);
 
@@ -520,12 +523,17 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 		if (current().perSession()) readSession();
 	}
 
-	/** The agent as read; {@code info} null when it could not be read. Ignored unless {@code agentId} is still on screen. */
-	public void showAgent(String agentId, int version, AgentInfo.Summary info) {
+	/**
+	 * The agent as read; {@code info} null when it could not be read;
+	 * {@code editable}: its instructions can be changed from the view. Ignored
+	 * unless {@code agentId} is still on screen.
+	 */
+	public void showAgent(String agentId, int version, AgentInfo.Summary info, boolean editable) {
 		if (!Objects.equals(agentId, this.agentId) || version != agentVersion) return;
 		agentShown = version;
 		if (info == null) noteAgent(() -> unreadable("Couldn't read this agent"));
-		else fill(slots.get(View.AGENT), AgentInspector.view(info));
+		else fill(slots.get(View.AGENT), AgentInspector.view(info,
+			editable ? text -> host.saveInstructions(agentId, text) : null));
 		if (current() == View.AGENT) readAgent();
 	}
 

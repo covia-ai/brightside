@@ -5,6 +5,7 @@ import static brightside.BrightSide.APP_NAME;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
+import java.util.function.Consumer;
 
 import java.awt.BorderLayout;
 
@@ -15,21 +16,24 @@ import brightside.AgentInfo;
 import brightside.ui.components.Badge;
 import brightside.ui.components.Borders;
 import brightside.ui.components.Chip;
+import brightside.ui.components.Dialogs;
 import brightside.ui.components.Labels;
 import brightside.ui.components.Readout;
 import brightside.ui.components.Scrolls;
 import brightside.ui.components.StatusLabel;
 import brightside.ui.components.Styles;
+import brightside.ui.components.TextArea;
 import brightside.ui.components.Tone;
 import net.miginfocom.swing.MigLayout;
 
 /**
- * A read-only view of one agent (from {@link AgentInfo}): a fixed header with
+ * A view of one agent (from {@link AgentInfo}): a fixed header with
  * its name, run state, kind and activity, above one {@link Readout} document:
  * identity, model and queue; the system
  * prompt and what is pinned into every turn; the always-on tools, skill
  * libraries and anything unavailable; and, folded at the end, the venue's raw
- * {@code agent:info} summary. Everything shown is selectable and copyable.
+ * {@code agent:info} summary. Everything shown is selectable and copyable;
+ * the instructions of one of the owner's own agents can be edited in place.
  * {@link SessionViews} shows it as the Agent tab above the chat.
  */
 public final class AgentInspector {
@@ -37,12 +41,16 @@ public final class AgentInspector {
 	private AgentInspector() {
 	}
 
-	/** The agent: who and how it is in a fixed header, its document scrolling below. */
-	public static JComponent view(AgentInfo.Summary a) {
+	/**
+	 * The agent: who and how it is in a fixed header, its document scrolling
+	 * below. {@code saveInstructions} takes edited instructions; null when they
+	 * cannot be edited here.
+	 */
+	public static JComponent view(AgentInfo.Summary a, Consumer<String> saveInstructions) {
 		JPanel view = new JPanel(new BorderLayout());
 		view.setOpaque(false);
 		view.add(header(a), BorderLayout.NORTH);
-		view.add(Scrolls.vertical(document(a)), BorderLayout.CENTER);
+		view.add(Scrolls.vertical(document(a, saveInstructions)), BorderLayout.CENTER);
 		return view;
 	}
 
@@ -84,7 +92,7 @@ public final class AgentInspector {
 		};
 	}
 
-	static Readout document(AgentInfo.Summary a) {
+	static Readout document(AgentInfo.Summary a, Consumer<String> saveInstructions) {
 		Readout d = new Readout();
 		if (a.error() != null) {
 			d.pair("Last error", a.error(), Styles.ERROR).tip("What stopped the agent, as the venue reports it.");
@@ -100,6 +108,11 @@ public final class AgentInspector {
 
 		d.section("System prompt").tip("The instructions that open every turn: the agent's identity and role.");
 		d.prose(orDash(a.systemPrompt()));
+		if (saveInstructions != null) {
+			d.link("Edit instructions", () -> editInstructions(d, a, saveInstructions));
+		} else if (a.standard()) {
+			d.note("Set in Settings and config.json.");
+		}
 		d.section("In every turn").tip("Context pinned by configuration: read afresh each turn and watched for change, "
 			+ "so the agent always has it without loading anything.");
 		for (String c : a.context()) d.prose(c);
@@ -123,6 +136,22 @@ public final class AgentInspector {
 		d.section("Raw").tip("The venue's own summary of the agent, as JSON.");
 		d.excerpt(a.rawJson(), true);
 		return d;
+	}
+
+	/** Asks for new instructions, starting from the current ones, and saves them unless cancelled, blank or unchanged. */
+	private static void editInstructions(JComponent parent, AgentInfo.Summary a, Consumer<String> save) {
+		TextArea area = new TextArea(16, 60);
+		area.setLineWrap(true);
+		area.setWrapStyleWord(true);
+		area.setText((a.systemPrompt() == null) ? "" : a.systemPrompt());
+		area.setCaretPosition(0);
+		JPanel form = new JPanel(new MigLayout("insets 8, fill, wrap 1", "[grow,fill]", "[grow,fill][]"));
+		form.setOpaque(false);
+		form.add(Scrolls.vertical(area), "wmin 0, hmin 200");
+		form.add(Labels.small("They open every turn, scheduled runs included, from the next one."));
+		if (!Dialogs.form(parent, a.name() + "'s instructions", form)) return;
+		String text = area.getText().trim();
+		if (!text.isEmpty() && !text.equals(a.systemPrompt())) save.accept(text);
 	}
 
 	private static void list(Readout d, List<String> items, String whenEmpty) {

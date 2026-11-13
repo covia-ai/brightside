@@ -241,6 +241,11 @@ public final class MainWindow extends JFrame {
 			}
 
 			@Override
+			public void saveInstructions(String agentId, String instructions) {
+				app.setAgentInstructions(agentId, instructions);
+			}
+
+			@Override
 			public void sessionsChanged(List<SessionHistory.Session> sessions, String selectedId) {
 				conversations.setSessions(sessions, selectedId);
 			}
@@ -949,9 +954,17 @@ public final class MainWindow extends JFrame {
 		views.showSession(sessionId, version, report, turns, skills);
 	}
 
-	/** An agent as read ({@code info} null: it could not be), for the Agent tab on Sessions. */
-	public void showAgentInfo(String agentId, int version, brightside.AgentInfo.Summary info) {
-		views.showAgent(agentId, version, info);
+	/**
+	 * An agent as read ({@code info} null: it could not be), for the Agent tab
+	 * on Sessions; {@code editable}: the owner may change its instructions there.
+	 */
+	public void showAgentInfo(String agentId, int version, brightside.AgentInfo.Summary info, boolean editable) {
+		views.showAgent(agentId, version, info, editable);
+	}
+
+	/** The agent on screen changed: its Agent tab is read again. */
+	public void agentChanged() {
+		views.agentChanged();
 	}
 
 	/** Replace the Skills screen's tree: {@code agentName}'s skillsets (the roots, in search order) over what they reach. */

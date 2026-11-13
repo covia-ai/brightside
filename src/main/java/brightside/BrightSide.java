@@ -2158,10 +2158,11 @@ public final class BrightSide {
 		String did = userDID;
 		if (c == null || v == null || id == null || did == null || agentId == null) return;
 		boolean standard = agentId.equals(defaultAgentId());
+		boolean editable = instructionsEditable(agentId);
 		Thread t = new Thread(() -> {
 			// Null when it could not be read: the Agent view says so.
 			AgentInfo.Summary info = AgentInfo.load(c, v.agentRecord(did, agentId), agentId, did, id.name(), standard);
-			SwingUtilities.invokeLater(() -> window.showAgentInfo(agentId, version, info));
+			SwingUtilities.invokeLater(() -> window.showAgentInfo(agentId, version, info, editable));
 		}, "brightside-agent-info");
 		t.setDaemon(true);
 		t.start();
@@ -2201,6 +2202,52 @@ public final class BrightSide {
 		}, "brightside-delete-agent");
 		t.setDaemon(true);
 		t.start();
+	}
+
+	/**
+	 * Whether the owner may change {@code agentId}'s instructions from the Agent
+	 * tab: not the standard agent's, which follow Settings and config.json and
+	 * are re-applied, nor a god's, which carry policy that {@link God} re-applies.
+	 */
+	private boolean instructionsEditable(String agentId) {
+		return agentId != null && !agentId.equals(defaultAgentId())
+			&& !(actingAsOperator && Gods.byId(agentId) != null);
+	}
+
+	/**
+	 * Gives one of the owner's own agents new instructions, in force from its
+	 * next turn, and reads its Agent tab again. An agent mid-reply rejects the
+	 * update; the owner is told and can save again once it is done.
+	 */
+	public void setAgentInstructions(String agentId, String instructions) {
+		Venue c = client;
+		if (c == null || !instructionsEditable(agentId) || instructions == null || instructions.isBlank()) return;
+		String name = displayNameFor(agentId);
+		Thread t = new Thread(() -> {
+			String note;
+			try {
+				setAgentInstructions(c, agentId, instructions.trim());
+				log.info("Changed the instructions of agent '{}'", agentId);
+				note = "Saved " + name + "'s instructions. They apply from its next turn.";
+			} catch (Exception e) {
+				log.warn("Could not change the instructions of agent {}: {}", agentId, e.toString());
+				note = "Couldn't save " + name + "'s instructions (" + rootMessage(e)
+					+ "). If it is replying, save them again once it is done.";
+			}
+			String text = note;
+			SwingUtilities.invokeLater(() -> {
+				window.agentChanged();
+				window.showSystemMessage(text);
+			});
+		}, "brightside-agent-instructions");
+		t.setDaemon(true);
+		t.start();
+	}
+
+	/** Replaces an agent's instructions: {@code agent:update} merging in its {@code systemPrompt}, keeping the rest. */
+	static void setAgentInstructions(Venue client, String agentId, String instructions) throws Exception {
+		invokeOp(client, "v/ops/agent/update",
+			Maps.of("agentId", agentId, "config", Maps.of("systemPrompt", instructions)));
 	}
 
 	/** Removes an agent's record ({@code agent:delete} with {@code remove}), not merely marking it terminated. */

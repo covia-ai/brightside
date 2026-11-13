@@ -33,8 +33,9 @@ import covia.grid.Job;
 import covia.grid.Venue;
 
 /**
- * Mechanism test for the agent info screen and agent deletion: what
- * {@link AgentInfo} reports comes from a real record, and {@code agent:delete}
+ * Mechanism test for the agent info screen, new instructions and agent
+ * deletion: what {@link AgentInfo} reports comes from a real record, new
+ * instructions replace only the prompt, and {@code agent:delete}
  * as Brightside calls it removes the record, not just marks it terminated.
  */
 class AgentInfoTest {
@@ -90,6 +91,13 @@ class AgentInfoTest {
 		assertEquals(0, info.conversations());
 		assertEquals(0, info.lastActive());
 		assertTrue(listedAgents().contains(agentId));
+
+		BrightSide.setAgentInstructions(client, agentId, "You are Bob, the editor.");
+		AgentInfo.Summary edited = AgentInfo.load(client, venue.agentRecord(userDID, agentId),
+			agentId, userDID, "Info Test", false);
+		assertEquals("You are Bob, the editor.", edited.systemPrompt());
+		assertEquals(List.of("v/ops/memory"), edited.tools(), "new instructions keep the rest of the configuration");
+		assertEquals(AppConfig.ECHO_LLM_OPERATION, edited.model());
 
 		BrightSide.deleteAgent(client, agentId);
 
