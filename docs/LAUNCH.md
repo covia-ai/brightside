@@ -282,16 +282,25 @@ holds the store open until the venue's final save is done.
 
 ## When the store was not closed cleanly
 
-Etch v3 records a clean checkpoint in the store's header. A process that dies
-between a write and its next sync or close — a crash, a power cut, an IDE
-launch stopped dead — leaves the header open, and Etch refuses to open the
-file: by its design there is no writable recovery open, only a repair into a
-fresh file. `StoreRepair` does that at launch, with the key in hand: it
-rebuilds `venue.etch` into a fresh file beside it, moves the old one aside as
-`venue.etch.unclean-<stamp>` and installs the fresh one, then the launch goes
-on and the chat opens with a note saying so. Only writes after the last sync
-can be missing. If the fresh file cannot be installed, the old one is put back
-so there is never no store at all. `"repairStore": false` in `config.json`
+Etch v3 records a clean checkpoint in the store's header, and the first write
+after a checkpoint marks the header open again. The venue publishes its state
+to the store several times a second, but checkpoints only on Covia's flush
+interval (seconds) and where it makes a promise outside, such as accepting a
+job. Even a publish that changes nothing reopens the header, so while Tau runs
+the header is nearly always open. A process that dies before its next
+checkpoint or close — a crash, a power cut, an IDE launch stopped dead, a
+kill — leaves it open, and Etch refuses to open the file: by its design there
+is no writable recovery open, only a repair into a fresh file. `StoreRepair`
+does that at launch, with the key in hand: it rebuilds `venue.etch` into a
+fresh file beside it, moves the old one aside as `venue.etch.unclean-<stamp>`
+and installs the fresh one, then the launch goes on and the chat opens with a
+note saying so. The repaired store holds the state of the last checkpoint:
+what changed after it is missing, even if it had been published. Each problem
+the repair met is logged; a COMPLETE repair still holds every intact record of
+the old file, and Etch's rebuilder currently lists valid tree records among
+its problems when it meets them before their children. If the fresh file
+cannot be installed, the old one is put back so there is never no store at
+all. `"repairStore": false` in `config.json`
 stops the launch instead, for an owner who would rather restore a backup by
 hand ([CONFIGURATION.md](CONFIGURATION.md)).
 

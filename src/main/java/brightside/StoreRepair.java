@@ -20,18 +20,19 @@ import covia.venue.Config;
 /**
  * Puts the venue store right after an unclean close. Etch v3 records a clean
  * checkpoint in its header; a process that dies between a write and the next
- * sync or close — a crash, a power cut, an IDE launch stopped dead — leaves
- * the header open, and a normal open refuses the file. That refusal is by
+ * checkpoint or close — a crash, a power cut, an IDE launch stopped dead, a
+ * kill — leaves the header open, and a normal open refuses the file. That refusal is by
  * design: an index that may be inconsistent must never be the base for
  * further writes, so Etch offers no writable recovery open. The way back is
  * a repair into a fresh file — an exclusive, read-only pass over the old one
- * that rediscovers every valid cell and proves the last synced root complete.
+ * that rediscovers every valid cell and proves the last checkpoint's root complete.
  *
  * <p>That is what {@link #repair} does at launch: it rebuilds into a fresh
  * file beside the store, moves the old file aside under a dated name and
  * installs the fresh one in its place, so nothing is destroyed and the owner
- * can go back. Only writes after the last sync can be missing, and the
- * outcome says whether the old file could be read through to its end.
+ * can go back. The store comes back at its last checkpoint: what the venue
+ * published after it, between checkpoints, is missing. The outcome says
+ * whether the old file could be read through to its end.
  */
 public final class StoreRepair {
 
@@ -94,8 +95,8 @@ public final class StoreRepair {
 	/**
 	 * Repairs the persistent store {@code venueConfig} names (with its Etch
 	 * policy and key) into a fresh file and installs it, keeping the old file
-	 * beside it. Fails, leaving the old file untouched, when the last synced
-	 * root cannot be proved complete — the rebuild is then a partial store
+	 * beside it. Fails, leaving the old file untouched, when the last
+	 * checkpoint's root cannot be proved complete — the rebuild is then a partial store
 	 * left beside the original for a hand recovery.
 	 */
 	public static Outcome repair(AMap<AString, ACell> venueConfig) throws IOException {
