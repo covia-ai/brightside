@@ -40,7 +40,6 @@ public final class InboxScreen extends JPanel {
 	/** How many requests are open, beside the title; hidden when none are. */
 	private final Chip waiting = new Chip(" ");
 	private final JLabel notice = Labels.small(" ");
-	private final JLabel readFailure = Labels.small("Couldn't refresh the inbox. Trying again…");
 	private final EmptyState empty = new EmptyState("inbox", Tone.MUTED, "Nothing is waiting for you",
 		"When one of your agents needs a decision only you can make, it asks here.").bare();
 	/** Cards by owner and request id, in display order. */
@@ -65,10 +64,6 @@ public final class InboxScreen extends JPanel {
 		add(Scrolls.vertical(Scrolls.hugTop(column)), BorderLayout.CENTER);
 		JPanel notices = Panels.column();
 		notice.setAlignmentX(LEFT_ALIGNMENT);
-		readFailure.setAlignmentX(LEFT_ALIGNMENT);
-		readFailure.setBorder(BorderFactory.createEmptyBorder(6, 18, 0, 18));
-		readFailure.setVisible(false);
-		notices.add(readFailure);
 		notices.add(notice);
 		add(notices, BorderLayout.SOUTH);
 		addHierarchyListener(e -> {
@@ -84,7 +79,6 @@ public final class InboxScreen extends JPanel {
 	 */
 	public void setRequests(List<Inbox.Request> requests) {
 		this.requests = List.copyOf(requests);
-		readFailure.setVisible(false);
 		dirty = true;
 		renderIfShowing();
 	}
@@ -133,11 +127,6 @@ public final class InboxScreen extends JPanel {
 		column.removeAll();
 		notice.setText(" ");
 		setRequests(List.of());
-	}
-
-	/** Read failures retain the snapshot and drafts; a successful read clears this note. */
-	public void showReadFailure() {
-		readFailure.setVisible(true);
 	}
 
 	/** A response completes only its own form; other requests may still be sending. */

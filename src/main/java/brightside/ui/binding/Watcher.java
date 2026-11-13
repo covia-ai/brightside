@@ -14,6 +14,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import javax.swing.SwingUtilities;
 
@@ -43,6 +44,10 @@ import convex.lattice.cursor.MissingValueException;
  * watch's view again on the event thread, so a missed Swing event costs at
  * most one pass. Closing a watch ({@link Watch#close}) ends it for good: a view
  * given another component closes the old watch.
+ *
+ * <p>What is not a view, such as a notification that something has arrived,
+ * {@link #observe observes} instead: on the same thread, but live from the
+ * call until it is closed, whatever is on screen.
  */
 public final class Watcher {
 
@@ -94,7 +99,7 @@ public final class Watcher {
 	 */
 	public static <V extends ACell> Watch<V> watch(Component view, ALatticeComponent<V> component,
 			Consumer<? super V> changed) {
-		return SHARED.add(view, component, changed);
+		return SHARED.add(view, component::value, changed);
 	}
 
 	/**
@@ -103,10 +108,21 @@ public final class Watcher {
 	 * repaints it.
 	 */
 	public static Watch<?> watch(Component view, ALatticeComponent<?> component) {
-		return SHARED.add(view, component, value -> {
+		return SHARED.add(view, component::value, value -> {
 			view.revalidate();
 			view.repaint();
 		});
+	}
+
+	/**
+	 * Calls {@code changed} on the event thread with what {@code read} returns,
+	 * from now until the watch is closed, whatever is on screen: at once, then
+	 * whenever the value changes. For what must keep up while the window is
+	 * minimised or in the tray, such as noticing that something has arrived;
+	 * {@code read} may combine several components. Call on the event thread.
+	 */
+	public static <V extends ACell> Watch<V> observe(Supplier<V> read, Consumer<? super V> changed) {
+		return SHARED.add(null, read, changed);
 	}
 
 	/**
@@ -122,14 +138,19 @@ public final class Watcher {
 		}
 	}
 
-	<V extends ACell> Watch<V> add(Component view, ALatticeComponent<V> component, Consumer<? super V> changed) {
-		Watch<V> watch = new Watch<>(this, view, component, changed);
-		view.addHierarchyListener(watch.listener);
-		if (showing.test(view)) join(watch);
+	/** A watch of {@code view}, or with no view one that observes until closed. */
+	<V extends ACell> Watch<V> add(Component view, Supplier<V> read, Consumer<? super V> changed) {
+		Watch<V> watch = new Watch<>(this, view, read, changed);
+		if (view == null) {
+			join(watch);
+		} else {
+			view.addHierarchyListener(watch.listener);
+			if (showing.test(view)) join(watch);
+		}
 		return watch;
 	}
 
-	/** How many watches are live: their views are on screen. */
+	/** How many watches are live: their views are on screen, or they observe. */
 	int live() {
 		return live.size();
 	}
@@ -137,7 +158,7 @@ public final class Watcher {
 	/** Event thread: the watch's view has come on screen; read it now. */
 	void join(Watch<?> watch) {
 		if (watch.closed || !live.add(watch)) return;
-		watch.active = !minimised.test(watch.view);
+		watch.active = watch.view == null || !minimised.test(watch.view);
 		refresh(watch);
 	}
 
@@ -171,13 +192,14 @@ public final class Watcher {
 	}
 
 	/**
-	 * One view's watch on one component. Ends when closed; leaves and rejoins
-	 * the watcher as the view leaves and comes back on screen.
+	 * One view's watch on one component, or an observation with no view. Ends
+	 * when closed; a view's watch leaves and rejoins the watcher as the view
+	 * leaves and comes back on screen.
 	 */
 	public static final class Watch<V extends ACell> implements AutoCloseable {
 		private final Watcher watcher;
-		final Component view;
-		private final ALatticeComponent<V> component;
+		final Component view; // null for an observation
+		private final Supplier<V> read;
 		private final Consumer<? super V> changed;
 		final HierarchyListener listener;
 		/** False while the view's window is minimised: nothing is read. */
@@ -187,10 +209,10 @@ public final class Watcher {
 		private volatile boolean delivered;
 		private boolean failing; // the watcher's thread only
 
-		Watch(Watcher watcher, Component view, ALatticeComponent<V> component, Consumer<? super V> changed) {
+		Watch(Watcher watcher, Component view, Supplier<V> read, Consumer<? super V> changed) {
 			this.watcher = watcher;
-			this.view = Objects.requireNonNull(view);
-			this.component = Objects.requireNonNull(component);
+			this.view = view;
+			this.read = Objects.requireNonNull(read);
 			this.changed = Objects.requireNonNull(changed);
 			this.listener = e -> {
 				if ((e.getChangeFlags() & HierarchyEvent.SHOWING_CHANGED) == 0) return;
@@ -209,7 +231,7 @@ public final class Watcher {
 		public void close() {
 			closed = true;
 			watcher.leave(this);
-			view.removeHierarchyListener(listener);
+			if (view != null) view.removeHierarchyListener(listener);
 		}
 
 		/**
@@ -220,7 +242,9 @@ public final class Watcher {
 			if (closed || !active) return this::check;
 			V value;
 			try {
-				value = valueOf(component);
+				value = read.get();
+			} catch (MissingValueException e) {
+				value = null; // nothing written there: the view keeps what it showed
 			} catch (RuntimeException e) {
 				if (!failing) log.warn("Could not read a watched lattice component; showing its last value", e);
 				failing = true;
@@ -228,8 +252,9 @@ public final class Watcher {
 			}
 			failing = false;
 			if (value == null || (delivered && Objects.equals(value, last))) return this::check;
+			V next = value;
 			return () -> {
-				if (check()) deliver(value);
+				if (check()) deliver(next);
 			};
 		}
 
@@ -239,6 +264,7 @@ public final class Watcher {
 		 */
 		private boolean check() {
 			if (closed) return false;
+			if (view == null) return true;
 			if (!watcher.showing.test(view)) {
 				watcher.leave(this);
 				return false;

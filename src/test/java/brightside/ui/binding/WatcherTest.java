@@ -58,7 +58,7 @@ class WatcherTest {
 
 	private Watcher.Watch<ACell> watch() throws Exception {
 		List<Watcher.Watch<ACell>> made = new ArrayList<>();
-		SwingUtilities.invokeAndWait(() -> made.add(watcher.add(view, component, seen::add)));
+		SwingUtilities.invokeAndWait(() -> made.add(watcher.add(view, component::value, seen::add)));
 		return made.get(0);
 	}
 
@@ -180,6 +180,23 @@ class WatcherTest {
 		show(true);
 		assertEquals(1, watcher.live());
 		assertTrue(seen.isEmpty());
+	}
+
+	@Test
+	void anObservationKeepsUpWhateverIsOnScreenUntilClosed() throws Exception {
+		List<Watcher.Watch<ACell>> made = new ArrayList<>();
+		SwingUtilities.invokeAndWait(() -> made.add(watcher.add(null, component::value, seen::add)));
+		settle();
+		assertEquals(List.of(CVMLong.create(1)), seen, "told at once");
+		minimised.add(view);
+		root.set(CVMLong.create(2));
+		pass();
+		assertEquals(List.of(CVMLong.create(1), CVMLong.create(2)), seen, "nothing on screen, and still told");
+		SwingUtilities.invokeAndWait(made.get(0)::close);
+		root.set(CVMLong.create(3));
+		pass();
+		assertEquals(2, seen.size(), "until it is closed");
+		assertEquals(0, watcher.live());
 	}
 
 	@Test

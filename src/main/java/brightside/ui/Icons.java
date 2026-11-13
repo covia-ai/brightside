@@ -30,6 +30,8 @@ public final class Icons {
 	public static final Color COVIA_PURPLE = new Color(0x6B, 0x46, 0xC1);
 	/** The bright side. */
 	public static final Color BRIGHT = new Color(0xFF, 0xC8, 0x3D);
+	/** The dot that says something is waiting. */
+	public static final Color WAITING = new Color(0xE5, 0x48, 0x4D);
 
 	private static final int[] APP_SIZES = { 16, 20, 24, 32, 48, 64, 128, 256 };
 	/** Standard cubic approximation of one quarter of a circle. */
@@ -58,6 +60,29 @@ public final class Icons {
 
 			g.setColor(BRIGHT);
 			g.fill(brightPhase(size, pad));
+		} finally {
+			g.dispose();
+		}
+		return img;
+	}
+
+	/**
+	 * The mark with a dot at its upper right, as a tray icon shows that
+	 * something waits for the owner: red, ringed in white so it reads on the
+	 * bright phase and on a dark taskbar alike.
+	 */
+	public static Image marked(int size) {
+		BufferedImage img = (BufferedImage) icon(size);
+		Graphics2D g = img.createGraphics();
+		try {
+			g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+			float d = Math.max(5f, size * 0.44f);
+			float ring = Math.max(1f, size * 0.06f);
+			float x = size - d, y = 0;
+			g.setColor(Color.WHITE);
+			g.fill(new Ellipse2D.Float(x, y, d, d));
+			g.setColor(WAITING);
+			g.fill(new Ellipse2D.Float(x + ring, y + ring, d - 2 * ring, d - 2 * ring));
 		} finally {
 			g.dispose();
 		}

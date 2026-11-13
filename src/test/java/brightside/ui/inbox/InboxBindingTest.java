@@ -4,10 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 
 import javax.swing.SwingUtilities;
 
@@ -67,30 +63,28 @@ class InboxBindingTest {
 		Inbox.Source source = new Inbox.Source(users, owner.getDID().toString(), operator.getDID().toString());
 		List<List<Inbox.Request>> snapshots = new ArrayList<>();
 		List<Inbox.Request> arrivals = new ArrayList<>();
-		InboxBinding binding = new InboxBinding(source, () -> true, snapshots::add, arrivals::add, error -> fail(error));
+		InboxBinding binding = new InboxBinding(source, snapshots::add, arrivals::add);
 		try {
-			settle(binding::refresh);
+			read(binding, source);
 			assertEquals(1, snapshots.size());
-			assertTrue(arrivals.isEmpty());
-			settle(binding::refresh);
-			assertEquals(1, snapshots.size(), "unchanged requests do not disturb the view");
+			assertTrue(arrivals.isEmpty(), "requests already there stay quiet");
 			// Same local id under different owners exercises composed identity.
 			open(owner, "new", 2);
 			open(operator, "new", 3);
-			settle(binding::refresh);
+			read(binding, source);
 			assertEquals(2, arrivals.size());
 			assertNotEquals(InboxBinding.key(arrivals.get(0)), InboxBinding.key(arrivals.get(1)));
 			assertEquals(3, Inbox.pending(snapshots.get(1)));
 			Inbox.Request pending = arrivals.get(0);
 			assertTrue(binding.canRespond(pending));
 			operator.inbox().request(Strings.create("new")).resolve(Strings.create("answered"), Maps.empty());
-			settle(binding::refresh);
+			read(binding, source);
 			assertFalse(binding.canRespond(pending), "an old form cannot choose authority for a changed request");
 			assertEquals(2, Inbox.pending(snapshots.get(2)));
 			assertEquals(2, arrivals.size(), "resolution and repeated snapshots do not notify again");
 			owner.inbox().clear();
 			operator.inbox().clear();
-			settle(binding::refresh);
+			read(binding, source);
 			assertTrue(snapshots.get(3).isEmpty(), "removal clears the cards and count");
 			assertFalse(binding.canRespond(arrivals.get(1)));
 		} finally {
@@ -109,12 +103,12 @@ class InboxBindingTest {
 		open(operator, "retained", 2);
 		Inbox.Source source = new Inbox.Source(users, owner.getDID().toString(), operator.getDID().toString());
 		List<List<Inbox.Request>> snapshots = new ArrayList<>();
-		InboxBinding binding = new InboxBinding(source, () -> true, snapshots::add, request -> {}, error -> fail(error));
+		InboxBinding binding = new InboxBinding(source, snapshots::add, request -> {});
 		try {
-			settle(binding::refresh);
+			read(binding, source);
 			var engine = shared.venue().engine();
 			engine.deleteUser(engine.venueContext(), owner.getDID());
-			settle(binding::refresh);
+			read(binding, source);
 			assertEquals(List.of("retained"), snapshots.get(1).stream().map(Inbox.Request::id).toList());
 			assertNull(source.read().get(0));
 		} finally {
@@ -135,9 +129,9 @@ class InboxBindingTest {
 			null, null, Strings.create(id), null, Vectors.empty(), created, null)));
 	}
 
-	private static void settle(Supplier<CompletableFuture<Void>> action) throws Exception {
-		AtomicReference<CompletableFuture<Void>> started = new AtomicReference<>();
-		SwingUtilities.invokeAndWait(() -> started.set(action.get()));
-		started.get().get(5, TimeUnit.SECONDS);
+	/** The binding takes the inbox as it stands, as the watcher hands it each change. */
+	private static void read(InboxBinding binding, Inbox.Source source) throws Exception {
+		var value = source.read();
+		SwingUtilities.invokeAndWait(() -> binding.accept(value));
 	}
 }

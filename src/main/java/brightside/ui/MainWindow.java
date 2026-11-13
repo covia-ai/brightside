@@ -977,10 +977,6 @@ public final class MainWindow extends JFrame {
 		navBar.setBadge(NavBar.Tab.INBOX, 0);
 	}
 
-	public void showInboxReadFailure() {
-		inboxScreen.showReadFailure();
-	}
-
 	/** A line under the open request: the result of the last answer or rejection. */
 	public void showInboxNotice(brightside.Inbox.Request request, String text) {
 		inboxScreen.showNotice(request, text);

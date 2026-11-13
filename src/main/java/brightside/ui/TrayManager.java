@@ -33,10 +33,13 @@ public final class TrayManager {
 	private static final int TOOLTIP_MAX = 127;
 
 	private final TrayIcon icon;
+	private final int px;
 	private boolean hiddenNoticeShown;
+	private boolean pending;
 
-	private TrayManager(TrayIcon icon) {
+	private TrayManager(TrayIcon icon, int px) {
 		this.icon = icon;
+		this.px = px;
 	}
 
 	/** Adds the tray icon. Runs on the event thread. Returns null when there is no usable tray. */
@@ -74,7 +77,7 @@ public final class TrayManager {
 			});
 			tray.add(icon);
 			log.info("Tray icon installed");
-			return new TrayManager(icon);
+			return new TrayManager(icon, px);
 		} catch (Throwable t) {
 			// AWT can fail in exotic ways (missing native libs, odd DEs) — never fatal.
 			log.warn("System tray unavailable: {}", t.toString());
@@ -85,6 +88,17 @@ public final class TrayManager {
 	/** Hover text, clamped to the platform limit. */
 	public void setTooltip(String text) {
 		icon.setToolTip(text.length() <= TOOLTIP_MAX ? text : text.substring(0, TOOLTIP_MAX - 1) + "…");
+	}
+
+	/** Marks the icon while something waits for the owner's decision, and clears it after. */
+	public void setPending(boolean waiting) {
+		if (waiting == pending) return;
+		pending = waiting;
+		try {
+			icon.setImage(waiting ? Icons.marked(px) : Icons.icon(px));
+		} catch (Exception e) {
+			// the mark is decoration
+		}
 	}
 
 	/** Called when the window is hidden to the tray; shows a one-time hint. */

@@ -911,6 +911,7 @@ public final class BrightSide {
 		renewToolToken(); // with nobody unlocked, that is none
 		SwingUtilities.invokeLater(() -> {
 			if (oldInbox != null) oldInbox.close();
+			if (tray != null) tray.setPending(false);
 			window.clearJobs();
 			window.userLoggedOut();
 			window.setVisible(false);
@@ -2211,13 +2212,13 @@ public final class BrightSide {
 		InboxBinding old = inboxBinding;
 		if (old != null) old.close();
 		window.clearInbox();
-		inboxBinding = new InboxBinding(v.inboxes(did), () -> window.isShowing() && !locked && !exiting.get(),
-			window::setInbox, request -> {
-				if (tray != null) tray.notify(APP_NAME + " needs your decision", request.title());
-			}, error -> {
-				log.warn("Could not refresh the inbox", error);
-				window.showInboxReadFailure();
-			});
+		if (tray != null) tray.setPending(false);
+		inboxBinding = new InboxBinding(v.inboxes(did), requests -> {
+			window.setInbox(requests);
+			if (tray != null) tray.setPending(Inbox.pending(requests) > 0);
+		}, request -> {
+			if (tray != null) tray.notify(APP_NAME + " needs your decision", request.title());
+		});
 		inboxBinding.start();
 	}
 

@@ -69,50 +69,49 @@ only while it is showing: its timers and feeds run, and a stale view renders,
 only on screen, so an update or a theme switch costs nothing for what is out
 of sight.
 
-**Domain views bind immutable snapshots to Swing.** The Inbox composes Covia's
-typed Inbox components through an owner-bound source. `ui/binding/LatticeBinding`
-reads and projects off the event thread, compares snapshots, coalesces refreshes
-and delivers on the event thread. Each binding lives for one venue and principal;
-closing it discards late results. Missing data clears the relevant part of the
-view; a failed read retains the last snapshot and reports a separate, retryable
-failure. Polling supplies refreshes until general lattice subscriptions exist
+**A view can wrap a lattice component directly.** `ui/binding/Watcher` keeps
+such views current with one call, `Watcher.watch(view, component, changed)`:
+`changed` runs on the event thread with the component's value when the view
+comes on screen and whenever the value changes. A component with no value, such
+as a record that has gone, calls nothing, so the view keeps what it last
+showed. The two-argument form simply revalidates and repaints a view that reads
+its component as it paints. One daemon thread serves every watch. Each pass
+reads the value of every watch whose view is on screen, compares it as a cell,
+and hands the changes to the event thread in one batch; the next pass starts a
+second after the last one finished, so a slow pass stretches the cycle instead
+of piling up. A watch joins when Swing says its view is showing and leaves when
+it is not, pauses while the window is minimised, and is checked again on the
+event thread in every batch, so a missed Swing event costs at most one pass. A
+view given another component closes its old watch. What is not a view, such as
+noticing that something has arrived, uses `Watcher.observe(read, changed)`
+instead: the same thread, live until closed whatever is on screen, and `read`
+may combine several components. A failed read keeps the last value and goes to
+the log. Polling supplies the changes until general lattice subscriptions exist
 upstream; agent events remain available to the session views.
-
-The Inbox cards, badge and arrival notifications share one projection. The
-window's visibility controls observation for the badge; the Inbox renders its
-latest snapshot when shown, retaining unchanged cards and drafts by owner and
-request id. Principal changes discard those drafts. Responses still use the
-venue's HITL operation as the request's owner; their completion belongs to the
-binding that submitted them, so it cannot update a different user's view.
-
-**A view can wrap a lattice component directly.** `ui/binding/Watcher`
-keeps such views current with one call, `Watcher.watch(view, component,
-changed)`: `changed` runs on the event thread with the component's value when
-the view comes on screen and whenever the value changes. A component with no
-value, such as a record that has gone, calls nothing, so the view keeps what it
-last showed. The two-argument form simply revalidates and repaints a view that reads its component as it
-paints. One daemon thread serves every watch. Each pass reads the value of
-every watch whose view is on screen, compares it as a cell, and hands the
-changes to the event thread in one batch; the next pass starts a second after
-the last one finished, so a slow pass stretches the cycle instead of piling
-up. A watch joins when Swing says its view is showing and leaves when it is
-not, pauses while the window is minimised, and is checked again on the event
-thread in every batch, so a missed Swing event costs at most one pass. A view
-given another component closes its old watch.
 
 The Jobs page is built this way. The window hands it the acting principal's
 `Jobs` component, their `j/` index, and the list watches it while on screen;
 the detail wraps the job's own `JobRecord` and watches that, so an open job
 updates by itself; one deleted while open stays as it was, and leaves the list
 when the list next reads. Opening a job the list does not hold shows it as not
-found. Covia keys the
-index by job id and ids rise with creation time, so `JobList` finds a time
-range with `Index.seek` and counts rows back from the end, reading records
-only to filter by status or starter. The list is a `JList` over a model that
-projects a row's summary only when the list asks for it, and a fixed cell size
-means it asks only for the rows on screen, however long the history. Actions
-go through Covia's Job tools as the principal, since only Covia's job manager
-can pause or stop running work, and the page reads again once they answer.
+found. Covia keys the index by job id and ids rise with creation time, so
+`JobList` finds a time range with `Index.seek` and counts rows back from the
+end, reading records only to filter by status or starter. The list is a `JList`
+over a model that projects a row's summary only when the list asks for it, and
+a fixed cell size means it asks only for the rows on screen, however long the
+history. Actions go through Covia's Job tools as the principal, since only
+Covia's job manager can pause or stop running work, and the page reads again
+once they answer.
+
+The Inbox composes Covia's typed Inbox components through an owner-bound source
+and observes it for as long as the principal is bound, so a request that
+arrives while the window is minimised or in the tray still notifies, and marks
+the tray icon until no decision is waiting. Its cards, badge and arrival
+notifications share one projection; the Inbox renders its latest snapshot when
+shown, retaining unchanged cards and drafts by owner and request id. Principal
+changes discard those drafts. Responses still use the venue's HITL operation as
+the request's owner; their completion belongs to the binding that submitted
+them, so it cannot update a different user's view.
 
 **Storage is managed where it is browsed, and distinguishes installation
 access from personal data.** `FileRoots` persists folder access for the next
