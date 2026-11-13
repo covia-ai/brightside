@@ -782,8 +782,7 @@ anything run through the venue. The newest are first. Filter by how a job
 stands (active, waiting for you, failed, completed, cancelled; several at
 once), by who started it (you, your agents, or others acting for you, such as
 the gods) and by when (today, this week, all time). A scheduled run counts as
-whoever scheduled it, because a job's record doesn't say a schedule started it
-([covia#701](https://github.com/covia-ai/covia/issues/701)).
+whoever scheduled it. How the page works is in [JOBS.md](JOBS.md).
 
 Each row shows the job's status, what it was for, what it ran, who started it,
 when, and for how long. Select one to act on it from the bar below the list,

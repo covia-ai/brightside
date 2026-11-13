@@ -30,6 +30,9 @@ guide and points here.
 | `docs/CONFIGURATION.md` | the reference: files under `~/.brightside/`, `config.json`, API keys, Discord, Moltbook, Claude Code, identity, reaching the venue from other tools |
 | `docs/NETWORK.md` | target state once venues meet venues; deliberately ahead of the code |
 | `docs/PEERS.md` | the Peers map: peer data versus map settings, where nodes come from, the steps from preview to live nodes; ahead of the code |
+| `docs/WATCHER.md` | how views follow the lattice: watching a component, observing off screen, the shared pass, lifetime, absent values |
+| `docs/JOBS.md` | the Jobs page: Covia's `Jobs` and `JobRecord` as its model, time ranges by seek, rows built only on screen, actions, known limits |
+| `docs/INBOX.md` | the Inbox: the composed source, observing whatever is on screen, one projection for cards, badge, tray mark and notifications, answering |
 | `docs/APP_STATE.md` | Brightside's own state in its adapters' venue state: what is there, what moves in, what stays in files, the rules for reading and writing it |
 | `docs/SELF_IMPROVEMENT.md` | the daily self-improvement loop: who does what, a run, what needs the owner, where things are; the procedure is the `improvement-loop` skill |
 | `docs/ADVANCED_MEMORY.md` | proposals for tiered, provenance-gated memory with consolidation, recall and intents; nothing in it is built |
@@ -62,6 +65,8 @@ A change that moves a decision or a name has a doc to keep true:
 - a new or renamed skill, or a change to what one carries → `SKILLS.md`
 - a new screen, integration or configuration key → `CONFIGURATION.md`, and
   `ARCHITECTURE.md`'s orientation map if a new package or entry point appeared
+- how a view follows the lattice → `WATCHER.md`; the Jobs page → `JOBS.md`;
+  the Inbox → `INBOX.md`
 - anything about keys, files or recovery → `SECURITY.md`, and `ONBOARDING.md`
   if the person's flow changed
 - anything about principals or switching user → `IDENTITY.md`
