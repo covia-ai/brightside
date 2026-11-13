@@ -3,6 +3,7 @@ package brightside;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -19,13 +20,17 @@ import brightside.JobList.Group;
 import brightside.JobList.Range;
 import brightside.JobList.Starter;
 import brightside.chat.ChatSession;
+import brightside.ui.binding.Watcher;
 import convex.core.data.ACell;
 import convex.core.data.Blob;
 import convex.core.data.Index;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
+import convex.core.lang.RT;
 import covia.grid.Job;
 import covia.grid.Venue;
+import covia.venue.JobRecord;
+import covia.venue.Jobs;
 
 /**
  * The Jobs page's model on a real venue: one user's job index, read from the
@@ -148,6 +153,36 @@ class JobListTest {
 		Job job = submitted.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 		job.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 		return job.getID().toHexString();
+	}
+
+	/**
+	 * The Jobs page holds one Jobs handle, and the detail one JobRecord, for as
+	 * long as they are open, and reads them as the watcher does: a handle taken
+	 * before the principal has any record sees their first job, its record
+	 * handle sees the job change, and a job that isn't there reads as null. A
+	 * principal of its own, so no other test sees its job.
+	 */
+	@Test
+	void theComponentHandlesTheJobsPageHoldsStayLive() throws Exception {
+		String did = Identity.of("jobs-handles").userDID(venue.did());
+		Jobs jobs = venue.jobs(did);
+		Index<Blob, ACell> none = Watcher.valueOf(jobs);
+		assertTrue(none == null || none.count() == 0, "no jobs before the principal has a record");
+
+		Venue client = venue.clientAs(did);
+		Job job = client.invoke("v/test/ops/never", Maps.empty()).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		Blob id = job.getID();
+		assertTrue(Watcher.valueOf(jobs).containsKey(id), "the handle taken earlier sees the new job");
+		JobRecord record = jobs.at(id);
+		assertEquals(Group.ACTIVE, JobList.project(id, RT.ensureMap(Watcher.valueOf(record)), did).group());
+
+		JobList.cancel(client, id.toHexString());
+		assertThrows(Exception.class, () -> job.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+		JobList.Job seen = JobList.project(id, RT.ensureMap(Watcher.valueOf(record)), did);
+		assertEquals(Group.CANCELLED, seen.group(), "the record handle sees the change");
+		assertEquals(JobList.find(Watcher.valueOf(jobs), did, id.toHexString()), seen);
+
+		assertNull(Watcher.valueOf(jobs.at(Blob.fromHex("00000000000000000000000000000000"))), "a missing job reads as null");
 	}
 
 	/** The principal's job index, from their Jobs lattice component. */

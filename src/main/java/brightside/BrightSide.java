@@ -2902,17 +2902,28 @@ public final class BrightSide {
 		ToolToken.clear(config.home()); // nothing left to connect to
 		chatBindings.incrementAndGet();
 		log.info("Exit requested");
+		java.util.concurrent.CountDownLatch viewsClosed = new java.util.concurrent.CountDownLatch(1);
 		SwingUtilities.invokeLater(() -> {
-			if (window != null) window.closeSessions();
-			InboxBinding i = inboxBinding;
-			if (i != null) i.close();
-			if (window != null) window.clearJobs();
-			if (window != null) window.setVisible(false);
-			if (unlockDialog != null) unlockDialog.dispose();
-			if (tray != null) tray.remove();
+			try {
+				if (window != null) window.closeSessions();
+				InboxBinding i = inboxBinding;
+				if (i != null) i.close();
+				if (window != null) window.clearJobs();
+				if (window != null) window.setVisible(false);
+				if (unlockDialog != null) unlockDialog.dispose();
+				if (tray != null) tray.remove();
+			} finally {
+				viewsClosed.countDown();
+			}
 		});
 		Thread t = new Thread(() -> {
 			try {
+				// The views stop reading the lattice before the venue closes its store;
+				// a stuck event thread delays the close only so long.
+				viewsClosed.await(5, java.util.concurrent.TimeUnit.SECONDS);
+				closeVenue();
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
 				closeVenue();
 			} finally {
 				System.exit(status);

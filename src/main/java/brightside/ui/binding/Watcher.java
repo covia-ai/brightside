@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 
 import convex.core.data.ACell;
 import convex.lattice.ALatticeComponent;
+import convex.lattice.cursor.MissingValueException;
 
 /**
  * Keeps views up to date with the lattice components they show. A view wraps
@@ -105,6 +106,19 @@ public final class Watcher {
 			view.revalidate();
 			view.repaint();
 		});
+	}
+
+	/**
+	 * {@code component}'s value, or null where it has none: a component
+	 * bound to a place nothing has been written to, such as a record that has
+	 * gone, reports that by throwing.
+	 */
+	public static <V extends ACell> V valueOf(ALatticeComponent<V> component) {
+		try {
+			return component.value();
+		} catch (MissingValueException e) {
+			return null;
+		}
 	}
 
 	<V extends ACell> Watch<V> add(Component view, ALatticeComponent<V> component, Consumer<? super V> changed) {
@@ -205,7 +219,7 @@ public final class Watcher {
 			if (closed || !active) return this::check;
 			V value;
 			try {
-				value = component.value();
+				value = valueOf(component);
 			} catch (RuntimeException e) {
 				if (!failing) log.warn("Could not read a watched lattice component; showing its last value", e);
 				failing = true;
