@@ -572,7 +572,7 @@ public final class BrightSide {
 			// queued behind the reveal and fills in the conversation.
 			Identity bound = onVenueReady();
 			startToolTokens();
-			applyStartAtSignIn(); // only now that this build has started does the entry name it
+			if (prefs.getBool(PREF_AT_SIGN_IN, false)) applyStartAtSignIn(); // now that this build has started, name it
 			if (clearToShow != null) SwingUtilities.invokeLater(clearToShow);
 			if (bound != null) startChatOnce(v, bound);
 			if (bound != null) {
@@ -2686,21 +2686,31 @@ public final class BrightSide {
 		return signIn.unavailable();
 	}
 
-	/** Turns starting at sign-in on or off, and makes the entry match. */
+	/**
+	 * Turns starting at sign-in on or off, and makes the entry match. If the
+	 * entry cannot be made to match, the setting goes back to what it was.
+	 */
 	public void setStartAtSignIn(boolean value) {
+		boolean before = prefs.getBool(PREF_AT_SIGN_IN, false);
 		prefs.setBool(PREF_AT_SIGN_IN, value);
-		applyStartAtSignIn();
+		if (!applyStartAtSignIn()) {
+			prefs.setBool(PREF_AT_SIGN_IN, before);
+			if (window != null) SwingUtilities.invokeLater(window::refreshSettings);
+		}
 	}
 
-	/** Makes the sign-in entry match the setting: there, naming this build, or gone. */
-	private void applyStartAtSignIn() {
-		try {
-			signIn.apply(startAtSignIn());
-		} catch (IOException e) {
-			log.warn("Could not update the Windows sign-in entry: {}", e.getMessage());
-			if (window != null) SwingUtilities.invokeLater(() -> window.showSystemMessage(
-				"Couldn't change whether " + APP_NAME + " starts when you sign in: " + e.getMessage()));
-		}
+	/**
+	 * Makes the sign-in entry match the setting: there, naming this build, or
+	 * gone. Never throws: a registry that fails is reported, and the launch or
+	 * unlock that asked goes on.
+	 */
+	private boolean applyStartAtSignIn() {
+		String failed = signIn.tryApply(startAtSignIn());
+		if (failed == null) return true;
+		log.warn("Could not update the Windows sign-in entry: {}", failed);
+		if (window != null) SwingUtilities.invokeLater(() -> window.showSystemMessage(
+			"Couldn't change whether " + APP_NAME + " starts when you sign in: " + failed));
+		return false;
 	}
 
 	/** Keeps the tool token fresh from the moment the venue is up. Once. */
@@ -2876,8 +2886,11 @@ public final class BrightSide {
 	public void forgetRememberedPassphrase() {
 		RememberedPassphrase.clear(config.home());
 		prefs.setBool(PREF_UNLOCK, false);
-		prefs.setBool(PREF_AT_SIGN_IN, false);
-		applyStartAtSignIn();
+		if (prefs.getBool(PREF_AT_SIGN_IN, false)) {
+			// Starting at sign-in unlocks with it, so it goes too.
+			prefs.setBool(PREF_AT_SIGN_IN, false);
+			applyStartAtSignIn();
+		}
 	}
 
 	/** Opens the Auth section of Settings, once the venue is up. */

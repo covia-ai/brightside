@@ -239,7 +239,10 @@ one trust boundary.
   only on OS-account and filesystem protection. While it is remembered, the
   reveals it would otherwise gate (the primary seed, a secret's value) open
   without asking. Starting at Windows sign-in, which needs it, brings the
-  app up unlocked for whoever signs in to that Windows account.
+  app up unlocked for whoever signs in to that Windows account. Only the owner
+  can turn that on, but while it is on, the jar Windows starts is whichever
+  one the app last ran from, including one Odin or the improvement loop
+  relaunched it into.
 - Etch's index is plaintext and its body cipher is not whole-file AEAD.
 - Envelope writes are in place, not atomic, and recovery removes the staged
   key file before rewriting the identity envelope, which is why an untouched

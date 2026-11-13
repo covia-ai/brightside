@@ -91,14 +91,18 @@ class StartAtSignInTest {
 	}
 
 	@Test
-	void withoutAJarNothingIsWrittenButAStaleEntryStillGoes() throws IOException {
-		new StartAtSignIn(registry, config, jar).apply(true);
+	void aLaunchFromClassesKeepsTheEntryAnEarlierStartWrote() throws IOException {
+		StartAtSignIn fromJar = new StartAtSignIn(registry, config, jar);
+		fromJar.apply(true);
+		String written = entries.get(fromJar.name());
 		StartAtSignIn fromClasses = new StartAtSignIn(registry, config, null);
 		assertNotNull(fromClasses.unavailable());
-		fromClasses.apply(false);
-		assertTrue(entries.isEmpty());
 		fromClasses.apply(true);
-		assertTrue(entries.isEmpty(), "nothing to start, so nothing written");
+		assertEquals(written, entries.get(fromJar.name()), "an IDE run leaves the owner's entry as it was");
+		fromClasses.apply(false);
+		assertTrue(entries.isEmpty(), "but turning it off still removes it");
+		fromClasses.apply(true);
+		assertTrue(entries.isEmpty(), "and with nothing to start, nothing is written");
 	}
 
 	@Test
@@ -110,6 +114,30 @@ class StartAtSignInTest {
 		other.apply(true);
 		other.apply(false);
 		assertEquals(1, entries.size(), "turning one off leaves the other");
+	}
+
+	@Test
+	void aRegistryThatFailsIsReportedNeverThrown() {
+		StartAtSignIn.Registry broken = new StartAtSignIn.Registry() {
+			@Override
+			public String read(String name) {
+				throw new UnsatisfiedLinkError("no advapi32");
+			}
+
+			@Override
+			public void write(String name, String command) {
+				throw new IllegalStateException("refused");
+			}
+
+			@Override
+			public void delete(String name) {
+				throw new IllegalStateException("refused");
+			}
+		};
+		StartAtSignIn signIn = new StartAtSignIn(broken, config, jar);
+		assertNotNull(signIn.tryApply(true), "turning it on says it failed");
+		assertNotNull(signIn.tryApply(false), "and so does turning it off, without throwing");
+		assertNull(new StartAtSignIn(registry, config, jar).tryApply(true), "a working registry reports nothing");
 	}
 
 	@Test

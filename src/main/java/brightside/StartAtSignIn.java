@@ -91,20 +91,36 @@ final class StartAtSignIn {
 
 	/**
 	 * Makes the entry match {@code wanted}: present and naming this process's
-	 * Java and jar, or gone. Refused when another program's entry has the name.
+	 * Java and jar, or gone. A launch from classes has no jar to name, so it
+	 * leaves a wanted entry as it is. Refused when another program's entry has
+	 * the name.
 	 */
 	void apply(boolean wanted) throws IOException {
 		if (registry == null) return;
 		String current = registry.read(name);
 		boolean ours = current != null && current.contains(config.toString());
-		if (wanted && jar != null) {
+		if (wanted) {
 			if (current != null && !ours) {
 				throw new IOException("Another program already starts at sign-in as \"" + name + "\"");
 			}
+			if (jar == null) return; // nothing to name: keep what an earlier start wrote
 			String command = command();
 			if (!command.equals(current)) registry.write(name, command);
 		} else if (ours) {
 			registry.delete(name);
+		}
+	}
+
+	/**
+	 * As {@link #apply}, but never throws, so a registry that fails cannot stop
+	 * the launch or unlock that asked: null when the entry matches, else why not.
+	 */
+	String tryApply(boolean wanted) {
+		try {
+			apply(wanted);
+			return null;
+		} catch (IOException | RuntimeException | LinkageError e) {
+			return (e.getMessage() != null) ? e.getMessage() : e.toString();
 		}
 	}
 
