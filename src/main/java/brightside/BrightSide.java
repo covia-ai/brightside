@@ -85,12 +85,15 @@ public final class BrightSide {
 	 */
 	private static final String PREF_TAKE_OVER = "startup.takeOver";
 	private static final String PREF_UNLOCK = "startup.unlock";
+	private static final String PREF_AT_SIGN_IN = "startup.atSignIn";
 	/** The venue's model listing: each provider's catalog, readiness and live models. */
 	private static final String MODELS_OP = "v/ops/langchain/models";
 
 	/** Read at launch, and again by a restart ({@link #prepareRestart}). */
 	private volatile AppConfig config;
 	private final Path configPath;
+	/** Starting at Windows sign-in, which the owner opts into. */
+	private final StartAtSignIn signIn;
 	private final Prefs prefs;
 	private volatile EmbeddedVenue venue;
 	/** The disk the running venue's store takes; null until it is up, or for a store that is not a file. */
@@ -193,6 +196,7 @@ public final class BrightSide {
 	BrightSide(AppConfig config, Path configPath, Prefs prefs) {
 		this.config = config;
 		this.configPath = configPath;
+		this.signIn = StartAtSignIn.forThisProcess(configPath);
 		this.prefs = prefs;
 	}
 
@@ -568,6 +572,7 @@ public final class BrightSide {
 			// queued behind the reveal and fills in the conversation.
 			Identity bound = onVenueReady();
 			startToolTokens();
+			applyStartAtSignIn(); // only now that this build has started does the entry name it
 			if (clearToShow != null) SwingUtilities.invokeLater(clearToShow);
 			if (bound != null) startChatOnce(v, bound);
 			if (bound != null) {
@@ -2663,6 +2668,41 @@ public final class BrightSide {
 		prefs.setBool(PREF_UNLOCK, value);
 	}
 
+	/**
+	 * Whether Tau starts when the owner signs in to Windows (default false).
+	 * Only with a passphrase remembered: the start unlocks with it.
+	 */
+	public boolean startAtSignIn() {
+		return prefs.getBool(PREF_AT_SIGN_IN, false) && hasRememberedPassphrase();
+	}
+
+	/** Whether this computer has sign-in starts at all: Windows only. */
+	public boolean startAtSignInOffered() {
+		return signIn.offered();
+	}
+
+	/** Why starting at sign-in cannot be turned on in this launch, or null when it can. */
+	public String startAtSignInUnavailable() {
+		return signIn.unavailable();
+	}
+
+	/** Turns starting at sign-in on or off, and makes the entry match. */
+	public void setStartAtSignIn(boolean value) {
+		prefs.setBool(PREF_AT_SIGN_IN, value);
+		applyStartAtSignIn();
+	}
+
+	/** Makes the sign-in entry match the setting: there, naming this build, or gone. */
+	private void applyStartAtSignIn() {
+		try {
+			signIn.apply(startAtSignIn());
+		} catch (IOException e) {
+			log.warn("Could not update the Windows sign-in entry: {}", e.getMessage());
+			if (window != null) SwingUtilities.invokeLater(() -> window.showSystemMessage(
+				"Couldn't change whether " + APP_NAME + " starts when you sign in: " + e.getMessage()));
+		}
+	}
+
 	/** Keeps the tool token fresh from the moment the venue is up. Once. */
 	private void startToolTokens() {
 		if (toolTokensStarted.compareAndSet(false, true)) {
@@ -2836,6 +2876,8 @@ public final class BrightSide {
 	public void forgetRememberedPassphrase() {
 		RememberedPassphrase.clear(config.home());
 		prefs.setBool(PREF_UNLOCK, false);
+		prefs.setBool(PREF_AT_SIGN_IN, false);
+		applyStartAtSignIn();
 	}
 
 	/** Opens the Auth section of Settings, once the venue is up. */

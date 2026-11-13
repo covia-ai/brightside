@@ -64,7 +64,9 @@ an error; if Brightside is already running it leaves it be, unless
 configuration: it takes over from a running Brightside and unlocks with the
 remembered passphrase without asking, and the window comes up as usual. For
 everyday launches, Settings → General → Startup offers the same two choices
-([LAUNCH.md](LAUNCH.md#startup)).
+([LAUNCH.md](LAUNCH.md#startup)). On Windows it also offers to start
+Brightside when you sign in, once a passphrase is remembered
+([LAUNCH.md](LAUNCH.md#starting-at-windows-sign-in)).
 
 ## The file
 

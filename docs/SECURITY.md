@@ -238,7 +238,8 @@ one trust boundary.
 - The remembered passphrase is plaintext by the owner's decision and relies
   only on OS-account and filesystem protection. While it is remembered, the
   reveals it would otherwise gate (the primary seed, a secret's value) open
-  without asking.
+  without asking. Starting at Windows sign-in, which needs it, brings the
+  app up unlocked for whoever signs in to that Windows account.
 - Etch's index is plaintext and its body cipher is not whole-file AEAD.
 - Envelope writes are in place, not atomic, and recovery removes the staged
   key file before rewriting the identity envelope, which is why an untouched

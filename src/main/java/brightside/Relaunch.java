@@ -113,7 +113,7 @@ final class Relaunch {
 	}
 
 	/** The jar this process runs, or null when it runs from classes. */
-	private static Path runningJar() {
+	static Path runningJar() {
 		try {
 			Path source = Path.of(Main.class.getProtectionDomain().getCodeSource().getLocation().toURI());
 			return Files.isRegularFile(source) ? source.toAbsolutePath().normalize() : null;

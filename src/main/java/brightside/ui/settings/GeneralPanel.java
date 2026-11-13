@@ -44,6 +44,9 @@ public final class GeneralPanel extends SettingsPage {
 
 		void setUnlockWithoutAsking(boolean value);
 
+		/** Start at Windows sign-in, or not; only with a passphrase stored. */
+		void setStartAtSignIn(boolean value);
+
 		/** Read each reply aloud, or not; turning it on may ask to download the voice first. */
 		void setReadRepliesAloud(boolean value);
 
@@ -80,6 +83,8 @@ public final class GeneralPanel extends SettingsPage {
 	private final JCheckBox takeOver = new JCheckBox("Take over a " + APP_NAME + " that is already running, without asking");
 	private final JCheckBox unlock = new JCheckBox("Unlock with my stored passphrase, without asking");
 	private final JLabel unlockNote = Labels.small("Store your passphrase on the unlock screen to use this.");
+	private final JCheckBox atSignIn = new JCheckBox("Start " + APP_NAME + " when I sign in to Windows");
+	private final JLabel atSignInNote = Labels.small(" ");
 	/** The pauses offered, in seconds, before "never". */
 	private static final int[] PAUSES = { 2, 3, 5, 8 };
 	private final JComboBox<Pause> pause = new JComboBox<>();
@@ -127,6 +132,16 @@ public final class GeneralPanel extends SettingsPage {
 		addSpan(unlock);
 		unlockNote.setVisible(false); // until refreshStartup says nothing is stored
 		addSpan(unlockNote);
+		atSignIn.setOpaque(false);
+		atSignIn.setToolTipText("It starts in the tray, unlocked with your stored passphrase, so anyone signed in to"
+			+ " this Windows account can use it. Task Manager lists it under Startup apps.");
+		atSignIn.addActionListener(e -> {
+			if (!syncing) host.setStartAtSignIn(atSignIn.isSelected());
+		});
+		atSignIn.setVisible(false); // until refreshSignIn says this is Windows
+		atSignInNote.setVisible(false);
+		addSpan(atSignIn);
+		addSpan(atSignInNote);
 
 		readAloud.setOpaque(false);
 		readAloud.setToolTipText("Spoken on this computer: nothing it says leaves it");
@@ -222,6 +237,23 @@ public final class GeneralPanel extends SettingsPage {
 		syncing = false;
 		unlock.setEnabled(passphraseStored);
 		unlockNote.setVisible(!passphraseStored);
+	}
+
+	/**
+	 * Refreshes starting at Windows sign-in: shown on Windows only, and off and
+	 * saying why without a stored passphrase or a jar to start.
+	 */
+	public void refreshSignIn(boolean offered, boolean on, boolean passphraseStored, String unavailable) {
+		atSignIn.setVisible(offered);
+		syncing = true;
+		atSignIn.setSelected(on);
+		syncing = false;
+		String why = (unavailable != null) ? unavailable
+			: passphraseStored ? null : "Store your passphrase on the unlock screen to use this.";
+		atSignIn.setEnabled(why == null || on);
+		atSignInNote.setText(why != null ? why
+			: "In the tray, unlocked with your stored passphrase: anyone signed in to this Windows account can use it.");
+		atSignInNote.setVisible(offered);
 	}
 
 	/**

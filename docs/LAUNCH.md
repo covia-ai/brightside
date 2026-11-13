@@ -92,6 +92,27 @@ See [stdio setup](CONFIGURATION.md#from-a-stdio-mcp-client).
    binds is reported in the window rather than left as a composer that never
    wakes.
 
+### Starting at Windows sign-in
+
+On Windows the owner can have Brightside start when they sign in: *Start
+Brightside when I sign in to Windows* in Settings → General → Startup, off
+until they turn it on, and offered only with a passphrase remembered, since
+the start unlocks with it. Turning it on writes one entry under the account's
+own `Run` key (`StartAtSignIn`), which Windows starts at sign-in and Task
+Manager lists under Startup apps, where it can be disabled without Brightside.
+The entry is the `--unlock` launch above: up in the tray, unlocked, leaving a
+running Brightside alone. Windows starts it, so it belongs to no other
+program's job.
+
+While the setting is on, each start rewrites the entry to name the Java and
+jar it runs from, once the venue is up, so the entry always names a build that
+has started; a relaunch's copy under `run/` is never deleted while it runs.
+Turning the setting off, or forgetting the passphrase, removes the entry. An
+entry of the same name that names another configuration is another program's,
+and is never changed. A launch from classes has no jar to name, so the setting
+is unavailable there; another data directory gets an entry of its own.
+`StartAtSignInTest` covers it with a stand-in for the registry.
+
 ### The startup pass
 
 Brightside's own counterpart to Covia's migration, run by `Startup` in the

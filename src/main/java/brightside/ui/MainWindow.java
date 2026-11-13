@@ -311,6 +311,11 @@ public final class MainWindow extends JFrame {
 			}
 
 			@Override
+			public void setStartAtSignIn(boolean value) {
+				app.setStartAtSignIn(value);
+			}
+
+			@Override
 			public void setReadRepliesAloud(boolean value) {
 				if (!value) {
 					app.setReadRepliesAloud(false);
@@ -874,6 +879,8 @@ public final class MainWindow extends JFrame {
 			identity != null, venue != null);
 		settingsScreen.general().refreshStartup(app.takeOverWithoutAsking(), app.unlockWithoutAsking(),
 			app.hasRememberedPassphrase());
+		settingsScreen.general().refreshSignIn(app.startAtSignInOffered(), app.startAtSignIn(),
+			app.hasRememberedPassphrase(), app.startAtSignInUnavailable());
 		settingsScreen.general().refreshVoice(app.readRepliesAloud(), app.sendAfterPauseSeconds());
 		settingsScreen.general().refreshStore(app.storeReport());
 		settingsScreen.theme().refresh(app.mode(), app.theme(), app.accent());
