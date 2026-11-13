@@ -510,7 +510,9 @@ public final class JobsScreen extends JPanel {
 		if (detail != null) detail.close();
 		detail = null;
 		detailHolder.removeAll();
-		Blob key = (jobs != null) ? Blob.fromHex(id) : null;
+		// Not found is decided here, from the jobs the list read: a job that goes
+		// once its detail is open leaves the detail as it was.
+		Blob key = (jobs != null && jobAt(id) != null) ? Blob.fromHex(id) : null;
 		if (key == null) {
 			detailHolder.add(JobDetail.notFound(), BorderLayout.CENTER);
 		} else {

@@ -88,8 +88,9 @@ binding that submitted them, so it cannot update a different user's view.
 **A view can wrap a lattice component directly.** `ui/binding/Watcher`
 keeps such views current with one call, `Watcher.watch(view, component,
 changed)`: `changed` runs on the event thread with the component's value when
-the view comes on screen and whenever the value changes, and the two-argument
-form simply revalidates and repaints a view that reads its component as it
+the view comes on screen and whenever the value changes. A component with no
+value, such as a record that has gone, calls nothing, so the view keeps what it
+last showed. The two-argument form simply revalidates and repaints a view that reads its component as it
 paints. One daemon thread serves every watch. Each pass reads the value of
 every watch whose view is on screen, compares it as a cell, and hands the
 changes to the event thread in one batch; the next pass starts a second after
@@ -102,7 +103,9 @@ given another component closes its old watch.
 The Jobs page is built this way. The window hands it the acting principal's
 `Jobs` component, their `j/` index, and the list watches it while on screen;
 the detail wraps the job's own `JobRecord` and watches that, so an open job
-updates by itself and one whose record goes reads as not found. Covia keys the
+updates by itself; one deleted while open stays as it was, and leaves the list
+when the list next reads. Opening a job the list does not hold shows it as not
+found. Covia keys the
 index by job id and ids rise with creation time, so `JobList` finds a time
 range with `Index.seek` and counts rows back from the end, reading records
 only to filter by status or starter. The list is a `JList` over a model that

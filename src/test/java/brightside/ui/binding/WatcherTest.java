@@ -162,6 +162,27 @@ class WatcherTest {
 	}
 
 	@Test
+	void aValueThatGoesLeavesTheViewAsItWas() throws Exception {
+		watch();
+		show(true);
+		root.set(null);
+		pass();
+		assertEquals(List.of(CVMLong.create(1)), seen, "nothing told when the value goes");
+		root.set(CVMLong.create(3));
+		pass();
+		assertEquals(List.of(CVMLong.create(1), CVMLong.create(3)), seen, "and the value once it is back");
+	}
+
+	@Test
+	void aComponentWithNoValueTellsNothing() throws Exception {
+		root.set(null);
+		watch();
+		show(true);
+		assertEquals(1, watcher.live());
+		assertTrue(seen.isEmpty());
+	}
+
+	@Test
 	void aFailedReadKeepsTheLastValue() throws Exception {
 		watch();
 		show(true);

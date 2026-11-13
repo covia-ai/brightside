@@ -33,7 +33,8 @@ import convex.lattice.cursor.MissingValueException;
  * whose view is on screen and hands the changes to the event thread in one
  * batch; the next pass starts a full period after the last one finished, so a
  * slow pass stretches the cycle rather than piling passes up. Values are
- * compared as cells, which is cheap.
+ * compared as cells, which is cheap. A component with no value, such as a
+ * record that has gone, tells the view nothing: it keeps what it showed.
  *
  * <p>A watch exists only while its view is on screen: it joins when Swing says
  * the view is showing and leaves when it is not, whether the page changed, the
@@ -88,8 +89,8 @@ public final class Watcher {
 	/**
 	 * Calls {@code changed} on the event thread with {@code component}'s value
 	 * while {@code view} is on screen: first when it comes on screen, then
-	 * whenever the value changes. Null is a value, such as a record that has
-	 * gone. Call on the event thread.
+	 * whenever the value changes. While the component has no value it is not
+	 * called, so the view keeps what it last showed. Call on the event thread.
 	 */
 	public static <V extends ACell> Watch<V> watch(Component view, ALatticeComponent<V> component,
 			Consumer<? super V> changed) {
@@ -226,7 +227,7 @@ public final class Watcher {
 				return this::check;
 			}
 			failing = false;
-			if (delivered && Objects.equals(value, last)) return this::check;
+			if (value == null || (delivered && Objects.equals(value, last))) return this::check;
 			return () -> {
 				if (check()) deliver(value);
 			};

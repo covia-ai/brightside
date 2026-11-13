@@ -35,8 +35,7 @@ import net.miginfocom.swing.MigLayout;
  *
  * <p>It wraps the job's {@link JobRecord}, Covia's lattice component for it,
  * and watches it while on screen ({@link Watcher}): whenever the record
- * changes it lays itself out again, and a record that has gone reads as not
- * found.
+ * changes it lays itself out again. A record that goes leaves it as it was.
  */
 @SuppressWarnings("serial")
 final class JobDetail extends JPanel implements AutoCloseable {
@@ -85,7 +84,7 @@ final class JobDetail extends JPanel implements AutoCloseable {
 		watch.close();
 	}
 
-	/** The job as last read, or null before the first read or once it has gone. */
+	/** The job as last read, or null before the first read. */
 	JobList.Job job() {
 		return job;
 	}
@@ -97,15 +96,12 @@ final class JobDetail extends JPanel implements AutoCloseable {
 	}
 
 	private void render(ACell value) {
-		removeAll();
 		AMap<AString, ACell> record = RT.ensureMap(value);
-		job = (record == null) ? null : JobList.project(id, record, owner);
-		if (job == null) {
-			add(notFound(), "span, grow");
-		} else {
-			lay(job);
-			actions.shown(job);
-		}
+		if (record == null) return; // not a job record: keep what is shown
+		removeAll();
+		job = JobList.project(id, record, owner);
+		lay(job);
+		actions.shown(job);
 		revalidate();
 		repaint();
 	}
