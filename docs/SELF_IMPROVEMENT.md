@@ -44,14 +44,18 @@ the skill's `agent.json`; each run applies it.
 2. **Covia.** Claude Code judges whether Covia's `develop` has moved enough
    to upgrade: main code Tau uses, a new version, or a week since the last.
    An upgrade is relaunched and checked on its own, so a failure is the
-   upgrade's alone, and the run then goes on to improve. A change to Covia's store
+   upgrade's alone, and the run then goes on to improve. A failed upgrade is
+   debugged in the same run: Tau's own breakage is fixed in Tau, and a Covia
+   regression is reported upstream with a reproduction and the upgrade rolled
+   back until Covia fixes it. A change to Covia's store
    formats stops the upgrade for the owner, since a migrated store cannot go
    back without a backup.
 3. **Improve.** Open issues first, then the backlog, then Claude Code's own
    ideas, agreed with Improver before building. One substantial item and any
    trivial ones per chunk, each a commit one revert undoes.
 4. **Relaunch and check.** Build, ask Odin to relaunch into it, run the smoke
-   check. On failure, relaunch the last good build and stop.
+   check. On failure, relaunch the last good build; a failed improvement
+   ends the run's chunks, a failed upgrade is debugged as above.
 5. **Merge and report.** Fast-forward `develop` to the loop branch; report
    what needs the owner, then what changed.
 

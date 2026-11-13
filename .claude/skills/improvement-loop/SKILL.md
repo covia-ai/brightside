@@ -58,13 +58,33 @@ uses, when Covia's version moved, or when the last upgrade is a week old.
 Skip when the change is only tests, docs or build plumbing. If the store
 formats changed, do not upgrade: report it for the owner and carry on.
 
-To upgrade: `$S/covia.sh install`; set `covia.version` in `pom.xml` if
+To upgrade: note the installed commit `status` printed, then
+`$S/covia.sh install`; set `covia.version` in `pom.xml` if
 Covia's version changed; `mvn -q -o clean test` in `$W`; fix what broke,
 adopting new Covia features where that is more idiomatic; commit. Relaunch
 and check it (step 5) before improving, so a failure is the upgrade's alone;
 then go on to step 4. Compile errors in files nobody touched mean
 another session installed Covia jars over ours: `$S/covia.sh install <the
 installed commit>` and build again.
+
+### When the upgrade fails
+
+Tests that stay red, or a relaunch or smoke check that fails, make debugging
+the upgrade this run's work, before any feature work. Roll Tau back first if
+it was relaunched (step 5), then find the cause: Tau's tests and log, and the
+Covia commits between the old and new installed ones (`git -C ../covia log`
+and `diff`, read only). Narrow it to the change that broke Tau.
+
+- **Tau's to fix** (Covia changed on purpose, or Tau relied on something it
+  never promised): fix it in Tau, test, commit, and relaunch and check again.
+- **Covia's fault** (a regression or bug): report it on `covia-ai/covia` at
+  once, as step 4 says, with the commit that introduced it and the smallest
+  reproduction. Work around it in Tau only if that is small and clean, naming
+  the issue. Otherwise roll the upgrade back: revert its commits,
+  `$S/covia.sh install <the old commit>`, build, and go on to step 4 on the
+  old Covia; a later run upgrades once the issue is fixed.
+- **Unresolved within the bound:** roll back the same way and report what is
+  known, with the evidence, at the top of the report.
 
 ## 4. Improve
 
@@ -115,7 +135,8 @@ On success: `cp "$W/target/brightside.jar" ~/.brightside/code/last-good.jar`,
 then re-run the failing actions of the entries this chunk fixed, and go to
 step 4: after an upgrade always, after an improvement if the bound at the top
 allows. On failure:
-`$S/relaunch.sh file://code/last-good.jar`, `$S/smoke.sh`, revert this
+`$S/relaunch.sh file://code/last-good.jar` and `$S/smoke.sh`. For an
+upgrade, then debug it as step 3 says. For an improvement, revert this
 chunk's commits, stop taking chunks, and merge what passed.
 
 ## 6. Merge
