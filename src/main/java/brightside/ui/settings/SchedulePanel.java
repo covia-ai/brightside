@@ -5,9 +5,6 @@ import java.awt.Dimension;
 import java.awt.event.HierarchyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -46,6 +43,7 @@ import brightside.ui.components.StatusLabel;
 import brightside.ui.components.Styles;
 import brightside.ui.components.TextArea;
 import brightside.ui.components.Theme;
+import brightside.ui.components.Times;
 import brightside.ui.components.Tone;
 import convex.core.data.ACell;
 import net.miginfocom.swing.MigLayout;
@@ -93,9 +91,7 @@ public final class SchedulePanel extends SettingsPage {
 		void done(String note, boolean error);
 	}
 
-	private static final DateTimeFormatter WHEN = DateTimeFormatter.ofPattern("EEE d MMM, HH:mm");
-	private static final DateTimeFormatter WHEN_EXACT = DateTimeFormatter.ofPattern("EEE d MMM yyyy, HH:mm:ss");
-	private static final long SECOND = 1000, MINUTE = 60 * SECOND, HOUR = 60 * MINUTE, DAY = 24 * HOUR;
+	private static final long SECOND = Times.SECOND, MINUTE = Times.MINUTE, HOUR = Times.HOUR, DAY = Times.DAY;
 	/** How often the countdowns are redrawn while the page is on screen. */
 	private static final int TICK_MS = 15_000;
 
@@ -232,8 +228,8 @@ public final class SchedulePanel extends SettingsPage {
 		Schedule.Event longest = events.stream().filter(Schedule.Event::running)
 			.min(java.util.Comparator.comparingLong(Schedule.Event::lastFiredAt)).orElse(null);
 
-		summary.add(new StatTile("clock", Tone.ACCENT, "Next up", relative(next.nextAt(), now), next.title()));
-		summary.add(new StatTile("repeat", Tone.ACCENT, "Scheduled", plural(events.size(), "event"),
+		summary.add(new StatTile("clock", Tone.ACCENT, "Next up", Times.relative(next.nextAt(), now), next.title()));
+		summary.add(new StatTile("repeat", Tone.ACCENT, "Scheduled", Times.plural(events.size(), "event"),
 			repeating == 0 ? "None repeat" : repeating == events.size() ? "All repeat" : repeating + " repeat"));
 		if (failed > 0) {
 			summary.add(new StatTile("circle-alert", Tone.ERROR, "Last runs", failed + " failed", "Open one for the error"));
@@ -243,7 +239,7 @@ public final class SchedulePanel extends SettingsPage {
 		} else if (longest != null) {
 			long running = events.stream().filter(Schedule.Event::running).count();
 			summary.add(new StatTile("loader-circle", Tone.ACCENT, "Last runs", running + " running",
-				(running == 1 ? "For " : "The longest for ") + elapsed(now - longest.lastFiredAt())));
+				(running == 1 ? "For " : "The longest for ") + Times.elapsed(now - longest.lastFiredAt())));
 		} else {
 			summary.add(new StatTile("circle-check", Tone.SUCCESS, "Last runs", "No failures", "Of those tracked"));
 		}
@@ -353,14 +349,14 @@ public final class SchedulePanel extends SettingsPage {
 
 		void update(long now) {
 			long d = event.nextAt() - now;
-			next.setText(d <= 0 ? "Due now" : relative(event.nextAt(), now));
+			next.setText(d <= 0 ? "Due now" : Times.relative(event.nextAt(), now));
 			if (d < HOUR) Styles.classes(next, Styles.STRONG, Styles.ACCENT);
 			else Styles.classes(next, Styles.STRONG);
-			nextAt.setText(absolute(event.nextAt()));
-			nextAt.setToolTipText(exact(event.nextAt()));
-			lastWhen.setText(event.lastFiredAt() > 0 ? relative(event.lastFiredAt(), now) : " ");
-			if (event.running()) outcome.setText("Running for " + elapsed(now - event.lastFiredAt()));
-			lastWhen.setToolTipText(event.lastFiredAt() > 0 ? exact(event.lastFiredAt()) : null);
+			nextAt.setText(Times.absolute(event.nextAt()));
+			nextAt.setToolTipText(Times.exact(event.nextAt()));
+			lastWhen.setText(event.lastFiredAt() > 0 ? Times.relative(event.lastFiredAt(), now) : " ");
+			if (event.running()) outcome.setText("Running for " + Times.elapsed(now - event.lastFiredAt()));
+			lastWhen.setToolTipText(event.lastFiredAt() > 0 ? Times.exact(event.lastFiredAt()) : null);
 		}
 
 		void toggle() {
@@ -379,7 +375,7 @@ public final class SchedulePanel extends SettingsPage {
 
 		void onRun() {
 			String also = event.recurring()
-				? "It stays scheduled and runs again " + relative(event.nextAt(), System.currentTimeMillis()).toLowerCase() + "."
+				? "It stays scheduled and runs again " + Times.relative(event.nextAt(), System.currentTimeMillis()).toLowerCase() + "."
 				: "It runs once now and will not run again later.";
 			if (!Dialogs.confirm(SchedulePanel.this, "Run now", "Run \"" + event.title() + "\" now? " + also)) return;
 			busy(true, "Running " + event.title() + "…");
@@ -620,8 +616,8 @@ public final class SchedulePanel extends SettingsPage {
 		detail(d, "Operation", e.operation(), true);
 		detail(d, "Repeats", e.recurring() ? every(e.everyMillis()) + ", on a fixed grid; missed runs are skipped"
 			: "No — it runs once", false);
-		detail(d, "Next run", exact(e.nextAt()), false);
-		detail(d, "Last run", e.lastFiredAt() > 0 ? exact(e.lastFiredAt()) : "Not yet", false);
+		detail(d, "Next run", Times.exact(e.nextAt()), false);
+		detail(d, "Last run", e.lastFiredAt() > 0 ? Times.exact(e.lastFiredAt()) : "Not yet", false);
 		detail(d, "History", e.tracked() ? "Each run is kept in your job history"
 			: "Runs aren't kept, so how they went isn't known", false);
 		detail(d, "Input", inputText(e.input()).isEmpty() ? null : inputText(e.input()), true);
@@ -696,19 +692,6 @@ public final class SchedulePanel extends SettingsPage {
 		return p;
 	}
 
-	/** "In 5 minutes", "2 hours ago": the distance from now, rounded, in the largest unit that fits. */
-	static String relative(long at, long now) {
-		long d = at - now;
-		long a = Math.abs(d);
-		if (a < MINUTE) return (d >= 0) ? "In a moment" : "Just now";
-		long minutes = Math.round((double) a / MINUTE);
-		long hours = Math.round((double) a / HOUR);
-		String span = (minutes < 60) ? plural(minutes, "minute")
-			: (hours < 24) ? plural(hours, "hour")
-			: plural(Math.round((double) a / DAY), "day");
-		return (d >= 0) ? "In " + span : span.substring(0, 1).toUpperCase() + span.substring(1) + " ago";
-	}
-
 	/** "Every 15 minutes", "Every hour", "Every 2 days": an interval in its largest exact unit. */
 	static String every(long millis) {
 		if (millis % DAY == 0) return everyUnit(millis / DAY, "day");
@@ -721,31 +704,8 @@ public final class SchedulePanel extends SettingsPage {
 		return (n == 1) ? "Every " + unit : "Every " + n + " " + unit + "s";
 	}
 
-	/** How long something has been going: "under a minute", "13 minutes", "2 hours 5 minutes", "3 days". */
-	static String elapsed(long millis) {
-		if (millis < MINUTE) return "under a minute";
-		if (millis < HOUR) return plural(millis / MINUTE, "minute");
-		if (millis < DAY) {
-			long minutes = (millis % HOUR) / MINUTE;
-			return plural(millis / HOUR, "hour") + (minutes > 0 ? " " + plural(minutes, "minute") : "");
-		}
-		return plural(millis / DAY, "day");
-	}
-
 	/** An event's input as the New dialog and the details show it: pretty JSON, or nothing. */
 	static String inputText(ACell input) {
 		return (input == null) ? "" : convex.core.util.JSON.toStringPretty(input);
-	}
-
-	private static String plural(long n, String unit) {
-		return n + " " + unit + (n == 1 ? "" : "s");
-	}
-
-	private static String absolute(long at) {
-		return WHEN.format(Instant.ofEpochMilli(at).atZone(ZoneId.systemDefault()));
-	}
-
-	private static String exact(long at) {
-		return WHEN_EXACT.format(Instant.ofEpochMilli(at).atZone(ZoneId.systemDefault()));
 	}
 }
