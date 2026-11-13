@@ -7,8 +7,10 @@ to the owner. This is the loop's design; the procedure for one run is the
 `improvement-loop` Claude Code skill (`.claude/skills/improvement-loop/`).
 
 - **Rapid and frugal.** One run a day, measured by elapsed time and tokens.
-  A run works in chunks and starts another only while it is under an hour
-  and going well, with two hours as a soft ceiling.
+  A run works in chunks: a Covia upgrade when one is due, which is
+  maintenance, then feature work. After the first improvement it starts
+  another only while it is under an hour and going well, with two hours as a
+  soft ceiling.
 - **A collaboration.** Claude Code and Tau's improvement agent agree what to
   do, from the owner's issues, the backlog and their own ideas; Claude Code
   makes the change in Tau's own checkout.
@@ -41,7 +43,8 @@ the skill's `agent.json`; each run applies it.
    run the smoke check.
 2. **Covia.** Claude Code judges whether Covia's `develop` has moved enough
    to upgrade: main code Tau uses, a new version, or a week since the last.
-   A run that upgrades makes no other improvements. A change to Covia's store
+   An upgrade is relaunched and checked on its own, so a failure is the
+   upgrade's alone, and the run then goes on to improve. A change to Covia's store
    formats stops the upgrade for the owner, since a migrated store cannot go
    back without a backup.
 3. **Improve.** Open issues first, then the backlog, then Claude Code's own

@@ -1,6 +1,6 @@
 ---
 name: improvement-loop
-description: Run one pass of Tau's daily self-improvement loop - Covia upgrade when worth it, one or two improvements chosen with Tau's improvement agent, relaunch, machine checks, merge into develop, short report. Use when the scheduled loop fires or the owner asks for a loop run.
+description: Run one pass of Tau's daily self-improvement loop - Covia upgrade when due, then feature work chosen with Tau's improvement agent, relaunch, machine checks, merge into develop, short report. Use when the scheduled loop fires or the owner asks for a loop run.
 ---
 
 # Tau's improvement loop: one run
@@ -9,10 +9,12 @@ The design and its reasons are in `docs/SELF_IMPROVEMENT.md`; this is the
 procedure. Be quick and frugal: elapsed time and tokens are the measure, and
 the owner wants tokens left at the end of the week. Read diffs and logs, not
 whole files; no wide exploration; a subagent only for a read across many
-files. Work in chunks: an upgrade, or one substantial item with its trivial
-companions, each tested, committed and relaunched before the next. After a
-chunk, start another only if the run is still under an hour and the last
-chunk went smoothly; otherwise wrap up. Two hours is a soft ceiling: past
+files. The run's work is improving Tau. An upgrade is maintenance: when one
+is due it comes first as a chunk of its own, and the run then goes on to
+improve. Work in chunks: an upgrade, or one substantial item with its trivial
+companions, each tested, committed and relaunched before the next. After the
+first improvement chunk, start another only if the run is still under an
+hour and the last chunk went smoothly; otherwise wrap up. Two hours is a soft ceiling: past
 it, finish what is in hand, leave the rest to the backlog and report.
 
 Names used below (Git Bash):
@@ -58,12 +60,13 @@ formats changed, do not upgrade: report it for the owner and carry on.
 
 To upgrade: `$S/covia.sh install`; set `covia.version` in `pom.xml` if
 Covia's version changed; `mvn -q -o clean test` in `$W`; fix what broke,
-adopting new Covia features where that is more idiomatic; commit. An upgrade
-run makes no other improvements. Compile errors in files nobody touched mean
+adopting new Covia features where that is more idiomatic; commit. Relaunch
+and check it (step 5) before improving, so a failure is the upgrade's alone;
+then go on to step 4. Compile errors in files nobody touched mean
 another session installed Covia jars over ours: `$S/covia.sh install <the
 installed commit>` and build again.
 
-## 4. Improve (not on an upgrade run)
+## 4. Improve
 
 - Candidates, in this order:
   1. Open issues on `covia-ai/brightside`
@@ -109,8 +112,9 @@ $S/relaunch.sh && $S/smoke.sh
 ```
 
 On success: `cp "$W/target/brightside.jar" ~/.brightside/code/last-good.jar`,
-then re-run the failing actions of the entries this chunk fixed, and go back
-to step 4 for another chunk if the bound at the top allows. On failure:
+then re-run the failing actions of the entries this chunk fixed, and go to
+step 4: after an upgrade always, after an improvement if the bound at the top
+allows. On failure:
 `$S/relaunch.sh file://code/last-good.jar`, `$S/smoke.sh`, revert this
 chunk's commits, stop taking chunks, and merge what passed.
 
