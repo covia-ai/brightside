@@ -83,7 +83,10 @@ name the owner typed, with anything a path cannot carry turned into `-`, and it
 never changes; the display name is the id unless the record sets one. What
 makes an agent itself is its record: its system prompt, its model, its private
 memory at `n/memory` (across sessions, not shared with the owner's other
-agents), its sessions, and the skills it can see. What it knows of the owner
+agents), its sessions, and the skills it can see. The owner writes a new
+agent's system prompt in the New agent dialog, starting from a template, and
+can change it later on the agent's Agent tab; the standard agent's follows
+Settings and `config.json`, and a god's is fixed. What it knows of the owner
 in `w/memory` it shares with their other agents. Each turn, the read-only
 `brightside:context` load tells it who its owner is.
 
