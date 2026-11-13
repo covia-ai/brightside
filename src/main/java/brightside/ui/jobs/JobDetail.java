@@ -6,7 +6,9 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 
 import brightside.JobList;
+import brightside.ui.binding.Watcher;
 import brightside.ui.components.Buttons;
+import brightside.ui.components.EmptyState;
 import brightside.ui.components.Labels;
 import brightside.ui.components.Lucide;
 import brightside.ui.components.SelectableText;
@@ -14,20 +16,30 @@ import brightside.ui.components.StatusLabel;
 import brightside.ui.components.Styles;
 import brightside.ui.components.Theme;
 import brightside.ui.components.Times;
+import brightside.ui.components.Tone;
 import convex.core.data.ACell;
+import convex.core.data.AMap;
+import convex.core.data.AString;
+import convex.core.data.Blob;
+import convex.core.lang.RT;
 import convex.core.util.JSON;
 import covia.api.Fields;
+import covia.venue.JobRecord;
 import net.miginfocom.swing.MigLayout;
 
 /**
  * Everything about one job: its status and the actions it allows, then its
  * times, who started it, what it ran, the agent and conversation, the job it
  * ran inside, its tokens, and its input, output, error and history in full,
- * each copyable. Built for one snapshot of the job; the Jobs screen builds a
- * new one when the record changes.
+ * each copyable.
+ *
+ * <p>It wraps the job's {@link JobRecord}, Covia's lattice component for it,
+ * and watches it while on screen ({@link Watcher}): whenever the record
+ * changes it lays itself out again, and a record that has gone reads as not
+ * found.
  */
 @SuppressWarnings("serial")
-final class JobDetail extends JPanel {
+final class JobDetail extends JPanel implements AutoCloseable {
 
 	/** What the detail asks of the Jobs screen. */
 	interface Actions {
@@ -37,16 +49,68 @@ final class JobDetail extends JPanel {
 
 		/** Opens job {@code id}, the one this one ran inside. */
 		void openJob(String id);
+
+		/** The record has been read, or changed: {@code job} is what it now says. */
+		void shown(JobList.Job job);
 	}
 
-	private final JobList.Job job;
+	private final Blob id;
+	private final String owner;
+	private final Actions actions;
+	private final Watcher.Watch<ACell> watch;
 	private final JLabel running = Labels.small(" ");
+	private JobList.Job job;
 
-	JobDetail(JobList.Job job, Actions actions) {
+	/**
+	 * @param record the job's lattice component
+	 * @param id     the job's id
+	 * @param owner  the principal whose job it is
+	 */
+	JobDetail(JobRecord record, Blob id, String owner, Actions actions) {
 		super(new MigLayout("insets 20 28 24 28, fillx, wrap 2, gapy 8", "[]16[grow,fill]", ""));
-		this.job = job;
+		this.id = id;
+		this.owner = owner;
+		this.actions = actions;
 		setOpaque(false);
+		watch = Watcher.watch(this, record, this::render);
+	}
 
+	/** Reads the record now, as after an action on the job. */
+	void refresh() {
+		watch.refresh();
+	}
+
+	@Override
+	public void close() {
+		watch.close();
+	}
+
+	/** The job as last read, or null before the first read or once it has gone. */
+	JobList.Job job() {
+		return job;
+	}
+
+	/** What a job's detail shows when there is no such job. */
+	static JComponent notFound() {
+		return new EmptyState("search-x", Tone.MUTED, "Job not found",
+			"It isn't among your jobs, or its record has been removed.");
+	}
+
+	private void render(ACell value) {
+		removeAll();
+		AMap<AString, ACell> record = RT.ensureMap(value);
+		job = (record == null) ? null : JobList.project(id, record, owner);
+		if (job == null) {
+			add(notFound(), "span, grow");
+		} else {
+			lay(job);
+			actions.shown(job);
+		}
+		revalidate();
+		repaint();
+	}
+
+	private void lay(JobList.Job job) {
 		// The title and how it stands, with what can be done about it.
 		JLabel title = Labels.title(job.title());
 		add(title, "span, wmin 0");
@@ -93,12 +157,9 @@ final class JobDetail extends JPanel {
 		tick(System.currentTimeMillis());
 	}
 
-	JobList.Job job() {
-		return job;
-	}
-
 	/** Keeps "running for" current while the job is going. */
 	void tick(long now) {
+		if (job == null) return;
 		running.setText(job.finished() || job.created() <= 0 ? (job.created() > 0 ? "Took " + Times.elapsed(job.elapsed(now)) : " ")
 			: "For " + Times.elapsed(job.elapsed(now)));
 	}

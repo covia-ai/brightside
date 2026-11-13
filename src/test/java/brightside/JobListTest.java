@@ -43,7 +43,6 @@ class JobListTest {
 	private static EmbeddedVenue venue;
 	private static String userDID;
 	private static Venue user;
-	private static JobList.Source source;
 	private static long before;
 	private static String completed, failed, agentJob;
 	private static Job running;
@@ -53,7 +52,6 @@ class JobListTest {
 		venue = shared.venue();
 		userDID = Identity.of("jobs-owner").userDID(venue.did());
 		user = venue.clientAs(userDID);
-		source = new JobList.Source(venue.engine().getVenueState().users(), userDID);
 		new ChatSession(user, new AppConfig.Chat("jobs-agent", AppConfig.DEFAULT_OPERATION,
 			AppConfig.ECHO_LLM_OPERATION, "Echo the user.")).ensureAgent();
 
@@ -72,7 +70,7 @@ class JobListTest {
 	@Test
 	void readingTheJobsLeavesNoJob() {
 		long recorded = RecordedJobs.of(venue, userDID);
-		Index<Blob, ACell> index = source.read();
+		Index<Blob, ACell> index = jobs();
 		JobList.View all = JobList.view(index, userDID, Filter.ALL, System.currentTimeMillis(), 0);
 		for (int row = 0; row < all.size(); row++) assertNotNull(all.job(row));
 		assertEquals(recorded, RecordedJobs.of(venue, userDID), "looking leaves no job record");
@@ -120,7 +118,7 @@ class JobListTest {
 	@Test
 	void aTimeRangeSeeksTheIdOrderedIndex() {
 		long now = System.currentTimeMillis();
-		Index<Blob, ACell> index = source.read();
+		Index<Blob, ACell> index = jobs();
 		assertEquals(0, JobList.view(index, userDID, new Filter(null, null, Range.TODAY), now, now + 60_000).size(),
 			"nothing was started after a time still to come");
 		JobList.View today = JobList.view(index, userDID, new Filter(null, null, Range.TODAY), now, before);
@@ -143,12 +141,17 @@ class JobListTest {
 	}
 
 	private static JobList.View view(Filter filter) {
-		return JobList.view(source.read(), userDID, filter, System.currentTimeMillis(), 0);
+		return JobList.view(jobs(), userDID, filter, System.currentTimeMillis(), 0);
 	}
 
 	private static String finish(java.util.concurrent.CompletableFuture<Job> submitted) throws Exception {
 		Job job = submitted.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 		job.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 		return job.getID().toHexString();
+	}
+
+	/** The principal's job index, from their Jobs lattice component. */
+	private static Index<Blob, ACell> jobs() {
+		return venue.jobs(userDID).getAll();
 	}
 }

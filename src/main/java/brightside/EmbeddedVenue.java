@@ -330,8 +330,9 @@ public final class EmbeddedVenue implements AutoCloseable {
 
 	/** The domain source for the person's Inbox view, including requests to the venue operator. */
 	/** {@code userDID}'s job index, read straight from the in-process lattice ({@link JobList}). */
-	public JobList.Source jobs(String userDID) {
-		return new JobList.Source(engine().getVenueState().users(), userDID);
+	public covia.venue.Jobs jobs(String userDID) {
+		covia.venue.User user = engine().getVenueState().users().user(userDID);
+		return (user == null) ? null : user.jobs();
 	}
 
 	public Inbox.Source inboxes(String userDID) {

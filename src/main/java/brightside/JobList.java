@@ -143,28 +143,6 @@ public final class JobList {
 		}
 	}
 
-	/** Reads one principal's job index from the venue's in-process lattice. */
-	public static final class Source {
-		private final Users users;
-		private final String owner;
-
-		public Source(Users users, String owner) {
-			this.users = Objects.requireNonNull(users);
-			this.owner = Objects.requireNonNull(owner);
-		}
-
-		/** The principal whose jobs these are. */
-		public String owner() {
-			return owner;
-		}
-
-		/** Every job's record, keyed by id in creation order; empty before the principal exists. */
-		public Index<Blob, ACell> read() {
-			User user = users.user(owner);
-			return (user == null) ? Index.none() : user.jobs().getAll();
-		}
-	}
-
 	/**
 	 * One job, summarised for a row: the record and what is read from it.
 	 *
@@ -335,8 +313,8 @@ public final class JobList {
 		return (entry == null) ? null : project(entry.getKey(), RT.ensureMap(entry.getValue()), owner);
 	}
 
-	/** A row's summary of one record. */
-	static Job project(Blob id, AMap<AString, ACell> record, String owner) {
+	/** A row's summary of one record, job {@code id} of {@code owner}'s. */
+	public static Job project(Blob id, AMap<AString, ACell> record, String owner) {
 		if (record == null) record = Maps.empty();
 		String caller = str(record.get(Fields.CALLER));
 		String operation = str(record.get(Fields.OP));

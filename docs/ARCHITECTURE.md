@@ -85,14 +85,31 @@ request id. Principal changes discard those drafts. Responses still use the
 venue's HITL operation as the request's owner; their completion belongs to the
 binding that submitted them, so it cannot update a different user's view.
 
-The Jobs page binds the acting principal's `Jobs` lattice component, their
-`j/` index, the same way, while it is on screen. Covia keys that index by job
-id and ids rise with creation time, so `JobList` finds a time range with
-`Index.seek` and counts rows back from the end, reading records only to filter
-by status or starter. The list is a `JList` over a model that projects a row's
-summary only when the list asks for it, and a fixed cell size means it asks
-only for the rows on screen, however long the history. Actions go through
-Covia's Job tools as the principal.
+**A view can wrap a lattice component directly.** `ui/binding/Watcher`
+keeps such views current with one call, `Watcher.watch(view, component,
+changed)`: `changed` runs on the event thread with the component's value when
+the view comes on screen and whenever the value changes, and the two-argument
+form simply revalidates and repaints a view that reads its component as it
+paints. One daemon thread serves every watch. Each pass reads the value of
+every watch whose view is on screen, compares it as a cell, and hands the
+changes to the event thread in one batch; the next pass starts a second after
+the last one finished, so a slow pass stretches the cycle instead of piling
+up. A watch joins when Swing says its view is showing and leaves when it is
+not, pauses while the window is minimised, and is checked again on the event
+thread in every batch, so a missed Swing event costs at most one pass. A view
+given another component closes its old watch.
+
+The Jobs page is built this way. The window hands it the acting principal's
+`Jobs` component, their `j/` index, and the list watches it while on screen;
+the detail wraps the job's own `JobRecord` and watches that, so an open job
+updates by itself and one whose record goes reads as not found. Covia keys the
+index by job id and ids rise with creation time, so `JobList` finds a time
+range with `Index.seek` and counts rows back from the end, reading records
+only to filter by status or starter. The list is a `JList` over a model that
+projects a row's summary only when the list asks for it, and a fixed cell size
+means it asks only for the rows on screen, however long the history. Actions
+go through Covia's Job tools as the principal, since only Covia's job manager
+can pause or stop running work, and the page reads again once they answer.
 
 **Storage is managed where it is browsed, and distinguishes installation
 access from personal data.** `FileRoots` persists folder access for the next

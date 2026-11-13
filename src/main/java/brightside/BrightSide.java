@@ -37,7 +37,6 @@ import brightside.model.Providers;
 import brightside.ui.LAF;
 import brightside.ui.MainWindow;
 import brightside.ui.TrayManager;
-import brightside.ui.binding.LatticeBinding;
 import brightside.ui.inbox.InboxBinding;
 import convex.core.data.Blob;
 import convex.core.data.Index;
@@ -98,8 +97,6 @@ public final class BrightSide {
 	private volatile StoreSpace storeSpace;
 	private volatile ChatSession chat;
 	private volatile InboxBinding inboxBinding; // replaced with the venue or acting principal
-	/** The acting principal's job index for Settings → Jobs; replaced with the venue or acting principal. */
-	private volatile LatticeBinding<Index<Blob, ACell>, Index<Blob, ACell>> jobsBinding;
 	private volatile Identity identity;
 	private volatile covia.grid.Venue client; // in-process client for the acting user
 	private volatile String userDID; // the acting user's DID (for in-process lattice reads)
@@ -653,8 +650,6 @@ public final class BrightSide {
 			chatBindings.incrementAndGet(); // a bind still in flight is for the old venue
 			InboxBinding oldInbox = inboxBinding;
 			inboxBinding = null;
-			LatticeBinding<?, ?> oldJobs = jobsBinding;
-			jobsBinding = null;
 			chat = null;
 			client = null;
 			actingAsOperator = false; // every launch starts as the user
@@ -662,7 +657,6 @@ public final class BrightSide {
 			godsEnsured.set(false);
 			SwingUtilities.invokeAndWait(() -> {
 				if (oldInbox != null) oldInbox.close();
-				if (oldJobs != null) oldJobs.close();
 				window.clearJobs();
 				window.closeSessions();
 				if (unlockDialog != null) unlockDialog.showProgress("Restarting…");
@@ -906,8 +900,6 @@ public final class BrightSide {
 		chatBindings.incrementAndGet();
 		InboxBinding oldInbox = inboxBinding;
 		inboxBinding = null;
-		LatticeBinding<?, ?> oldJobs = jobsBinding;
-		jobsBinding = null;
 		chat = null;
 		client = null;
 		userDID = null;
@@ -919,7 +911,6 @@ public final class BrightSide {
 		renewToolToken(); // with nobody unlocked, that is none
 		SwingUtilities.invokeLater(() -> {
 			if (oldInbox != null) oldInbox.close();
-			if (oldJobs != null) oldJobs.close();
 			window.clearJobs();
 			window.userLoggedOut();
 			window.setVisible(false);
@@ -2074,8 +2065,10 @@ public final class BrightSide {
 			}
 			window.bindSessions(v, did, session, sessionList);
 			window.setAgents(agentRefs, aid, defaultAgentId());
-			if (inboxBinding == null || bind == Bind.FIRST || bind == Bind.PRINCIPAL_SWITCH) bindInbox(v, did);
-			if (jobsBinding == null || bind == Bind.FIRST || bind == Bind.PRINCIPAL_SWITCH) bindJobs(v, did);
+			if (inboxBinding == null || bind == Bind.FIRST || bind == Bind.PRINCIPAL_SWITCH) {
+				bindInbox(v, did);
+				window.setJobs(v.jobs(did), did);
+			}
 			if (tray != null) tray.setTooltip(APP_NAME + " — " + id.name() + (actingAsOperator ? " (" + id.operatorName() + ")" : ""));
 		});
 	}
@@ -2229,36 +2222,8 @@ public final class BrightSide {
 	}
 
 	/**
-	 * Binds Settings → Jobs to {@code did}'s job index, read straight from the
-	 * lattice while the page is on screen. Event thread.
-	 */
-	private void bindJobs(EmbeddedVenue v, String did) {
-		LatticeBinding<?, ?> old = jobsBinding;
-		if (old != null) old.close();
-		window.clearJobs();
-		JobList.Source source = v.jobs(did);
-		jobsBinding = new LatticeBinding<>(source::read, jobs -> jobs,
-			() -> window.isJobsShowing() && !locked && !exiting.get(),
-			jobs -> window.setJobs(jobs, did), error -> {
-				log.warn("Could not read the jobs", error);
-				window.showJobsReadFailure();
-			}, 2500);
-		jobsBinding.start();
-	}
-
-	/** Reads the jobs now, if Settings → Jobs is on screen. */
-	public void refreshJobs() {
-		if (!SwingUtilities.isEventDispatchThread()) {
-			SwingUtilities.invokeLater(this::refreshJobs);
-			return;
-		}
-		LatticeBinding<?, ?> j = jobsBinding;
-		if (j != null) j.refresh();
-	}
-
-	/**
 	 * Pauses, resumes, cancels or messages {@code job} as the acting principal,
-	 * off the event thread, then reads the jobs again.
+	 * off the event thread, then says how it went.
 	 */
 	public void controlJob(JobList.Job job, brightside.ui.jobs.JobsScreen.Control control, String message,
 			brightside.ui.jobs.JobsScreen.Result done) {
@@ -2290,10 +2255,7 @@ public final class BrightSide {
 			}
 			String shown = note;
 			boolean failed = error;
-			SwingUtilities.invokeLater(() -> {
-				done.done(shown, failed);
-				refreshJobs();
-			});
+			SwingUtilities.invokeLater(() -> done.done(shown, failed));
 		}, "brightside-job-control");
 		t.setDaemon(true);
 		t.start();
@@ -2804,7 +2766,6 @@ public final class BrightSide {
 		window.refreshSessions();
 		InboxBinding i = inboxBinding;
 		if (i != null) i.refresh();
-		refreshJobs();
 		if (window.isSkillsShowing()) refreshSkills();
 	}
 
@@ -2945,8 +2906,7 @@ public final class BrightSide {
 			if (window != null) window.closeSessions();
 			InboxBinding i = inboxBinding;
 			if (i != null) i.close();
-			LatticeBinding<?, ?> j = jobsBinding;
-			if (j != null) j.close();
+			if (window != null) window.clearJobs();
 			if (window != null) window.setVisible(false);
 			if (unlockDialog != null) unlockDialog.dispose();
 			if (tray != null) tray.remove();

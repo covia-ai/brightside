@@ -32,6 +32,7 @@ import javax.swing.SwingWorker;
 import javax.swing.Timer;
 
 import brightside.JobList;
+import brightside.ui.binding.Watcher;
 import brightside.ui.components.Buttons;
 import brightside.ui.components.Clipboard;
 import brightside.ui.components.Dialogs;
@@ -46,6 +47,7 @@ import brightside.ui.components.Tone;
 import convex.core.data.ACell;
 import convex.core.data.Blob;
 import convex.core.data.Index;
+import covia.venue.Jobs;
 import net.miginfocom.swing.MigLayout;
 
 /**
@@ -60,9 +62,11 @@ import net.miginfocom.swing.MigLayout;
  * opens the detail, with a breadcrumb back to the list and through the jobs a
  * job ran inside.
  *
- * <p>The app feeds it snapshots of the principal's job index
- * ({@link #setJobs}); filtering runs off the event thread and the selection
- * and open detail follow their job by id across snapshots.
+ * <p>The app hands it the principal's {@link Jobs}, Covia's lattice component
+ * for their job index ({@link #setJobs}). The list watches it while on screen
+ * ({@link Watcher}); filtering runs off the event thread and the selection
+ * follows its job by id. The detail wraps and watches the job's own
+ * {@code JobRecord}.
  */
 @SuppressWarnings("serial")
 public final class JobsScreen extends JPanel {
@@ -84,9 +88,6 @@ public final class JobsScreen extends JPanel {
 
 		/** Opens agent {@code agentId}'s conversation {@code sessionId} in the chat. */
 		void openConversation(String agentId, String sessionId);
-
-		/** The screen has come on screen: read the jobs now rather than at the next poll. */
-		void shown();
 	}
 
 	private static final String LIST = "list", DETAIL = "detail";
@@ -123,6 +124,13 @@ public final class JobsScreen extends JPanel {
 	/** The jobs opened from the list down to the one in the detail, by id. */
 	private final List<String> trail = new ArrayList<>();
 
+	private final JComponent listPage;
+	/** The current job's name in the breadcrumb, kept current by its detail. */
+	private JLabel here;
+
+	private Jobs jobs;
+	private Watcher.Watch<Index<Blob, ACell>> listWatch;
+	/** The job index as the list last read it. */
 	private Index<Blob, ACell> index;
 	private String owner;
 	private long generation;
@@ -142,7 +150,8 @@ public final class JobsScreen extends JPanel {
 		add(top, BorderLayout.NORTH);
 
 		deck.setOpaque(false);
-		deck.add(listPage(), LIST);
+		listPage = listPage();
+		deck.add(listPage, LIST);
 		detailHolder.setOpaque(false);
 		deck.add(detailHolder, DETAIL);
 		add(deck, BorderLayout.CENTER);
@@ -157,12 +166,8 @@ public final class JobsScreen extends JPanel {
 		});
 		addHierarchyListener(e -> {
 			if ((e.getChangeFlags() & java.awt.event.HierarchyEvent.SHOWING_CHANGED) == 0) return;
-			if (isShowing()) {
-				tick.start();
-				host.shown();
-			} else {
-				tick.stop();
-			}
+			if (isShowing()) tick.start();
+			else tick.stop();
 		});
 	}
 
@@ -170,31 +175,27 @@ public final class JobsScreen extends JPanel {
 	// What the app tells it
 	// ------------------------------------------------------------------
 
-	/** A new snapshot of {@code owner}'s job index; null when there is nothing to show. */
-	public void setJobs(Index<Blob, ACell> jobs, String owner) {
-		boolean switched = this.owner != null && !this.owner.equals(owner);
-		this.index = jobs;
+	/** {@code owner}'s jobs, watched while the list is on screen; null to show none. */
+	public void setJobs(Jobs jobs, String owner) {
+		clear();
+		if (jobs == null) return;
+		this.jobs = jobs;
 		this.owner = owner;
-		if (switched) {
-			trail.clear();
-			showList();
-		}
-		refilter();
-		refreshDetail();
+		listWatch = Watcher.watch(listPage, jobs, value -> {
+			index = value;
+			refilter();
+		});
 	}
 
-	/** The jobs could not be read; what is shown stays, and says so. */
-	public void showReadFailure() {
-		setNote("Couldn't read your jobs. Retrying…", true);
-	}
-
-	/** Drops everything shown, as when the principal changes or the app locks. */
+	/** Drops everything shown and stops watching, as when the principal changes or the app locks. */
 	public void clear() {
+		if (listWatch != null) listWatch.close();
+		listWatch = null;
+		jobs = null;
 		index = null;
 		owner = null;
 		generation++;
 		model.setView(null);
-		trail.clear();
 		showList();
 		setNote(" ", false);
 	}
@@ -478,7 +479,11 @@ public final class JobsScreen extends JPanel {
 			case CANCEL -> "Cancelling…";
 			case MESSAGE -> "Sending…";
 		}, false);
-		host.control(job, control, message, this::setNote);
+		host.control(job, control, message, (text, error) -> {
+			setNote(text, error);
+			if (listWatch != null) listWatch.refresh();
+			if (detail != null) detail.refresh();
+		});
 	}
 
 	private void setNote(String text, boolean error) {
@@ -492,6 +497,7 @@ public final class JobsScreen extends JPanel {
 
 	private void showList() {
 		trail.clear();
+		if (detail != null) detail.close();
 		detail = null;
 		detailHolder.removeAll();
 		cards.show(deck, LIST);
@@ -500,14 +506,15 @@ public final class JobsScreen extends JPanel {
 	}
 
 	private void showDetail() {
-		JobList.Job job = jobAt(trail.get(trail.size() - 1));
+		String id = trail.get(trail.size() - 1);
+		if (detail != null) detail.close();
+		detail = null;
 		detailHolder.removeAll();
-		if (job == null) {
-			detail = null;
-			detailHolder.add(new EmptyState("search-x", Tone.MUTED, "Job not found",
-				"It isn't among your jobs, or its record has been removed."), BorderLayout.CENTER);
+		Blob key = (jobs != null) ? Blob.fromHex(id) : null;
+		if (key == null) {
+			detailHolder.add(JobDetail.notFound(), BorderLayout.CENTER);
 		} else {
-			detail = new JobDetail(job, new JobDetail.Actions() {
+			detail = new JobDetail(jobs.at(key), key, owner, new JobDetail.Actions() {
 				@Override
 				public void control(JobList.Job j, Control c) {
 					JobsScreen.this.control(j, c);
@@ -519,9 +526,14 @@ public final class JobsScreen extends JPanel {
 				}
 
 				@Override
-				public void openJob(String id) {
-					trail.add(id);
+				public void openJob(String parent) {
+					trail.add(parent);
 					showDetail();
+				}
+
+				@Override
+				public void shown(JobList.Job job) {
+					if (here != null) here.setText(job.title());
 				}
 			});
 			detailHolder.add(Scrolls.vertical(detail), BorderLayout.CENTER);
@@ -529,17 +541,10 @@ public final class JobsScreen extends JPanel {
 		detailHolder.revalidate();
 		detailHolder.repaint();
 		cards.show(deck, DETAIL);
-		buildCrumbs(job);
+		buildCrumbs(jobAt(id));
 	}
 
-	/** Rebuilds an open detail when its job's record has changed. */
-	private void refreshDetail() {
-		if (detail == null || trail.isEmpty()) return;
-		JobList.Job now = jobAt(trail.get(trail.size() - 1));
-		if (now == null || !now.record().equals(detail.job().record())) showDetail();
-	}
-
-	/** Job {@code id} as the current snapshot has it, or null. */
+	/** Job {@code id} as the list last read it, or null; for the breadcrumb's names. */
 	private JobList.Job jobAt(String id) {
 		return (owner == null) ? null : JobList.find(index, owner, id);
 	}
@@ -547,6 +552,7 @@ public final class JobsScreen extends JPanel {
 	/** "Jobs › parent › this one": each step back is a link. */
 	private void buildCrumbs(JobList.Job current) {
 		crumbs.removeAll();
+		here = null;
 		if (trail.isEmpty()) {
 			crumbs.add(Labels.title("Jobs"));
 		} else {
@@ -561,7 +567,7 @@ public final class JobsScreen extends JPanel {
 				}));
 			}
 			crumbs.add(Labels.muted("›"));
-			JLabel here = Labels.lead(current != null ? current.title() : "Job");
+			here = Labels.lead(current != null ? current.title() : "Job");
 			crumbs.add(here, "wmin 0");
 		}
 		crumbs.revalidate();
