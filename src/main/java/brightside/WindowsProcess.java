@@ -52,6 +52,9 @@ final class WindowsProcess extends Process {
 	/** {@code PROCESS_INFORMATION}: hProcess, hThread, dwProcessId, dwThreadId. */
 	private static final int PROCESS_INFORMATION_SIZE = 24;
 	private static final int PI_PROCESS = 0, PI_THREAD = 8, PI_PID = 16;
+	private static final int JOB_OBJECT_BASIC_PROCESS_ID_LIST = 3;
+	/** Room for the ids of this many processes in one job. */
+	private static final int JOB_IDS = 65536;
 
 	private static final Cleaner CLEANER = Cleaner.create();
 
@@ -72,8 +75,8 @@ final class WindowsProcess extends Process {
 			FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS));
 		static final MethodHandle TERMINATE = function("TerminateProcess",
 			FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_INT));
-		static final MethodHandle IN_JOB = function("IsProcessInJob",
-			FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, ADDRESS));
+		static final MethodHandle QUERY_JOB = function("QueryInformationJobObject",
+			FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_INT, ADDRESS, JAVA_INT, ADDRESS));
 
 		private static MethodHandle function(String name, FunctionDescriptor descriptor) {
 			return LINKER.downcallHandle(LIB.findOrThrow(name), descriptor);
@@ -166,13 +169,22 @@ final class WindowsProcess extends Process {
 		return brokeAway;
 	}
 
-	/** Whether Windows has it in any job. */
-	boolean inJob() {
+	/**
+	 * Whether it is in the job this process belongs to directly. Breaking away
+	 * leaves that job; a job enclosing it that forbids leaving still holds both.
+	 */
+	boolean sharesJob() {
 		try (Arena arena = Arena.ofConfined()) {
-			MemorySegment result = arena.allocate(JAVA_INT);
-			int ok = (int) Kernel32.IN_JOB.invokeExact(handle, MemorySegment.NULL, result);
-			if (ok == 0) throw new IllegalStateException("Windows could not say whether process " + pid + " is in a job");
-			return result.get(JAVA_INT, 0) != 0;
+			// JOBOBJECT_BASIC_PROCESS_ID_LIST: two counts, then the ids
+			MemorySegment list = arena.allocate(8 + 8L * JOB_IDS, 8);
+			int ok = (int) Kernel32.QUERY_JOB.invokeExact(MemorySegment.NULL, JOB_OBJECT_BASIC_PROCESS_ID_LIST, list,
+				(int) list.byteSize(), MemorySegment.NULL);
+			if (ok == 0) return false; // this process is in no job
+			int listed = list.get(JAVA_INT, 4);
+			for (int i = 0; i < listed; i++) {
+				if (list.get(java.lang.foreign.ValueLayout.JAVA_LONG, 8 + 8L * i) == pid) return true;
+			}
+			return false;
 		} catch (RuntimeException | Error e) {
 			throw e;
 		} catch (Throwable t) {
