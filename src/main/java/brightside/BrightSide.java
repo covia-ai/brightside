@@ -555,6 +555,7 @@ public final class BrightSide {
 					return;
 				}
 				log.warn("Store repaired — {}", repaired.summary());
+				for (String problem : repaired.problems()) log.warn("Store repair noted: {}", problem);
 				progress(compacting ? "Compacting the data store…" : "Starting the venue…");
 				if (compacting) compacted = space.compact(storeConfig);
 				v = launchOn(venueConfig, compacted);
