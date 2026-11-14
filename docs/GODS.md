@@ -12,9 +12,11 @@ design and motivation.
   moving money — sits with a god instead.
 - **A god is the venue's own agent.** It belongs to the venue principal, not
   to the owner's user, and answers to the owner alone.
-- **Power is a mechanism; judgement is a prompt.** What Thor, Njord and Eir
-  *can* do is an allowlist enforced by their bridges; Odin holds the venue's
-  authority outright. What a god *should* do is its system prompt.
+- **Power is a mechanism; judgement is a prompt.** What a god *can* do is
+  meant to be standard Covia authority, its standing caps, with skills for the
+  know-how; for now Thor, Njord and Eir act through allowlists enforced by
+  their bridges, and Odin holds the venue's authority outright. What a god
+  *should* do is its system prompt.
 - **They check one another.** Gods that act on their own judgement report
   every change to Odin straight after. He takes a disagreement to the owner,
   who breaks the tie.
@@ -88,7 +90,7 @@ configuration at every launch, before any god can act
 (`God`). Each god has two narrow Brightside operations to bridge the gap.
 
 **Ask** (`brightside:ask-odin`, `brightside:alert-thor`,
-`brightside:ask-njord`) is callable by any authenticated user of the venue,
+`brightside:ask-njord`, `brightside:ask-eir`) is callable by any authenticated user of the venue,
 or their agents. It mints a short-lived, venue-rooted grant letting the
 calling user make a request of the god, and submits it as that user. The task
 is the user's own job, and Covia attributes the caller natively. Brightside
@@ -97,7 +99,7 @@ it; the request text itself is untrusted. The bridge returns the god's
 outcome, or a started snapshot while the god is still deciding.
 
 **Run** (`brightside:odin-run`, `brightside:thor-run`,
-`brightside:njord-run`) is callable by that god alone. Without a user it runs
+`brightside:njord-run`, `brightside:eir-run`) is callable by that god alone. Without a user it runs
 one of the god's venue operations under the venue's authority. With a user,
 one of this venue's own, it runs one of the god's namespace operations
 inside that user's namespace on their behalf through Covia's `user:sudo`. A
@@ -108,6 +110,20 @@ granted operations, which run as the god itself under a grant the venue signs
 for exactly what that call touches, named by the operation's adapter
 (`CallGrants`): Njord's treasury operations are these
 ([TREASURY.md](TREASURY.md)).
+
+**The run bridge is transitional.** It is a second permission system in
+Brightside, and the gods are meant to be a good selection of skills plus
+standard Covia authority. Covia's administrative operations now accept a venue
+agent whose caps include the ability, so a god can hold narrow, standing caps
+and call those operations directly, with Covia doing the refusing; the bridge
+gives way to that step by step. What Covia cannot yet express is asked of it:
+accounts that no administrator agent may delete or act for
+([covia#703](https://github.com/covia-ai/covia/issues/703)), and an asker
+withdrawing its own Inbox request
+([covia#702](https://github.com/covia-ai/covia/issues/702)). The move is
+tracked in [brightside#40](https://github.com/covia-ai/brightside/issues/40).
+Each god's caps are the owner's design call, so the improvement loop leaves
+this alone.
 
 ### Answering to an overseer
 

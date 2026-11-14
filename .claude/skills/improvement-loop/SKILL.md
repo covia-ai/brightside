@@ -110,6 +110,8 @@ and `diff`, read only). Narrow it to the change that broke Tau.
 - Bug fixes and minor tweaks: just do them; they need no issue. A major
   enhancement may have an issue as its record, opened when the work starts
   and closed by its commit.
+- Not the loop's: the gods' authority, their caps and the run bridge, is
+  the owner's design work (brightside#40). Report a miss there; never change it.
 - An open design question (how something should work, where the evidence
   does not settle it; anything touching authority, startup or the loop
   itself) goes to the owner: an issue labelled `question` that tags `@mikera`,

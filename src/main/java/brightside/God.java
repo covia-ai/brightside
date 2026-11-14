@@ -49,6 +49,10 @@ import covia.venue.Engine;
  * assistant can use. The gods are listed in {@link Gods}; see
  * {@code docs/GODS.md}.
  *
+ * <p>The run bridge and these allowlists are transitional: a god is to be a
+ * selection of skills plus standing Covia caps, which Covia enforces itself
+ * (brightside#40).
+ *
  * @param id              the agent id, also the god's name
  * @param ask             the sub-operation of {@code brightside:} by which assistants reach it
  * @param run             the sub-operation of {@code brightside:} through which it acts

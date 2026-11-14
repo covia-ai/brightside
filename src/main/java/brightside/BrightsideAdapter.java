@@ -825,14 +825,18 @@ public class BrightsideAdapter extends AAdapter {
 	}
 
 	/**
-	 * A god's hands. Covia admits venue authority only to the venue DID itself,
-	 * never to an agent it owns, so the god's tool call arrives here as its own
+	 * A god's hands, for now. The god's tool call arrives here as its own
 	 * sub-principal and the bridge supplies the operator context — for one of
 	 * the god's venue operations, or for one of its namespace operations run on
 	 * a user's behalf through {@code user:sudo} under a per-call venue-rooted
 	 * {@code admin/sudo} delegation. The god's allowlists, not the caller, bound
 	 * what the venue context is lent for. For a god with an overseer, anything
 	 * that changes state needs a {@code reason}, and is reported once it is done.
+	 *
+	 * <p>Transitional: Covia now admits a venue agent within its caps to its
+	 * administrative operations, so each god is to hold standing caps and call
+	 * them directly, with Covia doing the refusing, and this bridge to shrink
+	 * away (brightside#40, {@code docs/GODS.md}).
 	 */
 	private CompletableFuture<ACell> handleRun(God god, RequestContext ctx, ACell input) {
 		try {
