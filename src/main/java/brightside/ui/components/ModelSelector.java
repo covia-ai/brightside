@@ -27,7 +27,7 @@ public final class ModelSelector extends JPanel {
 	private final JComboBox<Providers.Model> model = new JComboBox<>();
 	private final IdEditor idEditor = new IdEditor();
 	private final List<Runnable> listeners = new ArrayList<>();
-	private Map<String, List<String>> served = Map.of();
+	private Map<String, List<String>> offered = Map.of();
 	private boolean syncing;
 
 	public ModelSelector() {
@@ -89,13 +89,15 @@ public final class ModelSelector extends JPanel {
 	}
 
 	/**
-	 * Adds the models the venue reports each provider serving right now
-	 * ({@link Providers#served}) to the list after the provider's own, keeping
-	 * the choice as it stands.
+	 * Offers the models the venue catalogues and serves for each provider
+	 * ({@link Providers#offered}), keeping the choice as it stands. Ids the
+	 * list lacks are added after the provider's own. For a provider that runs
+	 * only what the venue catalogues, a listed model the venue does not offer
+	 * is dropped, unless it is the choice in force.
 	 */
-	public void offer(Map<String, List<String>> servedModels) {
-		served = Map.copyOf(servedModels);
-		addServed();
+	public void offer(Map<String, List<String>> offeredModels) {
+		offered = Map.copyOf(offeredModels);
+		applyOffered(true);
 	}
 
 	public Providers.Provider selectedProvider() {
@@ -141,15 +143,26 @@ public final class ModelSelector extends JPanel {
 		model.setToolTipText(p.anyModel()
 			? "Which model to use: pick one, or type the id of any model " + p.label() + " serves"
 			: "Which model to use");
-		addServed();
+		applyOffered(false);
 	}
 
-	/** Appends the selected provider's served models that the list lacks, labelled by id. */
-	private void addServed() {
+	/**
+	 * Appends the selected provider's offered models that the list lacks,
+	 * labelled by id, and drops the ones it cannot run (see {@link #offer}).
+	 */
+	private void applyOffered(boolean keepChoice) {
 		Providers.Provider p = selectedProvider();
 		if (p == null) return;
 		DefaultComboBoxModel<Providers.Model> list = (DefaultComboBoxModel<Providers.Model>) model.getModel();
-		for (String id : served.getOrDefault(p.id(), List.of())) {
+		List<String> ids = offered.getOrDefault(p.id(), List.of());
+		if (!ids.isEmpty() && !p.anyModel()) {
+			Object chosen = keepChoice ? list.getSelectedItem() : null;
+			for (int i = list.getSize() - 1; i >= 0; i--) {
+				Providers.Model m = list.getElementAt(i);
+				if (m != chosen && !ids.contains(m.id())) list.removeElementAt(i);
+			}
+		}
+		for (String id : ids) {
 			if (listed(id) == null) list.addElement(new Providers.Model(id, id));
 		}
 	}

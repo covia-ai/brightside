@@ -1126,23 +1126,27 @@ public final class BrightSide {
 	}
 
 	/**
-	 * Asks the venue, off the event thread, which models each provider serves
-	 * right now beyond its catalog, and offers them in the model pickers. A
-	 * read: the listing is a read-only operation. Unanswered, the pickers keep
-	 * their own lists.
+	 * Reads, off the event thread, the models the venue catalogues at
+	 * {@code v/models} and asks it which each provider serves right now beyond
+	 * that, and offers both in the model pickers. Both are reads: the
+	 * catalogue straight from the lattice, the listing a read-only operation.
+	 * A listing that goes unanswered still leaves the catalogue offered.
 	 */
 	public void refreshServedModels() {
 		EmbeddedVenue v = venue;
 		Identity id = identity;
 		if (v == null || id == null) return;
 		Thread t = new Thread(() -> {
+			Map<String, List<String>> catalogued = Providers.catalogued(v.resolve(id.userDID(v.did()), "v/models"));
+			Map<String, List<String>> served = Map.of();
 			try {
 				ACell report = ownerClient(v, id).run(MODELS_OP, Maps.empty()).get(30, TimeUnit.SECONDS);
-				Map<String, List<String>> served = Providers.served(report);
-				SwingUtilities.invokeLater(() -> window.showServedModels(served));
+				served = Providers.served(report);
 			} catch (Exception e) {
 				log.warn("Could not list the models the venue serves: {}", e.toString());
 			}
+			Map<String, List<String>> offered = Providers.offered(catalogued, served);
+			if (!offered.isEmpty()) SwingUtilities.invokeLater(() -> window.showServedModels(offered));
 		}, "brightside-served-models");
 		t.setDaemon(true);
 		t.start();

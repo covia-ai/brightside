@@ -49,7 +49,7 @@ public final class NewAgentPanel extends JPanel {
 	/** The text last filled from the template: while the area still holds it, the owner has not edited it. */
 	private String filled = "";
 
-	/** {@code served}: the models the venue reports each provider serving right now, by provider id. */
+	/** {@code served}: the models the venue catalogues and serves for each provider, by provider id. */
 	public NewAgentPanel(String currentModelOp, Map<String, List<String>> served) {
 		super(new MigLayout("insets 8, fillx, wrap 2", "[]14[grow,fill]", ""));
 		setOpaque(false);

@@ -6,7 +6,10 @@ import java.util.List;
 import java.util.Map;
 
 import convex.core.data.ACell;
+import convex.core.data.AMap;
 import convex.core.data.AString;
+import convex.core.data.MapEntry;
+import convex.core.data.Strings;
 import convex.core.data.AVector;
 import convex.core.lang.RT;
 
@@ -165,6 +168,57 @@ public final class Providers {
 			served.put(p.id(), List.copyOf(list));
 		}
 		return served;
+	}
+
+	/**
+	 * The model ids the venue catalogues under {@code v/models}, by provider id,
+	 * for the providers listed here. {@code catalogue} is the value at
+	 * {@code v/models}: each provider maps ids to model presets (maps holding
+	 * an {@code operation}), and a vendor segment such as OpenRouter's
+	 * {@code google/} nests one level further, giving the id
+	 * {@code google/gemini-3.5-flash}. A provider without an entry is left out.
+	 */
+	public static Map<String, List<String>> catalogued(ACell catalogue) {
+		Map<String, List<String>> catalogued = new LinkedHashMap<>();
+		if (!(catalogue instanceof AMap<?, ?> providers)) return catalogued;
+		for (Provider p : ALL) {
+			List<String> ids = new ArrayList<>();
+			collectPresets(providers.get(Strings.create(p.id())), "", ids);
+			if (!ids.isEmpty()) catalogued.put(p.id(), List.copyOf(ids));
+		}
+		return catalogued;
+	}
+
+	private static void collectPresets(ACell node, String prefix, List<String> ids) {
+		if (!(node instanceof AMap<?, ?> map)) return;
+		for (long i = 0; i < map.count(); i++) {
+			MapEntry<?, ?> e = map.entryAt(i);
+			if (!(e.getKey() instanceof AString key)) continue;
+			ACell value = e.getValue();
+			if (RT.getIn(value, "operation") != null) {
+				ids.add(prefix + key);
+			} else if (prefix.isEmpty()) {
+				collectPresets(value, key + "/", ids);
+			}
+		}
+	}
+
+	/**
+	 * The models to offer each provider: {@link #catalogued} first, then
+	 * {@link #served} ids not already there.
+	 */
+	public static Map<String, List<String>> offered(Map<String, List<String>> catalogued,
+			Map<String, List<String>> served) {
+		Map<String, List<String>> offered = new LinkedHashMap<>();
+		catalogued.forEach((p, ids) -> offered.put(p, new ArrayList<>(ids)));
+		served.forEach((p, ids) -> {
+			List<String> list = offered.computeIfAbsent(p, k -> new ArrayList<>());
+			for (String id : ids) {
+				if (!list.contains(id)) list.add(id);
+			}
+		});
+		offered.replaceAll((p, ids) -> List.copyOf(ids));
+		return offered;
 	}
 
 	/** The default provider (Anthropic). */

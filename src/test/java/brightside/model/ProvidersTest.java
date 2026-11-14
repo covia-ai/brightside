@@ -54,6 +54,29 @@ class ProvidersTest {
 	}
 
 	@Test
+	void readsTheCatalogueIncludingNestedVendorIds() {
+		ACell preset = Maps.of("operation", Maps.of("adapter", "langchain:x"));
+		ACell catalogue = Maps.of(
+			"openai", Maps.of("gpt-new", preset, "gpt-5.4-mini", preset),
+			"openrouter", Maps.of("google", Maps.of("gemini-x", preset)),
+			"unknown-provider", Maps.of("m", preset));
+		Map<String, List<String>> catalogued = Providers.catalogued(catalogue);
+		assertEquals(2, catalogued.get("openai").size());
+		assertTrue(catalogued.get("openai").containsAll(List.of("gpt-new", "gpt-5.4-mini")));
+		assertEquals(List.of("google/gemini-x"), catalogued.get("openrouter"));
+		assertFalse(catalogued.containsKey("unknown-provider"));
+		assertTrue(Providers.catalogued(null).isEmpty());
+	}
+
+	@Test
+	void offersTheCatalogueThenWhatIsServedBeyondIt() {
+		Map<String, List<String>> offered = Providers.offered(
+			Map.of("ollama", List.of("qwen")),
+			Map.of("ollama", List.of("qwen", "llama3.2:3b")));
+		assertEquals(List.of("qwen", "llama3.2:3b"), offered.get("ollama"));
+	}
+
+	@Test
 	void openRouterDefaultsToAPinnedModel() {
 		Providers.Provider openrouter = Providers.byId("openrouter");
 		assertTrue(openrouter.anyModel());

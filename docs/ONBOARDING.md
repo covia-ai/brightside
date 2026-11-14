@@ -89,5 +89,8 @@ restores the identity only.
 
 Providers, their models and their secret names are listed in
 `model/Providers`; each listed model is one the venue catalogues. Settings and
-the new-agent dialog also offer the models the venue reports a provider serving
-right now, such as those installed in Ollama.
+the new-agent dialog also offer every model the venue catalogues at
+`v/models/<provider>`, and those it reports a provider serving right now, such
+as the ones installed in Ollama. For a provider that runs only catalogued
+models, a listed model the venue no longer catalogues is left out, unless it
+is the one in use.
