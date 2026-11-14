@@ -70,7 +70,7 @@ class StartupTest {
 					.invokeOperation("v/ops/treasury/account-list", Maps.empty(), GodContexts.of(second, Thor.AGENT_ID))
 					.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS), "so the venue's treasury is out of his reach");
 				assertTrue(God.configured(second.agentRecord(second.did(), Odin.AGENT_ID), Odin.GOD.config(TASK_LLM)),
-					"Odin is as he should be, unrestricted");
+					"Odin is as he should be");
 				assertEquals(report.to(), second.brightside().startupVersions(), "this start's versions are recorded");
 				assertNotNull(second.startupRepair(), "an upgrade asks Eir to check the owner's account");
 				assertNotNull(second.startupRepair().get(TIMEOUT_SECONDS, TimeUnit.SECONDS), "and she answers");

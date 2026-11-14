@@ -120,10 +120,12 @@ class OdinTest {
 
 	@Test
 	void odinRunIsOdinOnlyAndAllowlisted() throws Exception {
-		assertThrows(Exception.class, () -> run(user, Odin.OP_RUN, Maps.of("operation", "v/ops/venue/adapters")),
+		AMap<AString, ACell> listed = Maps.of("operation", "v/ops/ucan/issue", "input", Maps.empty());
+		assertThrows(Exception.class, () -> run(user, Odin.OP_RUN, listed),
 			"a user cannot borrow the venue's authority");
-		assertNotNull(asOdin(Odin.OP_RUN, Maps.of("operation", "v/ops/venue/adapters")),
-			"Odin may run a listed venue operation");
+		assertThrows(Exception.class, () -> asOdin(Odin.OP_RUN, Maps.of("operation", "v/ops/venue/adapters")),
+			"what his caps let him do himself, his bridge does not lend");
+		assertNotNull(asOdin("v/ops/venue/adapters", Maps.empty()), "he calls it directly");
 		assertThrows(Exception.class, () -> asOdin(Odin.OP_RUN, Maps.of("operation", "v/ops/venue/restart")),
 			"an unlisted venue operation is refused");
 		assertThrows(Exception.class, () -> asOdin(Odin.OP_RUN, Maps.of(
@@ -137,7 +139,7 @@ class OdinTest {
 	@Test
 	void odinCanUndoAUserHeCreated() throws Exception {
 		AString made = Strings.create(venue.did() + ":u:odin-made");
-		asOdin(Odin.OP_RUN, Maps.of("operation", "v/ops/user/create", "input", Maps.of("did", made)));
+		asOdin("v/ops/user/create", Maps.of("did", made));
 		assertNotNull(venue.engine().getVenueState().users().user(made), "created");
 
 		asOdin(Odin.OP_RUN, Maps.of("operation", "v/ops/user/delete", "input", Maps.of("did", made)));

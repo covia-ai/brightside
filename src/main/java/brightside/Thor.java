@@ -3,6 +3,10 @@ package brightside;
 import java.util.List;
 import java.util.Set;
 
+import convex.core.data.ACell;
+import convex.core.data.AVector;
+import convex.core.data.Vectors;
+
 /**
  * Thor: the guardian, the {@link God} that protects the owner's interests
  * against adversaries — injected instructions turning an assistant against
@@ -24,10 +28,8 @@ public final class Thor {
 
 	public static final String AGENT_ID = "Thor";
 
-	/** Who the venue's users are, so a report about one can be placed. */
-	public static final Set<String> VENUE_OPERATIONS = Set.of(
-		"v/ops/user/list",
-		"v/ops/user/info");
+	/** Who the venue's users are, so a report about one can be placed: his caps beyond every god's. */
+	static final AVector<ACell> POWERS = Vectors.of(God.cap("users", "admin/user/read"));
 
 	/**
 	 * What Thor may run inside a user's namespace: read whatever he needs to
@@ -111,8 +113,9 @@ public final class Thor {
 	public static final God GOD = new God(AGENT_ID, "alert-thor", "thor-run", Odin.AGENT_ID, SYSTEM_PROMPT,
 		"threats seen and the owner's decisions",
 		List.of("v/ops/brightside/ask-odin", "v/ops/hitl/request", "v/ops/hitl/list",
-			"v/ops/job/status", "v/ops/job/result"),
-		VENUE_OPERATIONS, SUDO_OPERATIONS);
+			"v/ops/job/status", "v/ops/job/result", "v/ops/user/list", "v/ops/user/info"),
+		List.of("v/skills/admin/users"),
+		POWERS, Set.of(), SUDO_OPERATIONS);
 
 	/** How an assistant reports a suspected attack (callable by any authenticated user or their agents). */
 	public static final String OP_ALERT = GOD.askOp();

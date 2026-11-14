@@ -3,6 +3,10 @@ package brightside;
 import java.util.List;
 import java.util.Set;
 
+import convex.core.data.ACell;
+import convex.core.data.AVector;
+import convex.core.data.Vectors;
+
 /**
  * Odin: the administrator, the {@link God} the owner's assistants turn to for
  * changes that need administrator rights — integrations and adapters, venue
@@ -11,73 +15,73 @@ import java.util.Set;
  * through the Inbox, or declines.
  *
  * <p>{@code brightside:ask-odin} lets an assistant reach him across
- * principals, and {@code brightside:odin-run} lets him execute vetted operator
- * operations — optionally inside a user's namespace via {@code user:sudo}
- * (covia#447 asks for the real thing). See {@code docs/ODIN.md}.
+ * principals. What he may do as the venue is his caps ({@link #POWERS}),
+ * which Covia checks; {@code brightside:odin-run} lends him the venue's
+ * authority for what caps cannot yet say, and runs operations inside a user's
+ * namespace via {@code user:sudo}. See {@code docs/ODIN.md}.
  */
 public final class Odin {
 
 	public static final String AGENT_ID = "Odin";
 
 	/**
-	 * The operations Odin may run as the venue: all of its administration. The
-	 * bridge supplies the venue context and this list bounds what it supplies it
-	 * for, so what is absent is absent on purpose:
+	 * Odin's caps beyond every god's: the venue's administration, as Covia names
+	 * it — users (registering them and reading the directory),
+	 * adapters and modules, peers, the venue's own secrets, restarting and
+	 * relaunching Brightside, and compacting its store at the next start. What
+	 * is absent is absent on purpose, and Covia refuses it whatever tool he
+	 * loads:
 	 * <ul>
-	 * <li>anything that runs another operation ({@code grid/run}, the scheduler,
-	 *     talking to an agent), which would carry the venue's authority past
-	 *     every exclusion here;</li>
-	 * <li>answering the Inbox ({@code hitl/respond}), which is the owner's
-	 *     decision even when a god asked;</li>
-	 * <li>money — Convex transactions, signing, keys — which is Njord's;</li>
-	 * <li>the venue's own agents — the gods, which hold operator rights — and
-	 *     the skill library and operation catalogue they load (so not
-	 *     {@code mcp/add-tool} either);</li>
-	 * <li>copying a user whole ({@code user/clone}, {@code export},
-	 *     {@code import}), which carries their secrets, and adding a way to
-	 *     sign in as someone ({@code user/authentication-add});</li>
-	 * <li>{@code secret/extract};</li>
-	 * <li>Covia's {@code venue/restart}, which needs a standalone Covia
-	 *     process: Brightside restarts through {@code brightside:restart} (the
-	 *     venue, inside the process) and {@code brightside:relaunch} (a new
-	 *     instance taking over) instead; and {@code venue/gc}, which collects a
-	 *     store still open: {@code brightside:storage} compacts at the next
-	 *     start instead.</li>
+	 * <li>money: no {@code secret/use} or key rights, so no venue key signs for
+	 *     him, and the treasury is Njord's;</li>
+	 * <li>the venue's state beyond his own notes, and the venue's own agents —
+	 *     the gods — and the skill library they load;</li>
+	 * <li>answering the Inbox, which Covia never lets an agent do;</li>
+	 * <li>{@code admin/sudo}, {@code admin/user/export} and
+	 *     {@code admin/user/import}: acting as a user goes through his bridge,
+	 *     and copying one whole carries their secrets;</li>
+	 * <li>{@code admin/user/authentication-manage}, which adds a way to sign in
+	 *     as someone as well as revoking one;</li>
+	 * <li>{@code admin/venue/gc}, which collects the store while it runs:
+	 *     {@code brightside:storage} compacts at the next start instead;</li>
+	 * <li>{@code secret/extract}, and {@code outbound/any}.</li>
 	 * </ul>
-	 * {@code user/delete} never takes the owner's account or a user a god keeps
-	 * ({@link BrightsideAdapter}). A value he gives {@code secret/set} is
-	 * redacted in that operation's record but not in his bridge call's, where it
-	 * sits nested in the input Covia's redaction does not reach.
+	 */
+	static final AVector<ACell> POWERS = Vectors.of(
+		God.cap("users", "admin/user/create"),
+		God.cap("users", "admin/user/read"),
+		God.cap("adapters", "admin/adapter/manage"),
+		God.cap("p2p", "p2p/read"),
+		God.cap("p2p", "p2p/manage"),
+		God.cap("s/", "secret/write"),
+		God.cap("s/", "crud/delete"),
+		God.cap("process", "admin/venue/restart"),
+		God.cap("store", BrightsideAdapter.ADMIN_VENUE_COMPACT.toString()));
+
+	/**
+	 * What his bridge lends the venue's authority for, each because standing
+	 * caps cannot yet say it:
+	 * <ul>
+	 * <li>{@code user/delete} never takes the owner's account or a user a god
+	 *     keeps ({@link BrightsideAdapter}), which Covia cannot yet except
+	 *     (covia#703);</li>
+	 * <li>the venue's MCP servers reach local hosts and authenticate with the
+	 *     venue's secrets, and a standing cap for either would reach every
+	 *     host and every secret;</li>
+	 * <li>{@code user/authentication-revoke}, since Covia's one ability for it
+	 *     also adds a way to sign in as someone;</li>
+	 * <li>{@code ucan/issue} signs as the venue, and a standing
+	 *     {@code grant/...} cap would let him grant whatever it names to
+	 *     anyone.</li>
+	 * </ul>
 	 */
 	public static final Set<String> VENUE_OPERATIONS = Set.of(
-		"v/ops/venue/adapters",
-		"v/ops/venue/adapter/enable",
-		"v/ops/venue/adapter/disable",
-		"v/ops/venue/adapter/configure",
-		"v/ops/venue/module/load",
-		"v/ops/venue/module/unload",
-		"v/ops/venue/show-config",
+		"v/ops/user/delete",
+		"v/ops/user/authentication-revoke",
 		"v/ops/mcp/add-server",
 		"v/ops/mcp/remove-server",
 		"v/ops/mcp/refresh",
-		"v/ops/mcp/tools-list",
-		"v/ops/user/create",
-		"v/ops/user/list",
-		"v/ops/user/info",
-		"v/ops/user/delete",
-		"v/ops/user/authentication-list",
-		"v/ops/user/authentication-revoke",
-		"v/ops/ucan/issue",
-		"v/ops/ucan/verify",
-		"v/ops/p2p/peers",
-		"v/ops/p2p/connect",
-		"v/ops/secret/list",
-		"v/ops/secret/set",
-		"v/ops/secret/delete",
-		"v/ops/brightside/storage",
-		"v/ops/brightside/shutdown",
-		"v/ops/brightside/restart",
-		"v/ops/brightside/relaunch");
+		"v/ops/ucan/issue");
 
 	/**
 	 * The operations Odin may run inside a user's namespace ({@code user:sudo}):
@@ -116,8 +120,8 @@ public final class Odin {
 
 	/** Odin's identity and the policy he applies. Judgement lives here; the tools describe their own mechanics. */
 	public static final String SYSTEM_PROMPT = """
-		You are Odin, the administrator of this Tau. You act with the venue operator's authority \
-		on behalf of the person who owns it, and you answer to that owner alone.
+		You are Odin, the administrator of this Tau. You administer its venue on behalf of the person \
+		who owns it, and you answer to that owner alone.
 
 		Requests reach you as tasks from the owner's assistants. A task's from (the owner's user DID) and \
 		agent (which assistant asked) are filled in by Tau from the authenticated caller and can be \
@@ -151,8 +155,13 @@ public final class Odin {
 	public static final God GOD = new God(AGENT_ID, "ask-odin", "odin-run", null, SYSTEM_PROMPT,
 		"the owner's decisions",
 		List.of("v/ops/brightside/alert-thor", "v/ops/hitl/request", "v/ops/hitl/list",
-			"v/ops/job/status", "v/ops/job/result"),
-		VENUE_OPERATIONS, SUDO_OPERATIONS).asUnrestricted();
+			"v/ops/job/status", "v/ops/job/result", "v/ops/brightside/info", "v/ops/brightside/storage",
+			"v/ops/brightside/restart", "v/ops/brightside/relaunch", "v/ops/brightside/shutdown",
+			"v/ops/user/list", "v/ops/user/info", "v/ops/venue/show-config", "v/ops/venue/adapters",
+			"v/ops/p2p/peers", "v/ops/p2p/connect"),
+		List.of("v/skills/admin/users", "v/skills/adapters/adapters", "v/skills/auth/secrets",
+			"v/skills/ops-tools/mcp", "v/skills/caps-permissions/capabilities"),
+		POWERS, VENUE_OPERATIONS, SUDO_OPERATIONS);
 
 	/** How an assistant asks Odin (callable by any authenticated user or their agents). */
 	public static final String OP_ASK = GOD.askOp();

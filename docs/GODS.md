@@ -12,11 +12,11 @@ design and motivation.
   moving money — sits with a god instead.
 - **A god is the venue's own agent.** It belongs to the venue principal, not
   to the owner's user, and answers to the owner alone.
-- **Power is a mechanism; judgement is a prompt.** What a god *can* do is
-  meant to be standard Covia authority, its standing caps, with skills for the
-  know-how; for now Thor, Njord and Eir act through allowlists enforced by
-  their bridges, and Odin holds the venue's authority outright. What a god
-  *should* do is its system prompt.
+- **Power is caps; know-how is skills; judgement is a prompt.** What a god
+  *can* do is its standing Covia caps, which Covia checks at every point of
+  action. Its tools come with the skills its job calls for, and a tool its
+  caps do not cover does nothing. What a god *should* do is its system
+  prompt.
 - **They check one another.** Gods that act on their own judgement report
   every change to Odin straight after. He takes a disagreement to the owner,
   who breaks the tie.
@@ -71,23 +71,49 @@ Ideas that may join when their job arrives, none of them built:
 | Created | when first needed — the first message, acting as the operator, a model change — never at launch, which submits no jobs; once configured, keeping a god current costs no job |
 | Model | the chat's chosen model |
 | Memory | `n/memory` under the venue: the owner's decisions, and what the god has learnt |
-| Skills | the venue's own library, `v/skills/root` |
+| Skills | the venue's own library, `v/skills/root`, and by name the skills its job calls for |
+| Caps | every god's, below, and its own powers |
 | Visible | only while acting as the venue operator (*Settings → Identity → Switch user*) |
 
 `God` is one god's definition and `Gods` lists them. A new god is a
 definition, its two bridge resources and a place in that list.
 
+### Caps and skills
+
+Gods exist because assistants cannot act as the venue. A god is the venue's
+agent, so its caps narrow the venue's authority, and Covia admits it to an
+administrative operation when its caps include that operation's ability
+(`Engine.hasVenueAuthority`). Every god may call any operation, read
+everything the venue holds (its data, setup, files and Tau's log, jobs,
+agents, the names of its secrets), keep its own notes and ask through the
+Inbox. None writes the venue's state beyond its notes. Beyond that, each
+holds its own powers, named as Covia names them:
+
+| God | Powers |
+|---|---|
+| Odin | `admin/user/create` and `admin/user/read` on `users`; `admin/adapter/manage` on `adapters`; `p2p/read` and `p2p/manage`; `secret/write` and `crud/delete` on the venue's `s/`; `admin/venue/restart` on `process` (restart, relaunch, shutdown); `admin/venue/compact` on `store` |
+| Thor | `admin/user/read` on `users` |
+| Eir | `admin/user/read` on `users` |
+| Njord | none: his treasury is granted per call |
+
+`admin/venue/compact` is Brightside's leaf of Covia's `admin/venue` family,
+for compacting the store at the next start, apart from `admin/venue/gc`,
+which collects it while it runs ([LAUNCH.md](LAUNCH.md#compacting-the-store)).
+Brightside sets each god's caps with the rest of its configuration at every
+launch, before any god can act ([LAUNCH.md](LAUNCH.md#the-startup-pass)), and
+whenever the model changes (`God`). `GodCapsTest` shows Covia refusing what
+they leave out.
+
+A god's tools are the few it always needs (its bridges, the Inbox, its jobs,
+the reads its job turns on) and those of the skills it loads. Beside the
+venue's library it is offered, by name, the skills its job calls for: Covia's
+users, adapters, secrets, MCP and capabilities skills for Odin; users for
+Thor; Brightside's log and session skills, adapters and MCP for Eir; Convex
+for Njord. A skill may bring tools its caps do not cover; Covia refuses them.
+
 ### The bridges
 
-Gods exist because assistants cannot act as the venue. An agent holds what
-its caps say, narrowing its owner's authority. Odin's caps are unrestricted,
-so he holds the venue's authority itself. The others' let them call
-any operation, read the venue's data, assets and jobs, keep their own notes and ask
-through the Inbox, but write nothing of the venue's, and an agent's run loop
-carries no delegations. Brightside sets each god's caps with the rest of its
-configuration at every launch, before any god can act
-([LAUNCH.md](LAUNCH.md#the-startup-pass)), and whenever the model changes
-(`God`). Each god has two narrow Brightside operations to bridge the gap.
+Each god has two narrow Brightside operations for what caps do not cover.
 
 **Ask** (`brightside:ask-odin`, `brightside:alert-thor`,
 `brightside:ask-njord`, `brightside:ask-eir`) is callable by any authenticated user of the venue,
@@ -99,8 +125,12 @@ it; the request text itself is untrusted. The bridge returns the god's
 outcome, or a started snapshot while the god is still deciding.
 
 **Run** (`brightside:odin-run`, `brightside:thor-run`,
-`brightside:njord-run`, `brightside:eir-run`) is callable by that god alone. Without a user it runs
-one of the god's venue operations under the venue's authority. With a user,
+`brightside:njord-run`, `brightside:eir-run`) is callable by that god alone. It lends the
+venue's authority where standing caps cannot yet say what the god may do.
+Without a user it runs one of the god's venue operations: for Thor and Eir,
+a change Odin must hear of (below); for Odin, what needs a check Covia does
+not make or would need a cap far wider than the act ([ODIN.md](ODIN.md)).
+What a god's caps let it do itself, its bridge does not lend. With a user,
 one of this venue's own, it runs one of the god's namespace operations
 inside that user's namespace on their behalf through Covia's `user:sudo`. A
 per-call delegation bounds it to that namespace, so the venue's own authority
@@ -111,19 +141,16 @@ for exactly what that call touches, named by the operation's adapter
 (`CallGrants`): Njord's treasury operations are these
 ([TREASURY.md](TREASURY.md)).
 
-**The run bridge is transitional.** It is a second permission system in
-Brightside, and the gods are meant to be a good selection of skills plus
-standard Covia authority. Covia's administrative operations now accept a venue
-agent whose caps include the ability, so a god can hold narrow, standing caps
-and call those operations directly, with Covia doing the refusing; the bridge
-gives way to that step by step. What Covia cannot yet express is asked of it:
-accounts that no administrator agent may delete or act for
-([covia#703](https://github.com/covia-ai/covia/issues/703)), and an asker
-withdrawing its own Inbox request
-([covia#702](https://github.com/covia-ai/covia/issues/702)). The move is
-tracked in [brightside#40](https://github.com/covia-ai/brightside/issues/40).
-Each god's caps are the owner's design call, so the improvement loop leaves
-this alone.
+**What is left of the run bridge gives way as Covia learns to say it.** No
+standing cap reaches another user's namespace, so acting for a user needs
+the bridge's sudo, and accounts no administrator agent may delete or act for
+are asked of Covia ([covia#703](https://github.com/covia-ai/covia/issues/703)).
+Withdrawing a god's own Inbox request waits on
+[covia#702](https://github.com/covia-ai/covia/issues/702). An overseer that
+watches its gods' jobs would let Thor's and Eir's changes go direct too. The
+move is tracked in
+[brightside#40](https://github.com/covia-ai/brightside/issues/40). Each god's
+caps are the owner's design call, so the improvement loop leaves them alone.
 
 ### Answering to an overseer
 

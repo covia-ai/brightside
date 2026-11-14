@@ -179,6 +179,18 @@ public class BrightsideAdapter extends AAdapter {
 	/** How long an operation that ends this venue waits after answering, so its answer is recorded first. */
 	private static final long ANSWER_GRACE_MS = 300;
 
+	/** Covia's resource for the venue's process, which stopping, restarting and relaunching act on. */
+	private static final String PROCESS_RESOURCE = "process";
+	/** Covia's resource for the venue's store. */
+	private static final String STORE_RESOURCE = "store";
+	/**
+	 * Compacting the store at the next start, and removing the originals
+	 * repairs kept: Brightside's leaf of Covia's {@code admin/venue} family,
+	 * apart from {@code admin/venue/gc}, which collects the store while it runs
+	 * ({@code docs/LAUNCH.md}, "Compacting the store").
+	 */
+	static final AString ADMIN_VENUE_COMPACT = Strings.intern("admin/venue/compact");
+
 	/** The app this venue runs in; null off the desktop. */
 	private final App app;
 	/** One relaunch at a time, so two cannot both start a successor. */
@@ -645,15 +657,15 @@ public class BrightsideAdapter extends AAdapter {
 	}
 
 	/**
-	 * Clean process shutdown, restricted to the venue operator: the caller must
-	 * authenticate as the venue's own DID (a venue-signed token — the same trust
-	 * path {@code auth:whoami} reports as "internal"). Schedules the shutdown just
-	 * after acknowledging, so the caller gets a clean response before we exit.
+	 * Clean process shutdown, for the venue's authority over its process
+	 * ({@link #requireProcessAuthority}). Schedules the shutdown just after
+	 * acknowledging, so the caller gets a clean response before we exit.
 	 */
 	private CompletableFuture<ACell> handleShutdown(RequestContext ctx) {
-		if (!isOperator(ctx)) {
-			return CompletableFuture.failedFuture(
-				new covia.exception.AuthException("brightside:shutdown requires venue operator authority"));
+		try {
+			requireProcessAuthority(ctx);
+		} catch (Exception e) {
+			return CompletableFuture.failedFuture(e);
 		}
 		if (app != null) afterAnswering(app::shutdown, "brightside-shutdown");
 		return CompletableFuture.completedFuture(Maps.of(K_ACCEPTED, CVMBool.TRUE));
@@ -662,12 +674,12 @@ public class BrightsideAdapter extends AAdapter {
 	/**
 	 * Restarts the venue inside this process: the app checks it can, and the
 	 * venue stops and starts again just after answering, so the caller has its
-	 * answer before the venue it called closes. Venue-operator only, so Odin's
-	 * to run through his bridge.
+	 * answer before the venue it called closes. For the venue's authority over
+	 * its process ({@link #requireProcessAuthority}).
 	 */
 	private CompletableFuture<ACell> handleRestart(RequestContext ctx) {
 		try {
-			if (!isOperator(ctx)) throw new covia.exception.AuthException("brightside:restart requires venue operator authority");
+			requireProcessAuthority(ctx);
 			if (app == null) throw new ConflictException("This venue has no app to restart it");
 			afterAnswering(app.prepareRestart(), "brightside-restart");
 			return CompletableFuture.completedFuture(Maps.of(K_ACCEPTED, CVMBool.TRUE));
@@ -682,13 +694,14 @@ public class BrightsideAdapter extends AAdapter {
 	 * not once it has taken over. The new instance runs the program this one
 	 * runs, or the {@code jar} named: any content reference the venue resolves
 	 * ({@code file://<root>/<path>}, a DLFS path, an asset), read under the
-	 * caller's authority. Venue-operator only, so Odin's to run through his
-	 * bridge; refused while the successor an earlier relaunch started is still
-	 * running here beside this one — starting, or waiting for the passphrase.
+	 * caller's authority. For the venue's authority over its process
+	 * ({@link #requireProcessAuthority}); refused while the successor an earlier
+	 * relaunch started is still running here beside this one — starting, or
+	 * waiting for the passphrase.
 	 */
 	private CompletableFuture<ACell> handleRelaunch(RequestContext ctx, ACell input) {
 		try {
-			if (!isOperator(ctx)) throw new covia.exception.AuthException("brightside:relaunch requires venue operator authority");
+			requireProcessAuthority(ctx);
 			if (app == null) throw new ConflictException("This venue has no app to start again");
 			AString jarRef = optionalText(input, K_JAR, 2000);
 			ProcessHandle started;
@@ -732,22 +745,24 @@ public class BrightsideAdapter extends AAdapter {
 		t.start();
 	}
 
-	/** Whether the caller is the venue itself, as its own operations and Odin's bridge run. */
-	private boolean isOperator(RequestContext ctx) {
-		AString caller = (ctx != null) ? ctx.getCallerDID() : null;
-		AString venueDID = engine.getDIDString();
-		return caller != null && venueDID != null && caller.equals(venueDID);
+	/**
+	 * Requires Covia's {@code admin/venue/restart} on the venue's process, as
+	 * Covia's own restart does: the venue itself, one of its agents whose caps
+	 * include it, or a venue-rooted delegation ({@code Engine.hasVenueAuthority}).
+	 */
+	private void requireProcessAuthority(RequestContext ctx) {
+		engine.requireVenueAuthority(ctx, PROCESS_RESOURCE, Abilities.ADMIN_VENUE_RESTART);
 	}
 
 	/**
 	 * The disk the store takes ({@link StoreSpace}): a report, compaction asked
 	 * for at the next start or withdrawn, and the originals repairs kept removed.
-	 * Venue-operator only; Odin reaches it through his bridge. It never starts or
+	 * For {@link #ADMIN_VENUE_COMPACT} on the venue's store. It never starts or
 	 * stops anything itself: a compaction waits for the next start.
 	 */
 	private CompletableFuture<ACell> handleStorage(RequestContext ctx, ACell input) {
 		try {
-			if (!isOperator(ctx)) throw new covia.exception.AuthException("brightside:storage requires venue operator authority");
+			engine.requireVenueAuthority(ctx, STORE_RESOURCE, ADMIN_VENUE_COMPACT);
 			StoreSpace space = StoreSpace.of(engine.config());
 			if (space == null) throw new ConflictException("This venue's store is not a file, so it takes no disk to reclaim");
 			Boolean compact = optionalBool(input, K_COMPACT);
@@ -825,18 +840,18 @@ public class BrightsideAdapter extends AAdapter {
 	}
 
 	/**
-	 * A god's hands, for now. The god's tool call arrives here as its own
-	 * sub-principal and the bridge supplies the operator context — for one of
+	 * Where a god's standing caps cannot yet say what it may do. The god's tool
+	 * call arrives here as its own sub-principal and the bridge supplies the
+	 * operator context — for one of
 	 * the god's venue operations, or for one of its namespace operations run on
 	 * a user's behalf through {@code user:sudo} under a per-call venue-rooted
 	 * {@code admin/sudo} delegation. The god's allowlists, not the caller, bound
 	 * what the venue context is lent for. For a god with an overseer, anything
 	 * that changes state needs a {@code reason}, and is reported once it is done.
 	 *
-	 * <p>Transitional: Covia now admits a venue agent within its caps to its
-	 * administrative operations, so each god is to hold standing caps and call
-	 * them directly, with Covia doing the refusing, and this bridge to shrink
-	 * away (brightside#40, {@code docs/GODS.md}).
+	 * <p>What a god's caps cover it calls directly, and Covia does the refusing;
+	 * this bridge gives way further as Covia learns to say the rest
+	 * (brightside#40, {@code docs/GODS.md}).
 	 */
 	private CompletableFuture<ACell> handleRun(God god, RequestContext ctx, ACell input) {
 		try {

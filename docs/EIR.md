@@ -66,11 +66,13 @@ needs — agents, their sessions and context, skills, workspace data, secret
 names, schedules — and repair agents (re-apply or change a configuration,
 resume, reload context, compact or delete a conversation, cancel a task,
 stop one, bring one Tau made onto its current setup), skills (import,
-write, delete) and workspace data. As the venue
-she can read its setup and Tau's log (the read-only `logs` file root),
-enable, disable or configure an adapter, refresh an MCP server, compact the
-store at the next start, and restart or relaunch Tau — the start that brings
-the gods back, since they are beyond her reach.
+write, delete) and workspace data. Under her own caps she reads the venue's
+setup, its users and Tau's log (the read-only `logs` file root). Through her
+bridge, so Odin hears of each, she can see the adapters (Covia guards seeing
+them with the same right as changing them), enable, disable or configure
+one, refresh an MCP server, compact the store at the next start, and restart
+or relaunch Tau — the start that brings the gods back, since they are beyond
+her reach.
 
 Repairs that lose nothing she makes and reports: resuming an agent stopped by
 a fault, re-applying its configuration, reloading context, re-importing a

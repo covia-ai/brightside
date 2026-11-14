@@ -189,8 +189,9 @@ against a private venue.
 
 ## Restart and relaunch
 
-Brightside starts again in one of two ways, each an operation only the venue
-may run, as with shutdown, which is how Odin runs them through his bridge
+Brightside starts again in one of two ways, each an operation that needs
+Covia's `admin/venue/restart` on the venue's process, as shutdown does: the
+venue itself, or an agent whose caps include it, which Odin's do
 ([ODIN.md](ODIN.md)). Covia's own venue restart needs process control that
 only a standalone venue has.
 

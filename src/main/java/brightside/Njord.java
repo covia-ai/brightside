@@ -3,6 +3,8 @@ package brightside;
 import java.util.List;
 import java.util.Set;
 
+import convex.core.data.Vectors;
+
 /**
  * Njord: the treasurer, the {@link God} through whom every financial
  * transaction goes. The owner's assistants ask him to pay, transfer or
@@ -96,7 +98,8 @@ public final class Njord {
 		SYSTEM_PROMPT, "the owner's budgets, approved recipients, objectives and what you have paid",
 		List.of("v/ops/convex/query", "v/ops/brightside/alert-thor", "v/ops/hitl/request", "v/ops/hitl/list",
 			"v/ops/job/status", "v/ops/job/result"),
-		Set.of(), SUDO_OPERATIONS, TREASURY_OPERATIONS, false);
+		List.of(BrightsideSkillsAdapter.CONVEX),
+		Vectors.empty(), Set.of(), SUDO_OPERATIONS, TREASURY_OPERATIONS);
 
 	/** How an assistant asks for a payment or transaction (callable by any authenticated user or their agents). */
 	public static final String OP_ASK = GOD.askOp();

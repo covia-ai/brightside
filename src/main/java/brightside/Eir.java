@@ -36,27 +36,22 @@ public final class Eir {
 
 	public static final String AGENT_ID = "Eir";
 
+	/** Who the venue's users are: her caps beyond every god's. Her repairs go through her bridge, so Odin hears of each. */
+	static final AVector<ACell> POWERS = Vectors.of(God.cap("users", "admin/user/read"));
+
 	/**
-	 * What Eir may run as the venue: see who its users are, read the venue's
-	 * setup and its logs (the read-only {@code logs} file root), put an adapter
-	 * or MCP server right, compact the store at the next start, and restart or
-	 * relaunch Tau — the start that brings the gods back.
+	 * What Eir's bridge lends the venue's authority for: put an adapter or MCP
+	 * server right, compact the store at the next start, and restart or
+	 * relaunch Tau — the start that brings the gods back. Seeing the adapters
+	 * is here too, since Covia asks the same right to look at them as to change
+	 * them.
 	 */
 	public static final Set<String> VENUE_OPERATIONS = Set.of(
-		"v/ops/user/list",
-		"v/ops/user/info",
 		"v/ops/venue/adapters",
-		"v/ops/venue/show-config",
 		"v/ops/venue/adapter/enable",
 		"v/ops/venue/adapter/disable",
 		"v/ops/venue/adapter/configure",
 		"v/ops/mcp/refresh",
-		"v/ops/mcp/tools-list",
-		"v/ops/secret/list",
-		"v/ops/file/roots",
-		"v/ops/file/list",
-		"v/ops/file/stat",
-		"v/ops/file/read",
 		"v/ops/brightside/storage",
 		"v/ops/brightside/restart",
 		"v/ops/brightside/relaunch");
@@ -156,8 +151,11 @@ public final class Eir {
 	public static final God GOD = new God(AGENT_ID, "ask-eir", "eir-run", Odin.AGENT_ID, SYSTEM_PROMPT,
 		"faults seen, their cures and the owner's decisions",
 		List.of("v/ops/brightside/ask-odin", "v/ops/brightside/info", "v/ops/hitl/request", "v/ops/hitl/list",
-			"v/ops/job/status", "v/ops/job/result"),
-		VENUE_OPERATIONS, SUDO_OPERATIONS);
+			"v/ops/job/status", "v/ops/job/result", "v/ops/user/list", "v/ops/user/info",
+			"v/ops/venue/show-config", "v/ops/mcp/tools-list", "v/ops/file/roots", "v/ops/file/list", "v/ops/file/stat", "v/ops/file/read"),
+		List.of(BrightsideSkillsAdapter.DIAGNOSTICS + "/brightside-logs", BrightsideSkillsAdapter.DIAGNOSTICS + "/sessions",
+			"v/skills/adapters/adapters", "v/skills/ops-tools/mcp"),
+		POWERS, VENUE_OPERATIONS, SUDO_OPERATIONS);
 
 	/** How Tau, assistants, gods and the owner ask for a repair (callable by any authenticated user or their agents). */
 	public static final String OP_ASK = GOD.askOp();

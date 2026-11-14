@@ -71,16 +71,16 @@ class ThorTest {
 
 	/**
 	 * Covia stores an unrestricted agent as one with no caps, which is also how
-	 * every agent made before caps mattered is stored. So ensure narrows such a
-	 * god to its own caps, and leaves Odin, who is unrestricted, as he is.
+	 * every agent made before caps mattered, and Odin before his were narrowed,
+	 * is stored. So ensure narrows every such god to its own caps.
 	 */
 	@Test
-	void aGodStoredWithoutCapsIsNarrowedUnlessItIsOdin() {
+	void aGodStoredWithoutCapsIsNarrowedToItsOwn() {
 		AString caps = Strings.create("caps");
-		AMap<AString, ACell> thor = Thor.GOD.config(TASK_LLM);
-		assertFalse(God.configured(Maps.of(Fields.CONFIG, thor.dissoc(caps)), thor), "Thor is brought to his own caps");
-		AMap<AString, ACell> odin = Odin.GOD.config(TASK_LLM);
-		assertTrue(God.configured(Maps.of(Fields.CONFIG, odin.dissoc(caps)), odin), "Odin stays unrestricted");
+		for (God god : Gods.ALL) {
+			AMap<AString, ACell> config = god.config(TASK_LLM);
+			assertFalse(God.configured(Maps.of(Fields.CONFIG, config.dissoc(caps)), config), god.id());
+		}
 	}
 
 	@Test
@@ -104,11 +104,14 @@ class ThorTest {
 
 	@Test
 	void thorRunIsThorsAlone() throws Exception {
-		assertThrows(Exception.class, () -> run(user, Thor.OP_RUN, Maps.of("operation", "v/ops/user/list")),
+		AMap<AString, ACell> look = Maps.of("operation", "v/ops/agent/list", "user", userDID);
+		assertThrows(Exception.class, () -> run(user, Thor.OP_RUN, look),
 			"a user cannot borrow the venue's authority");
-		assertThrows(Exception.class, () -> as(Odin.AGENT_ID, Thor.OP_RUN, Maps.of("operation", "v/ops/user/list"))
+		assertThrows(Exception.class, () -> as(Odin.AGENT_ID, Thor.OP_RUN, look)
 			.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS), "nor can another god");
-		assertNotNull(asThor(Maps.of("operation", "v/ops/user/list")), "Thor may see who the users are");
+		assertNotNull(asThor(look), "Thor may look at a user's agents");
+		assertThrows(Exception.class, () -> asThor(Maps.of("operation", "v/ops/user/list")),
+			"what his caps let him do himself, his bridge does not lend");
 	}
 
 	@Test

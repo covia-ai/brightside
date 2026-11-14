@@ -218,11 +218,11 @@ class RestartTest {
 		return asOdin(venue, op, Maps.empty());
 	}
 
-	/** Through Odin's bridge, as his own sub-principal — the context his run loop gives his tool calls. */
+	/** As Odin's own sub-principal — the context his run loop gives his tool calls — under his caps. */
 	private static ACell asOdin(EmbeddedVenue venue, String op, AMap<AString, ACell> input) throws Exception {
 		Odin.ensure(venue, AppConfig.ECHO_LLM_OPERATION); // as Brightside makes him at start, caps and all
 		RequestContext odin = GodContexts.of(venue, Odin.AGENT_ID);
-		return venue.engine().jobs().invokeOperation(Odin.OP_RUN, Maps.of("operation", op, "input", input), odin)
+		return venue.engine().jobs().invokeOperation(op, input, odin)
 			.future().get(10, TimeUnit.SECONDS);
 	}
 

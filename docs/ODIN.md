@@ -13,10 +13,12 @@ stops — is in [GODS.md](GODS.md). This is what is his alone. Code: `Odin`.
   owner first, or declines.
 - **He is the wiser head.** Every change Thor, Njord or Eir makes is reported
   to him, and he takes a disagreement to the owner rather than undoing it.
-- **He holds the venue's authority itself**: his caps are unrestricted. His
-  run bridge's allowlist covers the administration above and leaves out
-  money, the gods themselves and the owner's Inbox; his judgement, not
-  Covia, keeps him from reaching those another way.
+- **His caps are the venue's administration and no more**: Covia's
+  administrative abilities over users, adapters and modules, peers, the
+  venue's own secrets, its process and its store. They leave out money, the
+  gods themselves, the venue's other state and the owner's Inbox, and Covia
+  refuses those whatever tool he loads. His run bridge lends the venue's
+  authority only for what caps cannot yet say.
 
 ## Why Odin
 
@@ -61,13 +63,12 @@ user another god keeps.
 Left out on purpose, each because it would undo another part of the design
 rather than for want of trust in him:
 
-- anything that runs another operation — the grid, the scheduler, talking to
-  an agent as its owner — since it would carry the venue's authority past
-  everything else on this list;
+- talking to an agent as its owner, which would carry the owner's authority
+  past everything else on this list;
 - answering an Inbox, which stays the owner's decision even when a god asked,
   and reading a secret's value;
 - money, which is Njord's: transactions, signing, keys and his treasury;
-- the venue's own agents — the gods, which hold operator rights — and the
+- the venue's own agents — the gods, which hold rights the assistants lack — and the
   skill library and operation catalogue they load;
 - copying a user whole, which carries their secrets, and adding a way to sign
   in as someone, which stays with the owner;
@@ -102,6 +103,14 @@ that a slow answer is normal while the owner is being asked.
 
 ## Known limits
 
-- His caps are unrestricted, so what his allowlist leaves out is kept from
-  him by his judgement and the tools he is offered: a skill he loads could
-  reach money or the Inbox directly.
+- Four things still go through his bridge, each because Covia cannot yet
+  say it with a standing cap: deleting a user, which must never take the
+  owner's account or a user a god keeps
+  ([covia#703](https://github.com/covia-ai/covia/issues/703)); revoking a
+  sign-in key, since Covia's one ability for it also adds one; the venue's
+  MCP servers, which reach local hosts and authenticate with the venue's
+  secrets, where a cap for either would reach every host or every secret;
+  and issuing grants, which Covia signs as the venue, so a standing
+  `grant/...` cap would let him grant what it names to anyone.
+- Inside a user's namespace he acts through his bridge's sudo, since no
+  standing cap reaches another user's resources.

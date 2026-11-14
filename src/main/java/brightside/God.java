@@ -29,29 +29,34 @@ import covia.venue.Engine;
  * {@code <venueDID>/g/<id>}, DID {@code <venueDID>:g:<id>} — and answers to the
  * owner alone, asking them through the Inbox.
  *
- * <p>Each god has two Brightside bridges, both handled once for every god in
- * {@link BrightsideAdapter}: one by which the owner's assistants reach it
+ * <p>A god is a selection of skills plus standing Covia caps. What it may do is
+ * its {@code caps}: {@link #BROAD_CAPS}, which every god holds, and its own
+ * {@link #powers}, Covia's administrative abilities over the venue's
+ * resources. Covia checks them at every point of action, so a tool the god
+ * holds or loads does nothing its caps do not cover. Its tools are a few it
+ * always needs plus those of the {@link #skills} it loads; its system prompt
+ * carries the judgement.
+ *
+ * <p>Each god also has two Brightside bridges, both handled once for every god
+ * in {@link BrightsideAdapter}: one by which the owner's assistants reach it
  * ({@link #ask}), submitted as the calling user so the god sees who asked, and
- * one through which it acts ({@link #run}), callable by that god alone. An agent
- * holds what its {@code caps} say. An {@link #unrestricted} god (Odin) holds the
- * venue's authority directly; the others hold {@link #BROAD_CAPS} and none of
- * the venue's. The run bridge lends what a god needs — for one of
- * the god's {@link #venueOperations} under the venue's authority, one of its
- * {@link #sudoOperations} inside a user's namespace on their behalf, or one of
- * its {@link #grantedOperations} as itself, under a grant for what that call
- * touches and nothing more. The
- * allowlists, not the god's judgement, bound what it can do; its system prompt
- * carries the judgement. A god with an {@link #overseer} answers to it after
- * the fact: each change it makes through its run bridge carries a reason and
- * is reported to the overseer as soon as it is done. A god may also keep a
+ * one through which it acts where standing caps cannot yet say what it may
+ * do ({@link #run}), callable by that god alone. The run bridge lends the
+ * venue's authority for one of the god's {@link #venueOperations}: a change
+ * its {@link #overseer} must hear of, or one that needs a check Covia does not
+ * make; for one of its {@link #sudoOperations} inside a user's namespace on
+ * their behalf, which no standing cap reaches; or one of its
+ * {@link #grantedOperations} as itself, under a grant for what that call
+ * touches and nothing more. A god with an overseer answers to it after the
+ * fact: each change it makes through its run bridge carries a reason and is
+ * reported to the overseer as soon as it is done. A god may also keep a
  * principal of its own ({@link #keeps}), a user of the venue that only its run
  * bridge may act as — Njord's treasury, whose secret store holds keys no
  * assistant can use. The gods are listed in {@link Gods}; see
  * {@code docs/GODS.md}.
  *
- * <p>The run bridge and these allowlists are transitional: a god is to be a
- * selection of skills plus standing Covia caps, which Covia enforces itself
- * (brightside#40).
+ * <p>What remains of the run bridge is to give way to Covia as Covia learns to
+ * say it (brightside#40).
  *
  * @param id              the agent id, also the god's name
  * @param ask             the sub-operation of {@code brightside:} by which assistants reach it
@@ -60,15 +65,16 @@ import covia.venue.Engine;
  * @param keeps           the slug of the user it keeps for itself ({@code <venueDID>:u:<slug>}), or null
  * @param systemPrompt    who it is and the policy it applies
  * @param remembers       what its pinned memory holds, for the pin's label
- * @param tools           its tools besides its run bridge and memory
- * @param venueOperations what it may run under the venue's authority
+ * @param tools           the tools it always holds, besides its run bridge and memory
+ * @param skills          the skills it is offered by name, beside the venue's library, each bringing its tools
+ * @param powers          its caps beyond {@link #BROAD_CAPS}: what it may do as the venue, checked by Covia
+ * @param venueOperations what its run bridge lends the venue's authority for
  * @param sudoOperations  what it may run inside a user's namespace, on their behalf
  * @param grantedOperations what it may run as itself, granted per call by the operation's adapter ({@link CallGrants})
- * @param unrestricted    whether its caps are everything its controller, the venue, can do
  */
 public record God(String id, String ask, String run, String overseer, String keeps, String systemPrompt,
-		String remembers, List<String> tools, Set<String> venueOperations, Set<String> sudoOperations,
-		Set<String> grantedOperations, boolean unrestricted) {
+		String remembers, List<String> tools, List<String> skills, AVector<ACell> powers,
+		Set<String> venueOperations, Set<String> sudoOperations, Set<String> grantedOperations) {
 
 	private static final Logger log = LoggerFactory.getLogger(God.class);
 
@@ -82,11 +88,10 @@ public record God(String id, String ask, String run, String overseer, String kee
 	private static final AString K_CAPS = Strings.intern("caps");
 
 	/**
-	 * The caps of a god that is not {@link #unrestricted}, in the venue's
-	 * namespace: call any operation (each still checks what it touches), read
-	 * the venue's data, assets and jobs, keep its own notes (its memory) and ask the
-	 * owner through the venue's Inbox. Nothing here writes the venue's state or
-	 * the treasury: that goes through its run bridge.
+	 * The caps every god holds, in the venue's namespace: call any operation
+	 * (each still checks what it touches), read the venue's data, assets and
+	 * jobs, keep its own notes (its memory) and ask the owner through the
+	 * venue's Inbox. Nothing here writes the venue's state or the treasury.
 	 */
 	static final AVector<ACell> BROAD_CAPS = Vectors.of(
 		cap("v/ops/", "invoke"),
@@ -96,25 +101,22 @@ public record God(String id, String ask, String run, String overseer, String kee
 		cap("n/", "crud/write"),
 		cap("h/", "hitl/request"));
 
-	private static AMap<AString, ACell> cap(String with, String can) {
+	/** A cap: {@code can} over {@code with}, a resource in the venue's namespace ({@code users}, {@code s/}). */
+	static AMap<AString, ACell> cap(String with, String can) {
 		return Maps.of("with", with, "can", can);
 	}
 
-	/** A god that keeps no user of its own, is granted no operations per call and holds {@link #BROAD_CAPS}. */
+	/** A god that keeps no user of its own and is granted no operations per call. */
 	public God(String id, String ask, String run, String overseer, String systemPrompt, String remembers,
-			List<String> tools, Set<String> venueOperations, Set<String> sudoOperations) {
-		this(id, ask, run, overseer, null, systemPrompt, remembers, tools, venueOperations, sudoOperations, Set.of(), false);
+			List<String> tools, List<String> skills, AVector<ACell> powers, Set<String> venueOperations,
+			Set<String> sudoOperations) {
+		this(id, ask, run, overseer, null, systemPrompt, remembers, tools, skills, powers, venueOperations,
+			sudoOperations, Set.of());
 	}
 
-	/** This god, holding everything the venue can do. */
-	public God asUnrestricted() {
-		return new God(id, ask, run, overseer, keeps, systemPrompt, remembers, tools, venueOperations,
-			sudoOperations, grantedOperations, true);
-	}
-
-	/** Its {@code config.caps}. */
-	ACell caps() {
-		return unrestricted ? Config.UNRESTRICTED : BROAD_CAPS;
+	/** Its {@code config.caps}: {@link #BROAD_CAPS} and its {@link #powers}. */
+	AVector<ACell> caps() {
+		return BROAD_CAPS.concat(powers);
 	}
 
 	/** The god's DID on {@code venueDID}: a sub-principal of the venue. */
@@ -217,6 +219,9 @@ public record God(String id, String ask, String run, String overseer, String kee
 					+ MEMORY_PATH)),
 			// The venue's own library: venue, auth, adapters, agents.
 			"skillsets", Vectors.of(Strings.create("v/skills/root")),
+			// The skills its job calls for, offered by name so each is one load
+			// away; what they bring is bounded by its caps.
+			"skills", Vectors.of(skills.stream().map(Strings::create).toArray(ACell[]::new)),
 			// Multi-party by nature: record who sent each turn.
 			"recordCaller", true,
 			K_CAPS, caps());

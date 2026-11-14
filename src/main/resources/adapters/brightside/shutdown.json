@@ -1,6 +1,6 @@
 {
 	"name": "Shut down Tau",
-	"description": "Cleanly shuts down this Tau desktop process — flushes the venue store and exits — so a newly launched instance can take over. Venue-operator only: the caller must authenticate as the venue's own DID (a venue-signed token).",
+	"description": "Cleanly shuts down this Tau desktop process — flushes the venue store and exits — so a newly launched instance can take over. Needs the venue's authority over its process: Covia's admin/venue/restart on the venue's process.",
 	"operation": {
 		"adapter": "brightside:shutdown",
 		"input": {

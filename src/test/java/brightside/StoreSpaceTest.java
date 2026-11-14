@@ -139,8 +139,6 @@ class StoreSpaceTest {
 
 	@Test
 	void theStorageOperationIsTheOperatorsAndOdinsToRun() throws Exception {
-		assertTrue(Odin.VENUE_OPERATIONS.contains("v/ops/brightside/storage"));
-		assertFalse(Odin.VENUE_OPERATIONS.contains("v/ops/venue/gc"), "whose restart would reach the lifecycle");
 		try (StoreTestDirectory directory = new StoreTestDirectory()) {
 			Path store = directory.path().resolve("venue.etch");
 			AMap<AString, ACell> config = SharedVenue.config(directory.path()).assoc(Config.STORE, Strings.create(store.toString()));
@@ -165,6 +163,11 @@ class StoreSpaceTest {
 					.get(5, TimeUnit.SECONDS);
 				assertThrows(Exception.class, () -> denied.future().get(5, TimeUnit.SECONDS));
 				assertTrue(new StoreSpace(store).compactAtNextStart(), "a user cannot withdraw it either");
+
+				Odin.ensure(venue, AppConfig.ECHO_LLM_OPERATION);
+				ACell odin = venue.engine().jobs().invokeOperation("v/ops/brightside/storage", Maps.empty(),
+					GodContexts.of(venue, Odin.AGENT_ID)).future().get(5, TimeUnit.SECONDS);
+				assertTrue(RT.bool(RT.getIn(odin, "compactAtNextStart")), "Odin's caps reach it");
 			}
 		}
 	}
