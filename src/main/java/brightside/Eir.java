@@ -44,7 +44,8 @@ public final class Eir {
 	 * server right, compact the store at the next start, and restart or
 	 * relaunch Tau — the start that brings the gods back. Seeing the adapters
 	 * is here too, since Covia asks the same right to look at them as to change
-	 * them.
+	 * them, and listing an MCP server's tools, which dials the venue's local
+	 * hosts with its secrets.
 	 */
 	public static final Set<String> VENUE_OPERATIONS = Set.of(
 		"v/ops/venue/adapters",
@@ -52,6 +53,7 @@ public final class Eir {
 		"v/ops/venue/adapter/disable",
 		"v/ops/venue/adapter/configure",
 		"v/ops/mcp/refresh",
+		"v/ops/mcp/tools-list",
 		"v/ops/brightside/storage",
 		"v/ops/brightside/restart",
 		"v/ops/brightside/relaunch");
@@ -152,7 +154,7 @@ public final class Eir {
 		"faults seen, their cures and the owner's decisions",
 		List.of("v/ops/brightside/ask-odin", "v/ops/brightside/info", "v/ops/hitl/request", "v/ops/hitl/list",
 			"v/ops/job/status", "v/ops/job/result", "v/ops/user/list", "v/ops/user/info",
-			"v/ops/venue/show-config", "v/ops/mcp/tools-list", "v/ops/file/roots", "v/ops/file/list", "v/ops/file/stat", "v/ops/file/read"),
+			"v/ops/venue/show-config", "v/ops/file/roots", "v/ops/file/list", "v/ops/file/stat", "v/ops/file/read"),
 		List.of(BrightsideSkillsAdapter.DIAGNOSTICS + "/brightside-logs", BrightsideSkillsAdapter.DIAGNOSTICS + "/sessions",
 			"v/skills/adapters/adapters", "v/skills/ops-tools/mcp"),
 		POWERS, VENUE_OPERATIONS, SUDO_OPERATIONS);

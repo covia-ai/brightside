@@ -84,9 +84,9 @@ Gods exist because assistants cannot act as the venue. A god is the venue's
 agent, so its caps narrow the venue's authority, and Covia admits it to an
 administrative operation when its caps include that operation's ability
 (`Engine.hasVenueAuthority`). Every god may call any operation, read
-everything the venue holds (its data, setup, files and Tau's log, jobs,
-agents, the names of its secrets), keep its own notes and ask through the
-Inbox. None writes the venue's state beyond its notes. Beyond that, each
+everything the venue holds (its data, setup, jobs, agents, the names of its
+secrets, and every file root, Tau's log among them), keep its own notes and
+ask through the Inbox. None writes the venue's state beyond its notes. Beyond that, each
 holds its own powers, named as Covia names them:
 
 | God | Powers |

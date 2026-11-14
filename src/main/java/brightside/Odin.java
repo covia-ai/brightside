@@ -81,13 +81,15 @@ public final class Odin {
 		"v/ops/mcp/add-server",
 		"v/ops/mcp/remove-server",
 		"v/ops/mcp/refresh",
+		"v/ops/mcp/tools-list",
 		"v/ops/ucan/issue");
 
 	/**
 	 * The operations Odin may run inside a user's namespace ({@code user:sudo}):
 	 * looking after an owner's workspace, assistants, skills and keys. Talking to
 	 * an assistant as the owner, scheduling, answering their Inbox and reading a
-	 * secret's value stay out, for the reasons above.
+	 * secret's value stay out: each would carry the owner's authority, or their
+	 * decision, past what Odin may do.
 	 */
 	public static final Set<String> SUDO_OPERATIONS = Set.of(
 		"v/ops/covia/read",

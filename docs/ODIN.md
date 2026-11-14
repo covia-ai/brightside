@@ -114,3 +114,6 @@ that a slow answer is normal while the owner is being asked.
   `grant/...` cap would let him grant what it names to anyone.
 - Inside a user's namespace he acts through his bridge's sudo, since no
   standing cap reaches another user's resources.
+- Loading a module and relaunching into a jar run new code in the venue's
+  process, and code there is not bounded by caps. His caps keep the rest
+  out of his reach only as far as his judgement keeps him from those two.

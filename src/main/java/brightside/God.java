@@ -88,10 +88,12 @@ public record God(String id, String ask, String run, String overseer, String kee
 	private static final AString K_CAPS = Strings.intern("caps");
 
 	/**
-	 * The caps every god holds, in the venue's namespace: call any operation
-	 * (each still checks what it touches), read the venue's data, assets and
-	 * jobs, keep its own notes (its memory) and ask the owner through the
-	 * venue's Inbox. Nothing here writes the venue's state or the treasury.
+	 * The caps every god holds: call any operation (each still checks what it
+	 * touches), read whatever the venue holds — an empty {@code with} matches
+	 * every resource, so its data, assets, jobs, agents and secret names, and
+	 * every file root — keep its own notes (its memory) and ask the owner
+	 * through the venue's Inbox. Nothing here writes the venue's state or the
+	 * treasury, or reaches into a user's namespace.
 	 */
 	static final AVector<ACell> BROAD_CAPS = Vectors.of(
 		cap("v/ops/", "invoke"),

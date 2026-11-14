@@ -23,6 +23,7 @@ import convex.core.lang.RT;
 import covia.api.Abilities;
 import covia.api.Fields;
 import covia.grid.Job;
+import covia.venue.Config;
 import covia.venue.Engine;
 import covia.venue.RequestContext;
 
@@ -103,6 +104,25 @@ class GodCapsTest {
 		for (String op : new String[] { "v/ops/brightside/restart", "v/ops/brightside/storage" }) {
 			String error = failure(Odin.GOD, op, Maps.empty());
 			assertFalse(error.startsWith(Engine.VENUE_AUTHORITY_DENIED), "Odin's caps let him past the check: " + error);
+		}
+	}
+
+	/** Brightside's process and store operations take the venue's authority, which a user and their own agents lack. */
+	@Test
+	void noUserNorTheirUnrestrictedAssistantReachesTheProcessOrTheStore() throws Exception {
+		String userDID = Identity.of("caps-owner").userDID(venue.did());
+		venue.clientAs(userDID).invoke("v/ops/agent/create", Maps.of(Fields.AGENT_ID, "CapsHelper",
+			Fields.CONFIG, Maps.of("caps", Config.UNRESTRICTED))).get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+			.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		RequestContext user = venue.engine().context(Strings.create(userDID), Strings.create(userDID));
+		RequestContext assistant = venue.engine().context(Strings.create(userDID), Strings.create(userDID + ":g:CapsHelper"));
+		for (RequestContext ctx : new RequestContext[] { user, assistant }) {
+			for (String op : new String[] { "v/ops/brightside/restart", "v/ops/brightside/relaunch",
+					"v/ops/brightside/shutdown", "v/ops/brightside/storage" }) {
+				Job job = venue.engine().jobs().invokeOperation(op, Maps.empty(), ctx);
+				assertThrows(ExecutionException.class, () -> job.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS), op);
+				assertTrue(job.getErrorMessage().startsWith(Engine.VENUE_AUTHORITY_DENIED), op + ": " + job.getErrorMessage());
+			}
 		}
 	}
 
