@@ -86,7 +86,8 @@ administrative operation when its caps include that operation's ability
 (`Engine.hasVenueAuthority`). Every god may call any operation, read
 everything the venue holds (its data, setup, jobs, agents, the names of its
 secrets, and every file root, Tau's log among them), keep its own notes and
-ask through the Inbox. None writes the venue's state beyond its notes. Beyond that, each
+ask through the Inbox. None writes the venue's state beyond its notes, nor
+any file. Beyond that, each
 holds its own powers, named as Covia names them:
 
 | God | Powers |

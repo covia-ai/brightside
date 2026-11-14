@@ -19,6 +19,7 @@ import convex.core.data.AMap;
 import convex.core.data.AString;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
+import convex.core.data.prim.CVMBool;
 import convex.core.lang.RT;
 import covia.api.Abilities;
 import covia.api.Fields;
@@ -153,6 +154,16 @@ class GodCapsTest {
 		for (God god : Gods.ALL) {
 			assertNotNull(done(god, "v/ops/file/roots", Maps.empty()), god.id());
 			assertNotNull(done(god, "v/ops/venue/show-config", Maps.empty()), god.id());
+		}
+	}
+
+	@Test
+	void noGodWritesAFile() throws Exception {
+		for (God god : Gods.ALL) {
+			String name = "caps-" + god.id() + ".txt";
+			refused(god, "v/ops/file/write", Maps.of("root", "files", "path", name, "content", "x"));
+			assertEquals(CVMBool.FALSE, RT.getIn(done(god, "v/ops/file/stat", Maps.of("root", "files", "path", name)),
+				"exists"), god.id() + " wrote nothing");
 		}
 	}
 
