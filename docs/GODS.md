@@ -131,7 +131,10 @@ A god asks its own owner, the venue, so its requests land in the venue's
 inbox. The person at the keyboard is the operator, so Brightside shows that
 inbox merged with the owner's own in the Inbox tab. Each request is marked
 with the god who asked, and Brightside answers it as the operator. The
-answer reaches the god in the conversation that asked, whenever it comes.
+answer reaches the god in the conversation that asked, whenever it comes. A
+god withdraws a request of its own once it no longer needs an answer, through
+its run bridge, which cancels the request's job and nothing else; the request
+then shows as cancelled.
 
 ### Deliberate stops
 

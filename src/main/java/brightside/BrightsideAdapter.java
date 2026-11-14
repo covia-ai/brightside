@@ -138,6 +138,9 @@ public class BrightsideAdapter extends AAdapter {
 	private static final String OP_AGENT_REQUEST = "v/ops/agent/request";
 	private static final String OP_USER_SUDO = "v/ops/user/sudo";
 	private static final String OP_USER_DELETE = "v/ops/user/delete";
+	/** How a god withdraws an Inbox request it made: cancelling the request's job. */
+	static final String OP_WITHDRAW = "v/ops/job/cancel";
+	private static final String OP_HITL_REQUEST = "v/ops/hitl/request";
 	private static final long DEFAULT_ASK_TIMEOUT_MS = 30_000;
 	private static final long MAX_ASK_TIMEOUT_MS = 300_000;
 	private static final int MAX_SKILL_NAME = 64;
@@ -872,6 +875,10 @@ public class BrightsideAdapter extends AAdapter {
 	private CompletableFuture<ACell> run(God god, String operation, ACell operationInput, AString user) {
 		try {
 			AString venueDID = engine.getDIDString();
+			if (OP_WITHDRAW.equals(operation)) {
+				if (user != null) throw new InvalidInputException(operation + " runs without a user");
+				return withdraw(god, operationInput);
+			}
 			if (god.grantedOperations().contains(operation)) {
 				if (user != null) throw new InvalidInputException(operation + " runs without a user");
 				return runGranted(god, operation, operationInput);
@@ -916,6 +923,31 @@ public class BrightsideAdapter extends AAdapter {
 		} catch (Exception e) {
 			return CompletableFuture.failedFuture(e);
 		}
+	}
+
+	/**
+	 * Withdraws an Inbox request {@code god} made itself, once it no longer
+	 * needs an answer: cancels the request's job, which Covia resolves as
+	 * cancelled, as the venue that owns it. No other job: one that is not an
+	 * open request of this god's is refused.
+	 */
+	private CompletableFuture<ACell> withdraw(God god, ACell input) {
+		AString given = RT.ensureString(RT.getIn(input, Fields.ID));
+		String hex = (given == null) ? null : given.toString().startsWith("0x") ? given.toString().substring(2) : given.toString();
+		Blob id = (hex == null) ? null : Blob.fromHex(hex);
+		if (id == null) throw new InvalidInputException("Give the id of the Inbox request to withdraw");
+		AMap<AString, ACell> job = engine.jobs().getJobData(id);
+		if (job == null) {
+			throw new InvalidInputException("No open Inbox request " + id.toHexString()
+				+ ": it has been answered or withdrawn, or never existed");
+		}
+		String made = god.did(engine.getDIDString().toString());
+		if (!OP_HITL_REQUEST.equals(RT.str(job.get(Fields.OP)).toString())
+				|| !made.equals(String.valueOf(RT.ensureString(job.get(Fields.CALLER))))) {
+			throw new InvalidInputException(god.id() + " may withdraw only an Inbox request it made itself; "
+				+ id.toHexString() + " is not one");
+		}
+		return engine.jobs().invokeInternal(OP_WITHDRAW, Maps.of(Fields.ID, id), engine.venueContext());
 	}
 
 	/**

@@ -144,7 +144,8 @@ public final class Odin {
 		through the Inbox — what was done, what you would do instead, and why — rather than undoing it yourself.
 
 		Finish every task with a clear outcome: done and what changed, declined and why, or waiting on the \
-		owner and what you asked them. Keep durable decisions the owner has made in your memory so you do \
+		owner and what you asked them. When a request you put to the owner no longer needs an answer, \
+		because what it asked about has been settled another way, withdraw it and say why. Keep durable decisions the owner has made in your memory so you do \
 		not ask the same thing twice.""";
 
 	public static final God GOD = new God(AGENT_ID, "ask-odin", "odin-run", null, SYSTEM_PROMPT,

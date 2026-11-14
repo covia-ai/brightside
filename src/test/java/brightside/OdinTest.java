@@ -1,6 +1,7 @@
 package brightside;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -221,6 +222,33 @@ class OdinTest {
 			"the operator's answer completes Odin's request");
 	}
 
+	@Test
+	void aGodWithdrawsOnlyAnInboxRequestItMadeItself() throws Exception {
+		Thor.GOD.ensure(venue, TASK_LLM); // another god, able to reach his own bridge
+		Job asked = odinJob("v/ops/hitl/request", Hitl.request("Relaunch into the new build?")
+			.ask(Hitl.approval("ok", "Allow?")).build());
+		String id = asked.getID().toHexString();
+		awaitVenueRequest(id);
+		AMap<AString, ACell> withdraw = Maps.of("operation", BrightsideAdapter.OP_WITHDRAW, "input", Maps.of("id", id),
+			"reason", "The relaunch it asked about has happened.");
+
+		assertThrows(Exception.class, () -> run(user, Odin.OP_RUN, withdraw), "a user cannot withdraw it");
+		assertThrows(Exception.class, () -> godJob(Thor.AGENT_ID, Thor.GOD.runOp(), withdraw)
+			.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS), "nor another god");
+		Job other = venue.engine().jobs().invokeOperation("v/test/ops/never", Maps.empty(), venue.engine().venueContext());
+		assertThrows(Exception.class, () -> asOdin(Odin.OP_RUN, Maps.of("operation", BrightsideAdapter.OP_WITHDRAW,
+			"input", Maps.of("id", other.getID().toHexString()))), "and a god withdraws no job but its own request");
+		assertFalse(other.isFinished(), "which runs on");
+		other.cancel();
+
+		asOdin(Odin.OP_RUN, withdraw);
+		assertThrows(Exception.class, () -> asked.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS),
+			"withdrawing ends the wait for an answer");
+		assertTrue(Inbox.parse(venue.inbox(venue.did()), venue.did()).stream()
+			.noneMatch(r -> id.equals(r.id()) && r.open()), "and the request is no longer open in the Inbox");
+		assertThrows(Exception.class, () -> asOdin(Odin.OP_RUN, withdraw), "nor can it be withdrawn twice");
+	}
+
 	private static ACell run(Venue client, String op, AMap<AString, ACell> input) throws Exception {
 		Job job = client.invoke(op, input).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 		return job.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
@@ -232,8 +260,12 @@ class OdinTest {
 	}
 
 	private static Job odinJob(String op, AMap<AString, ACell> input) {
-		RequestContext odin = GodContexts.of(venue, Odin.AGENT_ID);
-		return venue.engine().jobs().invokeOperation(op, input, odin);
+		return godJob(Odin.AGENT_ID, op, input);
+	}
+
+	private static Job godJob(String god, String op, AMap<AString, ACell> input) {
+		RequestContext context = GodContexts.of(venue, god);
+		return venue.engine().jobs().invokeOperation(op, input, context);
 	}
 
 	private static Inbox.Request awaitVenueRequest(String id) throws Exception {
