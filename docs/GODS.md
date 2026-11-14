@@ -112,6 +112,14 @@ users, adapters, secrets, MCP and capabilities skills for Odin; users for
 Thor; Brightside's log and session skills, adapters and MCP for Eir; Convex
 for Njord. A skill may bring tools its caps do not cover; Covia refuses them.
 
+Whatever can be worked out deterministically is an operation, not
+reasoning. Where a god's job needs a particular read or action, Brightside
+gives it an operation shaped for that task, such as `brightside:storage` or
+`brightside:info`, rather than leaving the model to piece it together from
+general tools. One call returns what the god needs, so its reasoning goes
+on judgement alone. The operation checks its caller's authority like any
+other.
+
 ### The bridges
 
 Each god has two narrow Brightside operations for what caps do not cover.
