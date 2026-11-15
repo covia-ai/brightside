@@ -224,9 +224,9 @@ venue labels each turn with where it came from, and the assistant's standing
 instructions and `security` skill treat anyone but the owner as an outside
 party, helped within reason but shown nothing private, and with nothing
 irreversible, outward-facing, costly or access-widening done on its word
-without the owner. Covia does not yet record an access token on the turns it
-sends, so those turns are labelled as their issuer's. Agents made from
-templates, and the gods, have their own instructions without this guidance.
+without the owner. Agents made from templates, and the gods, have their own
+instructions without this guidance. Routes that act for the owner, and how
+trust is granted and withdrawn, are in [TRUST.md](TRUST.md).
 
 ## Runtime secret handling
 

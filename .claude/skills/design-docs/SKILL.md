@@ -35,6 +35,7 @@ guide and points here.
 | `docs/INBOX.md` | the Inbox: the composed source, observing whatever is on screen, one projection for cards, badge, tray mark and notifications, answering |
 | `docs/APP_STATE.md` | Brightside's own state in its adapters' venue state: what is there, what moves in, what stays in files, the rules for reading and writing it |
 | `docs/SELF_IMPROVEMENT.md` | the daily self-improvement loop: who does what, a run, what needs the owner, where things are; the procedure is the `improvement-loop` skill |
+| `docs/TRUST.md` | how far an agent trusts a route that is not the owner directly: standings, who raises and lowers them, Thor and suspicion, the requirements on the venue, skills and protocols; ahead of the code |
 | `docs/ADVANCED_MEMORY.md` | proposals for tiered, provenance-gated memory with consolidation, recall and intents; nothing in it is built |
 
 Covia's own design lives in `../covia/venue/docs/` (skills, agent context,

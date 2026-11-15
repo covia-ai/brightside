@@ -43,7 +43,7 @@ owns it.
 | Brightside's own state in the venue | `APP_STATE.md` |
 | Views following the lattice; the Jobs page; the Inbox | `WATCHER.md`, `JOBS.md`, `INBOX.md` |
 | The daily self-improvement loop (procedure: the `improvement-loop` skill) | `SELF_IMPROVEMENT.md` |
-| Ahead of the code: federation, the Peers map, memory proposals | `NETWORK.md`, `PEERS.md`, `ADVANCED_MEMORY.md` |
+| Ahead of the code: federation, the Peers map, memory proposals, trust in routes that speak for the owner | `NETWORK.md`, `PEERS.md`, `ADVANCED_MEMORY.md`, `TRUST.md` |
 | The shipped skills and Brightside's operations | `BrightsideSkillsAdapter`, `BrightsideAdapter` |
 | Covia's conventions, vocabulary and design | `../covia/AGENTS.md`, `../covia/venue/docs/` |
 

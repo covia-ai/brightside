@@ -75,6 +75,10 @@ into users' namespaces, and never into one another god keeps.
 
 ## Future work
 
+Thor is to gain a hold over routes: lowering a route's standing to
+suspicious or guest, or revoking it, after investigating a report, while
+only the owner raises one ([TRUST.md](TRUST.md)).
+
 Thor may gain interception of risky actions before they run, or proactive
 investigation that looks for threats without waiting for a report. These are
 future possibilities, not part of his current behaviour. Any such work should
