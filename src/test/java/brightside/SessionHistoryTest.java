@@ -447,8 +447,8 @@ class SessionHistoryTest {
 		ACell record = Maps.of("sessions", Maps.of(Blob.fromHex("0e01"),
 			Maps.of("frames", Vectors.of(Maps.of("conversation", conversation)))));
 		assertEquals("Daily Moltbook check-in", SessionHistory.sessionsOf(record).get(0).title());
-		assertEquals(new SessionHistory.Message("user", "Daily Moltbook check-in\nLoad the skill first."),
-			SessionHistory.snapshotOf(record, "0e01").items().get(0));
+		assertEquals(new SessionHistory.Message("user", "Daily Moltbook check-in\nLoad the skill first.", null, false, true),
+			SessionHistory.snapshotOf(record, "0e01").items().get(0), "marked as a request, not words typed here");
 	}
 
 	@Test

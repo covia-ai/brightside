@@ -506,7 +506,7 @@ public final class ChatPanel extends JPanel {
 	}
 
 	private Component rowFor(SessionHistory.Item it) {
-		if (it instanceof SessionHistory.Message m) return messageRow(m.role(), m.text(), caption(m.origin(), m.waiting()));
+		if (it instanceof SessionHistory.Message m) return messageRow(m.role(), m.text(), caption(m.origin(), m.waiting()), m.request());
 		if (it instanceof SessionHistory.Activity a) return activityRow(a);
 		if (it instanceof SessionHistory.Summary s) {
 			// The assistant's context, not its words: folded, a click from view.
@@ -821,7 +821,7 @@ public final class ChatPanel extends JPanel {
 		// doesn't re-render our own turns.
 		displayed.add(new SessionHistory.Message(role, text, origin, waiting));
 		hideEmptyState();
-		column.add(messageRow(role, text, caption(origin, waiting)));
+		column.add(messageRow(role, text, caption(origin, waiting), false));
 		column.revalidate();
 		scrollToBottom();
 	}
@@ -966,16 +966,18 @@ public final class ChatPanel extends JPanel {
 	// ------------------------------------------------------------------
 
 	private Component bubbleRow(String text, boolean user) {
-		return bubbleRow(text, user, null);
+		return bubbleRow(text, user, null, false);
 	}
 
 	/**
 	 * A message's row: its bubble, or, for a turn the assistant ended without a
-	 * reply, a quiet line saying so where the reply would be.
+	 * reply, a quiet line saying so where the reply would be. {@code request}:
+	 * the user's side came as an agent request, a scheduled run's or another
+	 * principal's, not as words typed here.
 	 */
-	private Component messageRow(String role, String text, String caption) {
+	private Component messageRow(String role, String text, String caption, boolean request) {
 		boolean user = "user".equals(role);
-		if (user || !text.isBlank()) return bubbleRow(text, user, caption);
+		if (user || !text.isBlank()) return bubbleRow(text, user, caption, request);
 		JLabel none = Labels.small("No reply");
 		none.setToolTipText("The assistant let this pass; what you say next is read together with it");
 		JPanel row = new JPanel(new BorderLayout());
@@ -989,10 +991,11 @@ public final class ChatPanel extends JPanel {
 	/**
 	 * A message row; {@code caption} (or null) is a small muted line above the
 	 * bubble — where an inbound message came from, what a summary stands for.
+	 * A {@code request} on the user's side wears the quiet request bubble.
 	 */
-	private Component bubbleRow(String text, boolean user, String caption) {
+	private Component bubbleRow(String text, boolean user, String caption, boolean request) {
 		// The assistant writes Markdown; the user's own words are shown as typed.
-		Bubble bubble = user ? Bubble.plain(text, true) : Bubble.markdown(text);
+		Bubble bubble = !user ? Bubble.markdown(text) : request ? Bubble.request(text) : Bubble.plain(text, true);
 		bubble.setAvailableWidth(scroll.getViewport().getWidth());
 
 		// The bubble is a dumb display component; the panel owns copy behaviour.

@@ -26,6 +26,7 @@ import convex.core.lang.RT;
 import convex.core.util.JSON;
 import covia.adapter.agent.GoalTreeContext;
 import covia.grid.Venue;
+import covia.venue.Agent;
 
 /**
  * Reads the assistant's conversation from the venue's <b>live agent session
@@ -70,16 +71,22 @@ public final class SessionHistory {
 	 * {@code origin} names where an inbound message arrived from when it was not
 	 * this app (e.g. {@code "Discord · #general · quark"}), else null.
 	 * {@code waiting}: the venue holds it for the assistant's next turn, behind
-	 * one still running, and it is not yet in the conversation. An assistant
-	 * message with empty text is a turn it ended without a reply.
+	 * one still running, and it is not yet in the conversation.
+	 * {@code request}: it arrived as an agent request — a scheduled run, or a
+	 * task another principal sent — rather than as words typed to the agent.
+	 * An assistant message with empty text is a turn it ended without a reply.
 	 */
-	public record Message(String role, String text, String origin, boolean waiting) implements Item {
+	public record Message(String role, String text, String origin, boolean waiting, boolean request) implements Item {
 		public Message(String role, String text) {
 			this(role, text, null);
 		}
 
 		public Message(String role, String text, String origin) {
 			this(role, text, origin, false);
+		}
+
+		public Message(String role, String text, String origin, boolean waiting) {
+			this(role, text, origin, waiting, false);
 		}
 	}
 
@@ -336,9 +343,10 @@ public final class SessionHistory {
 	private static void addWaiting(List<Item> items, ACell session) {
 		if (!(RT.getIn(session, "pending") instanceof AVector<?> pending)) return;
 		for (long i = 0; i < pending.count(); i++) {
-			ACell raw = RT.getIn((ACell) pending.get(i), "message");
+			ACell envelope = (ACell) pending.get(i);
+			ACell raw = RT.getIn(envelope, "message");
 			String text = contentText(raw);
-			if (notBlank(text)) items.add(new Message(ROLE_USER, text, originOf(raw), true));
+			if (notBlank(text)) items.add(new Message(ROLE_USER, text, originOf(raw), true, isRequest(envelope)));
 		}
 	}
 
@@ -456,6 +464,11 @@ public final class SessionHistory {
 		if (content instanceof AString s) return s.toString();
 		String text = str(RT.getIn(content, "text"));
 		return (text != null) ? text : str(RT.getIn(content, "task"));
+	}
+
+	/** Whether a turn or pending envelope came in as an agent request, by the source the venue records on it. */
+	private static boolean isRequest(ACell turnOrEnvelope) {
+		return Agent.SOURCE_REQUEST.equals(RT.getIn(turnOrEnvelope, Agent.K_SOURCE));
 	}
 
 	/**
@@ -582,7 +595,7 @@ public final class SessionHistory {
 					// where it came from.
 					ACell raw = RT.getIn(turn, "content");
 					String text = contentText(raw);
-					if (notBlank(text)) items.add(new Message(ROLE_USER, text, originOf(raw)));
+					if (notBlank(text)) items.add(new Message(ROLE_USER, text, originOf(raw), false, isRequest(turn)));
 				}
 				case ROLE_ASSISTANT -> {
 					if (hasToolCalls(turn)) {

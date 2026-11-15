@@ -15,6 +15,7 @@ import brightside.ui.components.Links;
 import brightside.ui.components.MarkdownStyles;
 import brightside.ui.components.SelectableText;
 import brightside.ui.components.Theme;
+import brightside.ui.components.Tone;
 
 /**
  * A rounded message bubble — a {@link Card} — around a run of text: the
@@ -27,8 +28,11 @@ import brightside.ui.components.Theme;
  *
  * <p>The user's side is the accent {@linkplain Theme#accentDark darkened until
  * white text reads on it}; the assistant's is the theme's surface in the
- * ordinary text colour — both read from the theme when painted, so a theme
- * change carries through.
+ * ordinary text colour. A {@linkplain #request request} on the user's side — a
+ * scheduled run's task, or one another principal sent — is the muted tone's
+ * faint ground instead, so words nobody typed here don't shout like the
+ * owner's own. All are read from the theme when painted, so a theme change
+ * carries through.
  *
  * <p>The bubble is deliberately dumb — selection tracking and the context menu
  * are wired by {@link ChatPanel} onto {@link #textComponent()}, so a bubble can
@@ -73,6 +77,14 @@ final class Bubble extends Card {
 	static Bubble plain(String text, boolean user) {
 		SelectableText ta = new SelectableText(text).unfocusable().size(1f);
 		return new Bubble(ta, user);
+	}
+
+	/** An agent request's task as given, on the user's side but quiet: the muted tone's faint ground, in the ordinary text colour. */
+	static Bubble request(String text) {
+		SelectableText ta = new SelectableText(text).unfocusable().size(1f);
+		Bubble bubble = new Bubble(ta, false);
+		bubble.fill(Tone.MUTED::tint);
+		return bubble;
 	}
 
 	/**
