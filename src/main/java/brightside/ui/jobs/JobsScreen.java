@@ -8,11 +8,7 @@ import java.awt.event.MouseEvent;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.EnumMap;
-import java.util.EnumSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 import javax.swing.AbstractAction;
@@ -25,7 +21,6 @@ import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
-import javax.swing.JToggleButton;
 import javax.swing.KeyStroke;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingWorker;
@@ -92,6 +87,7 @@ public final class JobsScreen extends JPanel {
 
 	private static final String LIST = "list", DETAIL = "detail";
 	private static final Object ANYONE = "Anyone";
+	private static final Object ALL_STATUSES = "All statuses";
 
 	private final Host host;
 	private final CardLayout cards = new CardLayout();
@@ -99,8 +95,7 @@ public final class JobsScreen extends JPanel {
 	private final JPanel crumbs = new JPanel(new MigLayout("insets 18 28 6 28, gap 6", "", ""));
 	private final JLabel note = Labels.small(" ");
 
-	private final Map<JobList.Group, JToggleButton> groups = new EnumMap<>(JobList.Group.class);
-	private final JToggleButton allGroups = new JToggleButton("All");
+	private final JComboBox<Object> status = new JComboBox<>();
 	private final JComboBox<Object> starter = new JComboBox<>();
 	private final JComboBox<JobList.Range> range = new JComboBox<>(JobList.Range.values());
 	private final JLabel count = Labels.small(" ");
@@ -215,24 +210,19 @@ public final class JobsScreen extends JPanel {
 		JPanel page = new JPanel(new BorderLayout());
 		page.setOpaque(false);
 
-		JPanel filters = new JPanel(new MigLayout("insets 6 28 10 28, gap 6, fillx", "[][][][][][][]push[][]8[]", ""));
+		JPanel filters = new JPanel(new MigLayout("insets 6 28 10 28, gap 6, fillx", "[]push[][]8[]", ""));
 		filters.setOpaque(false);
-		allGroups.setSelected(true);
-		allGroups.addActionListener(e -> {
-			for (JToggleButton b : groups.values()) b.setSelected(false);
-			allGroups.setSelected(true);
-			refilter();
+		status.addItem(ALL_STATUSES);
+		for (JobList.Group g : JobList.Group.values()) status.addItem(g);
+		status.setRenderer(new javax.swing.DefaultListCellRenderer() {
+			@Override
+			public java.awt.Component getListCellRendererComponent(JList<?> l, Object v, int i, boolean s, boolean f) {
+				return super.getListCellRendererComponent(l, v instanceof JobList.Group g ? g.label : v, i, s, f);
+			}
 		});
-		filters.add(allGroups);
-		for (JobList.Group g : JobList.Group.values()) {
-			JToggleButton b = new JToggleButton(g.label);
-			b.addActionListener(e -> {
-				allGroups.setSelected(groups.values().stream().noneMatch(JToggleButton::isSelected));
-				refilter();
-			});
-			groups.put(g, b);
-			filters.add(b);
-		}
+		status.setToolTipText("How they stand");
+		status.addActionListener(e -> refilter());
+		filters.add(status);
 		starter.addItem(ANYONE);
 		for (JobList.Starter s : JobList.Starter.values()) starter.addItem(s);
 		starter.setRenderer(new javax.swing.DefaultListCellRenderer() {
@@ -332,12 +322,9 @@ public final class JobsScreen extends JPanel {
 
 	/** The filter the controls describe. */
 	JobList.Filter filter() {
-		Set<JobList.Group> chosen = EnumSet.noneOf(JobList.Group.class);
-		for (Map.Entry<JobList.Group, JToggleButton> e : groups.entrySet()) {
-			if (e.getValue().isSelected()) chosen.add(e.getKey());
-		}
+		Object how = status.getSelectedItem();
 		Object who = starter.getSelectedItem();
-		return new JobList.Filter(chosen, (who instanceof JobList.Starter s) ? s : null,
+		return JobList.Filter.of((how instanceof JobList.Group g) ? g : null, (who instanceof JobList.Starter s) ? s : null,
 			(JobList.Range) range.getSelectedItem());
 	}
 

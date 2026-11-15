@@ -29,7 +29,8 @@ index is filtered off the event thread into a view of row positions
   shifted into an id's high bits, so the rows run from that position to the
   newest.
 - **How it stands** groups Covia's statuses: active, waiting for the owner,
-  failed, completed and cancelled.
+  failed, completed and cancelled. The page offers one group at a time, or
+  all.
 - **Who started it** is read from the record's caller: the owner, one of their
   agents, or another principal acting for them, such as a god.
 

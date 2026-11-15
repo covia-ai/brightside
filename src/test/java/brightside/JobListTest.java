@@ -110,6 +110,17 @@ class JobListTest {
 	}
 
 	@Test
+	void thePagesOneStatusChoiceIsOneGroupOrAll() {
+		JobList.View any = view(Filter.of(null, null, Range.ALL));
+		assertEquals(view(Filter.ALL).size(), any.size(), "no status chosen shows every job");
+		assertTrue(any.rowOf(failed) >= 0 && any.rowOf(completed) >= 0);
+
+		JobList.View failures = view(Filter.of(Group.FAILED, null, Range.ALL));
+		assertTrue(failures.rowOf(failed) >= 0, "the chosen status's job is there");
+		assertEquals(-1, failures.rowOf(completed), "another status's is not");
+	}
+
+	@Test
 	void whoStartedItIsReadFromTheCaller() {
 		JobList.View agents = view(new Filter(null, Starter.AGENTS, Range.ALL));
 		assertEquals(1, agents.size());

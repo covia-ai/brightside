@@ -781,8 +781,8 @@ schedule instead.
 *Settings → Jobs* lists everything that has run or is running for the acting
 principal: chats, agent tasks, scheduled runs, tool calls that were kept,
 anything run through the venue. The newest are first. Filter by how a job
-stands (active, waiting for you, failed, completed, cancelled; several at
-once), by who started it (you, your agents, or others acting for you, such as
+stands (all, or one of active, waiting for you, failed, completed and
+cancelled), by who started it (you, your agents, or others acting for you, such as
 the gods) and by when (today, this week, all time). A scheduled run counts as
 whoever scheduled it. How the page works is in [JOBS.md](JOBS.md).
 

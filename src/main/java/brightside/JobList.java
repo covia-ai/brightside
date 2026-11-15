@@ -133,6 +133,11 @@ public final class JobList {
 			groups = (groups == null || groups.isEmpty()) ? EnumSet.noneOf(Group.class) : EnumSet.copyOf(groups);
 		}
 
+		/** The jobs in {@code group}, or in every group when it is null — one status at a time, as the Jobs page offers. */
+		public static Filter of(Group group, Starter starter, Range range) {
+			return new Filter((group == null) ? null : EnumSet.of(group), starter, range);
+		}
+
 		boolean readsRecords() {
 			return !groups.isEmpty() || starter != null;
 		}
