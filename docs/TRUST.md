@@ -180,6 +180,12 @@ between them.
 ## Open questions
 
 - Whether a suspicious standing expires on its own or waits for the owner.
+- **How an external account is known to be the owner's.** Asking the owner
+  confirms only their belief about a handle; a pairing code or a provider
+  sign-in proves possession, but each is specific to the application, and
+  some judgement may always remain. Who keeps such a link (the account
+  record, Thor), and whether any of it is visible beyond the owner and the
+  gods, are part of the same question.
 - Whether the owner's own account on a channel is the owner or a delegate:
   the account is theirs, but someone else may be holding it.
 - How an agent of another venue is identified once venues meet
