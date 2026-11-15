@@ -29,8 +29,20 @@ status)
 	echo "--- main code changed"
 	git -C "$covia" diff --stat "$installed" "$develop" -- '*/src/main/**' | tail -15
 	echo "--- store formats (venue migrations, adapter state versions)"
-	git -C "$covia" diff "$installed" "$develop" -- venue/src/main/java/covia/venue/VenueMigrations.java \
-		| grep -E '^[+-].*VERSION' || echo "unchanged"
+	# The venue version at a commit, wherever VenueMigrations.java lives
+	# then. Not finding it is an error, never "unchanged".
+	venueVersion() {
+		local f
+		f=$(git -C "$covia" ls-tree -r --name-only "$1" | grep '/VenueMigrations\.java$' | head -1)
+		[ -n "$f" ] && git -C "$covia" show "$1:$f" \
+			| sed -n 's/.*long VERSION *= *\([0-9]*\);.*/\1/p' | head -1
+	}
+	old=$(venueVersion "$installed"); new=$(venueVersion "$develop")
+	if [ -z "$old" ] || [ -z "$new" ]; then
+		echo "ERROR: cannot read the venue version (VenueMigrations.java) at both commits" >&2
+		exit 3
+	fi
+	[ "$old" = "$new" ] && echo "venue version unchanged ($new)" || echo "CHANGED: venue version $old -> $new"
 	git -C "$covia" diff -G 'stateVersion|stateSteps' --stat "$installed" "$develop" -- '*/src/main/**' | tail -5
 	;;
 install)
