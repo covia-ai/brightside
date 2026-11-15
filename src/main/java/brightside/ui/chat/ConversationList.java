@@ -15,6 +15,7 @@ import java.util.Map;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
@@ -30,12 +31,15 @@ import brightside.ui.components.Lucide;
 import brightside.ui.components.Panels;
 import brightside.ui.components.PressButton;
 import brightside.ui.components.Scrolls;
+import brightside.ui.components.Styles;
 import brightside.ui.components.Theme;
 
 /**
  * The conversation switcher: a "New conversation" button above a scrolling list
  * of past sessions (newest first), each a clickable row showing its title and
  * how long ago it was last active. The currently-open session is highlighted.
+ * It shows chats unless a quiet drop-down beneath it, there only when some
+ * conversation began as a task, says otherwise ({@link Show}).
  *
  * <p>Kept dumb — it renders the sessions it's given and reports clicks through a
  * {@link Listener}; {@code BrightSide} owns starting a new chat and switching to
@@ -67,11 +71,44 @@ public final class ConversationList extends JPanel {
 		void onDeleteSession(String sessionId);
 	}
 
+	/**
+	 * Which conversations the list shows, by how each began. Chats are the
+	 * default; tasks are agent requests, mostly a schedule's runs.
+	 *
+	 * <p>A session's first message is all Covia records of its origin, and a
+	 * chat from the app looks the same as one from Claude Code over MCP or from
+	 * a channel. Once Covia records where a session came from — the schedule
+	 * that started it (covia-ai/covia#701), the client and the door it came in
+	 * by — this can filter more finely and group a schedule's runs together.
+	 */
+	public enum Show {
+		CHATS("Chats"), TASKS("Tasks"), ALL("All");
+
+		private final String label;
+
+		Show(String label) {
+			this.label = label;
+		}
+
+		/** Whether a session that began as a task, or not, is shown. */
+		public boolean includes(boolean task) {
+			return this == ALL || (this == TASKS) == task;
+		}
+
+		@Override
+		public String toString() {
+			return label;
+		}
+	}
+
 	private static final int WIDTH = 240;
 
 	private final Listener listener;
 	private final JPanel rows = Panels.column();
 	private final Map<String, Row> rowsById = new HashMap<>();
+	private final JComboBox<Show> show = new JComboBox<>(Show.values());
+	private final JPanel footer = new JPanel(new BorderLayout());
+	private List<SessionHistory.Session> sessions = List.of();
 	private String selectedId;
 
 	public ConversationList(Listener listener) {
@@ -93,26 +130,58 @@ public final class ConversationList extends JPanel {
 		top.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
 		top.add(newChat, BorderLayout.CENTER);
 
+		// Below the list, out of the way: there only while some conversation
+		// began as a task.
+		Styles.classes(show, "quiet");
+		show.setFocusable(false);
+		show.setToolTipText("Chats, or tasks a schedule or another agent sent");
+		show.addActionListener(e -> render());
+		footer.setOpaque(false);
+		footer.setBorder(BorderFactory.createEmptyBorder(6, 0, 0, 0));
+		footer.add(show, BorderLayout.WEST);
+
 		add(top, BorderLayout.NORTH);
 		add(Scrolls.vertical(rows), BorderLayout.CENTER);
+		add(footer, BorderLayout.SOUTH);
 	}
 
 	/** Replaces the list and highlights {@code selectedId} (null for none/new chat). */
 	public void setSessions(List<SessionHistory.Session> sessions, String selectedId) {
+		this.sessions = sessions;
 		this.selectedId = selectedId;
+		render();
+	}
+
+	/**
+	 * The sessions {@code show} lets through, in order; the open one,
+	 * {@code selectedId}, always, so the list never hides what is on screen.
+	 */
+	public static List<SessionHistory.Session> shown(List<SessionHistory.Session> sessions, Show show,
+			String selectedId) {
+		return sessions.stream()
+			.filter(s -> show.includes(s.task()) || s.sessionId().equals(selectedId))
+			.toList();
+	}
+
+	private void render() {
+		Show which = (Show) show.getSelectedItem();
+		footer.setVisible(which != Show.CHATS || sessions.stream().anyMatch(SessionHistory.Session::task));
+		List<SessionHistory.Session> visible = shown(sessions, which, selectedId);
 		rows.removeAll();
 		rowsById.clear();
-		if (sessions.isEmpty()) {
-			JLabel empty = Labels.small("No past conversations yet");
+		if (visible.isEmpty()) {
+			JLabel empty = Labels.small(sessions.isEmpty() ? "No past conversations yet"
+				: (which == Show.TASKS) ? "No tasks" : "No chats");
 			empty.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6));
 			empty.setAlignmentX(LEFT_ALIGNMENT);
 			rows.add(empty);
 		} else {
-			for (SessionHistory.Session s : sessions) rows.add(rowFor(s));
+			for (SessionHistory.Session s : visible) rows.add(rowFor(s));
 		}
 		rows.add(Box.createVerticalGlue());
 		rows.revalidate();
 		rows.repaint();
+		revalidate();
 	}
 
 	/** Scrolls a conversation's row into view, once the list has laid out. */

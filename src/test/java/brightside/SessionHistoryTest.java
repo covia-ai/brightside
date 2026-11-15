@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -20,6 +21,7 @@ import brightside.EmbeddedVenue;
 import brightside.Identity;
 import brightside.SessionHistory;
 import brightside.chat.ChatSession;
+import brightside.ui.chat.ConversationList;
 import brightside.voice.Voice;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
@@ -29,6 +31,7 @@ import convex.core.data.Vectors;
 import convex.core.data.prim.CVMBool;
 import convex.core.lang.RT;
 import convex.core.util.JSON;
+import covia.api.Fields;
 import covia.grid.Venue;
 
 /**
@@ -37,6 +40,8 @@ import covia.grid.Venue;
  */
 @Execution(ExecutionMode.CONCURRENT)
 class SessionHistoryTest {
+
+	private static final long TIMEOUT_SECONDS = 30;
 
 	@RegisterExtension
 	static final SharedVenue shared = new SharedVenue();
@@ -447,8 +452,41 @@ class SessionHistoryTest {
 		ACell record = Maps.of("sessions", Maps.of(Blob.fromHex("0e01"),
 			Maps.of("frames", Vectors.of(Maps.of("conversation", conversation)))));
 		assertEquals("Daily Moltbook check-in", SessionHistory.sessionsOf(record).get(0).title());
+		assertTrue(SessionHistory.sessionsOf(record).get(0).task(), "listed as a task");
 		assertEquals(new SessionHistory.Message("user", "Daily Moltbook check-in\nLoad the skill first.", null, false, true),
 			SessionHistory.snapshotOf(record, "0e01").items().get(0), "marked as a request, not words typed here");
+	}
+
+	/** A session that began as an agent request, as a schedule sends one, is a task; a chat is not. */
+	@Test
+	void tellsTasksFromChatsByHowTheyBegan() throws Exception {
+		String userDID = Identity.of("task-teller").userDID(venue.did());
+		Venue client = venue.clientAs(userDID);
+		AppConfig.Chat chat = new AppConfig.Chat("task-agent",
+			AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo the user.");
+		String chatted = new ChatSession(client, chat, "Teller").send("a chat").sessionId();
+		ACell result = client.invoke("v/ops/agent/request", Maps.of(Fields.AGENT_ID, "task-agent",
+			Fields.INPUT, Maps.of("task", "a scheduled check-in"))).get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+			.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		assertNotNull(result);
+
+		List<SessionHistory.Session> list = SessionHistory.listSessions(client, "task-agent");
+		assertEquals(2, list.size());
+		SessionHistory.Session task = list.stream().filter(s -> !s.sessionId().equals(chatted)).findFirst().orElseThrow();
+		assertTrue(task.task(), "the request began a task");
+		assertEquals("a scheduled check-in", task.title());
+		assertFalse(list.stream().filter(s -> s.sessionId().equals(chatted)).findFirst().orElseThrow().task(),
+			"the chat is not one");
+
+		// Chats by default; the open conversation stays listed whatever the filter.
+		assertEquals(List.of(chatted), ids(ConversationList.shown(list, ConversationList.Show.CHATS, null)));
+		assertEquals(List.of(task.sessionId()), ids(ConversationList.shown(list, ConversationList.Show.TASKS, null)));
+		assertEquals(2, ConversationList.shown(list, ConversationList.Show.ALL, null).size());
+		assertEquals(2, ConversationList.shown(list, ConversationList.Show.CHATS, task.sessionId()).size());
+	}
+
+	private static List<String> ids(List<SessionHistory.Session> sessions) {
+		return sessions.stream().map(SessionHistory.Session::sessionId).toList();
 	}
 
 	@Test

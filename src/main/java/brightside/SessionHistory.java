@@ -154,10 +154,12 @@ public final class SessionHistory {
 
 	/**
 	 * One past conversation for the switcher: its {@code sessionId}, a short
-	 * {@code title} (the first user message), and {@code lastTs} (its most recent
-	 * turn) for ordering and a relative-time label.
+	 * {@code title} (the first user message), {@code lastTs} (its most recent
+	 * turn) for ordering and a relative-time label, and whether it began as a
+	 * {@code task}: an agent request, as a schedule or another agent sends one,
+	 * rather than a chat.
 	 */
-	public record Session(String sessionId, String title, long lastTs) {
+	public record Session(String sessionId, String title, long lastTs, boolean task) {
 	}
 
 	/** One tool call on a raw turn: its {@code name}, {@code id}, and rendered {@code args}. */
@@ -296,8 +298,9 @@ public final class SessionHistory {
 				MapEntry<ACell, ACell> entry = sessions.entryAt(i);
 				AVector<ACell> conversation = conversationOf(entry.getValue());
 				if (conversation == null || conversation.isEmpty()) continue;
-				out.add(new Session(sidHex(entry.getKey()),
-					sessionTitle(entry.getValue(), conversation), latestTurnTs(conversation)));
+				ACell first = firstUserTurn(conversation);
+				out.add(new Session(sidHex(entry.getKey()), sessionTitle(entry.getValue(), first),
+					latestTurnTs(conversation), first != null && isRequest(first)));
 			}
 		}
 		out.sort(NEWEST_FIRST);
@@ -397,14 +400,14 @@ public final class SessionHistory {
 		return new Snapshot(record, bestSid, items);
 	}
 
-	/** A session's display title: its set {@code meta.title}, else the first user message. */
-	private static String sessionTitle(ACell session, AVector<ACell> conversation) {
+	/** A session's display title: its set {@code meta.title}, else its {@code first} user message. */
+	private static String sessionTitle(ACell session, ACell first) {
 		AMap<ACell, ACell> meta = asMap(RT.getIn(session, "meta"));
 		if (meta != null) {
 			String title = str(meta.get(Strings.create("title")));
 			if (notBlank(title)) return firstLine(title);
 		}
-		return titleOf(conversation);
+		return (first != null) ? firstLine(contentText(RT.getIn(first, "content"))) : "New conversation";
 	}
 
 	/** The conversation as plain text, labelled with the sender or app name, for copying out. */
@@ -423,29 +426,22 @@ public final class SessionHistory {
 		return sb.toString().stripTrailing();
 	}
 
-	/** A session's title: its first non-blank user message, first line, truncated. */
-	private static String titleOf(AVector<ACell> conversation) {
-		String title = firstUserLine(conversation);
-		return (title != null) ? title : "New conversation";
-	}
-
 	/**
-	 * The first line of the first non-blank user message among {@code turns},
-	 * looking inside a compacted segment's archive — a compacted conversation
-	 * keeps the title it had — or null when there is none.
+	 * The first user turn with words among {@code turns}, looking inside a
+	 * compacted segment's archive — a compacted conversation keeps the title and
+	 * the origin it had — or null when there is none.
 	 */
-	private static String firstUserLine(AVector<ACell> turns) {
+	private static ACell firstUserTurn(AVector<ACell> turns) {
 		for (long i = 0; i < turns.count(); i++) {
 			ACell turn = turns.get(i);
 			if (isSegment(turn)) {
 				AVector<ACell> archived = archivedOf(turn);
-				String inner = (archived != null) ? firstUserLine(archived) : null;
+				ACell inner = (archived != null) ? firstUserTurn(archived) : null;
 				if (inner != null) return inner;
 				continue;
 			}
 			if (!ROLE_USER.equals(str(RT.getIn(turn, "role")))) continue;
-			String content = contentText(RT.getIn(turn, "content"));
-			if (notBlank(content)) return firstLine(content);
+			if (notBlank(contentText(RT.getIn(turn, "content")))) return turn;
 		}
 		return null;
 	}
