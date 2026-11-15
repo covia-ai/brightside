@@ -27,12 +27,12 @@ public final class Blocks {
 
 	/** A read-only, selectable block: wrapping prose, or unwrapped monospaced text. */
 	public static SelectableText body(String text, boolean mono) {
-		return mono ? SelectableText.technical(text).small().noWrap() : new SelectableText(text);
+		return mono ? SelectableText.code(text) : new SelectableText(text);
 	}
 
 	/** A scrolling monospaced view of raw text (JSON). */
 	public static JScrollPane raw(String text) {
-		SelectableText t = SelectableText.technical(text).small().noWrap();
+		SelectableText t = SelectableText.code(text);
 		t.setCaretPosition(0);
 		return Scrolls.both(t);
 	}

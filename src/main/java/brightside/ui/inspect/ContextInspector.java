@@ -26,6 +26,7 @@ import brightside.SessionHistory;
 import brightside.SkillIndex;
 import brightside.ui.components.Badge;
 import brightside.ui.components.Card;
+import brightside.ui.components.Deferred;
 import brightside.ui.components.Labels;
 import brightside.ui.components.Readout;
 import brightside.ui.components.Scrolls;
@@ -125,7 +126,8 @@ public final class ContextInspector {
 		tabs.add(new Tab("Tools (" + report.tools().size() + ")", Scrolls.vertical(tools(report))));
 		tabs.add(new Tab("Skills (" + loaded.size() + ")", Scrolls.vertical(skills(loaded, report))));
 		tabs.add(new Tab("Loaded (" + report.loads().size() + ")", Scrolls.vertical(loads(report))));
-		tabs.add(new Tab("Raw", raw(report.rawJson())));
+		// A large document that takes a moment to lay out, and is rarely opened.
+		tabs.add(new Tab("Raw", new Deferred(() -> raw(report.rawJson()))));
 	}
 
 	// ------------------------------------------------------------------

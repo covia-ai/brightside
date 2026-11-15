@@ -70,6 +70,18 @@ public class SelectableText extends JTextArea {
 		return new SelectableText(text).mono();
 	}
 
+	/**
+	 * Structured text such as JSON: small, monospaced, lines kept whole. The
+	 * face and wrapping are settled before the text goes in, since each change
+	 * to either lays the whole text out again — a second or more for a large
+	 * document, against a tenth of that when the text comes last.
+	 */
+	public static SelectableText code(String text) {
+		SelectableText t = technical("").small().noWrap();
+		t.setText(text);
+		return t;
+	}
+
 	public SelectableText muted() {
 		return tone(Styles.MUTED);
 	}
