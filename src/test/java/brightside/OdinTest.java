@@ -68,7 +68,7 @@ class OdinTest {
 	void odinBelongsToTheVenueAndEnsureIsIdempotent() throws Exception {
 		assertNotNull(venue.agentRecord(venue.did(), Odin.AGENT_ID), "created under the venue principal");
 		assertNull(venue.agentRecord(userDID, Odin.AGENT_ID), "not one of the owner's agents");
-		assertTrue(venue.agentsForMap(venue.did()).stream().anyMatch(a -> a.id().equals(Odin.AGENT_ID)),
+		assertTrue(venue.agentsForMap(venue.did(), null).stream().anyMatch(a -> a.id().equals(Odin.AGENT_ID)),
 			"the Peers map finds him as the admin's moon");
 
 		Odin.ensure(venue, TASK_LLM); // again, on an existing agent: nothing to change

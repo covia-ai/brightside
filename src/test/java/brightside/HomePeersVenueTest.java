@@ -31,11 +31,33 @@ class HomePeersVenueTest {
 		job.future().get(30, TimeUnit.SECONDS);
 
 		long before = RecordedJobs.of(venue, did);
-		List<HomePeers.Agent> agents = venue.agentsForMap(did);
+		List<HomePeers.Agent> agents = venue.agentsForMap(did, null);
 		assertEquals(before, RecordedJobs.of(venue, did), "drawing the map leaves no job record");
 
 		HomePeers.Agent helper = agents.stream().filter(a -> a.id().equals("helper")).findFirst().orElseThrow();
 		assertEquals("Helper", helper.name(), "named as its config names it");
 		assertEquals("SLEEPING", helper.state(), "a new agent is asleep until it has work");
+	}
+
+	@Test
+	void theStandardAssistantIsTheAppUntilItIsNamed() throws Exception {
+		EmbeddedVenue venue = shared.venue();
+		String did = Identity.of("map-standard").userDID(venue.did());
+		venue.clientAs(did).invoke("v/ops/agent/create", Maps.of("agentId", "Standard")).get(30, TimeUnit.SECONDS)
+			.future().get(30, TimeUnit.SECONDS);
+		venue.clientAs(did).invoke("v/ops/agent/create", Maps.of("agentId", "other")).get(30, TimeUnit.SECONDS)
+			.future().get(30, TimeUnit.SECONDS);
+
+		List<HomePeers.Agent> agents = venue.agentsForMap(did, "Standard");
+		assertEquals(BrightSide.APP_NAME, nameOf(agents, "Standard"), "the unnamed standard assistant goes by the app's name");
+		assertEquals("other", nameOf(agents, "other"), "any other unnamed agent by its id");
+
+		venue.clientAs(did).invoke("v/ops/agent/update", Maps.of("agentId", "Standard",
+			"config", Maps.of("name", "Freya"))).get(30, TimeUnit.SECONDS).future().get(30, TimeUnit.SECONDS);
+		assertEquals("Freya", nameOf(venue.agentsForMap(did, "Standard"), "Standard"), "a name given to it wins");
+	}
+
+	private static String nameOf(List<HomePeers.Agent> agents, String id) {
+		return agents.stream().filter(a -> a.id().equals(id)).findFirst().orElseThrow().name();
 	}
 }

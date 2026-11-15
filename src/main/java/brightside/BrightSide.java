@@ -1263,8 +1263,8 @@ public final class BrightSide {
 		String venueDID = (v == null) ? null : v.did();
 		if (venueDID == null || id == null) return List.of();
 		String userDID = id.userDID(venueDID);
-		return brightside.peers.HomePeers.of(venueDID, v.name(), id.operatorName(), v.agentsForMap(venueDID),
-			userDID, id.name(), v.agentsForMap(userDID), config.chat().agentId());
+		return brightside.peers.HomePeers.of(venueDID, v.name(), id.operatorName(), v.agentsForMap(venueDID, null),
+			userDID, id.name(), v.agentsForMap(userDID, config.chat().agentId()), config.chat().agentId());
 	}
 
 	/** The acting principal's client for the schedule: the bound chat principal, else the owner. */
@@ -2431,14 +2431,14 @@ public final class BrightSide {
 		return displayNameFor(venue, userDID, agentId);
 	}
 
-	private static String displayNameFor(EmbeddedVenue v, String did, String agentId) {
-		if (v != null && did != null && agentId != null) {
-			convex.core.data.ACell record = v.agentRecord(did, agentId);
-			AString name = (record == null) ? null
-				: convex.core.lang.RT.ensureString(convex.core.lang.RT.getIn(record, "config", "name"));
-			if (name != null && !name.toString().isBlank()) return name.toString();
-		}
-		return agentId;
+	private String displayNameFor(EmbeddedVenue v, String did, String agentId) {
+		ACell record = (v != null && did != null && agentId != null) ? v.agentRecord(did, agentId) : null;
+		return AgentRef.displayName(record, agentId, standardAssistantId());
+	}
+
+	/** The owner's standard assistant, shown by the app's name until it is given one; null while acting as the operator. */
+	private String standardAssistantId() {
+		return actingAsOperator ? null : config.chat().agentId();
 	}
 
 	/** An agent id from a typed name: case kept, anything a path or DID cannot carry becomes {@code -}. */
@@ -2885,8 +2885,7 @@ public final class BrightSide {
 			ACell record = v.agentRecord(did, aid);
 			List<String> skillsets = SkillIndex.skillsetsOf(record);
 			List<SkillIndex.Skill> index = SkillIndex.of(v, did, record);
-			String name = (convex.core.lang.RT.getIn(record, "config", "name") instanceof AString s && !s.isEmpty())
-				? s.toString() : aid;
+			String name = AgentRef.displayName(record, aid, standardAssistantId());
 			SwingUtilities.invokeLater(() -> {
 				if (java.util.Objects.equals(agentId, aid)) window.setSkills(name, skillsets, index);
 			});

@@ -80,7 +80,9 @@ existing assistant retains its memory and conversations. Without an explicit
 system prompt, the default persona uses the configured agent id as its name.
 A new agent's id is the
 name the owner typed, with anything a path cannot carry turned into `-`, and it
-never changes; the display name is the id unless the record sets one. What
+never changes. The display name is the one the record sets; without one, the
+standard agent shows as the app's name, `Tau`, whatever its id, and any other
+agent as its id (`AgentRef.displayName`). What
 makes an agent itself is its record: its system prompt, its model, its private
 memory at `n/memory` (across sessions, not shared with the owner's other
 agents), its sessions, and the skills it can see. The owner writes a new
