@@ -35,11 +35,11 @@ import brightside.ui.components.Styles;
 import brightside.ui.components.Theme;
 
 /**
- * The conversation switcher: a "New conversation" button above a scrolling list
- * of past sessions (newest first), each a clickable row showing its title and
+ * The conversation switcher: a "+ Session" button above a scrolling list of
+ * past sessions (newest first), each a clickable row showing its title and
  * how long ago it was last active. The currently-open session is highlighted.
- * It shows chats unless a quiet drop-down beneath it, there only when some
- * conversation began as a task, says otherwise ({@link Show}).
+ * It shows chats unless a quiet drop-down beside the button, there only when
+ * some conversation began as a task, says otherwise ({@link Show}).
  *
  * <p>Kept dumb — it renders the sessions it's given and reports clicks through a
  * {@link Listener}; {@code BrightSide} owns starting a new chat and switching to
@@ -107,7 +107,6 @@ public final class ConversationList extends JPanel {
 	private final JPanel rows = Panels.column();
 	private final Map<String, Row> rowsById = new HashMap<>();
 	private final JComboBox<Show> show = new JComboBox<>(Show.values());
-	private final JPanel footer = new JPanel(new BorderLayout());
 	private List<SessionHistory.Session> sessions = List.of();
 	private String selectedId;
 
@@ -122,27 +121,24 @@ public final class ConversationList extends JPanel {
 		setBorder(BorderFactory.createCompoundBorder(
 			Borders.hairlineRight(), BorderFactory.createEmptyBorder(10, 10, 10, 10)));
 
-		JButton newChat = Buttons.tinted("New conversation", Lucide.icon("plus", 16, Theme::accentText));
+		JButton newChat = Buttons.tinted("Session", Lucide.icon("plus", 16, Theme::accentText));
+		newChat.setToolTipText("New session");
 		newChat.setFocusable(false);
 		newChat.addActionListener(e -> listener.onNewConversation());
-		JPanel top = new JPanel(new BorderLayout());
-		top.setOpaque(false);
-		top.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
-		top.add(newChat, BorderLayout.CENTER);
-
-		// Below the list, out of the way: there only while some conversation
-		// began as a task.
+		// Beside the button, quiet: there only while some conversation began as
+		// a task.
 		Styles.classes(show, "quiet");
 		show.setFocusable(false);
 		show.setToolTipText("Chats, or tasks a schedule or another agent sent");
 		show.addActionListener(e -> render());
-		footer.setOpaque(false);
-		footer.setBorder(BorderFactory.createEmptyBorder(6, 0, 0, 0));
-		footer.add(show, BorderLayout.WEST);
+		JPanel top = new JPanel(new BorderLayout(6, 0));
+		top.setOpaque(false);
+		top.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
+		top.add(newChat, BorderLayout.CENTER);
+		top.add(show, BorderLayout.EAST);
 
 		add(top, BorderLayout.NORTH);
 		add(Scrolls.vertical(rows), BorderLayout.CENTER);
-		add(footer, BorderLayout.SOUTH);
 	}
 
 	/** Replaces the list and highlights {@code selectedId} (null for none/new chat). */
@@ -165,7 +161,7 @@ public final class ConversationList extends JPanel {
 
 	private void render() {
 		Show which = (Show) show.getSelectedItem();
-		footer.setVisible(which != Show.CHATS || sessions.stream().anyMatch(SessionHistory.Session::task));
+		show.setVisible(which != Show.CHATS || sessions.stream().anyMatch(SessionHistory.Session::task));
 		List<SessionHistory.Session> visible = shown(sessions, which, selectedId);
 		rows.removeAll();
 		rowsById.clear();

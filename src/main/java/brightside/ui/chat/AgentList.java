@@ -72,7 +72,8 @@ public final class AgentList extends JPanel {
 		setBorder(Borders.hairlineRight());
 
 		JLabel header = Labels.small("Agents");
-		JButton add = Buttons.tinted("New agent", Lucide.icon("plus", 16, Theme::accentText));
+		JButton add = Buttons.tinted("Agent", Lucide.icon("plus", 16, Theme::accentText));
+		add.setToolTipText("New agent");
 		add.setToolTipText("Create a new agent");
 		add.addActionListener(e -> listener.onNewAgent());
 
