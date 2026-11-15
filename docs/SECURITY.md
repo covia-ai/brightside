@@ -216,6 +216,18 @@ equal `<runningVenueDID>:u:<slug>`, so a copied or edited profile cannot move
 the UI to another principal. The in-process application and the venue share
 one trust boundary.
 
+A message that reaches the assistant from anywhere but the owner directly — a
+connected channel such as Discord, another user or agent, a tool connected
+through an access token — was let in by whoever admitted it, so the assistant
+acts on it with its own authority. Caution follows provenance instead: the
+venue labels each turn with where it came from, and the assistant's standing
+instructions and `security` skill treat anyone but the owner as an outside
+party, helped within reason but shown nothing private, and with nothing
+irreversible, outward-facing, costly or access-widening done on its word
+without the owner. Covia does not yet record an access token on the turns it
+sends, so those turns are labelled as their issuer's. Agents made from
+templates, and the gods, have their own instructions without this guidance.
+
 ## Runtime secret handling
 
 - Passphrase and temporary seed arrays are cleared on the paths that expose
