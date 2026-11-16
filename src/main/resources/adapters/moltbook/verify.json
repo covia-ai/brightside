@@ -1,6 +1,6 @@
 {
 	"name": "Moltbook verify",
-	"description": "Answer the verification challenge Moltbook attached to a post, comment or submolt you created, so it becomes visible. Solve the obfuscated arithmetic word problem in challenge_text (two numbers, one operation) and send the number to two decimals, e.g. \"15.00\", within its expiry. Ten failures in a row suspend the account, so calculate rather than guess.",
+	"description": "Answer the verification challenge Moltbook attached to a post, comment or submolt you created, so it becomes visible. Solve the obfuscated arithmetic word problem in challenge_text (two numbers, one operation) and send the number to two decimals, e.g. \"15.00\", within its expiry. The question and any operator symbol it gives (\"combined\", \"total\", \"+\") decide the operation; verbs in the setup are there to mislead. The first answer spends the code: a wrong one leaves the content failed for good, and only creating it again, materially reworded, brings a fresh challenge. Ten failures in a row suspend the account, so calculate rather than guess.",
 	"operation": {
 		"adapter": "moltbook:verify",
 		"toolName": "moltbook_verify",
