@@ -232,7 +232,11 @@ public final class AppConfig {
 			Config.ADAPTERS, Maps.of(
 				"speech", Maps.of(
 					"engine", "local",
-					"local", Maps.of("fetchNatives", true))));
+					"local", Maps.of("fetchNatives", true)),
+				// The venue keeps each access token's key sealed under its secret
+				// store, so the owner can see a named token's key again in
+				// Settings rather than Tau writing it to a file (brightside.Tokens).
+				"token", Maps.of("keepRawTokens", true)));
 	}
 
 	/** Creates an app-owned file root without making configuration failure fatal. */
