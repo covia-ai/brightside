@@ -171,9 +171,8 @@ between them.
   directly as an outside party, which is the guest standing for every route.
   There are no delegates yet, so a tool the owner set up to act for them is
   treated as a guest ([SECURITY.md](SECURITY.md#authentication-and-network-exposure)).
-- Access tokens can be created and revoked, and a token's turns are recorded
-  and labelled with the token in Covia's development line. The Covia build
-  that Brightside runs labels them as the owner's.
+- Access tokens can be created and revoked. A token's turns reach the agent
+  as the owner's, with the token named on the From line, but no standing.
 - Agents report to Thor with `brightside:alert-thor`, and Thor can suspend
   and reconfigure agents, but he has no hold over routes.
 
