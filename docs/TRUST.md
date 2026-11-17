@@ -171,8 +171,10 @@ between them.
   directly as an outside party, which is the guest standing for every route.
   There are no delegates yet, so a tool the owner set up to act for them is
   treated as a guest ([SECURITY.md](SECURITY.md#authentication-and-network-exposure)).
-- Access tokens can be created and revoked. A token's turns reach the agent
-  as the owner's, with the token named on the From line, but no standing.
+- The owner makes named access tokens in *Settings → Access*, from presets or
+  a custom set of tools, and the assistant can list and revoke them. A
+  token's turns reach the agent as the owner's, with the token named on the
+  From line, but no standing; making one does not yet ask for it.
 - Agents report to Thor with `brightside:alert-thor`, and Thor can suspend
   and reconfigure agents, but he has no hold over routes.
 

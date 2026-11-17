@@ -164,6 +164,10 @@ reveals. Descriptions live in the skill files; this is the shape.
   irreversible, reporting an attack to Thor ([THOR.md](THOR.md)); brings the
   secret-store write and the alert → `convex-security`, Covia's
   `secrets`.
+- `mcp-tokens` — the owner's named access tokens: listing and revoking them,
+  and sending the owner to *Settings → Access* to make one. Shadows Covia's
+  skill of the same name, whose create returns the key, so no key passes
+  through the conversation.
 - `convex` — the Convex network with the free query tool → `accounts`,
   `convex-lisp`, `smart-contracts` (→ `trust`), `cns`, `costs`,
   `convex-security`, `cpos-consensus`, `cad3-data`, `protonet`, `ecosystem`,

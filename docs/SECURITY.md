@@ -11,7 +11,7 @@ user-installed skills are trusted in all circumstances.
   the same identity and the same conversations, memory, skills and secrets.
   The phrase reproduces the seed; the passphrase does not.
 - **Nothing sensitive is plaintext at rest**, except a passphrase the owner
-  explicitly chose to remember, and a day-long token for local tools they
+  explicitly chose to remember, and a day-long login for local tools they
   chose to keep.
 - **Loopback only, authenticated only.** The venue binds to `127.0.0.1` with
   anonymous access off; the only outbound traffic is the model call the owner
@@ -197,16 +197,29 @@ venue map, including bind, CORS and authentication. The endpoint is plain
 HTTP; binding beyond loopback needs a TLS boundary and restrictive policy, and
 a reviewer inspects the effective configuration first.
 
-*Settings → Auth* mints an Ed25519-signed bearer token for the current user or,
-as an advanced option, the venue operator: `iss = aud = <venueDID>`, `sub` the
-chosen principal. It is shown for copying and never persisted. The one
-exception is opt-in: *Keep a token for local tools* writes a user token, never
-an operator one, to `tool-token.json`, valid for a day and replaced every hour
-while Brightside runs, so a tool on this computer can read it at each connect;
-it is deleted on quit, on *Log out* (or Lock) until the next unlock, when the
-option is turned off, and on recovery. Instance
-takeover uses a five-minute operator token and invokes only `brightside:info`
-and the authenticated shutdown operation. Treat a copied token as a password until it expires.
+*Settings → Access* makes two kinds of access, and says which it is making.
+
+- **A login** is an Ed25519-signed bearer token for the current user or, as an
+  advanced option, the venue operator: `iss = aud = <venueDID>`, `sub` the
+  chosen principal. Its requests are that principal's. It is shown for copying
+  and never persisted. The one exception is opt-in: *Keep a login as you for
+  local tools* writes a user login, never an operator one, to
+  `tool-token.json`, valid for a day and replaced every hour while Brightside
+  runs, so a tool on this computer can read it at each connect; it is deleted
+  on quit, on *Log out* (or Lock) until the next unlock, when the option is
+  turned off, and on recovery. Treat a copied login as a password until it
+  expires.
+- **A named token** is a Covia access token for the venue's MCP endpoint: its
+  requests are the user's, but only with the tools and caps set on it, and the
+  agent sees the token named on each turn. Brightside makes, rotates and
+  revokes it in-process as the user in person (`Tokens`), so its key never
+  passes through an operation's result or the model. The venue keeps the key
+  sealed under its secret store (`adapters.token.keepRawTokens`, on by
+  default); Settings shows it again behind the passphrase, as a secret's
+  value. A named token lasts until revoked.
+
+Instance takeover uses a five-minute operator token and invokes only
+`brightside:info` and the authenticated shutdown operation.
 
 The desktop chat acts as the named user, not the operator, and Covia's
 capability checks remain the boundary between principals. The user has no key
@@ -263,6 +276,11 @@ trust is granted and withdrawn, are in [TRUST.md](TRUST.md).
 - A custom store path is recovery metadata the phrase does not reproduce.
 - Filesystem ACLs, disk encryption, backups, malware protection and physical
   security are the host's responsibility.
+- The assistant runs with all of the owner's authority, so although its
+  `mcp-tokens` skill offers only listing and revoking, Covia's own token
+  operations would let it make a token and read its key. Asking the owner to
+  make one, approved in the Inbox, waits for an ask that runs one exact call
+  on approval ([covia#592](https://github.com/covia-ai/covia/issues/592)).
 - Separating the signing seed from the store key, and transactional rekey, are
   [tau#5](https://github.com/covia-ai/tau/issues/5).
 

@@ -13,8 +13,8 @@ hand-edited file and its comments stay intact.
 - **Back up the whole directory as one unit**; delete it to start over. The
   protection and recovery role of each file is in
   [SECURITY.md](SECURITY.md).
-- **Other tools reach the venue** over loopback with a token minted under
-  *Settings → Auth*, as the user rather than across users.
+- **Other tools reach the venue** over loopback with a named token or a
+  login made under *Settings → Access*, as the user rather than across users.
 
 ## Where things live
 
@@ -29,7 +29,7 @@ hand-edited file and its comments stay intact.
 | `~/.brightside/identity.enc` | The AES-GCM-encrypted Ed25519 identity seed. |
 | `~/.brightside/keys.enc` | Transient: stages an onboarding API key until the first launch moves it into the venue's encrypted secret stores; absent afterwards. |
 | `~/.brightside/unlock.passphrase` | Optional remembered passphrase, stored as plaintext after explicit opt-in; exclude it from ordinary vault backups. |
-| `~/.brightside/tool-token.json` | Optional: while Brightside runs, a user token for local tools, renewed hourly, after explicit opt-in ([From Claude Code](#from-claude-code)). |
+| `~/.brightside/tool-token.json` | Optional: while Brightside runs, a login as you for local tools, renewed hourly, after explicit opt-in ([From Claude Code](#from-claude-code)). |
 | `~/.brightside/files/` | Brightside-managed local files; exposed to the assistant as the confined writable `files` root. |
 | `~/.brightside/code/` | Source checkouts the assistant works on, as the writable `code` root; `code/brightside` is Brightside's own source, a [Claude Code](#claude-code) project by default. The self-improvement loop keeps `last-good.jar` and `.covia-installed` beside it ([SELF_IMPROVEMENT.md](SELF_IMPROVEMENT.md)). |
 | `~/.brightside/logs/` | Plaintext rolling logs; exposed to the assistant as the server-enforced read-only `logs` root. |
@@ -132,6 +132,9 @@ Brightside's defaults:
 - the MCP endpoint enabled at `http://127.0.0.1:8085/mcp`
 - `maxToolIterations` 1000, so an agent's turn is not cut off after Covia's
   default of 30 tool calls
+- `adapters.token.keepRawTokens` true, so the venue keeps each named token's
+  key sealed and *Settings → Access* can show it again; set it false and a key
+  is shown only when it is made or replaced
 
 ### Convex peer
 
@@ -536,11 +539,26 @@ across renames.
 ## Reaching the venue from other tools
 
 The venue speaks HTTP, MCP and A2A on loopback. Anonymous access is disabled, so
-you need a token. *Settings → Auth* mints a short-lived token either for the
-current named user (the default) or the venue operator (advanced), without
-writing it to disk. Tools that need a different subject can use the
-passphrase-gated identity-seed export under *Settings → Identity* and the
-Covia/Convex SDK. Set the token's `sub` to the venue DID to act as the operator,
+a tool needs a key. *Settings → Access → New access* starts with the kind, and
+each says how the tool will appear:
+
+- **Named token for a tool (MCP)** — the usual choice for a tool that is not
+  you. Its turns show as the token's name, and it can use only the tools and
+  caps it carries: a preset (*Ask the assistant*, *Read only*) or a custom set.
+  It lasts until revoked. The page lists each token with its key (behind
+  your passphrase), *New key* and *Revoke*.
+- **Login as you** — appears as you, with everything you can do, for a
+  chosen time; shown once and never written to disk.
+- **Venue operator login** (advanced) — the venue itself, for administration.
+
+A named token's key goes in the tool's MCP settings as a fixed header,
+`Authorization: Bearer <key>`, against `http://127.0.0.1:8085/mcp`; paste it
+again after giving the token a new key. The assistant can list and revoke
+named tokens, but making one is yours: it sends you here.
+
+The rest of this section is about logins. Tools that need a different subject
+can use the passphrase-gated identity-seed export under *Settings → Identity*
+and the Covia/Convex SDK. Set the token's `sub` to the venue DID to act as the operator,
 or to `<venueDID>:u:<name>` to act as your local user — local principals have no
 key of their own, so a venue-signed token is how they authenticate off-process.
 
@@ -576,7 +594,7 @@ cannot find `java`.
 
 1. Set up Brightside and unlock it once with *Remember me* enabled if you want
    MCP clients to start it automatically.
-2. Enable *Settings → Auth → Keep a token for local tools*.
+2. Tick *Settings → Access → Keep a login as you for local tools*.
 3. Add the command to your client's MCP configuration and connect.
 
 `--mcp-stdio` starts a small connection process for that client. It forwards
@@ -607,8 +625,8 @@ client ends its bridge, not Brightside. The
 
 The shared `.codex/config.toml` registers Brightside's local MCP endpoint.
 Authentication belongs in the user's `~/.codex/config.toml`, under
-`[mcp_servers.brightside]`. With *Settings → Auth → Keep a token for local
-tools* enabled, configure `http_headers_helper` to read
+`[mcp_servers.brightside]`. With *Settings → Access → Keep a login as you for
+local tools* ticked, configure `http_headers_helper` to read
 `~/.brightside/tool-token.json`; it already contains the header map Codex
 expects. This keeps credentials out of the repository and lets the client
 read a fresh token when authentication expires. A configured
@@ -644,15 +662,15 @@ git-ignored here because it carries the token:
 }
 ```
 
-1. With Brightside running, mint the token under *Settings → Auth* — *30 days*
-   is the practical choice — and paste it in place of `<token>` (or write
+1. With Brightside running, make a *Login as you* under *Settings → Access* —
+   *30 days* is the practical choice — and paste it in place of `<token>` (or write
    `${BRIGHTSIDE_MCP_TOKEN}` there and keep the token in that environment
    variable instead).
 2. Start Claude Code in this repository and approve the project server when
    asked; `claude mcp list` should show `brightside … ✔ Connected`.
 
-**Without pasting tokens.** Tick *Settings → Auth → Keep a token for local
-tools* and Brightside keeps a user token, valid for a day and renewed every
+**Without pasting tokens.** Tick *Settings → Access → Keep a login as you for
+local tools* and Brightside keeps a user login, valid for a day and renewed every
 hour while it runs, in `~/.brightside/tool-token.json`, already in the shape
 Claude Code's `headersHelper` must print. Point the server at it instead of a
 pasted header, and Claude Code reads it afresh at every connect, and again
@@ -678,11 +696,13 @@ under `cmd.exe`, which has no `cat` and does not expand `~`: use
 A helper that fails sends no token, and the venue's `401` then shows up as a
 failed OAuth client registration.
 
-Mint it **as the user** for Claude Code to see what you see — your workspace,
-agents, conversations and inbox. A token minted as the venue operator sees the
-venue's own namespace and its administration, but not your private data: even
-the operator needs your user's authority for that. Mint a new token when it
-expires; for a different port, edit the URL.
+Make it **as you** for Claude Code to see what you see — your workspace,
+agents, conversations and inbox — and for its turns to show as yours. A login
+as the venue operator sees the venue's own namespace and its administration,
+but not your private data: even the operator needs your user's authority for
+that. Make a new login when it expires; for a different port, edit the URL. For
+Claude Code's turns to show as its own, give it a named token instead, pasted
+as the header above.
 
 ## Files and personal drives
 
