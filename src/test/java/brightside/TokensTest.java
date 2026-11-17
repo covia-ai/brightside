@@ -9,6 +9,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import convex.core.data.AString;
 import convex.core.data.Strings;
+import convex.core.data.Vectors;
 import convex.core.lang.RT;
 import covia.adapter.MCPAdapter;
 import covia.adapter.token.AccessToken;
@@ -58,9 +59,21 @@ class TokensTest {
 			String name = preset.name().toLowerCase().replace('_', '-');
 			Tokens.Scope scope = preset.scope("Tau");
 			AccessToken token = tokens.create(name, scope).token();
-			assertEquals(scope.caps(), TokenAdapter.shownCaps(token), preset + " keeps its caps");
+			assertEquals(scope, Tokens.scope(token), preset + " reads back as it was made");
+			assertEquals(preset, TokenPreset.matching(Tokens.scope(token), "Tau"), "the list names its preset");
 		}
 		assertEquals(TokenPreset.values().length, tokens.list().size());
+	}
+
+	@Test
+	void aCustomScopeMatchesNoPreset() {
+		Tokens tokens = new Tokens(engine(), owner("tokens-custom"));
+		Tokens.Scope custom = new Tokens.Scope(Vectors.of(Strings.create("v/ops/covia/read")), Strings.create("unrestricted"));
+		AccessToken token = tokens.create("custom", custom).token();
+		assertEquals(custom.tools(), Tokens.scope(token).tools());
+		assertNull(TokenPreset.matching(Tokens.scope(token), "Tau"));
+		assertNull(TokenPreset.matching(TokenPreset.ASK_ASSISTANT.scope("Tau"), "Another"),
+			"asking the assistant names the chat agent");
 	}
 
 	/** The namespace a key resolves to, or null when no token stands for it. */

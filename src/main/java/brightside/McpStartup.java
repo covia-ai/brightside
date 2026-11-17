@@ -21,7 +21,7 @@ final class McpStartup {
 	static final String LOCK_FILE = "mcp-startup.lock";
 	static final Duration TIMEOUT = Duration.ofSeconds(30);
 	static final String SETUP_REQUIRED = "To start " + APP_NAME + " automatically, unlock it once with "
-		+ "'Remember me' enabled and enable 'Keep a token for local tools' in Settings > Auth.";
+		+ "'Remember me' enabled and tick 'Keep a login as you for local tools' in Settings > Access.";
 	static final String START_FAILED = APP_NAME + " could not start automatically. "
 		+ "Open it to check the saved passphrase and see the logs.";
 	static final String TIMED_OUT = APP_NAME + " is still starting. Reconnect the MCP client once it is ready.";

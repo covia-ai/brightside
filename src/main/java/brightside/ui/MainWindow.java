@@ -36,7 +36,7 @@ import brightside.ui.chat.NewAgentPanel;
 import brightside.ui.components.Dialogs;
 import brightside.ui.components.SelectableText;
 import brightside.ui.inspect.SessionViews;
-import brightside.ui.settings.AuthPanel;
+import brightside.ui.settings.AccessPanel;
 import brightside.ui.settings.DiscordPanel;
 import brightside.ui.settings.GeneralPanel;
 import brightside.ui.settings.IntegrationsPanel;
@@ -549,9 +549,64 @@ public final class MainWindow extends JFrame {
 			}
 		});
 		VaultPanel vaultPanel = new VaultPanel(app::forgetRememberedPassphrase);
-		AuthPanel authPanel = new AuthPanel(app::mintAccessToken, app::keepToolToken, app::setKeepToolToken);
+		AccessPanel accessPanel = new AccessPanel(new AccessPanel.Host() {
+			@Override
+			public List<AccessPanel.Row> tokens() {
+				return app.listTokens();
+			}
+
+			@Override
+			public convex.lattice.ALatticeComponent<?> tokenStore() {
+				return app.tokenStore();
+			}
+
+			@Override
+			public String chatAgentId() {
+				return app.mainAgentId();
+			}
+
+			@Override
+			public String createToken(String name, brightside.Tokens.Scope scope) throws Exception {
+				return app.createToken(name, scope);
+			}
+
+			@Override
+			public String newTokenKey(String name) throws Exception {
+				return app.newTokenKey(name);
+			}
+
+			@Override
+			public void revokeToken(String name) throws Exception {
+				app.revokeToken(name);
+			}
+
+			@Override
+			public String revealTokenKey(String name, char[] passphrase) throws Exception {
+				return app.revealTokenKey(name, passphrase);
+			}
+
+			@Override
+			public char[] rememberedPassphrase() {
+				return app.rememberedPassphrase();
+			}
+
+			@Override
+			public String mintLogin(long seconds, boolean asOperator) {
+				return app.mintAccessToken(seconds, asOperator);
+			}
+
+			@Override
+			public boolean keepingToolToken() {
+				return app.keepToolToken();
+			}
+
+			@Override
+			public void keepToolToken(boolean keep) {
+				app.setKeepToolToken(keep);
+			}
+		});
 		settingsScreen = new SettingsScreen(generalPanel, themePanel, modelPanel, profilePanel, integrationsPanel,
-			schedulePanel, jobsScreen, secretsPanel, vaultPanel, authPanel);
+			schedulePanel, jobsScreen, secretsPanel, vaultPanel, accessPanel);
 
 		mainDeck = new JPanel(mainCards);
 		mainDeck.add(split, MAIN_CHAT);
@@ -747,7 +802,7 @@ public final class MainWindow extends JFrame {
 		fileBrowser.clear();
 		filesOwner = null;
 		filesVenue = null;
-		settingsScreen.auth().clearSensitive();
+		settingsScreen.access().clearSensitive();
 		settingsScreen.general().refresh(app.hasTray(), app.keepInTray(), app.minimiseToTray(), false, venue != null);
 	}
 
@@ -898,6 +953,7 @@ public final class MainWindow extends JFrame {
 		app.refreshSchedule(); // answers through showSchedule, off the event thread
 		settingsScreen.secrets().refresh(app.listSecretNames());
 		settingsScreen.vault().refresh(app.hasRememberedPassphrase());
+		settingsScreen.access().bind();
 	}
 
 	/** Re-read the Theme page after the look changed: the mode's list, its selected theme and the accent. */
@@ -921,10 +977,6 @@ public final class MainWindow extends JFrame {
 
 	public void showProfileSettings() {
 		showSettings(SettingsScreen.Tab.PROFILE);
-	}
-
-	public void showAuthSettings() {
-		showSettings(SettingsScreen.Tab.AUTH);
 	}
 
 	/** The owner's Discord bot as the venue reports it (null: none), with an optional note for Settings → Integrations. */

@@ -1506,7 +1506,7 @@ public final class BrightSide {
 		}
 	}
 
-	/** Signs the claims used by Settings → Auth. Package-visible for claim-level tests. */
+	/** Signs the claims of a login made in Settings → Access. Package-visible for claim-level tests. */
 	static String signAccessToken(String seedHex, String venueDID, String subjectDID,
 			long issuedAt, long expiresInSeconds) {
 		convex.core.crypto.AKeyPair keyPair =
@@ -1597,11 +1597,7 @@ public final class BrightSide {
 	 */
 	public String revealSecret(String name, char[] passphrase) throws IOException {
 		try {
-			if (!canRevealPrivateSeed()) throw new IOException("No logged-in identity");
-			String candidate = Vault.open(config.home(), passphrase).seedHex();
-			if (!candidate.equals(venueSeedHex)) {
-				throw new IOException("The passphrase did not unlock the running identity");
-			}
+			requirePassphrase(passphrase);
 			EmbeddedVenue v = venue;
 			String did = (v == null) ? null : secretsDID(v);
 			if (did == null) throw new IOException("The user logged out during re-authentication");
@@ -1612,6 +1608,84 @@ public final class BrightSide {
 		} finally {
 			java.util.Arrays.fill(passphrase, '\0');
 		}
+	}
+
+	/** Refuses unless {@code passphrase} unlocks the running identity: the gate before showing a secret or a key. */
+	private void requirePassphrase(char[] passphrase) throws IOException {
+		if (!canRevealPrivateSeed()) throw new IOException("No logged-in identity");
+		String candidate = Vault.open(config.home(), passphrase).seedHex();
+		if (!candidate.equals(venueSeedHex)) {
+			throw new IOException("The passphrase did not unlock the running identity");
+		}
+	}
+
+	// ------------------------------------------------------------------
+	// Named access tokens (Settings → Access): the named user's, in-process
+	// ------------------------------------------------------------------
+
+	/** The named user's tokens, or null before the venue is up or once locked: never the operator's. */
+	private Tokens tokens() {
+		EmbeddedVenue v = venue;
+		Identity id = identity;
+		if (v == null || id == null) return null;
+		return new Tokens(v.engine(), Strings.create(id.userDID(v.did())));
+	}
+
+	/** The named user's tokens as Settings lists them, newest first; empty before the venue is up. */
+	public List<brightside.ui.settings.AccessPanel.Row> listTokens() {
+		EmbeddedVenue v = venue;
+		Identity id = identity;
+		if (v == null || id == null) return List.of();
+		String owner = id.userDID(v.did());
+		Tokens t = new Tokens(v.engine(), Strings.create(owner));
+		String agentId = config.chat().agentId();
+		List<brightside.ui.settings.AccessPanel.Row> rows = new ArrayList<>();
+		for (covia.adapter.token.AccessToken token : t.list()) {
+			Tokens.Scope scope = Tokens.scope(token);
+			TokenPreset preset = (scope == null) ? null : TokenPreset.matching(scope, agentId);
+			String shown = (scope == null) ? "Accepted beyond the MCP endpoint"
+				: (preset != null) ? preset.label() : "Custom: " + scope.tools().count() + " tools";
+			String issuer = String.valueOf(token.issuer());
+			String madeBy = issuer.equals(owner) ? "you" : issuer.substring(issuer.lastIndexOf(':') + 1);
+			long created = convex.core.lang.RT.ensureLong(token.record().get(covia.api.Fields.CREATED)).longValue();
+			rows.add(new brightside.ui.settings.AccessPanel.Row(token.name().toString(), shown, created, madeBy));
+		}
+		rows.sort(java.util.Comparator.comparingLong(brightside.ui.settings.AccessPanel.Row::created).reversed());
+		return rows;
+	}
+
+	/** The token store, for Settings to follow; null before the venue is up. */
+	public convex.lattice.ALatticeComponent<?> tokenStore() {
+		Tokens t = tokens();
+		return (t == null) ? null : t.store();
+	}
+
+	public String createToken(String name, Tokens.Scope scope) throws IOException {
+		return requireTokens().create(name, scope).bearer();
+	}
+
+	public String newTokenKey(String name) throws IOException {
+		return requireTokens().newKey(name).bearer();
+	}
+
+	public void revokeToken(String name) throws IOException {
+		requireTokens().revoke(name);
+	}
+
+	/** A token's key, behind the passphrase as a secret is; the passphrase array is wiped either way. */
+	public String revealTokenKey(String name, char[] passphrase) throws IOException {
+		try {
+			requirePassphrase(passphrase);
+			return requireTokens().key(name);
+		} finally {
+			java.util.Arrays.fill(passphrase, '\0');
+		}
+	}
+
+	private Tokens requireTokens() throws IOException {
+		Tokens t = tokens();
+		if (t == null) throw new IOException("Tokens are available once " + APP_NAME + " is unlocked.");
+		return t;
 	}
 
 
@@ -2941,15 +3015,6 @@ public final class BrightSide {
 			prefs.setBool(PREF_AT_SIGN_IN, false);
 			applyStartAtSignIn();
 		}
-	}
-
-	/** Opens the Auth section of Settings, once the venue is up. */
-	public void openAccessToken() {
-		if (venue == null || identity == null || vault == null || venueSeedHex == null) {
-			SwingUtilities.invokeLater(() -> window.showSystemMessage("Access tokens are available once " + APP_NAME + " has started."));
-			return;
-		}
-		SwingUtilities.invokeLater(window::showAuthSettings);
 	}
 
 	/** Opens the venue's own web dashboard (Settings → General → Advanced). */

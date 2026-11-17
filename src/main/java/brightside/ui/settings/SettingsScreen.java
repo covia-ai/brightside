@@ -26,7 +26,7 @@ import brightside.ui.components.Theme;
  * The <b>Settings</b> screen: a vertical section nav on the left, each section
  * with its icon, in three groups — you and the app (Identity, General, Theme),
  * what the assistant runs on and reaches (Model, Integrations, Files,
- * Schedule), and keys and access (Secrets, Vault, Auth) — selecting the
+ * Schedule), and keys and access (Secrets, Vault, Access) — selecting the
  * content shown on the right. One consistent place to find
  * application actions and configuration. Identity comes first: who the app
  * is acting as frames everything below it.
@@ -42,7 +42,7 @@ public final class SettingsScreen extends JPanel {
 		MODEL("Model", "sparkles", true), INTEGRATIONS("Integrations", "plug", false),
 		SCHEDULE("Schedule", "calendar-clock", false), JOBS("Jobs", "list-checks", false),
 		// Keys and access.
-		SECRETS("Secrets", "key-round", true), VAULT("Vault", "lock", false), AUTH("Auth", "ticket", false);
+		SECRETS("Secrets", "key-round", true), VAULT("Vault", "lock", false), ACCESS("Access", "ticket", false);
 
 		final String label;
 		/** The {@link Lucide} icon beside the label. */
@@ -74,11 +74,11 @@ public final class SettingsScreen extends JPanel {
 	private final brightside.ui.jobs.JobsScreen jobs;
 	private final SecretsPanel secrets;
 	private final VaultPanel vault;
-	private final AuthPanel auth;
+	private final AccessPanel access;
 
 	public SettingsScreen(GeneralPanel general, ThemePanel theme, ModelPanel model, ProfilePanel profile,
 			IntegrationsPanel integrations, SchedulePanel schedule, brightside.ui.jobs.JobsScreen jobs,
-			SecretsPanel secrets, VaultPanel vault, AuthPanel auth) {
+			SecretsPanel secrets, VaultPanel vault, AccessPanel access) {
 		super(new BorderLayout());
 		this.general = general;
 		this.theme = theme;
@@ -89,7 +89,7 @@ public final class SettingsScreen extends JPanel {
 		this.jobs = jobs;
 		this.secrets = secrets;
 		this.vault = vault;
-		this.auth = auth;
+		this.access = access;
 
 		content.setOpaque(false);
 		content.add(profile, Tab.PROFILE.name());
@@ -101,7 +101,7 @@ public final class SettingsScreen extends JPanel {
 		content.add(jobs, Tab.JOBS.name());
 		content.add(secrets, Tab.SECRETS.name());
 		content.add(vault, Tab.VAULT.name());
-		content.add(auth, Tab.AUTH.name());
+		content.add(access, Tab.ACCESS.name());
 
 		// The section nav: one PressButton per section, the same control as the
 		// bottom tabs — hover, pressed and selected looks from the theme, acting
@@ -180,7 +180,7 @@ public final class SettingsScreen extends JPanel {
 		return vault;
 	}
 
-	public AuthPanel auth() {
-		return auth;
+	public AccessPanel access() {
+		return access;
 	}
 }

@@ -101,9 +101,11 @@ abstract class SettingsPage extends JPanel {
 		return l;
 	}
 
-	/** A label (top-aligned) + a taller/multi-line value on one row. */
-	protected final void addFieldTop(String label, JComponent value) {
-		row(label(label), "aligny top, gaptop 3", value, "growx, wmin 0");
+	/** A label (top-aligned) + a taller/multi-line value on one row; the label is returned so it can be shown and hidden with the value. */
+	protected final JLabel addFieldTop(String label, JComponent value) {
+		JLabel l = label(label);
+		row(l, "aligny top, gaptop 3", value, "growx, wmin 0");
+		return l;
 	}
 
 	/** A component spanning the full width of the form. */

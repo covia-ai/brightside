@@ -2,12 +2,16 @@ package brightside;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 import convex.core.data.ACell;
 import convex.core.data.AString;
 import convex.core.data.AVector;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
+import convex.core.data.Vectors;
+import convex.core.lang.RT;
+import convex.lattice.ALatticeComponent;
 import covia.adapter.MCPAdapter;
 import covia.adapter.token.AccessToken;
 import covia.adapter.token.TokenAdapter;
@@ -71,6 +75,18 @@ public final class Tokens {
 	/** Revokes token {@code name}: its key stops working, on work it already started too. */
 	public void revoke(String name) {
 		adapter().delete(inPerson(), Strings.create(name), adapter().administration());
+	}
+
+	/** The venue's token store, for a view that follows it ({@code Watcher}). */
+	public ALatticeComponent<?> store() {
+		return adapter().tokens();
+	}
+
+	/** What {@code token} offers at the MCP endpoint, or null when it is accepted elsewhere too, or not at MCP. */
+	public static Scope scope(AccessToken token) {
+		if (!Set.of(MCPAdapter.ACCESS_POINT).equals(token.accessPoints())) return null;
+		AVector<ACell> tools = RT.ensureVector(RT.getIn(token.access(), MCPAdapter.ACCESS_POINT, Fields.TOOLS));
+		return new Scope((tools == null) ? Vectors.empty() : tools, TokenAdapter.shownCaps(token));
 	}
 
 	/** The MCP entry for {@code scope}: the token is accepted there alone, offering its tools. */

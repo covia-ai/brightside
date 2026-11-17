@@ -43,7 +43,7 @@ final class McpStdio {
 
 	private static final String CONNECTION_FAILED =
 		APP_NAME + " MCP connection failed. Unlock " + APP_NAME + ", enable "
-		+ "'Keep a token for local tools' in Settings > Auth, then reconnect the client.";
+		+ "'Keep a login as you for local tools' in Settings > Access, then reconnect the client.";
 	private static final TypeRef<Map<String, String>> HEADERS = new TypeRef<>() {};
 	private final McpJsonMapper json = McpJsonDefaults.getMapper();
 	private final CompletableFuture<Void> finished = new CompletableFuture<>();

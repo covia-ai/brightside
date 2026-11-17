@@ -64,6 +64,14 @@ public enum TokenPreset {
 	/** The tools and caps a token with this preset carries, for the owner's chat agent {@code agentId}. */
 	public abstract Tokens.Scope scope(String agentId);
 
+	/** The preset {@code scope} is, for chat agent {@code agentId}, or null for a custom scope. */
+	public static TokenPreset matching(Tokens.Scope scope, String agentId) {
+		for (TokenPreset preset : values()) {
+			if (preset.scope(agentId).equals(scope)) return preset;
+		}
+		return null;
+	}
+
 	@Override
 	public String toString() {
 		return label;
