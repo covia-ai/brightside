@@ -60,7 +60,7 @@ public final class ClaudeCode {
 	/** The default project: Brightside's own source checkout. */
 	public static final String PROJECT = "brightside";
 	/** Where the assistant clones Brightside's source from. */
-	public static final String REPOSITORY = "https://github.com/covia-ai/brightside";
+	public static final String REPOSITORY = "https://github.com/covia-ai/tau";
 	/** The checkouts directory under the Brightside home — also the {@code code} file root. */
 	public static final String CODE_DIR = "code";
 

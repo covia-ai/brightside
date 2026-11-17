@@ -103,7 +103,7 @@ Ideas and disagreement are welcome — open an issue.
 You need **Java 25+** and **Maven 3.9+**.
 
 ```bash
-git clone https://github.com/covia-ai/brightside.git
+git clone https://github.com/covia-ai/tau.git
 cd brightside
 mvn package
 java -jar target/brightside.jar

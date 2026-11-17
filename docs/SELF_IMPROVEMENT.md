@@ -84,7 +84,7 @@ and history ([GODS.md](GODS.md), [LAUNCH.md](LAUNCH.md#the-startup-pass)).
 |---|---|
 | The loop's checkout | `~/.brightside/code/brightside`, Tau's own Claude Code project: on the owner's machine a worktree on branch `improve` |
 | The backlog | `w/skill-feedback`, written by the skill-feedback operation: misses under their category, ideas under `improvement`; the loop marks entries `resolved` |
-| Work and design questions | GitHub issues on `covia-ai/brightside` |
+| Work and design questions | GitHub issues on `covia-ai/tau` |
 | The last good build | `~/.brightside/code/last-good.jar` (`file://code/last-good.jar` to Odin) |
 | The Covia commit last installed | `~/.brightside/code/.covia-installed`, built from `../covia`'s committed `develop`, never its working tree |
 | The schedule | a local scheduled task, `brightside-improve`, daily at 21:00 |

@@ -11,7 +11,7 @@
 
 	<name>Tau</name>
 	<description>Tau — a Covia desktop companion: an embedded Covia venue with a chat window, living in the system tray.</description>
-	<url>https://github.com/covia-ai/brightside</url>
+	<url>https://github.com/covia-ai/tau</url>
 
 	<licenses>
 		<license>
@@ -30,9 +30,9 @@
 	</developers>
 
 	<scm>
-		<connection>scm:git:git://github.com/covia-ai/brightside.git</connection>
-		<developerConnection>scm:git:ssh://github.com:covia-ai/brightside.git</developerConnection>
-		<url>https://github.com/covia-ai/brightside</url>
+		<connection>scm:git:git://github.com/covia-ai/tau.git</connection>
+		<developerConnection>scm:git:ssh://github.com:covia-ai/tau.git</developerConnection>
+		<url>https://github.com/covia-ai/tau</url>
 	</scm>
 
 	<properties>

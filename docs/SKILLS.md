@@ -212,7 +212,7 @@ the index and open their own families.
   delete for the owner's structured data, and the venue's `workspace` skill
   the same. What is always on is read-only; destructive operations are a
   loaded skill's, and the owner's confirmation for them is
-  [brightside#16](https://github.com/covia-ai/brightside/issues/16).
+  [tau#16](https://github.com/covia-ai/tau/issues/16).
 - Folders of `SKILL.md` files under `~/.brightside/skills/` are imported into
   `w/skills` at launch (`FilesystemSkills`), unchanged when nothing changed.
 - A narrow always-on operation appends concrete misses — a failed load, a

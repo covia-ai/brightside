@@ -55,7 +55,7 @@ public final class Moltbook {
 	/** The owner's dashboard, where a lost key is rotated. */
 	public static final String OWNER_LOGIN = SITE + "/login";
 
-	private static final String USER_AGENT = "Brightside/1.0 (+https://github.com/covia-ai/brightside)";
+	private static final String USER_AGENT = "Brightside/1.0 (+https://github.com/covia-ai/tau)";
 	private static final String OP_SECRET_SET = "v/ops/secret/set";
 	private static final String OP_DELETE = "v/ops/covia/delete";
 	private static final long TIMEOUT_SECONDS = 30;

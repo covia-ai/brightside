@@ -61,8 +61,8 @@ commit.
 
 ## Git
 
-Remote `https://github.com/covia-ai/brightside`. `master` is the default
-branch; `develop` is the working branch — commit there and merge to `master`.
+Remote `https://github.com/covia-ai/tau`. `develop` is the default
+and working branch — commit there and merge to `master`.
 
 ## When Brightside runs you
 

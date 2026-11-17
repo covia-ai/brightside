@@ -169,4 +169,4 @@ the gates below.
   memory stays small and always in context, so any search operation and
   index proposed here would be Brightside's own.
 - Confirmation of destructive memory operations rides on
-  [brightside#16](https://github.com/covia-ai/brightside/issues/16).
+  [tau#16](https://github.com/covia-ai/tau/issues/16).

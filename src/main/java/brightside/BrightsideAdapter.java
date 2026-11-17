@@ -851,7 +851,7 @@ public class BrightsideAdapter extends AAdapter {
 	 *
 	 * <p>What a god's caps cover it calls directly, and Covia does the refusing;
 	 * this bridge gives way further as Covia learns to say the rest
-	 * (brightside#40, {@code docs/GODS.md}).
+	 * (tau#40, {@code docs/GODS.md}).
 	 */
 	private CompletableFuture<ACell> handleRun(God god, RequestContext ctx, ACell input) {
 		try {

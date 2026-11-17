@@ -56,7 +56,7 @@ import covia.venue.Engine;
  * {@code docs/GODS.md}.
  *
  * <p>What remains of the run bridge is to give way to Covia as Covia learns to
- * say it (brightside#40).
+ * say it (tau#40).
  *
  * @param id              the agent id, also the god's name
  * @param ask             the sub-operation of {@code brightside:} by which assistants reach it

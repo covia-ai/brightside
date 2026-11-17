@@ -103,7 +103,7 @@ direction in [NETWORK.md](NETWORK.md).
 ## Known limits
 
 - One venue serves one owner
-  ([brightside#3](https://github.com/covia-ai/brightside/issues/3)).
+  ([tau#3](https://github.com/covia-ai/tau/issues/3)).
 - An agent cannot yet present a grant the owner approved: the token reaches it
   as text in its conversation, not as authority it holds
   ([covia#447](https://github.com/covia-ai/covia/issues/447)), so the `hitl`

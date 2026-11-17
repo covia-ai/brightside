@@ -158,7 +158,7 @@ Withdrawing a god's own Inbox request waits on
 [covia#702](https://github.com/covia-ai/covia/issues/702). An overseer that
 watches its gods' jobs would let Thor's and Eir's changes go direct too. The
 move is tracked in
-[brightside#40](https://github.com/covia-ai/brightside/issues/40). Each god's
+[tau#40](https://github.com/covia-ai/tau/issues/40). Each god's
 caps are the owner's design call, so the improvement loop leaves them alone.
 
 ### Answering to an overseer

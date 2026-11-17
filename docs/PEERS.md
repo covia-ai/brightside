@@ -153,7 +153,7 @@ the operator keeps a separate arrangement.
 - **Joining the network:** opt-in and off by default is the recommendation;
   before joining, the map shows your venue and your services.
 - **The P2P key:** the venue key is simplest; a separate key rotates more
-  easily ([brightside#5](https://github.com/covia-ai/brightside/issues/5)).
+  easily ([tau#5](https://github.com/covia-ai/tau/issues/5)).
 - **Strangers:** a network may hold far more nodes than are worth drawing;
   show those actually seen, grouped by region, unlabelled until pointed at.
 - **Your devices:** more than one device under one person is more than one

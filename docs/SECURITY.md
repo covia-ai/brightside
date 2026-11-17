@@ -264,7 +264,7 @@ trust is granted and withdrawn, are in [TRUST.md](TRUST.md).
 - Filesystem ACLs, disk encryption, backups, malware protection and physical
   security are the host's responsibility.
 - Separating the signing seed from the store key, and transactional rekey, are
-  [brightside#5](https://github.com/covia-ai/brightside/issues/5).
+  [tau#5](https://github.com/covia-ai/tau/issues/5).
 
 ## Reviewer verification
 

@@ -90,8 +90,8 @@ and `diff`, read only). Narrow it to the change that broke Tau.
 ## 4. Improve
 
 - Candidates, in this order:
-  1. Open issues on `covia-ai/brightside`
-     (`gh issue list --repo covia-ai/brightside --state open`). Take one that
+  1. Open issues on `covia-ai/tau`
+     (`gh issue list --repo covia-ai/tau --state open`). Take one that
      fits a chunk, or a slice of a big one. A `question` issue is the owner's
      to answer: once his comment settles it, act on the answer and close it.
   2. The backlog: `$S/mcp.sh covia_read '{"path":"w/skill-feedback"}'`,
@@ -111,7 +111,7 @@ and `diff`, read only). Narrow it to the change that broke Tau.
   enhancement may have an issue as its record, opened when the work starts
   and closed by its commit.
 - Not the loop's: the gods' authority, their caps and the run bridge, is
-  the owner's design work (brightside#40). Report a miss there; never change it.
+  the owner's design work (tau#40). Report a miss there; never change it.
 - An open design question (how something should work, where the evidence
   does not settle it; anything touching authority, startup or the loop
   itself) goes to the owner: an issue labelled `question` that tags `@mikera`,
