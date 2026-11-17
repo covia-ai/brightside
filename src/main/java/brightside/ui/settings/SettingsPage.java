@@ -123,6 +123,32 @@ abstract class SettingsPage extends JPanel {
 		span(c, "span 2, growx, wmin 0, " + extra);
 	}
 
+	/** Rows that show and hide as one, with the rules that set them off ({@link #rows}). */
+	protected static final class Rows {
+		private final java.util.List<java.awt.Component> parts;
+
+		private Rows(java.util.List<java.awt.Component> parts) {
+			this.parts = parts;
+		}
+
+		public void setVisible(boolean visible) {
+			parts.forEach(c -> c.setVisible(visible));
+		}
+	}
+
+	/**
+	 * Adds the rows {@code add} adds, as one group that shows and hides
+	 * together, so a hidden group leaves no stray rule behind on its card.
+	 */
+	protected final Rows rows(Runnable add) {
+		JPanel into = target;
+		int before = into.getComponentCount();
+		add.run();
+		java.util.List<java.awt.Component> parts = new java.util.ArrayList<>();
+		for (int i = before; i < into.getComponentCount(); i++) parts.add(into.getComponent(i));
+		return new Rows(parts);
+	}
+
 	/** A labelled row; on a card, ruled off from the row above. */
 	private void row(JComponent label, String labelConstraints, JComponent field, String fieldConstraints) {
 		if (target != form && cardHasRow) target.add(new JSeparator(), "span 2, growx");

@@ -1613,9 +1613,14 @@ public final class BrightSide {
 	/** Refuses unless {@code passphrase} unlocks the running identity: the gate before showing a secret or a key. */
 	private void requirePassphrase(char[] passphrase) throws IOException {
 		if (!canRevealPrivateSeed()) throw new IOException("No logged-in identity");
-		String candidate = Vault.open(config.home(), passphrase).seedHex();
+		String candidate;
+		try {
+			candidate = Vault.open(config.home(), passphrase).seedHex();
+		} catch (IOException e) {
+			throw new IOException("That passphrase didn't unlock this identity.", e);
+		}
 		if (!candidate.equals(venueSeedHex)) {
-			throw new IOException("The passphrase did not unlock the running identity");
+			throw new IOException("That passphrase didn't unlock this identity.");
 		}
 	}
 
@@ -1677,6 +1682,9 @@ public final class BrightSide {
 		try {
 			requirePassphrase(passphrase);
 			return requireTokens().key(name);
+		} catch (covia.exception.NotSupportedException e) {
+			// Made or last given a key while the venue kept none (adapters.token.keepRawTokens).
+			throw new IOException("This token was made before " + APP_NAME + " kept keys: give it a new key to see one.", e);
 		} finally {
 			java.util.Arrays.fill(passphrase, '\0');
 		}

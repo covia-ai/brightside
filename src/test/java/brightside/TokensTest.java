@@ -3,11 +3,14 @@ package brightside;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import brightside.chat.ChatSession;
 import convex.core.data.AString;
+import convex.core.data.Maps;
 import convex.core.data.Strings;
 import convex.core.data.Vectors;
 import convex.core.lang.RT;
@@ -18,7 +21,9 @@ import covia.adapter.token.TokenAdapter;
 import covia.adapter.token.TokenAdapter.Issued;
 import covia.api.Fields;
 import covia.exception.NotFoundException;
+import covia.grid.Principals;
 import covia.venue.Engine;
+import covia.venue.RequestContext;
 
 /** The owner's named tokens, worked on in-process against a real venue that keeps keys. */
 class TokensTest {
@@ -63,6 +68,20 @@ class TokensTest {
 			assertEquals(preset, TokenPreset.matching(Tokens.scope(token), "Tau"), "the list names its preset");
 		}
 		assertEquals(TokenPreset.values().length, tokens.list().size());
+	}
+
+	@Test
+	void theAssistantRevokesTheOwnersTokenThroughTheMcpTokenOperation() throws Exception {
+		AString owner = owner("tokens-assistant");
+		new ChatSession(shared.venue().clientAs(owner.toString()), new AppConfig.Chat("helper", AppConfig.DEFAULT_OPERATION,
+			AppConfig.ECHO_LLM_OPERATION, "You are a test assistant."), "Helper").ensureAgent();
+		Tokens tokens = new Tokens(engine(), owner);
+		String bearer = tokens.create("tool", TokenPreset.READ_ONLY.scope("helper")).bearer();
+		RequestContext assistant = engine().context(owner, Principals.agentDID(owner, Strings.create("helper")));
+		engine().jobs().invokeInternal("v/ops/mcp/delete-token", Maps.of(Fields.NAME, "tool"), assistant)
+			.get(5, TimeUnit.SECONDS);
+		assertTrue(tokens.list().isEmpty(), "the skill's revoke deletes the owner's token");
+		assertNull(store().lookup(bearer));
 	}
 
 	@Test

@@ -9,7 +9,6 @@ import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
-import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
@@ -127,7 +126,7 @@ public final class AccessPanel extends SettingsPage {
 	private static final String MASK = "••••••••••••";
 
 	private final Host host;
-	private final JPanel rows = new JPanel(new MigLayout(
+	private final JPanel tokenList = new JPanel(new MigLayout(
 		"insets 0, fillx, wrap 6, gapy 4", "[grow 25,fill]12[grow 75,fill]8[]2[]6[]4[]", ""));
 	private final JComboBox<Kind> kind = new JComboBox<>(Kind.values());
 	private final JLabel kindHint = Labels.small(" ");
@@ -140,9 +139,8 @@ public final class AccessPanel extends SettingsPage {
 	private final TextArea issued = new TextArea(3, 34).placeholder("The new key or login appears here");
 	private final JButton copy = Buttons.small("Copy");
 	private final JCheckBox keepToolToken = new JCheckBox("Keep a login as you for local tools");
-	private final List<JComponent> tokenRows = new java.util.ArrayList<>();
-	private final List<JComponent> customRows = new java.util.ArrayList<>();
-	private final List<JComponent> loginRows = new java.util.ArrayList<>();
+	/** The form's parts for each kind, shown and hidden as one. */
+	private Rows tokenRows, customRows, loginRows;
 	private Watcher.Watch<?> watch;
 	/** Bumped on every rebuild of the list, so a slow reveal never lands on replaced rows. */
 	private long version;
@@ -156,29 +154,27 @@ public final class AccessPanel extends SettingsPage {
 	}
 
 	private void build() {
-		rows.setOpaque(false);
+		tokenList.setOpaque(false);
 		group("Named tokens");
-		addSpan(rows);
+		addSpan(tokenList);
 
 		group("New access");
 		kind.addActionListener(e -> showKind());
 		addField("Kind", kind);
 		addSpan(kindHint);
 
-		tokenRows.add(addField("Name", "Lower-case letters, digits and hyphens, such as claude-code: "
-			+ "the name its turns show", name));
-		tokenRows.add(name);
 		preset.addActionListener(e -> showPreset());
-		tokenRows.add(addField("Access", "What the token's tools are, and what they may reach", preset));
-		tokenRows.add(preset);
-		tokenRows.add(presetHint);
-		addSpan(presetHint);
+		tokenRows = rows(() -> {
+			addField("Name", "Lower-case letters, digits and hyphens, such as claude-code: the name its turns show", name);
+			addField("Access", "What the token's tools are, and what they may reach", preset);
+			addSpan(presetHint);
+		});
 		JScrollPane toolsScroll = new JScrollPane(tools);
-		customRows.add(addFieldTop("Tools", toolsScroll));
-		customRows.add(toolsScroll);
 		JScrollPane capsScroll = new JScrollPane(caps);
-		customRows.add(addFieldTop("Caps", capsScroll));
-		customRows.add(capsScroll);
+		customRows = rows(() -> {
+			addFieldTop("Tools", toolsScroll);
+			addFieldTop("Caps", capsScroll);
+		});
 		Styles.classes(tools, Styles.MONOSPACED);
 		Styles.classes(caps, Styles.MONOSPACED);
 
@@ -189,8 +185,7 @@ public final class AccessPanel extends SettingsPage {
 			new Exp("30 days", 2_592_000L),
 		}));
 		expiry.setSelectedIndex(1);
-		loginRows.add(addField("Expires in", "How long the login stays valid", expiry));
-		loginRows.add(expiry);
+		loginRows = rows(() -> addField("Expires in", "How long the login stays valid", expiry));
 
 		issued.setEditable(false);
 		issued.setLineWrap(true);
@@ -231,8 +226,8 @@ public final class AccessPanel extends SettingsPage {
 		Kind k = (Kind) kind.getSelectedItem();
 		kindHint.setText("<html>" + Labels.escape(k.hint) + "</html>");
 		boolean token = k == Kind.TOKEN;
-		tokenRows.forEach(c -> c.setVisible(token));
-		loginRows.forEach(c -> c.setVisible(!token));
+		tokenRows.setVisible(token);
+		loginRows.setVisible(!token);
 		showPreset();
 	}
 
@@ -249,7 +244,7 @@ public final class AccessPanel extends SettingsPage {
 		} else {
 			presetHint.setText("Any tools, within caps you write; it starts from the preset you last chose.");
 		}
-		customRows.forEach(c -> c.setVisible(token && custom));
+		customRows.setVisible(token && custom);
 		revalidate();
 		repaint();
 	}
@@ -258,7 +253,7 @@ public final class AccessPanel extends SettingsPage {
 	public void bind() {
 		if (watch != null) watch.close();
 		ALatticeComponent<?> store = host.tokenStore();
-		watch = (store == null) ? null : Watcher.watch(rows, store, value -> reload());
+		watch = (store == null) ? null : Watcher.watch(tokenList, store, value -> reload());
 		reload();
 	}
 
@@ -282,21 +277,21 @@ public final class AccessPanel extends SettingsPage {
 
 	private void show(List<Row> tokens) {
 		version++;
-		rows.removeAll();
+		tokenList.removeAll();
 		if (tokens.isEmpty()) {
-			rows.add(Labels.small("No named tokens yet: make one below, under New access."), "span 6");
+			tokenList.add(Labels.small("No named tokens yet: make one below, under New access."), "span 6");
 		} else {
 			for (Row row : tokens) addRow(row);
 		}
-		rows.revalidate();
-		rows.repaint();
+		tokenList.revalidate();
+		tokenList.repaint();
 	}
 
 	private void addRow(Row row) {
 		JLabel label = Styles.classes(new JLabel(row.name()), Styles.MONOSPACED);
-		label.setToolTipText(row.scope() + " · made " + Times.absolute(row.created()) + " by " + row.madeBy());
+		JLabel details = Labels.small(row.scope() + " · made " + Times.absolute(row.created()) + " by " + row.madeBy()
+			+ " · until revoked");
 		SelectableText key = new SelectableText(MASK).mono().muted();
-		key.setToolTipText(row.scope());
 		EyeButton eye = new EyeButton("Show the key (behind your passphrase)", "Hide the key", 16);
 		JButton copyKey = Buttons.icon(Lucide.icon("copy", 16, Theme::muted),
 			"Copy the key (behind your passphrase while it is hidden)");
@@ -346,12 +341,13 @@ public final class AccessPanel extends SettingsPage {
 			}, k -> setNote("Revoked " + row.name() + ".", false));
 		});
 
-		rows.add(label, "wmin 0");
-		rows.add(key, "growx, wmin 0");
-		rows.add(eye);
-		rows.add(copyKey);
-		rows.add(renew);
-		rows.add(revoke);
+		tokenList.add(label, "wmin 0");
+		tokenList.add(key, "growx, wmin 0");
+		tokenList.add(eye);
+		tokenList.add(copyKey);
+		tokenList.add(renew);
+		tokenList.add(revoke);
+		tokenList.add(details, "span 6, gaptop 0, gapbottom 8, wmin 0");
 	}
 
 	private void onCreate() {
@@ -476,8 +472,11 @@ public final class AccessPanel extends SettingsPage {
 				if (version != v) return; // the list was rebuilt meanwhile
 				try {
 					use.accept(get());
-				} catch (Exception ex) {
-					setNote("That passphrase didn't unlock this identity.", true);
+				} catch (java.util.concurrent.ExecutionException ex) {
+					String why = ex.getCause().getMessage();
+					setNote((why == null) ? "Couldn't read the key." : why, true);
+				} catch (InterruptedException ex) {
+					Thread.currentThread().interrupt();
 				}
 			}
 		}.execute();
@@ -488,9 +487,9 @@ public final class AccessPanel extends SettingsPage {
 		if (watch != null) watch.close();
 		watch = null;
 		version++;
-		rows.removeAll();
-		rows.revalidate();
-		rows.repaint();
+		tokenList.removeAll();
+		tokenList.revalidate();
+		tokenList.repaint();
 		clearIssued();
 		clearNote();
 	}
