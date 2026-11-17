@@ -12,7 +12,6 @@ import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
 import convex.core.data.AVector;
-import convex.core.data.Blob;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
 import convex.core.data.prim.CVMBool;
@@ -111,8 +110,8 @@ public final class Schedule {
 			ACell e = vec.get(i);
 			if (!(e instanceof AMap)) continue;
 			String op = str(RT.getIn(e, "op"));
-			String handle = hex(RT.getIn(e, "handle"));
-			String lastJob = hex(RT.getIn(e, "lastJob"));
+			String handle = Ids.text(RT.getIn(e, "handle"));
+			String lastJob = Ids.text(RT.getIn(e, "lastJob"));
 			String status = null;
 			String error = null;
 			String agent = null;
@@ -123,7 +122,7 @@ public final class Schedule {
 					status = str(job.get(Fields.STATUS));
 					error = str(job.get(Fields.ERROR));
 					agent = str(job.get(Fields.AGENT_ID));
-					session = hex(job.get(Fields.SESSION_ID));
+					session = Ids.text(job.get(Fields.SESSION_ID));
 				}
 			}
 			String label = (op == null) ? "Unknown operation" : labels.computeIfAbsent(op, o -> label(client, o));
@@ -181,7 +180,7 @@ public final class Schedule {
 		if (everyMillis > 0) request = request.assoc(Strings.create("repeat"), Maps.of("every", everyMillis));
 		Job job = client.invoke(OP_SCHEDULE, request).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 		ACell out = job.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
-		return hex(RT.getIn(out, "handle"));
+		return Ids.text(RT.getIn(out, "handle"));
 	}
 
 	/**
@@ -245,11 +244,6 @@ public final class Schedule {
 
 	private static String str(ACell c) {
 		return (c instanceof AString s) ? s.toString() : null;
-	}
-
-	private static String hex(ACell c) {
-		if (c instanceof Blob b) return b.toHexString();
-		return str(c);
 	}
 
 	private static long num(ACell c) {

@@ -328,11 +328,11 @@ public final class JobList {
 		String agent = str(record.get(Fields.AGENT_ID));
 		Starter starter = Starter.of(caller, str(record.get(K_OWNER)) != null ? str(record.get(K_OWNER)) : owner);
 		if (agent == null && starter == Starter.AGENTS) agent = caller.substring(caller.lastIndexOf(":g:") + 3);
-		String session = str(record.get(Fields.SESSION_ID));
+		String session = Ids.text(record.get(Fields.SESSION_ID));
 		ACell parent = record.get(K_PARENT);
 		return new Job(id.toHexString(), num(record.get(Fields.CREATED)), num(record.get(Fields.UPDATED)), name,
 			operation, str(record.get(Fields.STATUS)), purpose(record), starter, caller, agent, session,
-			str(record.get(Fields.ERROR)), (parent instanceof Blob b) ? b.toHexString() : str(parent),
+			str(record.get(Fields.ERROR)), Ids.text(parent),
 			num(RT.getIn(record, K_TOKENS, K_TOTAL)), record);
 	}
 

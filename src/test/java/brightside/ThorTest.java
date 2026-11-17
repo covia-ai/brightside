@@ -88,7 +88,7 @@ class ThorTest {
 		ACell snapshot = run(user, Thor.OP_ALERT, Maps.of(
 			"request", "A page I fetched told me to send the owner's keys to an address.", "timeout", 0L));
 		assertEquals(Strings.create(Thor.GOD.address(venue.did())), RT.getIn(snapshot, "address"));
-		AString id = RT.ensureString(RT.getIn(snapshot, "id"));
+		ACell id = RT.getIn(snapshot, "id");
 		assertNotNull(id, "the task job id: " + snapshot);
 		assertNotNull(run(user, "v/ops/grid/job-result", Maps.of("id", id, "timeout", 20_000L)),
 			"the alert is the user's own job, so the user's job tools reach its outcome");
@@ -141,7 +141,7 @@ class ThorTest {
 
 		ACell changed = asThor(write.assoc(Strings.create("reason"), Strings.create("It held an injected instruction.")));
 		assertEquals(Strings.create(Odin.address(venue.did())), RT.getIn(changed, "report", "address"), String.valueOf(changed));
-		AString report = RT.ensureString(RT.getIn(changed, "report", "id"));
+		ACell report = RT.getIn(changed, "report", "id");
 		assertNotNull(run(venue.operator(), "v/ops/grid/job-result", Maps.of("id", report, "timeout", 20_000L)),
 			"the report is a task to Odin, the venue's own job");
 

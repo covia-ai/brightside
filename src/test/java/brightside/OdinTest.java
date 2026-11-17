@@ -112,7 +112,7 @@ class OdinTest {
 		// Asynchronous: the snapshot names Odin and a job the user can follow themselves.
 		ACell snapshot = run(user, Odin.OP_ASK, Maps.of("request", "And the other one.", "timeout", 0L));
 		assertEquals(Strings.create(Odin.address(venue.did())), RT.getIn(snapshot, "address"));
-		AString id = RT.ensureString(RT.getIn(snapshot, "id"));
+		ACell id = RT.getIn(snapshot, "id");
 		assertNotNull(id, "the task job id: " + snapshot);
 		assertNotNull(run(user, "v/ops/grid/job-result", Maps.of("id", id, "timeout", 20_000L)),
 			"the task is the user's own job, so the user's job tools reach its result");

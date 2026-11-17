@@ -12,7 +12,6 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import convex.core.data.ABlob;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
@@ -235,7 +234,7 @@ public final class SessionHistory {
 		if (sessions == null) return List.of();
 		for (long i = 0; i < sessions.count(); i++) {
 			MapEntry<ACell, ACell> entry = sessions.entryAt(i);
-			if (!sessionId.equals(sidHex(entry.getKey()))) continue;
+			if (!sessionId.equals(Ids.text(entry.getKey()))) continue;
 			AVector<ACell> conversation = conversationOf(entry.getValue());
 			return (conversation != null) ? turnsFrom(conversation) : List.of();
 		}
@@ -284,7 +283,7 @@ public final class SessionHistory {
 		if (tokens != null && tokens.get(Strings.create("total")) instanceof CVMLong total) {
 			bits.add(total.longValue() + " tok");
 		}
-		String jobId = str(RT.getIn(turn, "jobId"));
+		String jobId = Ids.text(RT.getIn(turn, "jobId"));
 		if (jobId != null) bits.add("job " + (jobId.length() > 10 ? jobId.substring(0, 10) + "…" : jobId));
 		return String.join(" · ", bits);
 	}
@@ -299,7 +298,7 @@ public final class SessionHistory {
 				AVector<ACell> conversation = conversationOf(entry.getValue());
 				if (conversation == null || conversation.isEmpty()) continue;
 				ACell first = firstUserTurn(conversation);
-				out.add(new Session(sidHex(entry.getKey()), sessionTitle(entry.getValue(), first),
+				out.add(new Session(Ids.text(entry.getKey()), sessionTitle(entry.getValue(), first),
 					latestTurnTs(conversation), first != null && isRequest(first)));
 			}
 		}
@@ -321,7 +320,7 @@ public final class SessionHistory {
 		if (sessions != null && sessionId != null) {
 			for (long i = 0; i < sessions.count(); i++) {
 				MapEntry<ACell, ACell> entry = sessions.entryAt(i);
-				if (!sessionId.equals(sidHex(entry.getKey()))) continue;
+				if (!sessionId.equals(Ids.text(entry.getKey()))) continue;
 				return new Snapshot(record, sessionId, itemsOf(entry.getValue()));
 			}
 		}
@@ -366,7 +365,7 @@ public final class SessionHistory {
 		if (sessions == null) return false;
 		for (long i = 0; i < sessions.count(); i++) {
 			MapEntry<ACell, ACell> entry = sessions.entryAt(i);
-			if (!sessionId.equals(sidHex(entry.getKey()))) continue;
+			if (!sessionId.equals(Ids.text(entry.getKey()))) continue;
 			ACell session = entry.getValue();
 			if (RT.getIn(session, "pending") instanceof AVector<?> pending && !pending.isEmpty()) return true;
 			return RT.getIn(session, "inCycle") != null;
@@ -387,7 +386,7 @@ public final class SessionHistory {
 				AVector<ACell> conversation = conversationOf(entry.getValue());
 				if (conversation == null || conversation.isEmpty()) continue;
 				long ts = latestTurnTs(conversation);
-				String sid = sidHex(entry.getKey());
+				String sid = Ids.text(entry.getKey());
 				// Ties go to the newer session, as in the list.
 				if (ts > bestTs || (ts == bestTs && sid.compareTo(bestSid) > 0)) {
 					bestTs = ts;
@@ -501,10 +500,6 @@ public final class SessionHistory {
 	@SuppressWarnings("unchecked")
 	private static AMap<ACell, ACell> asMap(ACell cell) {
 		return (cell instanceof AMap<?, ?> m) ? (AMap<ACell, ACell>) m : null;
-	}
-
-	private static String sidHex(ACell key) {
-		return (key instanceof ABlob b) ? b.toHexString() : String.valueOf(key);
 	}
 
 	/**

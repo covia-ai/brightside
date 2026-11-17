@@ -37,6 +37,7 @@ import brightside.ui.components.SelectableText;
 import brightside.ui.components.Toast;
 import convex.core.data.Maps;
 import convex.core.data.ACell;
+import convex.core.data.Blob;
 import convex.core.data.Strings;
 import convex.core.lang.RT;
 import covia.grid.Venue;
@@ -206,7 +207,7 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 				if (feed != bound) return;
 				followAcceptedSession();
 				bound.refresh();
-				if (sessionId == null || event.concerns(Strings.create(sessionId))) chat.showActivity(event, label);
+				if (sessionId == null || event.concerns(Blob.parse(sessionId))) chat.showActivity(event, label);
 			});
 		});
 		feed.select(sessionId);

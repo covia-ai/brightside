@@ -203,7 +203,7 @@ public final class Inbox {
 	private static Request request(String key, ACell rec, String owner) {
 		if (!(rec instanceof AMap)) return null;
 		List<Ask> asks = asks(RT.getIn(rec, Hitl.ASKS));
-		String id = str(RT.getIn(rec, Hitl.ID));
+		String id = Ids.text(RT.getIn(rec, Hitl.ID));
 		String title = str(RT.getIn(rec, Hitl.TITLE));
 		return new Request((id != null) ? id : key, str(RT.getIn(rec, Hitl.CALLER)), str(RT.getIn(rec, Hitl.AGENT)),
 			(title != null) ? title : "(untitled request)", str(RT.getIn(rec, Hitl.DESCRIPTION)), asks,

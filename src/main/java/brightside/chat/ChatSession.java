@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 
 import brightside.AppConfig;
 import brightside.Eir;
+import brightside.Ids;
 import brightside.Suspension;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
@@ -488,11 +489,11 @@ public final class ChatSession {
 			Fields.AGENT_ID, config.agentId(),
 			Fields.SESSION_ID, Strings.create(targetSessionId),
 			Fields.MESSAGE, message), ADMIN_TIMEOUT_SECONDS);
-		AString deliveredSid = RT.ensureString(RT.getIn(result, Fields.SESSION_ID));
+		String deliveredSid = Ids.text(RT.getIn(result, Fields.SESSION_ID));
 		if (deliveredSid == null) {
 			throw new IllegalStateException("The venue accepted a queued message without a session id");
 		}
-		return new Delivery(deliveredSid.toString());
+		return new Delivery(deliveredSid);
 	}
 
 	/**
@@ -517,9 +518,8 @@ public final class ChatSession {
 
 		Job job = venue.invoke(OP_CHAT, input).get(ADMIN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 		inFlight = job;
-		AString acceptedSidCell = RT.ensureString(RT.getIn(job.getData(), Fields.SESSION_ID));
-		if (acceptedSidCell != null) {
-			String acceptedSid = acceptedSidCell.toString();
+		String acceptedSid = Ids.text(RT.getIn(job.getData(), Fields.SESSION_ID));
+		if (acceptedSid != null) {
 			if (sessionGeneration == generation) sessionId = acceptedSid;
 			if (accepted != null) accepted.accept(acceptedSid);
 		}
@@ -530,8 +530,8 @@ public final class ChatSession {
 		} finally {
 			if (inFlight == job) inFlight = null;
 		}
-		AString newSid = RT.ensureString(RT.getIn(result, Fields.SESSION_ID));
-		String returnedSid = (newSid != null) ? newSid.toString() : sid;
+		String newSid = Ids.text(RT.getIn(result, Fields.SESSION_ID));
+		String returnedSid = (newSid != null) ? newSid : sid;
 		// A user may enter Home while this call is in flight. The completed old
 		// turn remains valid history, but must not rebind the fresh composer.
 		if (newSid != null && sessionGeneration == generation) sessionId = returnedSid;

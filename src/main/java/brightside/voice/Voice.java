@@ -4,6 +4,7 @@ import java.util.Base64;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
+import brightside.Ids;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
@@ -183,7 +184,7 @@ public final class Voice {
 	/** Opens a live dictation of raw PCM at {@code sampleRate}; completes with its id, for {@link #hear}. */
 	public CompletableFuture<String> listen(int sampleRate) {
 		return venue.run(OP_LISTEN, Maps.of("sampleRate", sampleRate))
-			.thenApply(out -> RT.ensureString(RT.getIn(out, "id")).toString());
+			.thenApply(out -> Ids.text(RT.getIn(out, "id")));
 	}
 
 	/** More of a live dictation's audio, and what it has heard so far; {@code end} settles the rest and closes it. */

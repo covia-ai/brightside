@@ -30,6 +30,7 @@ import covia.exception.ConflictException;
 import covia.exception.InvalidInputException;
 import covia.adapter.AAdapter;
 import covia.grid.AContent;
+import covia.grid.HexId;
 import covia.api.Abilities;
 import covia.api.Fields;
 import covia.venue.AdapterState;
@@ -951,9 +952,7 @@ public class BrightsideAdapter extends AAdapter {
 	 * open request of this god's is refused.
 	 */
 	private CompletableFuture<ACell> withdraw(God god, ACell input) {
-		AString given = RT.ensureString(RT.getIn(input, Fields.ID));
-		String hex = (given == null) ? null : given.toString().startsWith("0x") ? given.toString().substring(2) : given.toString();
-		Blob id = (hex == null) ? null : Blob.fromHex(hex);
+		Blob id = HexId.parse(RT.getIn(input, Fields.ID));
 		if (id == null) throw new InvalidInputException("Give the id of the Inbox request to withdraw");
 		AMap<AString, ACell> job = engine.jobs().getJobData(id);
 		if (job == null) {

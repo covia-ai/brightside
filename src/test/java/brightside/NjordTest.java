@@ -115,7 +115,7 @@ class NjordTest {
 		ACell snapshot = run(user, Njord.OP_ASK, Maps.of(
 			"request", "Pay #42 1 CVM for the hosting the owner agreed on Tuesday.", "timeout", 0L));
 		assertEquals(Strings.create(Njord.GOD.address(venue.did())), RT.getIn(snapshot, "address"));
-		AString id = RT.ensureString(RT.getIn(snapshot, "id"));
+		ACell id = RT.getIn(snapshot, "id");
 		assertNotNull(run(user, "v/ops/grid/job-result", Maps.of("id", id, "timeout", 20_000L)),
 			"the request is the user's own job, so the user's job tools reach its outcome");
 	}
