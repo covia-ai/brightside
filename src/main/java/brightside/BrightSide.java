@@ -1653,7 +1653,9 @@ public final class BrightSide {
 			String issuer = String.valueOf(token.issuer());
 			String madeBy = issuer.equals(owner) ? "you" : issuer.substring(issuer.lastIndexOf(':') + 1);
 			long created = convex.core.lang.RT.ensureLong(token.record().get(covia.api.Fields.CREATED)).longValue();
-			rows.add(new brightside.ui.settings.AccessPanel.Row(token.name().toString(), shown, created, madeBy));
+			boolean unrestricted = scope != null && covia.lattice.Caps.UNRESTRICTED.equals(scope.caps());
+			rows.add(new brightside.ui.settings.AccessPanel.Row(token.name().toString(), shown, created, madeBy,
+				unrestricted));
 		}
 		rows.sort(java.util.Comparator.comparingLong(brightside.ui.settings.AccessPanel.Row::created).reversed());
 		return rows;

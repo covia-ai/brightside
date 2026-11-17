@@ -544,7 +544,9 @@ each says how the tool will appear:
 
 - **Named token for a tool (MCP)** — the usual choice for a tool that is not
   you. Its turns show as the token's name, and it can use only the tools and
-  caps it carries: a preset (*Ask the assistant*, *Read only*) or a custom set.
+  caps it carries: a preset (*Ask the assistant*, *Read only*, or
+  *Unrestricted*, marked with a warning sign, which can run any operation as
+  you) or a custom set.
   It lasts until revoked. The page lists each token with its key (behind
   your passphrase), *New key* and *Revoke*.
 - **Login as you** — appears as you, with everything you can do, for a

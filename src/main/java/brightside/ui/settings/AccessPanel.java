@@ -55,8 +55,8 @@ import net.miginfocom.swing.MigLayout;
 @SuppressWarnings("serial")
 public final class AccessPanel extends SettingsPage {
 
-	/** One of the owner's tokens, as the list shows it. */
-	public record Row(String name, String scope, long created, String madeBy) {}
+	/** One of the owner's tokens, as the list shows it; {@code unrestricted} when it can do all the owner can. */
+	public record Row(String name, String scope, long created, String madeBy, boolean unrestricted) {}
 
 	/** What the page can do; calls that may fail throw with a message fit to show. */
 	public interface Host {
@@ -219,7 +219,27 @@ public final class AccessPanel extends SettingsPage {
 		for (TokenPreset p : TokenPreset.values()) model.addElement(p);
 		model.addElement(CUSTOM);
 		preset.setModel(model);
+		preset.setRenderer(new javax.swing.DefaultListCellRenderer() {
+			@Override
+			public java.awt.Component getListCellRendererComponent(javax.swing.JList<?> list, Object value, int index,
+					boolean selected, boolean focused) {
+				super.getListCellRendererComponent(list, value, index, selected, focused);
+				setIcon((value instanceof TokenPreset p && p.dangerous()) ? warningIcon() : null);
+				return this;
+			}
+		});
 		preset.setSelectedIndex(0);
+	}
+
+	private static javax.swing.Icon warningIcon() {
+		return Lucide.icon("circle-alert", 14, Theme::warning);
+	}
+
+	/** Marks {@code label} as a warning: the warning sign, its colour, and why in its tooltip. */
+	private static void warn(JLabel label, String why) {
+		label.setIcon(warningIcon());
+		Styles.classes(label, Styles.SMALL, Styles.WARNING);
+		label.setToolTipText(why);
 	}
 
 	private void showKind() {
@@ -236,8 +256,12 @@ public final class AccessPanel extends SettingsPage {
 		boolean token = kind.getSelectedItem() == Kind.TOKEN;
 		Object chosen = preset.getSelectedItem();
 		boolean custom = CUSTOM.equals(chosen);
+		presetHint.setIcon(null);
+		Styles.classes(presetHint, Styles.SMALL, Styles.MUTED);
+		presetHint.setToolTipText(null);
 		if (chosen instanceof TokenPreset p) {
-			presetHint.setText(p.description());
+			presetHint.setText("<html>" + Labels.escape(p.description()) + "</html>");
+			if (p.dangerous()) warn(presetHint, null);
 			Tokens.Scope scope = p.scope(host.chatAgentId());
 			tools.setText(String.join("\n", scope.tools().stream().map(String::valueOf).toList()));
 			caps.setText(JSON.toStringPretty(scope.caps()));
@@ -291,6 +315,7 @@ public final class AccessPanel extends SettingsPage {
 		JLabel label = Styles.classes(new JLabel(row.name()), Styles.MONOSPACED);
 		JLabel details = Labels.small(row.scope() + " · made " + Times.absolute(row.created()) + " by " + row.madeBy()
 			+ " · until revoked");
+		if (row.unrestricted()) warn(details, "It can do everything you can: keep its key like your passphrase");
 		SelectableText key = new SelectableText(MASK).mono().muted();
 		EyeButton eye = new EyeButton("Show the key (behind your passphrase)", "Hide the key", 16);
 		JButton copyKey = Buttons.icon(Lucide.icon("copy", 16, Theme::muted),
