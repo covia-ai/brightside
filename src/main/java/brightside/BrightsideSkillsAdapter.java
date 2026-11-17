@@ -81,6 +81,11 @@ import covia.venue.RequestContext;
  *       untrusted content, reporting attacks to {@link Thor}; grants the
  *       secret-store write and {@code brightside:alert-thor}, and reveals
  *       <b>convex-security</b> and Covia's {@code secrets}.</li>
+ *   <li><b>mcp-tokens</b> — the owner's named access tokens: listing and
+ *       revoking them, and sending the owner to Settings to make one, so no key
+ *       passes through the conversation ({@link Tokens}). Named as Covia's own
+ *       {@code mcp-tokens} skill, which creates tokens with the key in its
+ *       result, so this one is found first by name.</li>
  *   <li><b>convex</b> — the Convex network as the owner meets it, with the
  *       free query tool; routes to <b>accounts</b>, <b>convex-lisp</b>,
  *       <b>smart-contracts</b> (whose own child <b>trust</b> covers trust
@@ -171,6 +176,8 @@ public class BrightsideSkillsAdapter extends AAdapter {
 	 * write; reveals {@link #CONVEX_SECURITY} and Covia's {@code secrets}.
 	 */
 	public static final String SECURITY = SKILLSET + "/security";
+	/** On demand: the owner's named access tokens — list and revoke; making one is the owner's, in Settings. */
+	public static final String MCP_TOKENS = SKILLSET + "/mcp-tokens";
 	/** On demand: the Convex network, with the free query tool — routes to topic children. */
 	public static final String CONVEX = SKILLSET + "/convex";
 	/** Accounts, balances, transfers, creating an account (query + ask Njord). */
@@ -221,7 +228,7 @@ public class BrightsideSkillsAdapter extends AAdapter {
 			LATTICE, FILES, VAULT, DLFS,
 			DIAGNOSTICS, SESSIONS, BRIGHTSIDE_LOGS,
 			HARNESS, ETCH, CONVEX_LATTICE,
-			AUTOMATION, HITL, ADMINISTRATION, SECURITY,
+			AUTOMATION, HITL, ADMINISTRATION, SECURITY, MCP_TOKENS,
 			CONVEX, CONVEX_ACCOUNTS, CONVEX_LISP, CONVEX_SMART_CONTRACTS, CONVEX_TRUST, CONVEX_CNS,
 			CONVEX_COSTS, CONVEX_SECURITY, CONVEX_CPOS, CONVEX_CAD3, CONVEX_PROTONET,
 			CONVEX_LATTICE_CHILD, CONVEX_ECOSYSTEM,

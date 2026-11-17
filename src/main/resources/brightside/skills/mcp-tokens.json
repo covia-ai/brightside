@@ -1,0 +1,14 @@
+{
+  "name": "mcp-tokens",
+  "description": "The owner's named access tokens: keys that let another tool or agent reach Tau's MCP endpoint with a chosen set of tools, its turns marked with the token's name. Load to see which tokens exist, to revoke one, or when the owner wants to connect a tool.",
+  "content": {
+    "contentType": "text/markdown",
+    "inline": "# Named access tokens\n\nA named token is a key for Tau's MCP endpoint. Whoever holds it acts as the owner, but only with the tools and caps set on it, and every turn it carries names the token on its From line. It lasts until revoked.\n\n## Making one is the owner's\n\nThe owner makes tokens in **Settings → Access → New access**, choosing *Named token for a tool* and a preset (*Ask the assistant*, *Read only*) or a custom set of tools. The key appears there, and only there: it never passes through this conversation. When the owner wants to connect a tool, say which preset fits and what to name it, then send them to Settings. Never create a token yourself, and never ask for or repeat a key.\n\nA tool that should appear as the owner, such as their own coding assistant on this computer, uses a login instead (*Login as you* in the same place), not a named token.\n\n## Seeing and revoking\n\n- List the owner's tokens to see their names, tools, caps and when each was made. A listing never shows a key.\n- Revoke a token by deleting it when the owner asks, or when one looks misused: its key stops working at once, on work it already started too. Revoking only narrows access, so it needs no confirmation when the owner asked; when you revoke on your own judgement, tell the owner and report the misuse to Thor.\n- To give a token a new key, send the owner to Settings: the new key appears only there."
+  },
+  "skill": {
+    "tools": [
+      "v/ops/mcp/list-tokens",
+      "v/ops/mcp/delete-token"
+    ]
+  }
+}

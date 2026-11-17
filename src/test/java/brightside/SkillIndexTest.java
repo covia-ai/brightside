@@ -86,6 +86,14 @@ class SkillIndexTest {
 		// skill, research at its http skill.
 		assertFalse(one(skills, "tasks", "v/skills/agents").tools().isEmpty());
 		assertTrue(one(skills, "http", "v/skills/ops-tools").tools().contains("v/ops/http/get"));
+
+		// Tokens by name are Brightside's, which never hands the model a key;
+		// the venue's namesake, whose create returns one, is shadowed.
+		SkillIndex.Skill tokens = one(skills, "mcp-tokens", BrightsideSkillsAdapter.SKILLSET);
+		assertFalse(tokens.shadowed());
+		assertTrue(tokens.tools().contains("v/ops/mcp/delete-token"), "the assistant can revoke: " + tokens.tools());
+		assertFalse(tokens.tools().contains("v/ops/mcp/create-token"), "nor create, which returns the key");
+		assertTrue(one(skills, "mcp-tokens", "v/skills/ops-tools").shadowed());
 	}
 
 	private static SkillIndex.Skill one(List<SkillIndex.Skill> skills, String name, String skillset) {
