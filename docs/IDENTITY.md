@@ -77,7 +77,9 @@ the owner's namespace: the DID says who acted, not whose data a path names.
 Fresh configurations choose `Tau` as the default agent (`chat.agentId`).
 Configurations that omit this key keep the implicit `Brightside` id, so an
 existing assistant retains its memory and conversations. Without an explicit
-system prompt, the default persona uses the configured agent id as its name.
+system prompt, the default persona uses the assistant's display name, the one
+the app shows: its record's `config.name`, else Tau. An implicit `Brightside`
+id therefore still introduces itself as Tau.
 A new agent's id is the
 name the owner typed, with anything a path cannot carry turned into `-`, and it
 never changes. The display name is the one the record sets; without one, the
