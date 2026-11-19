@@ -102,12 +102,23 @@ Ideas and disagreement are welcome — open an issue.
 
 You need **Java 25+** and **Maven 3.9+**.
 
+While `covia.version` in `pom.xml` is a SNAPSHOT (as it is now), Tau builds
+against a local Covia checkout, so clone both repositories side by side:
+
 ```bash
+git clone https://github.com/covia-ai/covia.git
 git clone https://github.com/covia-ai/tau.git
-cd brightside
+
+cd covia
+mvn -pl venue,workbench,covia-discord,covia-telegram,covia-claude-code,covia-speech -am install -DskipTests
+
+cd ../tau
 mvn package
 java -jar target/brightside.jar
 ```
+
+Once `covia.version` names a release, the Covia steps can be skipped: it
+resolves from Maven Central and `mvn package` in `tau` is enough.
 
 First launch takes a minute: choose a passphrase, write down a recovery
 phrase, pick a model and paste its key, and say what it should call you. Then
@@ -127,7 +138,7 @@ Maven Central; a SNAPSHOT needs the Covia checkout installed locally:
 ```bash
 cd ../covia
 mvn -pl venue,workbench,covia-discord,covia-telegram,covia-claude-code,covia-speech -am install -DskipTests
-cd ../brightside
+cd ../tau
 mvn package
 ```
 
