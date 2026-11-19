@@ -65,7 +65,12 @@ public final class AppConfig {
 	public static final String ECHO_LLM_OPERATION = "v/test/ops/llm";
 	public static final String DEFAULT_SYSTEM_PROMPT = defaultSystemPrompt(DEFAULT_AGENT_ID);
 
-	private static String defaultSystemPrompt(String name) {
+	/**
+	 * The standard assistant's persona under {@code name}: the name it goes by
+	 * in the app, which is not always its id (an implicit {@code Brightside} id
+	 * is shown as Tau).
+	 */
+	public static String defaultSystemPrompt(String name) {
 		return "You are " + name + ", a private personal AI assistant running on the user's own computer, "
 		+ "powered by the Covia Grid (keep that under the hood unless they ask). Be warm, concise and "
 		+ "genuinely helpful, and use the user's name naturally rather than in every message. Follow "
@@ -146,6 +151,7 @@ public final class AppConfig {
 	private final boolean repairStore;
 	private final AMap<AString, ACell> venue;
 	private final Chat chat;
+	private final boolean customSystemPrompt;
 
 	private AppConfig(AMap<AString, ACell> raw, Path home) {
 		this.home = home;
@@ -154,6 +160,7 @@ public final class AppConfig {
 		this.venue = FileRoots.apply(merge(defaultVenue(home), RT.ensureMap(raw.get(Strings.create("venue")))), home);
 		AMap<AString, ACell> c = RT.ensureMap(raw.get(Strings.create("chat")));
 		String agentId = string(c, "agentId", DEFAULT_AGENT_ID);
+		this.customSystemPrompt = (c != null) && c.get(Strings.create("systemPrompt")) != null;
 		this.chat = new Chat(
 			agentId,
 			string(c, "operation", DEFAULT_OPERATION),
@@ -321,5 +328,13 @@ public final class AppConfig {
 
 	public Chat chat() {
 		return chat;
+	}
+
+	/**
+	 * Whether {@code chat.systemPrompt} was set in config.json. Without one, the
+	 * app builds the default persona from the assistant's display name.
+	 */
+	public boolean hasCustomSystemPrompt() {
+		return customSystemPrompt;
 	}
 }

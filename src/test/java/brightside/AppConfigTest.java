@@ -65,6 +65,23 @@ class AppConfigTest {
 	}
 
 	@Test
+	void systemPromptIsCustomOnlyWhenConfigured() {
+		assertFalse(AppConfig.parse("{}", home).hasCustomSystemPrompt(),
+			"no systemPrompt: the app builds the persona from the display name");
+		assertFalse(AppConfig.parse("{chat:{agentId:\"Brightside\"}}", home).hasCustomSystemPrompt());
+		AppConfig custom = AppConfig.parse("{chat:{systemPrompt:\"You are Bob.\"}}", home);
+		assertTrue(custom.hasCustomSystemPrompt());
+		assertEquals("You are Bob.", custom.chat().systemPrompt());
+	}
+
+	@Test
+	void defaultPersonaTakesTheNameItIsGiven() {
+		assertTrue(AppConfig.defaultSystemPrompt("Tau").startsWith("You are Tau,"));
+		assertFalse(AppConfig.defaultSystemPrompt("Tau").contains(AppConfig.DEFAULT_AGENT_ID),
+			"an implicit Brightside id need not leak into the persona");
+	}
+
+	@Test
 	void authOptionsPreservePrivateDefaults() {
 		for (String auth : new String[] {"{}", "{tokenExpiry:3600}", "{public:{caps:[]}}"}) {
 			Config venue = new Config(AppConfig.parse("{venue:{auth:" + auth + "}}", home).venueConfig());

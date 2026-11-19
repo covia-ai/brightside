@@ -1713,11 +1713,29 @@ public final class BrightSide {
 		llmOverride = chosen;
 	}
 
-	/** The chat config with the chosen model applied, else config.json's. */
+	/**
+	 * The chat config with the chosen model applied, else config.json's, and
+	 * without an explicit system prompt the default persona under the name the
+	 * app shows for the assistant.
+	 */
 	private AppConfig.Chat effectiveChat() {
 		AppConfig.Chat c = config.chat();
-		if (llmOverride == null || llmOverride.equals(c.llmOperation())) return c;
-		return new AppConfig.Chat(c.agentId(), c.operation(), llmOverride, c.systemPrompt());
+		String llm = (llmOverride != null) ? llmOverride : c.llmOperation();
+		String prompt = config.hasCustomSystemPrompt() ? c.systemPrompt()
+			: AppConfig.defaultSystemPrompt(standardAssistantName(c.agentId()));
+		return new AppConfig.Chat(c.agentId(), c.operation(), llm, prompt);
+	}
+
+	/**
+	 * The owner's standard assistant's name as the app shows it: its record's
+	 * {@code config.name}, else the app's name. Read for the named user even
+	 * while acting as the operator, and before a chat is bound.
+	 */
+	private String standardAssistantName(String agentId) {
+		EmbeddedVenue v = venue;
+		Identity id = identity;
+		ACell record = (v != null && id != null) ? v.agentRecord(id.userDID(v.did()), agentId) : null;
+		return AgentRef.displayName(record, agentId, agentId);
 	}
 
 	/**
