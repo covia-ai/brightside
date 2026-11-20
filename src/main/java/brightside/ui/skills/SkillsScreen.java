@@ -217,7 +217,7 @@ public final class SkillsScreen extends JPanel {
 		d.section("What it is for").tip("Its description: the one line the assistant's index carries, "
 			+ "and all it sees before loading.");
 		d.prose((s.description() != null && !s.description().isBlank()) ? s.description() : "(no description)");
-		d.section("Tools it grants").tip("Tools the assistant can use once the skill is loaded, and not before.");
+		d.section("Tools it grants").tip("Operations the assistant can call once the skill is loaded, and not before.");
 		if (s.tools().isEmpty()) d.note("None: it teaches judgement and has no tools of its own.");
 		else d.lines(true, s.tools());
 		d.section("What it reveals").tip("Skills and directories that enter the index only once this one is loaded.");

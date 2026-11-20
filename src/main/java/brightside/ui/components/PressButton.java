@@ -77,7 +77,10 @@ public class PressButton extends JToggleButton {
 	 */
 	public PressButton listRow() {
 		listRow = true;
-		Styles.style(this, "toolbar.selectedBackground: $Brightside.warmSurface");
+		// Added to any style already set, so a font or margin set earlier is kept.
+		Object was = getClientProperty(com.formdev.flatlaf.FlatClientProperties.STYLE);
+		String row = "toolbar.selectedBackground: $Brightside.warmSurface";
+		Styles.style(this, (was instanceof String w && !w.isBlank()) ? w + "; " + row : row);
 		return this;
 	}
 

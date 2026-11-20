@@ -125,7 +125,7 @@ public final class SchedulePanel extends SettingsPage {
 		addSpan(summary, "gapbottom 16");
 		addSpan(list);
 		primary.setIcon(Lucide.icon("plus", 14, () -> primary.getForeground()));
-		primary.setToolTipText("Schedule a task to run later, once, or repeatedly");
+		primary.setToolTipText("Schedule an operation to run later, once, or repeatedly");
 		onPrimary(() -> newEvent(Draft.EMPTY, null, Fault.NONE));
 
 		// Countdowns move on their own while the page is showing, and an event
@@ -157,7 +157,7 @@ public final class SchedulePanel extends SettingsPage {
 		} else if (this.events.isEmpty()) {
 			list.add(new EmptyState("calendar-clock", Tone.ACCENT, "Nothing is scheduled",
 				"Ask your assistant to remind you of something or to check in regularly, or schedule an "
-					+ "task yourself with New."));
+					+ "operation yourself with New."));
 			clearNote();
 		} else {
 			long now = System.currentTimeMillis();
@@ -408,7 +408,7 @@ public final class SchedulePanel extends SettingsPage {
 					.setToolTipText("The conversation " + event.lastAgent() + " had on the last run");
 			}
 			item(m, "New from this…", "plus", () -> newEvent(Draft.like(event), null, Fault.NONE))
-				.setToolTipText("A new event with this one's task, input, and timing");
+				.setToolTipText("A new event with this one's operation, input, and timing");
 			m.addSeparator();
 			if (event.operation() != null) item(m, "Copy operation", "copy", () -> Clipboard.copy(event.operation(), card));
 			item(m, "Copy handle", null, () -> Clipboard.copy(event.handle(), card));
@@ -503,10 +503,10 @@ public final class SchedulePanel extends SettingsPage {
 	/** Opens the New dialog on {@code draft}, with {@code error} from a previous attempt shown above it. */
 	private void newEvent(Draft draft, String error, Fault fault) {
 		NewForm f = new NewForm(draft, error, fault);
-		if (!Dialogs.form(this, "Schedule a task", f.panel)) return;
+		if (!Dialogs.form(this, "Schedule an operation", f.panel)) return;
 		Draft typed = f.read();
 		if (typed.operation().isEmpty()) {
-			newEvent(typed, "Choose a task to run.", Fault.OPERATION);
+			newEvent(typed, "Choose an operation to run.", Fault.OPERATION);
 			return;
 		}
 		ACell parsed;
@@ -548,11 +548,11 @@ public final class SchedulePanel extends SettingsPage {
 		NewForm(Draft draft, String error, Fault fault) {
 			operation = new JTextField(draft.operation(), 30);
 			operation.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "v/ops/…");
-			operation.setToolTipText("The task to run, by reference: v/ops/agent/trigger, v/ops/http/get, …");
+			operation.setToolTipText("The operation to run, by reference: v/ops/agent/trigger, v/ops/http/get, …");
 			Styles.classes(operation, Styles.MONOSPACED);
 			input.setText(draft.input());
 			Styles.classes(input, Styles.MONOSPACED);
-			input.setToolTipText("What the task is given each time it runs, as a JSON object");
+			input.setToolTipText("What the operation is given each time it runs, as a JSON object");
 			JScrollPane inputScroll = new JScrollPane(input);
 
 			firstAmount = spinner(draft.firstAmount());
@@ -574,7 +574,7 @@ public final class SchedulePanel extends SettingsPage {
 			if (error != null) {
 				panel.add(new SelectableText(error).tone(Styles.ERROR), "span 2, growx, wmin 0, wmax 460, gapbottom 4");
 			}
-			panel.add(Labels.muted("Task"));
+			panel.add(Labels.muted("Operation"));
 			panel.add(operation, "growx");
 			panel.add(Labels.muted("Input"), "aligny top, gaptop 4");
 			panel.add(inputScroll, "growx, h 96!");
@@ -613,7 +613,7 @@ public final class SchedulePanel extends SettingsPage {
 		d.setName("details");
 		d.setOpaque(false);
 		d.setBorder(brightside.ui.components.Borders.hairlineTop());
-		detail(d, "Task", e.operation(), true);
+		detail(d, "Operation", e.operation(), true);
 		detail(d, "Repeats", e.recurring() ? every(e.everyMillis()) + ", on a fixed grid; missed runs are skipped"
 			: "No, it runs once", false);
 		detail(d, "Next run", Times.exact(e.nextAt()), false);
@@ -655,7 +655,7 @@ public final class SchedulePanel extends SettingsPage {
 		if (e.lastFiredAt() <= 0) return outcome("hourglass", Tone.MUTED, "Not run yet", null);
 		if (e.couldNotStart()) {
 			return outcome("circle-alert", Tone.ERROR, "Couldn't start",
-				"It fired but never started, so it left no record; check its task and input");
+				"It fired but never started, so it left no record; check its operation and input");
 		}
 		String s = e.lastStatus();
 		if (s == null) {

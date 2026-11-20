@@ -193,7 +193,7 @@ public final class GeneralPanel extends SettingsPage {
 
 		group("Advanced");
 		JPanel advanced = buttons();
-		dashboard = action(advanced, "Open dashboard", "This computer's web dashboard, in your browser",
+		dashboard = action(advanced, "Open dashboard", APP_NAME + "'s web dashboard, in your browser",
 			host::openDashboard);
 		action(advanced, "Open settings file", APP_NAME + "'s config.json, in its associated editor", host::openConfigFile);
 		action(advanced, "Open logs folder", "The local log files, for diagnostics", host::openLogsFolder);

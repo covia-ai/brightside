@@ -107,7 +107,7 @@ public final class TrayManager {
 		hiddenNoticeShown = true;
 		try {
 			icon.displayMessage(BrightSide.APP_NAME,
-				"Still running in the tray. Click the icon to reopen; use Exit to stop it.",
+				"Still running in the tray. Click the icon to reopen; use Exit to stop " + BrightSide.APP_NAME + " and your agents.",
 				TrayIcon.MessageType.INFO);
 		} catch (Exception e) {
 			// balloons are decoration

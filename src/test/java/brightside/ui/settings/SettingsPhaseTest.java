@@ -75,4 +75,13 @@ class SettingsPhaseTest {
 		if (c instanceof JTextComponent t) out.add(t.getText());
 		if (c instanceof Container k) for (Component ch : k.getComponents()) collect(ch, out);
 	}
+
+	@Test
+	void eachPlanHasItsWayOnward() {
+		TreasuryPanel t = new TreasuryPanel();
+		t.setPlan(TreasuryPanel.Plan.FREE);
+		assertEquals("See plans", t.planAction());
+		t.setPlan(TreasuryPanel.Plan.PAID);
+		assertEquals("Manage plan", t.planAction());
+	}
 }

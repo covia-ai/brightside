@@ -4,8 +4,11 @@ import static brightside.BrightSide.APP_NAME;
 
 import java.awt.BorderLayout;
 
+import javax.swing.JButton;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 
+import brightside.ui.components.Buttons;
 import brightside.ui.components.Labels;
 import brightside.ui.components.SelectableText;
 import brightside.ui.components.StatusBadge;
@@ -70,8 +73,31 @@ public final class TreasuryPanel extends JPanel {
 			planBox.add(SelectableText.description(APP_NAME + " is free with your own model keys, set in Models. "
 				+ "A paid plan includes frontier models through Covia.").small(), "wmin 0, w 10::");
 		}
+		// The way from one plan to the other. Payment is Covia's billing, never a form in the app.
+		JButton act = (plan == Plan.PAID) ? Buttons.secondary("Manage plan") : Buttons.primary("See plans");
+		act.addActionListener(e -> showPlans());
+		planBox.add(act, "growx 0, gaptop 8");
+		planBox.add(SelectableText.description("Plans are handled by Covia's billing, never inside " + APP_NAME
+			+ ". Choosing and managing a plan here is coming.").small().muted(), "wmin 0, w 10::");
 		planBox.revalidate();
 		planBox.repaint();
+	}
+
+	/** What the plan button opens until the plan service exists: an honest word that it is coming. */
+	private void showPlans() {
+		String text = (plan == Plan.PAID)
+			? "Managing your plan is coming. Once the plan service is connected, this opens Covia's billing, where "
+				+ "your plan and payment details are kept."
+			: "Plans are coming. Once the plan service is connected, this shows what each plan includes and opens "
+				+ "Covia's billing to choose one. " + APP_NAME + " never asks for card details.";
+		JOptionPane.showMessageDialog(this, text, plan == Plan.PAID ? "Manage plan" : "Plans",
+			JOptionPane.INFORMATION_MESSAGE);
+	}
+
+	/** The plan button's words, for tests. */
+	String planAction() {
+		for (java.awt.Component c : planBox.getComponents()) if (c instanceof JButton b) return b.getText();
+		return null;
 	}
 
 	public Plan plan() {

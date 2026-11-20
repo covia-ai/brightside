@@ -97,7 +97,7 @@ public final class AccessPanel extends SettingsPage {
 			+ "Its turns show as the token's name, so you can tell them apart. Kept until you revoke it."),
 		LOGIN("Login as you", "A login that appears as you, with everything you can do. "
 			+ "Shown once and kept nowhere; it stops working when it expires."),
-		OPERATOR("Operator login (advanced)", "A login as this computer's own account, for administration only. "
+		OPERATOR("Operator login (advanced)", "A login as the operator, the identity that runs this Home/Venue, for administration only. "
 			+ "Shown once and kept nowhere; it stops working when it expires.");
 
 		final String label;
@@ -133,7 +133,7 @@ public final class AccessPanel extends SettingsPage {
 	private final JTextField name = new JTextField(16);
 	private final JComboBox<Object> preset = new JComboBox<>();
 	private final JLabel presetHint = Labels.allowHtml(Labels.small(" ")); // wraps its escaped hint
-	private final TextArea tools = new TextArea(4, 34).placeholder("One tool per line, such as v/ops/covia/read");
+	private final TextArea tools = new TextArea(4, 34).placeholder("One operation per line, such as v/ops/covia/read");
 	private final TextArea caps = new TextArea(4, 34).placeholder("\"unrestricted\", or a list of {\"with\", \"can\"}");
 	private final JComboBox<Exp> expiry = new JComboBox<>();
 	private final TextArea issued = new TextArea(3, 34).placeholder("The new key or login appears here");

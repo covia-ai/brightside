@@ -113,7 +113,7 @@ public final class AgentInspector {
 			d.pair("Last error", a.error(), Styles.ERROR).tip("What stopped the agent, as the venue reports it.");
 		}
 		d.pair("Id", a.id()).tip("The name the venue knows the agent by. Its record lives under it in the owner's namespace.");
-		d.pair("Agent DID", a.did()).tip("The agent's own identifier, distinct from its owner's: what it acts as.");
+		d.pair("Agent DID", a.did()).tip("The agent's own identifier, distinct from its owner's: what it acts and signs as.");
 		d.pair("Owner", a.ownerName() + "  ·  " + a.ownerDID()).tip("The user the agent belongs to and acts for.");
 		d.pair("Model", orDash(a.model())).tip("The model operation its replies run through.");
 		d.pair("Operation", orDash(a.operation())).tip("The agent operation " + APP_NAME + " invokes to chat with it.");

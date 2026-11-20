@@ -60,13 +60,13 @@ public final class ProfilePanel extends SettingsPage {
 	private static final String MASK = "•".repeat(64);
 	private static final String NONE = "—";
 
-	private static final String SWITCH_HINT = "Who " + APP_NAME + " acts as: you, for everyday use, or the operator, this computer's own account "
+	private static final String SWITCH_HINT = "Who " + APP_NAME + " acts as: you, for everyday use, or the operator, who runs this Home/Venue "
 		+ "(advanced): this computer's own agents (the gods: Odin, Thor, Njord, and Eir) and its Inbox. Everything else is as yourself; "
 		+ APP_NAME + " starts as you on every launch.";
 	private static final String NAME_HINT = "What " + APP_NAME + " and other people call you. Changing it does not change "
 		+ "your identity.";
 	private static final String OPERATOR_NAME_HINT = "What " + APP_NAME + " calls the operator: a label only; the "
-		+ "operator is this computer's own account.";
+		+ "operator is the identity that runs this Home/Venue.";
 	private static final String USER_DID_HINT = "Your Covia user DID: the stable identity peers use for you. Your home "
 		+ "venue controls it; changing your name does not change it.";
 	private static final String OPERATOR_DID_HINT = "The venue's own DID: the identity the operator acts under.";

@@ -16,6 +16,7 @@ import java.util.function.Supplier;
 import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
+import com.formdev.flatlaf.util.UIScale;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
@@ -25,6 +26,7 @@ import javax.swing.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import brightside.peers.ExamplesSource;
 import brightside.peers.MapLayout;
 import brightside.peers.MapSettings;
 import brightside.peers.MapSettingsStore;
@@ -66,6 +68,13 @@ public final class PeersScreen extends JPanel {
 	private final JButton reset = Buttons.icon(Lucide.icon("rotate-ccw", 16, Theme::muted),
 		"Put every planet, moon, home, and orbit back as it started");
 	private final JButton follow = Buttons.icon(null, null);
+	/** The header's buttons and the words they show on a wide window. */
+	private final java.util.Map<JButton, String> labelled = new java.util.LinkedHashMap<>();
+	/** Called with the new choice when the examples are shown or hidden, to remember it. */
+	private java.util.function.Consumer<Boolean> onExamples = b -> {
+	};
+	/** At or above this width the header's buttons carry words as well as icons. */
+	static final int LABELLED_FROM = 1100;
 	private final Actions actions;
 	private final Timer saveLater;
 	private final ExecutorService saver = Executors.newSingleThreadExecutor(r -> {
@@ -143,9 +152,25 @@ public final class PeersScreen extends JPanel {
 		saveLater.setRepeats(false);
 
 		ScreenHeader header = new ScreenHeader("Peers");
-		if (source.sample()) {
-			header.detail(chip("Preview · sample homes",
-				"Connecting to others isn't in this version yet: the other homes are examples of what will appear here"));
+		ExamplesSource examples = ExamplesSource.find(source);
+		JComponent previewChip = chip("Preview · sample homes",
+			"Connecting to others isn't in this version yet: the other homes are examples of what will appear here");
+		if (source.sample() || examples != null) header.detail(previewChip);
+		previewChip.setVisible(source.sample());
+		if (examples != null) {
+			javax.swing.JCheckBox show = new javax.swing.JCheckBox("Show examples", examples.shown());
+			show.setOpaque(false);
+			show.setToolTipText("Show or hide the example homes. Connecting to others is coming");
+			show.addActionListener(e -> {
+				examples.setShown(show.isSelected());
+				onExamples.accept(show.isSelected());
+				SwingUtilities.invokeLater(() -> {
+					previewChip.setVisible(source.sample());
+					map.setData(source.graph(), map.settings().prune(source.graph()), false);
+					show(null);
+				});
+			});
+			header.detail(show);
 		}
 		pause.addActionListener(e -> {
 			map.togglePaused();
@@ -158,13 +183,20 @@ public final class PeersScreen extends JPanel {
 		});
 		// Where the view is, then moving about the map, then the map itself.
 		header.action(view);
-		header.group(button("zoom-out", "Zoom out (or scroll)", () -> map.zoomStep(false)));
-		header.action(button("zoom-in", "Zoom in (or scroll)", () -> map.zoomStep(true)));
-		header.action(button("locate-fixed", "Your system (or double-click the map)", map::home));
-		header.action(button("telescope", "The whole map", map::universe));
-		header.action(follow);
-		header.group(pause);
-		header.action(reset);
+		header.group(label(button("zoom-out", "Zoom out (or scroll)", () -> map.zoomStep(false)), "Zoom out"));
+		header.action(label(button("zoom-in", "Zoom in (or scroll)", () -> map.zoomStep(true)), "Zoom in"));
+		header.action(label(button("locate-fixed", "Your system (or double-click the map)", map::home), "Your system"));
+		header.action(label(button("telescope", "The whole map", map::universe), "Whole map"));
+		header.action(label(follow, "Track"));
+		header.group(label(pause, "Hold"));
+		header.action(label(reset, "Reset"));
+		// Words beside the icons once the window is wide enough for them.
+		addComponentListener(new java.awt.event.ComponentAdapter() {
+			@Override
+			public void componentResized(java.awt.event.ComponentEvent e) {
+				syncLabels();
+			}
+		});
 
 		side.setOpaque(false);
 		side.setPreferredSize(new Dimension(310, 0));
@@ -237,6 +269,7 @@ public final class PeersScreen extends JPanel {
 		boolean p = map.isPaused();
 		pause.setIcon(p ? PLAY : HOLD);
 		pause.setToolTipText(p ? "Set the map turning again" : "Hold the map still");
+		syncLabels();
 	}
 
 	private void syncView() {
@@ -247,6 +280,29 @@ public final class PeersScreen extends JPanel {
 		follow.setIcon(following ? TRACKING : TRACK);
 		follow.setToolTipText(following ? "Stop tracking" : "Track your planet");
 		follow.setEnabled(following || you != null);
+	}
+
+	private JButton label(JButton b, String words) {
+		labelled.put(b, words);
+		return b;
+	}
+
+	/** Whether the header's buttons show their words: on a window at least {@link #LABELLED_FROM} wide. */
+	boolean labelsShown() {
+		return getWidth() >= UIScale.scale(LABELLED_FROM);
+	}
+
+	private void syncLabels() {
+		boolean words = labelsShown();
+		for (var e : labelled.entrySet()) {
+			String text = words ? e.getKey() == pause ? (map.isPaused() ? "Turn" : "Hold") : e.getValue() : null;
+			if (!java.util.Objects.equals(text, e.getKey().getText())) e.getKey().setText(text);
+		}
+	}
+
+	/** Remembers the examples choice wherever the app keeps its preferences. */
+	public void onExamplesChanged(java.util.function.Consumer<Boolean> remember) {
+		this.onExamples = remember;
 	}
 
 	private static JButton button(String icon, String tooltip, Runnable action) {
@@ -284,6 +340,22 @@ public final class PeersScreen extends JPanel {
 		c.add(Labels.small(SolarMap.plural(users.size(), "user") + " · " + SolarMap.plural(agents, "agent") + " · "
 			+ SolarMap.plural((int) venues, "other home")), "gapbottom 10");
 
+		// The gods: the team of agents that belong to this computer's own account.
+		if (home != null) {
+			List<Node> gods = map.childrenOf(home.did() + brightside.peers.HomePeers.OPERATOR_FRAGMENT);
+			if (!gods.isEmpty()) {
+				c.add(heading("The gods"));
+				for (Node g : gods) c.add(bodyRow(g, iconFor(g), godRole(g.label())));
+				c.add(Labels.small(" "), "gapbottom 4");
+			}
+		}
+
+		// What is real and what is an example, said plainly.
+		c.add(new SelectableText(source.sample()
+			? "Finding and following others is coming. Until then the other homes here are examples."
+			: "Only your own home is shown. Finding and following others is coming.")
+			.small().muted(), "wmin 0, gapbottom 10");
+
 		c.add(heading("Rings"));
 		List<MapSettings.Ring> rings = s.rings();
 		for (int i = 0; i < rings.size(); i++) {
@@ -303,6 +375,17 @@ public final class PeersScreen extends JPanel {
 		c.add(new SelectableText("Click a body to see it, or drag it somewhere new; drag a ring's line to resize it. "
 			+ "Scroll to zoom, drag the sky to pan, double-click a body to visit it, or the sky to come home.")
 			.small().muted(), "gaptop 16, wmin 0");
+	}
+
+	/** What each god does, in a few words; other names say nothing. */
+	static String godRole(String name) {
+		return switch (name) {
+			case "Odin" -> "the administrator";
+			case "Thor" -> "the guardian";
+			case "Njord" -> "the treasurer";
+			case "Eir" -> "the healer";
+			default -> null;
+		};
 	}
 
 	/**

@@ -73,7 +73,7 @@ public final class SecretsPanel extends SettingsPage {
 		addSpan(rows);
 		group(null);
 		addField("Name",
-			"Letters, digits, dots, dashes, and underscores: how tools refer to it (s/<name>)", nameField);
+			"Letters, digits, dots, dashes, and underscores: how operations reference it (s/<name>)", nameField);
 		// The action belongs beside the fields it acts on: adding the primary
 		// button here re-parents it out of the bottom action bar, which then
 		// carries only the status note.

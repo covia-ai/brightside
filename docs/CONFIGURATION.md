@@ -113,7 +113,8 @@ bar; or `classic`: the bottom bar as before, *Settings → Theme → Layout* or
 Sidebar*), `ui.density` (`comfortable` or `compact` rows in tables and lists,
 *Settings → Theme → Density* or *View → Density*), and `ui.window.bounds` and
 `ui.window.maximised` (the window's last size and place; without them it
-opens at about 1200 × 800). Every screen is in the command palette (⌘K, Ctrl+K
+opens at about 1200 × 800), and `peers.examples` (`off` hides the example
+homes on the Peers map, *Show examples*; `on`, the default, shows them). Every screen is in the command palette (⌘K, Ctrl+K
 on Windows and Linux) and the menu bar, with its shortcut.
 
 ### `repairStore`

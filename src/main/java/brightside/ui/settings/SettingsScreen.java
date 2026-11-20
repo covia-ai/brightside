@@ -137,12 +137,14 @@ public final class SettingsScreen extends JPanel {
 		column.add(search);
 		column.add(Box.createVerticalStrut(UIScale.scale(8)));
 		for (Tab t : Tab.values()) {
+			// Selected as the Chats list is: the warm surface and the sidebar's 3 px bar.
 			PressButton b = new PressButton(t.label);
 			b.setIcon(new IconTile(t.icon, t.family, 24).asIcon());
 			b.setIconTextGap(10);
 			b.setHorizontalAlignment(SwingConstants.LEFT);
 			b.setMargin(new Insets(4, 8, 4, 16)); // the tile carries its own padding
 			Styles.style(b, "font: +1");
+			b.listRow();
 			b.setAlignmentX(LEFT_ALIGNMENT);
 			// As wide as the column; the column hugs the top, so each is as tall as it prefers.
 			b.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
@@ -253,8 +255,8 @@ public final class SettingsScreen extends JPanel {
 		for (Map.Entry<Tab, PressButton> e : nav.entrySet()) {
 			boolean on = e.getKey() == t;
 			e.getValue().setSelected(on);
-			if (on) Styles.classes(e.getValue(), Styles.ACCENT);
-			else Styles.classes(e.getValue());
+			// Navy text on the warm surface, with the bar, as in the sidebar; no accent fill.
+			Styles.classes(e.getValue());
 		}
 		cards.show(content, t.name());
 	}
