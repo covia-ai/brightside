@@ -208,7 +208,7 @@ public final class SkillsScreen extends JPanel {
 	private static Readout skill(SkillIndex.Skill s) {
 		Readout d = new Readout();
 		d.pair("Name", s.name()).tip("What the assistant loads the skill by.");
-		d.pair("Path", s.path()).tip("Where the skill lives on the venue: what a load refers to.");
+		d.pair("Path", s.path()).tip("Where the skill lives on this computer: what a load refers to.");
 		d.pair("Directory", s.skillset()).tip("The skillset or parent skill it is filed under.");
 		if (s.shadowed()) {
 			d.note("Shadowed: an earlier skillset has a skill of this name, which the index keeps, so the "
@@ -217,7 +217,7 @@ public final class SkillsScreen extends JPanel {
 		d.section("What it is for").tip("Its description: the one line the assistant's index carries, "
 			+ "and all it sees before loading.");
 		d.prose((s.description() != null && !s.description().isBlank()) ? s.description() : "(no description)");
-		d.section("Tools it grants").tip("Operations the assistant can call once the skill is loaded, and not before.");
+		d.section("Tools it grants").tip("Tools the assistant can use once the skill is loaded, and not before.");
 		if (s.tools().isEmpty()) d.note("None: it teaches judgement and has no tools of its own.");
 		else d.lines(true, s.tools());
 		d.section("What it reveals").tip("Skills and directories that enter the index only once this one is loaded.");
@@ -228,7 +228,7 @@ public final class SkillsScreen extends JPanel {
 
 	private static Readout directory(SkillTree.Node n) {
 		Readout d = new Readout();
-		d.pair("Path", n.path()).tip("A directory of skills on the venue.");
+		d.pair("Path", n.path()).tip("A folder of skills on this computer.");
 		int count = n.children().size();
 		d.pair("Skills", (count == 0) ? "none yet" : Integer.toString(count));
 		d.note("A skillset: a directory of skills the assistant can discover. The ones it searches are at the "

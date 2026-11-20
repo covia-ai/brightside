@@ -70,7 +70,7 @@ class AgentsScreenTest {
 		List<String> l = labels(menu);
 		assertEquals(4, l.size());
 		assertTrue(item(menu, "Create here").isEnabled());
-		assertTrue(l.get(1).startsWith("Outside · MCP"));
+		assertTrue(l.get(1).startsWith("Connected · MCP"));
 		assertFalse(((JMenuItem) menu.getComponent(2)).isEnabled());
 		assertTrue(l.get(2).contains("coming"));
 		assertFalse(((JMenuItem) menu.getComponent(3)).isEnabled());

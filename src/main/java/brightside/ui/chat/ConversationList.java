@@ -202,6 +202,7 @@ public final class ConversationList extends JPanel {
 			else fresh = s.lastTs() > seen;
 		}
 		Row row = new Row(s, fresh);
+		row.listRow();
 		row.setSelected(selected);
 		row.onPress(() -> {
 			if (!s.sessionId().equals(selectedId)) listener.onSelectSession(s.sessionId());

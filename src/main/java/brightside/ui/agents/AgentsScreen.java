@@ -52,7 +52,7 @@ public final class AgentsScreen extends JPanel {
 
 	/** What a row is. */
 	public enum Kind {
-		YOURS("Yours"), VENUE("Built in"), OUTSIDE_MCP("Outside · MCP");
+		YOURS("Yours"), VENUE("Built in"), OUTSIDE_MCP("Connected · MCP");
 
 		public final String label;
 
@@ -99,7 +99,7 @@ public final class AgentsScreen extends JPanel {
 	}
 
 	private enum Filter {
-		ALL("All"), YOURS("Yours"), OUTSIDE("Outside");
+		ALL("All"), YOURS("Yours"), OUTSIDE("Connected");
 
 		final String label;
 
@@ -108,7 +108,7 @@ public final class AgentsScreen extends JPanel {
 		}
 	}
 
-	private static final String[] COLUMNS = { "Agent", "Kind", "Lives on", "State", "Grant" };
+	private static final String[] COLUMNS = { "Agent", "Kind", "Lives on", "State", "Access" };
 
 	private final Host host;
 	private final Model model = new Model();
@@ -138,6 +138,7 @@ public final class AgentsScreen extends JPanel {
 		ButtonGroup group = new ButtonGroup();
 		for (Filter f : Filter.values()) {
 			JToggleButton t = new JToggleButton(f.label, f == filter);
+			if (f == Filter.OUTSIDE) t.setIcon(Lucide.icon("cable", 14, Theme::blue));
 			t.putClientProperty("JButton.buttonType", "tab");
 			t.addActionListener(e -> {
 				filter = f;
@@ -254,7 +255,7 @@ public final class AgentsScreen extends JPanel {
 		}
 		tableArea.revalidate();
 		empty.setText(out.isEmpty() ? (filter == Filter.OUTSIDE
-			? "No outside agents yet. Add an agent, then Outside · MCP, to give one a named token."
+			? "No connected agents yet. Add an agent, then Connected · MCP, to give one a named token."
 			: "No agents yet.") : " ");
 	}
 
@@ -274,11 +275,12 @@ public final class AgentsScreen extends JPanel {
 		here.setToolTipText("A new agent on this computer, with its own instructions and model");
 		here.addActionListener(e -> host.createHere());
 		menu.add(here);
-		JMenuItem mcp = new JMenuItem("Outside · MCP: give it a named token");
+		JMenuItem mcp = new JMenuItem("Connected · MCP: give it a named token");
+		mcp.setIcon(Lucide.icon("cable", 14, Theme::blue));
 		mcp.setToolTipText("For an agent you already use: a token with only the access you choose (Settings → Access)");
 		mcp.addActionListener(e -> host.connectOutside());
 		menu.add(mcp);
-		JMenuItem a2a = new JMenuItem("Outside · A2A (coming)");
+		JMenuItem a2a = new JMenuItem("Connected · A2A (coming)");
 		a2a.setEnabled(false);
 		menu.add(a2a);
 		JMenuItem peer = new JMenuItem("A peer's agent (coming)");

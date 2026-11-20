@@ -114,6 +114,13 @@ public final class RequestForm extends JPanel {
 			if (request.asks().size() == 1 && inputs.values().iterator().next() instanceof ApprovalInput a) {
 				single = a;
 				answerButton.setText("Approve");
+				// One question, one answer: the verb buttons choose, and the comment below is the
+				// only one; the radio choices and the question's own comment field stand down.
+				single.yes.setVisible(false);
+				single.no.setVisible(false);
+				if (single.comment != null) single.comment.setVisible(false);
+				answerButton.setToolTipText("Answer yes and send");
+				declineButton.setToolTipText("Answer no and send: the agent is told you declined");
 				declineButton.addActionListener(e -> {
 					single.no.setSelected(true);
 					send();
@@ -137,7 +144,14 @@ public final class RequestForm extends JPanel {
 				buttons.add(Box.createHorizontalStrut(8));
 			}
 			buttons.add(rejectButton);
+			rejectButton.setToolTipText("Turn the request down without answering it, with a reason if you like");
 			add(buttons);
+			if (single != null) {
+				JLabel hint = Labels.small("Decline answers no. Reject turns the request down without answering it.");
+				Styles.classes(hint, Styles.SMALL, Styles.MUTED);
+				add(gap(4));
+				add(hint);
+			}
 			Styles.classes(selfNote, Styles.SMALL, Styles.MUTED);
 			selfNote.setVisible(false);
 			add(selfNote);
@@ -171,6 +185,11 @@ public final class RequestForm extends JPanel {
 		selfNote.setVisible(self);
 		answerButton.setEnabled(!self);
 		if (single != null) answerButton.setToolTipText(self ? selfNote.getText() : null);
+	}
+
+	/** The request's one approval, when it is a single yes or no; else null. */
+	ApprovalInput single() {
+		return single;
 	}
 
 	public boolean selfRequest() {

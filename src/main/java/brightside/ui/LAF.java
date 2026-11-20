@@ -89,8 +89,8 @@ public final class LAF {
 	/** The package FlatLaf searches for Brightside's {@code *.properties} UI defaults. */
 	private static final String DEFAULTS_PACKAGE = "brightside.ui";
 
-	/** Body text, 14 pt: the type scale's body size (caption 12, small 13, lead 16, section 18, title 24, display 32). */
-	private static final int BASE_FONT_SIZE = 14;
+	/** Body text, 13 pt: the type scale's body size (caption and small 12, lead 15, section 17, title 24, display 32). */
+	private static final int BASE_FONT_SIZE = 13;
 
 	/** The UI font: Inter (SIL Open Font License), bundled so it's identical on every platform. */
 	private static final String FONT_FAMILY = "Inter";

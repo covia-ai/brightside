@@ -99,7 +99,8 @@ public final class StatusSlot extends JPanel {
 
 	private void update() {
 		String t = text();
-		label.setText(collapsed ? null : t);
+		// The word on the card; the count rides in the tooltip and the accessible name.
+		label.setText(collapsed ? null : state.word);
 		label.setVisible(!collapsed);
 		setToolTipText(APP_NAME + ": " + t);
 		getAccessibleContext().setAccessibleName(APP_NAME + " is " + t.toLowerCase());

@@ -69,6 +69,8 @@ public final class AgentList extends JPanel {
 	private String defaultId;
 	/** Each agent's colour by id, as the Peers map draws its moon; muted until told. */
 	private Function<String, Color> colours = id -> Theme.muted();
+	/** Each agent's identity (its Agent ID), by id, for its mark; null until told. */
+	private Function<String, String> identities = id -> null;
 
 	public AgentList(Listener listener) {
 		super(new BorderLayout());
@@ -107,9 +109,16 @@ public final class AgentList extends JPanel {
 		remove(bottom);
 		top.remove(add);
 		if (stacked) {
+			// Beside the heading it is a quiet icon: + Chat is the column's main action,
+			// and Add an agent also lives on the Agents page.
+			add.setText(null);
+			add.putClientProperty("JButton.buttonType", "toolBarButton");
+			add.getAccessibleContext().setAccessibleName("New agent");
 			top.add(add, BorderLayout.EAST);
 			setBorder(Borders.hairline(false, false, true, false));
 		} else {
+			add.setText("Agent");
+			add.putClientProperty("JButton.buttonType", null);
 			bottom.add(add, BorderLayout.CENTER);
 			add(bottom, BorderLayout.SOUTH);
 			setBorder(Borders.hairlineRight());
@@ -124,6 +133,12 @@ public final class AgentList extends JPanel {
 		int row = rows.getComponentCount() > 0 ? rows.getComponent(0).getPreferredSize().height : 36;
 		int shown = Math.max(1, Math.min(STACKED_ROWS, rows.getComponentCount()));
 		return new Dimension(0, top.getPreferredSize().height + shown * row + 8);
+	}
+
+	/** Each agent's identity by id, so its row shows the same identity mark as the roster. */
+	public void setIdentities(Function<String, String> identities) {
+		this.identities = identities;
+		rows.repaint();
 	}
 
 	/** How to colour each agent's mini moon, by id, so it matches the Peers map. */
@@ -144,8 +159,11 @@ public final class AgentList extends JPanel {
 
 	/** One agent: a {@link PressButton} row, selected when it is the one open. */
 	private Component agentRow(AgentRef agent) {
-		PressButton row = new PressButton(agent.name());
-		row.setIcon(Colours.moon(() -> colours.apply(agent.id()), 14));
+		PressButton row = new PressButton(agent.name()).listRow();
+		// The agent's identity mark, the same as the roster's: one identity visual everywhere.
+		String identity = identities.apply(agent.id());
+		row.setIcon((identity != null) ? brightside.ui.components.IdentityMark.icon(identity, 16)
+			: Colours.moon(() -> colours.apply(agent.id()), 14));
 		row.setIconTextGap(8);
 		row.setHorizontalAlignment(SwingConstants.LEFT);
 		row.setMargin(new Insets(9, 12, 9, 12));

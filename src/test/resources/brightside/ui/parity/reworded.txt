@@ -60,3 +60,50 @@ Show in Sessions	Show in Chats
 Sessions	Chats
 The agent's own identifier, distinct from its owner's: what it acts and signs as.	The agent's own identifier, distinct from its owner's: what it acts as.
 The active conversation has not been accepted by the venue	This message wasn't delivered: the conversation hasn't started on this computer yet. Nothing was sent; send it again in a moment.
+# Moved (not removed): for a request that is one approval, the Approve and Decline radio choices and the question's own comment field are answered by the Approve and Decline buttons and the request's comment.
+Still running in the tray. Click the icon to reopen; use Exit to stop the venue.	Still running in the tray. Click the icon to reopen; use Exit to stop it.
+stored encrypted on the venue and used from the next message	stored encrypted on this computer and used from the next message
+Letters, digits, dots, dashes, and underscores: how operations reference it (s/<name>)	Letters, digits, dots, dashes, and underscores: how tools refer to it (s/<name>)
+ acts as: you, for everyday use, or the venue operator 	 acts as: you, for everyday use, or the operator, this computer's own account 
+"(advanced): the venue's own agents (the gods: Odin, Thor, Njord, and Eir) and the venue's Inbox.	"(advanced): this computer's own agents (the gods: Odin, Thor, Njord, and Eir) and its Inbox.
+ calls the venue operator: a label only; the 	 calls the operator: a label only; the 
+operator is the venue itself.	operator is this computer's own account.
+ (venue operator)	 (operator)
+The embedded venue's web dashboard, in your browser	This computer's web dashboard, in your browser
+Venue operator login (advanced)	Operator login (advanced)
+"A login as the venue itself, for administration only.	"A login as this computer's own account, for administration only.
+One operation per line, such as v/ops/covia/read	One tool per line, such as v/ops/covia/read
+Couldn't make a login: the venue isn't ready.	Couldn't make a login: 
+as the venue operator	as the operator
+Schedule an operation to run later, once, or repeatedly	Schedule a task to run later, once, or repeatedly
+operation yourself with New.	task yourself with New.
+A new event with this one's operation, input, and timing	A new event with this one's task, input, and timing
+Schedule an operation	Schedule a task
+Choose an operation to run.	Choose a task to run.
+The operation to run, by reference: v/ops/agent/trigger, v/ops/http/get, …	The task to run, by reference: v/ops/agent/trigger, v/ops/http/get, …
+What the operation is given each time it runs, as a JSON object	What the task is given each time it runs, as a JSON object
+check its operation and input	check its task and input
+Unknown venue	Unknown home
+A venue you don't know	A home you don't know
+Put every planet, moon, venue, and orbit back as it started	Put every planet, moon, home, and orbit back as it started
+Preview · sample venues	Preview · sample homes
+Federation isn't connected yet: other venues are examples of what will appear here	Connecting to others isn't in this version yet: the other homes are examples of what will appear here
+The whole universe of venues	The whole map
+other venue	other home
+Stars are venues; Home is yours	Stars are homes for people and agents; Home is yours
+Planets are a venue's users	Planets are the people there
+Rings mark a venue's admin	Rings mark who runs it
+Where the skill lives on the venue: what a load refers to.	Where the skill lives on this computer: what a load refers to.
+Operations the assistant can call once the skill is loaded, and not before.	Tools the assistant can use once the skill is loaded, and not before.
+A directory of skills on the venue.	A folder of skills on this computer.
+Job id	ID
+(advanced): the venue's own agents (the gods: Odin, Thor, Njord, and Eir) and the venue's Inbox. Everything else is as yourself; 	(advanced): this computer's own agents (the gods: Odin, Thor, Njord, and Eir) and its Inbox. Everything else is as yourself; 
+A login as the venue itself, for administration only. 	A login as this computer's own account, for administration only. 
+It fired but never started, so it left no record; check its operation and input	It fired but never started, so it left no record; check its task and input
+The provider's API key, stored encrypted on the venue and used from the next message	The provider's API key, stored encrypted on this computer and used from the next message
+Operation	Task
+Venue	Another home
+Caps	Permissions
+Any tools, within caps you write; it starts from the preset you last chose.	Any tools, within the permissions you write; it starts from the preset you last chose.
+The caps aren't valid JSON: 	The permissions aren't valid JSON: 
+A custom token needs caps: \"unrestricted\" or a list.	A custom token needs its permissions: \"unrestricted\" or a list.

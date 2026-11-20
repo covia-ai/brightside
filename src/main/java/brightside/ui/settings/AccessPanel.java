@@ -97,7 +97,7 @@ public final class AccessPanel extends SettingsPage {
 			+ "Its turns show as the token's name, so you can tell them apart. Kept until you revoke it."),
 		LOGIN("Login as you", "A login that appears as you, with everything you can do. "
 			+ "Shown once and kept nowhere; it stops working when it expires."),
-		OPERATOR("Venue operator login (advanced)", "A login as the venue itself, for administration only. "
+		OPERATOR("Operator login (advanced)", "A login as this computer's own account, for administration only. "
 			+ "Shown once and kept nowhere; it stops working when it expires.");
 
 		final String label;
@@ -133,7 +133,7 @@ public final class AccessPanel extends SettingsPage {
 	private final JTextField name = new JTextField(16);
 	private final JComboBox<Object> preset = new JComboBox<>();
 	private final JLabel presetHint = Labels.allowHtml(Labels.small(" ")); // wraps its escaped hint
-	private final TextArea tools = new TextArea(4, 34).placeholder("One operation per line, such as v/ops/covia/read");
+	private final TextArea tools = new TextArea(4, 34).placeholder("One tool per line, such as v/ops/covia/read");
 	private final TextArea caps = new TextArea(4, 34).placeholder("\"unrestricted\", or a list of {\"with\", \"can\"}");
 	private final JComboBox<Exp> expiry = new JComboBox<>();
 	private final TextArea issued = new TextArea(3, 34).placeholder("The new key or login appears here");
@@ -173,7 +173,7 @@ public final class AccessPanel extends SettingsPage {
 		JScrollPane capsScroll = new JScrollPane(caps);
 		customRows = rows(() -> {
 			addFieldTop("Tools", toolsScroll);
-			addFieldTop("Caps", capsScroll);
+			addFieldTop("Permissions", capsScroll);
 		});
 		Styles.classes(tools, Styles.MONOSPACED);
 		Styles.classes(caps, Styles.MONOSPACED);
@@ -266,7 +266,7 @@ public final class AccessPanel extends SettingsPage {
 			tools.setText(String.join("\n", scope.tools().stream().map(String::valueOf).toList()));
 			caps.setText(JSON.toStringPretty(scope.caps()));
 		} else {
-			presetHint.setText("Any tools, within caps you write; it starts from the preset you last chose.");
+			presetHint.setText("Any tools, within the permissions you write; it starts from the preset you last chose.");
 		}
 		customRows.setVisible(token && custom);
 		revalidate();
@@ -382,10 +382,10 @@ public final class AccessPanel extends SettingsPage {
 			String jwt = host.mintLogin(sel.seconds(), k == Kind.OPERATOR);
 			if (jwt == null) {
 				clearIssued();
-				setNote("Couldn't make a login: the venue isn't ready.", true);
+				setNote("Couldn't make a login: " + brightside.BrightSide.APP_NAME + " is still starting. Nothing was made; try again in a moment.", true);
 				return;
 			}
-			showIssued(jwt, "A login " + (k == Kind.OPERATOR ? "as the venue operator" : "as you")
+			showIssued(jwt, "A login " + (k == Kind.OPERATOR ? "as the operator" : "as you")
 				+ ", valid for " + sel.label() + ". Treat it like a password: it isn't kept.");
 			return;
 		}
@@ -422,9 +422,9 @@ public final class AccessPanel extends SettingsPage {
 		try {
 			parsed = JSON.parse(caps.getText().trim());
 		} catch (RuntimeException e) {
-			throw new IllegalArgumentException("The caps aren't valid JSON: " + e.getMessage(), e);
+			throw new IllegalArgumentException("The permissions aren't valid JSON: " + e.getMessage(), e);
 		}
-		if (parsed == null) throw new IllegalArgumentException("A custom token needs caps: \"unrestricted\" or a list.");
+		if (parsed == null) throw new IllegalArgumentException("A custom token needs its permissions: \"unrestricted\" or a list.");
 		return new Tokens.Scope(ops, parsed);
 	}
 

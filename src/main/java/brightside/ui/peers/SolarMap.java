@@ -437,7 +437,7 @@ final class SolarMap extends JComponent {
 	static String labelOf(Node n) {
 		if (n.is(Node.VENUE) && Node.SELF.equals(n.relation())) return "Home";
 		if (n.name() != null && !n.name().isBlank()) return n.name();
-		return n.is(Node.VENUE) ? "Unknown venue" : "Unknown";
+		return n.is(Node.VENUE) ? "Unknown home" : "Unknown";
 	}
 
 	// ------------------------------------------------------------------
@@ -677,7 +677,7 @@ final class SolarMap extends JComponent {
 		}
 		Node n = p.node();
 		if (n == null) return null;
-		if (n.name() == null && n.is(Node.VENUE)) return "A venue you don't know";
+		if (n.name() == null && n.is(Node.VENUE)) return "A home you don't know";
 		int kids = childCount(n.did());
 		return labelOf(n) + " · " + statusLabel(n) + (kids == 0 ? "" : " · " + plural(kids, MapLayout.childNoun(n)));
 	}

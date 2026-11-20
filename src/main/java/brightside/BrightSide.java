@@ -518,7 +518,7 @@ public final class BrightSide {
 			StoreSpace space = StoreSpace.of(storeConfig);
 			storeSpace = space;
 			boolean compacting = space != null && space.takeRequest();
-			progress(compacting ? "Compacting the data store…" : "Starting the venue…");
+			progress(compacting ? "Compacting the data store…" : "Starting " + APP_NAME + "…");
 			EmbeddedVenue v;
 			StoreRepair.Outcome repaired = null;
 			StoreSpace.Compacted compacted = null;
@@ -535,7 +535,7 @@ public final class BrightSide {
 				if (StoreRepair.isInterruptedCollection(e)) {
 					log.error("The store was left part-way through a collection", e);
 					startupFailed(APP_NAME + " was stopped part-way through compacting its data store, and can't open"
-						+ " it until that is put right by hand. Nothing has been lost: keep every venue.etch file in "
+						+ " it until that is put right by hand. Your data is still in the store: keep every venue.etch file in "
 						+ space.store().getParent() + " as it is; putting it right needs Convex's etch tools.");
 					return;
 				}
@@ -560,7 +560,7 @@ public final class BrightSide {
 				}
 				log.warn("Store repaired — {}", repaired.summary());
 				for (String problem : repaired.problems()) log.warn("Store repair noted: {}", problem);
-				progress(compacting ? "Compacting the data store…" : "Starting the venue…");
+				progress(compacting ? "Compacting the data store…" : "Starting " + APP_NAME + "…");
 				if (compacting) compacted = space.compact(storeConfig);
 				v = launchOn(venueConfig, compacted);
 			}
@@ -818,7 +818,7 @@ public final class BrightSide {
 				String seedHex = v.seedHex(); // throws on a wrong passphrase (GCM tag)
 				String runningSeed = this.venueSeedHex;
 				if (runningSeed != null && !runningSeed.equals(seedHex)) {
-					throw new IOException("The unlocked identity does not match the running venue");
+					throw new IOException("The unlocked identity does not match the " + APP_NAME + " that is running");
 				}
 				// Only now that the passphrase is proven correct: honour Remember me.
 				if (remember) {
@@ -947,7 +947,7 @@ public final class BrightSide {
 				Vault v = Vault.open(home, passphrase); // new passphrase, existing salt
 				String runningSeed = venueSeedHex;
 				if (runningSeed != null && !runningSeed.equals(seedHex)) {
-					throw new IOException("That recovery phrase does not match the running venue");
+					throw new IOException("That recovery phrase does not match the " + APP_NAME + " that is running");
 				}
 				if (runningSeed == null) {
 					v.verifyStoreAccess(config.venueConfig(), seedHex);
@@ -1897,8 +1897,8 @@ public final class BrightSide {
 		persistIdentity(id);
 		SwingUtilities.invokeLater(() -> {
 			window.refreshSettings();
-			window.showSystemMessage("The venue operator is now shown as " + id.operatorName() + ".");
-			if (tray != null) tray.setTooltip(APP_NAME + " — " + id.name() + " (" + id.operatorName() + ")");
+			window.showSystemMessage("The operator is now shown as " + id.operatorName() + ".");
+			if (tray != null) tray.setTooltip(APP_NAME + ": " + id.name() + " (" + id.operatorName() + ")");
 		});
 	}
 
@@ -2153,7 +2153,7 @@ public final class BrightSide {
 				case PRINCIPAL_SWITCH -> {
 					window.showAgentChat(session, turns, displayNameFor(aid));
 					window.showSystemMessage(actingAsOperator
-						? "You're acting as " + id.operatorName() + ", the venue operator, now: the venue's own agents are listed, and " + displayNameFor(aid) + " is on the line."
+						? "You're acting as " + id.operatorName() + ", the operator, now: this computer's own agents are listed, and " + displayNameFor(aid) + " is on the line."
 						: "Back to acting as " + id.name() + ".");
 					// The switch is made from Settings → Identity, which is still on
 					// screen: show the identity the app now acts as.

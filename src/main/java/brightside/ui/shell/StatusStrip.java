@@ -108,7 +108,7 @@ public final class StatusStrip extends JPanel {
 		this.operator = operator;
 		String who = (name == null) ? "Not signed in" : name;
 		acting.setText(operator ? "Acting as " + who + " (operator)" : "Acting as " + who);
-		acting.setIcon(Lucide.icon(operator ? "shield-check" : "user-round", 14, () -> this.operator ? Theme.yours() : Theme.foreground()));
+		acting.setIcon(Lucide.icon(operator ? "building-2" : "user-round", 14, () -> this.operator ? Theme.yours() : Theme.foreground()));
 		acting.setToolTipText("Who " + brightside.BrightSide.APP_NAME + " acts as: click to switch user, copy your identity, or lock");
 		acting.getAccessibleContext().setAccessibleName(acting.getText());
 	}

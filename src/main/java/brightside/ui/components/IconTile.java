@@ -49,24 +49,28 @@ public final class IconTile extends JLabel {
 	public enum Concept {
 		HOME("house", Family.PRIMARY),
 		AGENT("user-round", Family.PRIMARY),
-		AGENTS("users-round", Family.PRIMARY),
-		FILES("folder-open", Family.PRIMARY),
+		// Agents never get a face, so Agents is a network.
+		AGENTS("network", Family.PRIMARY),
+		FILES("hard-drive", Family.PRIMARY),
 		CHATS("message-square-text", Family.CERULEAN),
 		INBOX("inbox", Family.CERULEAN),
 		CONSTELLATION("orbit", Family.CERULEAN),
 		INTEGRATIONS("plug", Family.CERULEAN),
+		CONNECTED("cable", Family.CERULEAN),
 		VENUE("building-2", Family.CERULEAN),
 		FEED("rss", Family.CERULEAN),
 		SKILLS("book-open-check", Family.VIOLET),
 		MODEL("cpu", Family.VIOLET),
-		JOBS("list-checks", Family.NAVY),
-		RECORD("scroll-text", Family.NAVY),
+		CAPABILITY("badge-check", Family.VIOLET),
+		JOBS("scroll-text", Family.NAVY),
+		RECORD("file-check", Family.NAVY),
 		SCHEDULE("calendar-clock", Family.NAVY),
 		SECRETS("key-round", Family.AMBER),
 		VAULT("lock", Family.AMBER),
 		ACCESS("ticket", Family.AMBER),
 		TREASURY("credit-card", Family.AMBER),
 		IDENTITY("fingerprint", Family.NEUTRAL),
+		VERIFIED("user-check", Family.NEUTRAL),
 		SETTINGS("settings", Family.NEUTRAL);
 
 		public final String icon;

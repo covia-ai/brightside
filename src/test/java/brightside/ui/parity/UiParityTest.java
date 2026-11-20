@@ -50,8 +50,14 @@ class UiParityTest {
 		List<String> missing = new ArrayList<>();
 		for (String s : baseline) {
 			if (now.contains(s)) continue;
+			// Follow a chain of rewordings (a string reworded twice, phase by phase) to its latest form.
 			String instead = reworded.get(s);
+			for (int hop = 0; instead != null && !now.contains(instead) && reworded.containsKey(instead) && hop < 10; hop++) {
+				instead = reworded.get(instead);
+			}
 			if (instead != null && now.contains(instead)) continue;
+			// Reworded to something too short to count as text on its own (" (operator)"): present in the source.
+			if (instead != null && !userFacing(instead) && sourceContains(instead)) continue;
 			missing.add(s + (instead != null ? "  (reworded to \"" + instead + "\", also missing)" : ""));
 		}
 		assertTrue(missing.isEmpty(), "UI strings no longer in the UI: " + String.join("\n  ", missing));
@@ -62,6 +68,15 @@ class UiParityTest {
 		for (Map.Entry<String, String> e : reworded().entrySet()) {
 			assertFalse(e.getKey().equals(e.getValue()), "reworded to itself: " + e.getKey());
 		}
+	}
+
+	private static boolean sourceContains(String literal) throws IOException {
+		try (Stream<Path> files = Files.walk(UI)) {
+			for (Path f : files.filter(p -> p.toString().endsWith(".java")).toList()) {
+				if (Files.readString(f).contains("\"" + literal + "\"")) return true;
+			}
+		}
+		return false;
 	}
 
 	/** The user-facing string literals in the UI's sources: text with a letter and a space, or a capitalised word. */

@@ -1,0 +1,30 @@
+# User-facing strings that may use a technical word, because a developer asked
+# for it there: copy actions, the Developer menu, and Settings ->
+# Identity -> Advanced, the identity's raw view. The inspect views
+# (brightside/ui/inspect) are exempt as a whole. Everything else must say it
+# in plain words; add a line here only for a developer-only string.
+#
+# Settings -> Identity -> Advanced: labels and the tooltips on each ID.
+Your Covia user DID: the stable identity peers use for you. Your home 
+venue controls it; changing your name does not change it.
+The venue's own DID: the identity the operator acts under.
+Your home venue's DID: the venue that controls your identity.
+The Ed25519 public key your home venue signs with.
+The primary seed is the master secret for your venue identity: anyone 
+Operator DID
+Covia DID
+the Covia DID
+Home venue DID
+the home venue DID
+Venue signing key
+the venue signing key
+# Copy actions on IDs and technical values.
+Copy operation
+Copy last job id
+Copy job id
+Copy Agent ID (DID)
+Copy DID
+# The Developer menu.
+Copy my DID
+# The palette also finds the Developer menu's copy action by this name.
+DID

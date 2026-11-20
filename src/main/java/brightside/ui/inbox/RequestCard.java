@@ -45,6 +45,8 @@ final class RequestCard extends Card {
 		setBorder(BorderFactory.createEmptyBorder(1, 4, 1, 1));
 
 		JLabel title = Labels.text(request.title());
+		// Two points of slack, so a width rounded down never cuts the title's last letter.
+		title.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 2));
 		Styles.style(title, request.open() ? "font: bold -1" : "font: -1");
 		JPanel text = Panels.column();
 		text.add(title);

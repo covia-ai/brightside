@@ -74,6 +74,7 @@ class DecisionCardsTest {
 		RequestForm form = screen.cardsShown().get(0).form();
 		assertEquals("Approve", form.answerButton.getText());
 		assertEquals("Decline", form.declineButton.getText());
+		assertTrue(!form.single().yes.isVisible() && !form.single().no.isVisible(), "the verb buttons answer it");
 		form.declineButton.doClick();
 		assertEquals(List.of("r1 {ok=false}"), answered);
 	}
@@ -95,10 +96,10 @@ class DecisionCardsTest {
 	}
 
 	@Test
-	void theSummarySaysHowManyAndTheSoonestExpiry() {
-		assertEquals("2 waiting · next expires in 28 min", InboxScreen.summary(
+	void theSummarySaysTheSoonestExpiry() {
+		assertEquals("Next expires in 28 min", InboxScreen.summary(
 			List.of(approval("a", "x", NOW + 28 * 60_000L - 1000), approval("b", "x", NOW + 90 * 60_000L)), NOW));
-		assertEquals("1 waiting", InboxScreen.summary(List.of(approval("a", "x", 0)), NOW));
+		assertEquals(null, InboxScreen.summary(List.of(approval("a", "x", 0)), NOW));
 	}
 
 	private static int filledPrimaries(Component c) {

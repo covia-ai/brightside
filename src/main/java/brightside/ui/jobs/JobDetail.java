@@ -122,7 +122,7 @@ final class JobDetail extends JPanel implements AutoCloseable {
 		if (job.canCancel()) standing.add(action("Cancel…", "circle-x", () -> actions.control(job, JobsScreen.Control.CANCEL)));
 		add(standing, "span, gapbottom 8");
 
-		field("Operation", job.name() + (job.operation() != null && !job.operation().equals(job.name())
+		field("Task", job.name() + (job.operation() != null && !job.operation().equals(job.name())
 			? "  (" + job.operation() + ")" : ""), false);
 		if (job.purpose() != null && !job.purpose().equals(job.title())) field("For", job.purpose(), false);
 		field("Started", job.created() > 0 ? Times.exact(job.created()) : null, false);
@@ -142,7 +142,7 @@ final class JobDetail extends JPanel implements AutoCloseable {
 			add(Buttons.link("Job " + job.parent(), () -> actions.openJob(job.parent())), "growx 0");
 		}
 		if (job.tokens() > 0) field("Tokens", String.format("%,d", job.tokens()), false);
-		field("Job id", job.id(), true);
+		field("ID", job.id(), true);
 		json("Input", job.record().get(Fields.INPUT), false);
 		json("Output", job.record().get(Fields.OUTPUT), false);
 		if (job.error() != null) {

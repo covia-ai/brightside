@@ -122,6 +122,10 @@ public final class MainWindow extends JFrame {
 	private final JPanel jobsHolder = new JPanel(new BorderLayout());
 	private brightside.ui.vault.VaultScreen vaultScreen;
 	private brightside.ui.record.RecordScreen recordScreen;
+	/** The Inbox panel, docked beside Home and Jobs from 1440 while requests wait. */
+	private brightside.ui.inbox.InboxPanel inboxPanel;
+	private JPanel railContent;
+	private int waitingCount;
 	private brightside.ui.agents.AgentsScreen agentsScreen;
 	/** The agents as last reported, for the Agents roster. */
 	private List<brightside.model.AgentRef> lastAgents = List.of();
@@ -260,6 +264,7 @@ public final class MainWindow extends JFrame {
 			boolean main = !app.actingAsOperator() && aid.equals(app.mainAgentId());
 			return brightside.ui.peers.Colours.agent(owner, aid, main);
 		});
+		agentList.setIdentities(aid -> app.actingPrincipal() != null ? app.actingPrincipal() + "/g/" + aid : null);
 		sessionsPane = new JPanel(new BorderLayout());
 		sessionsPane.add(agentList, BorderLayout.WEST);
 		sessionsPane.add(conversations, BorderLayout.CENTER);
@@ -752,6 +757,10 @@ public final class MainWindow extends JFrame {
 		});
 		mainDeck.add(recordScreen, MAIN_RECORD);
 		chatCard = new JPanel(new BorderLayout());
+		inboxPanel = new brightside.ui.inbox.InboxPanel(r -> {
+			go(Destination.INBOX);
+			inboxScreen.focus(r);
+		});
 		installShell();
 
 		deck.add(onboarding, CARD_ONBOARD);
@@ -990,7 +999,9 @@ public final class MainWindow extends JFrame {
 			split.setDividerLocation(sidebarWidth);
 		} else {
 			int loc = split.getDividerLocation();
-			if (loc > 20) sidebarWidth = loc; // remember the width for next time
+			// Remember a width the person chose; in the sidebar layout the list keeps its own width,
+			// so a squeeze while the window was narrow is never remembered as a choice.
+			if (loc > 20 && (!railShell || loc >= ShellLayout.LIST)) sidebarWidth = loc;
 			sessionsPane.setVisible(false);
 			split.setDividerSize(0);
 			split.setDividerLocation(0);
@@ -1104,6 +1115,7 @@ public final class MainWindow extends JFrame {
 		inboxScreen.setRequests(requests);
 		int waiting = brightside.Inbox.pending(requests);
 		navBar.setBadge(NavBar.Tab.INBOX, waiting);
+		inboxPanel.setRequests(requests);
 		setWaiting(waiting);
 	}
 
@@ -1266,6 +1278,7 @@ public final class MainWindow extends JFrame {
 			JPanel content = new JPanel(new BorderLayout());
 			content.add(strip, BorderLayout.NORTH);
 			content.add(mainDeck, BorderLayout.CENTER);
+			railContent = content;
 			chatCard.add(rail, BorderLayout.WEST);
 			chatCard.add(content, BorderLayout.CENTER);
 		} else {
@@ -1295,9 +1308,12 @@ public final class MainWindow extends JFrame {
 		// The Chats list lives beside the chat on Home and on Agents in the sidebar shell.
 		boolean agents = activeTab == NavBar.Tab.SESSIONS || (railShell && activeTab == NavBar.Tab.HOME);
 		// The layout's widths are window points, as the window's own size is.
-		// The inspector (the chat's Overview, Context and Agent) docks beside the chat from 1440.
+		// The side panel, from 1440: the inspector (the chat's Overview, Context and Agent) when
+		// inspecting, else the Inbox panel beside Home or Jobs while requests wait. One at a time.
 		boolean inspecting = activeTab == NavBar.Tab.SESSIONS;
-		ShellLayout.Plan plan = ShellLayout.plan(width, sidebarWidth, agents && chatsListOpen, inspecting,
+		boolean inboxBeside = !inspecting && waitingCount > 0
+			&& (destination == Destination.HOME || destination == Destination.JOBS);
+		ShellLayout.Plan plan = ShellLayout.plan(width, sidebarWidth, agents && chatsListOpen, inspecting || inboxBeside,
 			railCollapsedByChoice);
 		if (!railShell) {
 			views.setInspectorDocked(false); // the classic layout behaves exactly as before
@@ -1305,6 +1321,13 @@ public final class MainWindow extends JFrame {
 		}
 		rail.setCollapsed(plan.railCollapsed());
 		views.setInspectorDocked(inspecting && plan.side() == ShellLayout.Mode.DOCKED);
+		boolean dockInbox = inboxBeside && plan.side() == ShellLayout.Mode.DOCKED;
+		if (railContent != null && dockInbox != (inboxPanel.getParent() == railContent)) {
+			if (dockInbox) railContent.add(inboxPanel, BorderLayout.EAST);
+			else railContent.remove(inboxPanel);
+			railContent.revalidate();
+			railContent.repaint();
+		}
 		if (agents) {
 			boolean show = chatsListOpen && (plan.list() == ShellLayout.Mode.DOCKED || listForced);
 			if (show != sessionsPane.isVisible()) setSidebar(show);
@@ -1340,7 +1363,9 @@ public final class MainWindow extends JFrame {
 	}
 
 	private void markDestination(Destination d) {
+		boolean changed = destination != d;
 		destination = d;
+		if (changed) javax.swing.SwingUtilities.invokeLater(this::relayout);
 		rail.setActive(d);
 		// The Record, the Vault and the Constellation are quiet screens: the slot keeps to the glyph.
 		rail.slot().setQuietScreenOpen(d == Destination.RECORD || d == Destination.VAULT || d == Destination.PEERS);
@@ -1511,7 +1536,9 @@ public final class MainWindow extends JFrame {
 	}
 
 	private void setWaiting(int waiting) {
+		waitingCount = waiting;
 		if (rail == null) return;
+		relayout();
 		rail.setInboxCount(waiting);
 		strip.setWaiting(waiting);
 		rail.slot().setState(waiting > 0 ? StatusSlot.State.WAITING : StatusSlot.State.RESTING,

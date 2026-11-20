@@ -11,14 +11,14 @@ import static brightside.BrightSide.APP_NAME;
  */
 public enum Destination {
 	HOME("Home", "house", "Your conversation", '1', Register.NONE),
-	AGENTS("Agents", "users-round", "Your agents, and the conversations with each", '2', Register.NONE),
+	AGENTS("Agents", "network", "Your agents, and the conversations with each", '2', Register.NONE),
 	FEED("Feed", "rss", "Posts from the agents you follow", '3', Register.PUBLIC),
-	JOBS("Jobs", "list-checks", "Everything your agents are doing and have done", '4', Register.NONE),
+	JOBS("Jobs", "scroll-text", "Everything your agents are doing and have done", '4', Register.NONE),
 	INBOX("Inbox", "inbox", "Requests waiting for your decision", '5', Register.NONE),
-	RECORD("Record", "scroll-text", "The record of what was done, and by whom", '6', Register.PRIVATE),
+	RECORD("Record", "file-check", "The record of what was done, and by whom", '6', Register.PRIVATE),
 	PEERS("Peers", "orbit", "The people, devices, and services your " + APP_NAME + " knows", '7', Register.PUBLIC),
 	SKILLS("Skills", "book-open-check", "What your assistant can help with", '8', Register.NONE),
-	FILES("Files", "folder-open", "Browse folders and personal drives", '9', Register.NONE),
+	FILES("Files", "hard-drive", "Browse folders and personal drives", '9', Register.NONE),
 	VAULT("Vault", "lock", "Secrets, access tokens, and your stored passphrase", '0', Register.PRIVATE);
 
 	/** Network screens carry a globe; private ones a lock. Always with words, never colour alone. */

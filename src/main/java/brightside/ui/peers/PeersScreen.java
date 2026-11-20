@@ -64,7 +64,7 @@ public final class PeersScreen extends JPanel {
 	private final JButton pause = Buttons.icon(null, null);
 	private final JLabel view = Labels.small(" ");
 	private final JButton reset = Buttons.icon(Lucide.icon("rotate-ccw", 16, Theme::muted),
-		"Put every planet, moon, venue, and orbit back as it started");
+		"Put every planet, moon, home, and orbit back as it started");
 	private final JButton follow = Buttons.icon(null, null);
 	private final Actions actions;
 	private final Timer saveLater;
@@ -144,8 +144,8 @@ public final class PeersScreen extends JPanel {
 
 		ScreenHeader header = new ScreenHeader("Peers");
 		if (source.sample()) {
-			header.detail(chip("Preview · sample venues",
-				"Federation isn't connected yet: other venues are examples of what will appear here"));
+			header.detail(chip("Preview · sample homes",
+				"Connecting to others isn't in this version yet: the other homes are examples of what will appear here"));
 		}
 		pause.addActionListener(e -> {
 			map.togglePaused();
@@ -161,7 +161,7 @@ public final class PeersScreen extends JPanel {
 		header.group(button("zoom-out", "Zoom out (or scroll)", () -> map.zoomStep(false)));
 		header.action(button("zoom-in", "Zoom in (or scroll)", () -> map.zoomStep(true)));
 		header.action(button("locate-fixed", "Your system (or double-click the map)", map::home));
-		header.action(button("telescope", "The whole universe of venues", map::universe));
+		header.action(button("telescope", "The whole map", map::universe));
 		header.action(follow);
 		header.group(pause);
 		header.action(reset);
@@ -282,7 +282,7 @@ public final class PeersScreen extends JPanel {
 		c.add(Labels.section("Home"));
 		if (home != null) c.add(Labels.small(home.label()));
 		c.add(Labels.small(SolarMap.plural(users.size(), "user") + " · " + SolarMap.plural(agents, "agent") + " · "
-			+ SolarMap.plural((int) venues, "other venue")), "gapbottom 10");
+			+ SolarMap.plural((int) venues, "other home")), "gapbottom 10");
 
 		c.add(heading("Rings"));
 		List<MapSettings.Ring> rings = s.rings();
@@ -292,12 +292,12 @@ public final class PeersScreen extends JPanel {
 			c.add(legendRow(new RingIcon(i + 1, rings.size()), rings.get(i).name(), String.valueOf(count)));
 		}
 		c.add(heading("Reading the map"), "gaptop 10");
-		c.add(legendRow(new SunIcon(), "Stars are venues; Home is yours", null));
-		c.add(legendRow(new PlanetIcon(new Color(0x5EC8F2), 18, false), "Planets are a venue's users", null));
+		c.add(legendRow(new SunIcon(), "Stars are homes for people and agents; Home is yours", null));
+		c.add(legendRow(new PlanetIcon(new Color(0x5EC8F2), 18, false), "Planets are the people there", null));
 		c.add(legendRow(lamp(new Color(0xA9AFBC)), "Moons are their agents", null));
 		c.add(legendRow(new PlanetIcon(Theme.localNode(), 18, false), "Who you are acting as", null));
 		c.add(legendRow(lamp(Theme.accent()), "Your main assistant", null));
-		c.add(legendRow(new PlanetIcon(new Color(0xE8C66A), 18, true), "Rings mark a venue's admin", null));
+		c.add(legendRow(new PlanetIcon(new Color(0xE8C66A), 18, true), "Rings mark who runs it", null));
 		c.add(legendRow(new PlanetIcon(SolarMap.greyed(new Color(0x5EC8F2)), 18, false), "Greyed out: offline or not connected", null));
 
 		c.add(new SelectableText("Click a body to see it, or drag it somewhere new; drag a ring's line to resize it. "
@@ -363,7 +363,7 @@ public final class PeersScreen extends JPanel {
 	private String role(Node n, Node owner) {
 		String what;
 		if (n.is(Node.VENUE)) {
-			what = Node.SELF.equals(n.relation()) ? "Home" : n.name() != null ? "Venue" : "Not in your directory";
+			what = Node.SELF.equals(n.relation()) ? "Home" : n.name() != null ? "Another home" : "Not in your directory";
 		} else if (n.is(Node.PERSON)) {
 			what = Node.SELF.equals(n.relation()) ? "You" : SolarMap.ringed(n) ? "Admin" : "User";
 		} else if (n.is(Node.AGENT)) {
@@ -473,8 +473,9 @@ public final class PeersScreen extends JPanel {
 	private static JComponent legendRow(Icon icon, String text, String trailing) {
 		JPanel row = new JPanel(new MigLayout("insets 0, fillx, gap 8", "[20!][grow,fill][]", ""));
 		row.setOpaque(false);
-		row.add(new JLabel(icon), "center");
-		row.add(Labels.text(text), "wmin 0");
+		row.add(new JLabel(icon), "aligny top, gaptop 2, center");
+		// Wraps in the side panel's width, so no line of the legend is cut short.
+		row.add(new brightside.ui.components.SelectableText(text), "growx, wmin 0, w 10::");
 		if (trailing != null) row.add(Labels.small(trailing));
 		return row;
 	}

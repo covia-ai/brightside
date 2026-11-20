@@ -72,7 +72,14 @@ public final class InboxScreen extends JPanel {
 		notices.add(notice);
 		add(notices, BorderLayout.SOUTH);
 		addHierarchyListener(e -> {
-			if ((e.getChangeFlags() & HierarchyEvent.SHOWING_CHANGED) != 0) renderIfShowing();
+			if ((e.getChangeFlags() & HierarchyEvent.SHOWING_CHANGED) != 0) {
+				renderIfShowing();
+				// On opening the Inbox, the card being worked on, and its primary, are in view.
+				if (isShowing() && active != null) {
+					javax.swing.SwingUtilities.invokeLater(() -> active.scrollRectToVisible(
+						new java.awt.Rectangle(0, 0, active.getWidth(), Math.min(active.getHeight(), 400))));
+				}
+			}
 		});
 		setRequests(List.of());
 	}
@@ -118,8 +125,9 @@ public final class InboxScreen extends JPanel {
 		cards.clear();
 		cards.putAll(next);
 		long open = requests.stream().filter(Inbox.Request::open).count();
-		waiting.setText(summary(requests, System.currentTimeMillis()));
-		waiting.setVisible(open > 0);
+		String soonest = summary(requests, System.currentTimeMillis());
+		waiting.setText(soonest != null ? soonest : " ");
+		waiting.setVisible(open > 0 && soonest != null);
 		for (RequestCard card : cards.values()) {
 			card.form().setSelfRequest(card.request().open() && actingDid != null && actingDid.equals(card.request().from()));
 			if (wired.add(card)) {
@@ -155,6 +163,16 @@ public final class InboxScreen extends JPanel {
 		for (RequestCard c : cards.values()) c.form().setPrimaryActive(c == card);
 	}
 
+	/** Brings {@code request}'s card forward: unfolded, holding the primary, and scrolled into view. */
+	public void focus(Inbox.Request request) {
+		RequestCard card = cards.get(InboxBinding.key(request));
+		if (card == null) return;
+		card.setExpanded(true);
+		activate(card);
+		javax.swing.SwingUtilities.invokeLater(() -> card.scrollRectToVisible(
+			new java.awt.Rectangle(0, 0, card.getWidth(), Math.min(card.getHeight(), 400))));
+	}
+
 	/** Who the app is acting as, by DID, for the self-approval guard; null when signed out. */
 	public void setActing(String did) {
 		actingDid = did;
@@ -162,15 +180,17 @@ public final class InboxScreen extends JPanel {
 		renderIfShowing();
 	}
 
-	/** "2 waiting · next expires in 28 min": how many are open and the soonest expiry, if any. */
+	/**
+	 * "Next expires in 28 min": the soonest expiry among the open requests, or
+	 * null when none expires. The count is the status strip's and the sidebar's.
+	 */
 	static String summary(List<Inbox.Request> requests, long now) {
-		long open = requests.stream().filter(Inbox.Request::open).count();
 		long next = requests.stream().filter(Inbox.Request::open).mapToLong(Inbox.Request::expires)
 			.filter(t -> t > now).min().orElse(0);
-		if (next == 0) return open + " waiting";
+		if (next == 0) return null;
 		long mins = Math.max(1, (next - now + 59_999) / 60_000);
 		String in = (mins < 120) ? mins + " min" : (mins / 60) + " h";
-		return open + " waiting · next expires in " + in;
+		return "Next expires in " + in;
 	}
 
 	/** The requests' cards in order, for tests. */

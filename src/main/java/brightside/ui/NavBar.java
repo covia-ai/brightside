@@ -44,8 +44,8 @@ public final class NavBar extends JPanel {
 
 	public enum Tab {
 		HOME("Home", "house", "Your conversation"),
-		SESSIONS("Chats", "messages-square", "Browse assistants and saved conversations"),
-		FILES("Files", "folder-open", "Browse folders and personal drives"),
+		SESSIONS("Chats", "message-square-text", "Browse assistants and saved conversations"),
+		FILES("Files", "hard-drive", "Browse folders and personal drives"),
 		SKILLS("Skills", "book-open-check", "What your assistant can help with"),
 		PEERS("Peers", "orbit", "The people, devices, and services your " + APP_NAME + " knows"),
 		INBOX("Inbox", "inbox", "Requests waiting for your decision"),
