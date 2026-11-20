@@ -158,6 +158,9 @@ public class Readout extends JTextPane {
 	private boolean built;
 
 	public Readout() {
+		// A word wider than the column (a DID, a path) breaks where it must
+		// rather than running off the edge; ordinary text still wraps at spaces.
+		setEditorKit(new WrapAnywhereKit());
 		setEditable(false);
 		setOpaque(false);
 		setBorder(BorderFactory.createEmptyBorder(12, 16, 16, 16));
@@ -700,6 +703,31 @@ public class Readout extends JTextPane {
 		private static Font face(String key, String fallbackName, float fallbackSize) {
 			Font f = UIManager.getFont(key);
 			return (f != null) ? f : new Font(fallbackName, Font.PLAIN, Math.round(fallbackSize));
+		}
+	}
+
+	/** A styled kit whose text runs can break mid-word when a word alone is wider than the line. */
+	private static final class WrapAnywhereKit extends javax.swing.text.StyledEditorKit {
+		private final javax.swing.text.ViewFactory factory = new javax.swing.text.ViewFactory() {
+			private final javax.swing.text.ViewFactory styled = new javax.swing.text.StyledEditorKit().getViewFactory();
+
+			@Override
+			public javax.swing.text.View create(javax.swing.text.Element e) {
+				if (javax.swing.text.AbstractDocument.ContentElementName.equals(e.getName())) {
+					return new javax.swing.text.LabelView(e) {
+						@Override
+						public float getMinimumSpan(int axis) {
+							return (axis == javax.swing.text.View.X_AXIS) ? 0 : super.getMinimumSpan(axis);
+						}
+					};
+				}
+				return styled.create(e);
+			}
+		};
+
+		@Override
+		public javax.swing.text.ViewFactory getViewFactory() {
+			return factory;
 		}
 	}
 }

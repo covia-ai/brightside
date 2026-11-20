@@ -75,6 +75,12 @@ public final class ShellCommands {
 		void copyMyIdentity();
 
 		void showShortcuts();
+
+		/** The open chat's inspect views: Overview, Context, and Agent. */
+		void inspect();
+
+		/** The open chat's Context → Raw. */
+		void inspectRaw();
 	}
 
 	public static final String TAU = APP_NAME, FILE = "File", EDIT = "Edit", VIEW = "View", DEVELOPER = "Developer",
@@ -125,7 +131,7 @@ public final class ShellCommands {
 		c.add("toggle-rail", "Sidebar: collapse or expand", "View", VIEW,
 			KeyStroke.getKeyStroke(KeyEvent.VK_S, mac ? cmd | InputEvent.CTRL_DOWN_MASK : InputEvent.CTRL_DOWN_MASK | InputEvent.ALT_DOWN_MASK),
 			a::toggleRail, "Collapse sidebar", "Expand sidebar");
-		c.add("toggle-chats", "Chats list", "Agents", VIEW, KeyStroke.getKeyStroke(KeyEvent.VK_BACK_SLASH, cmd),
+		c.add("toggle-chats", "Chats list", "Home and Agents", VIEW, KeyStroke.getKeyStroke(KeyEvent.VK_BACK_SLASH, cmd),
 			a::toggleChatsList, "Sessions", "Conversations");
 		c.add("density-comfortable", "Density: Comfortable", "Settings → Theme", VIEW, null, () -> a.setDensity(false));
 		c.add("density-compact", "Density: Compact", "Settings → Theme", VIEW, null, () -> a.setDensity(true));
@@ -134,6 +140,10 @@ public final class ShellCommands {
 		c.add("shell-rail", "Layout: Sidebar", "Settings → Theme", VIEW, null, () -> a.setShell(true));
 		c.add("shell-classic", "Layout: Bottom bar", "Settings → Theme", VIEW, null, () -> a.setShell(false),
 			"Classic layout");
+		c.add("inspect", "Inspect this chat", "Home → the chat's Overview, Context, and Agent tabs", VIEW,
+			KeyStroke.getKeyStroke(KeyEvent.VK_I, cmd), a::inspect, "Overview", "Context", "Agent info", "Inspector");
+		c.add("inspect-raw", "Show Context → Raw", "Home → the chat's Context tab", DEVELOPER,
+			KeyStroke.getKeyStroke(KeyEvent.VK_I, cmd | InputEvent.SHIFT_DOWN_MASK), a::inspectRaw, "Raw");
 		c.add("palette", "Command palette", "The search in the status strip", VIEW,
 			KeyStroke.getKeyStroke(KeyEvent.VK_K, cmd), a::openPalette, "Search");
 
@@ -164,7 +174,7 @@ public final class ShellCommands {
 
 	private static String[] aliases(Destination d) {
 		return switch (d) {
-			case AGENTS -> new String[] { "Sessions", "Agent info" };
+			case AGENTS -> new String[] { "Roster", "Add an agent" };
 			case JOBS -> new String[] { "Settings Jobs", "Tasks" };
 			case VAULT -> new String[] { "Secrets", "Access", "Passphrase" };
 			case PEERS -> new String[] { "Constellation", "Map" };

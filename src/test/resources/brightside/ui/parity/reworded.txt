@@ -54,3 +54,9 @@ At launch, it hands over to this one; nothing is lost	At launch, it hands over t
 claim it on Moltbook's claim page, then ask your assistant to check in, read or post; the key never 	claim it on Moltbook's claim page, then ask your assistant to check in, read, or post; the key never 
 reason, its tokens and its job.	reason, its tokens, and its job.
 Lato	Inter
+Session	Chat
+New session	New chat
+Show in Sessions	Show in Chats
+Sessions	Chats
+The agent's own identifier, distinct from its owner's: what it acts and signs as.	The agent's own identifier, distinct from its owner's: what it acts as.
+The active conversation has not been accepted by the venue	This message wasn't delivered: the conversation hasn't started on this computer yet. Nothing was sent; send it again in a moment.

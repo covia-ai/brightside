@@ -36,7 +36,7 @@ of the product name and are kept as configured.
 The power underneath is real; keep it reachable for those who want it, just
 not in the way. The dashboard, the identity and DIDs, the local address, the
 settings file and the logs live under **Settings**, and the raw model context
-under **Sessions**, where a curious or technical person can pull back the
+under **Agents** (the Chats tab in the classic layout), where a curious or technical person can pull back the
 curtain and the everyday person never has to.
 
 Settings pages are for someone who already knows what they want, so they show

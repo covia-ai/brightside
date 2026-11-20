@@ -56,8 +56,15 @@ public final class AgentList extends JPanel {
 
 	private static final int WIDTH = 158;
 
+	/** In the sidebar shell the picker sits atop the Chats list: this many rows show before it scrolls. */
+	private static final int STACKED_ROWS = 4;
+
 	private final Listener listener;
 	private final JPanel rows = Panels.column();
+	private final JPanel top = new JPanel(new BorderLayout());
+	private final JPanel bottom = new JPanel(new BorderLayout());
+	private final JButton add;
+	private boolean stacked;
 	private String selectedId;
 	private String defaultId;
 	/** Each agent's colour by id, as the Peers map draws its moon; muted until told. */
@@ -72,23 +79,51 @@ public final class AgentList extends JPanel {
 		setBorder(Borders.hairlineRight());
 
 		JLabel header = Labels.small("Agents");
-		JButton add = Buttons.tinted("Agent", Lucide.icon("plus", 16, Theme::accentText));
+		add = Buttons.tinted("Agent", Lucide.icon("plus", 16, Theme::accentText));
 		add.setToolTipText("New agent");
 		add.setToolTipText("Create a new agent");
 		add.addActionListener(e -> listener.onNewAgent());
 
-		JPanel top = new JPanel(new BorderLayout());
 		top.setOpaque(false);
 		top.setBorder(BorderFactory.createEmptyBorder(10, 12, 8, 10));
 		top.add(header, BorderLayout.WEST);
 
 		add(top, BorderLayout.NORTH);
 		add(Scrolls.vertical(Scrolls.hugTop(rows)), BorderLayout.CENTER);
-		JPanel bottom = new JPanel(new BorderLayout());
 		bottom.setOpaque(false);
 		bottom.setBorder(BorderFactory.createEmptyBorder(8, 10, 10, 10));
 		bottom.add(add, BorderLayout.CENTER);
 		add(bottom, BorderLayout.SOUTH);
+	}
+
+	/**
+	 * Stacked: the picker sits atop the Chats list in one column, with + Agent
+	 * beside its heading and a few rows before it scrolls. Otherwise its own
+	 * column beside the list, as in the classic layout.
+	 */
+	public void setStacked(boolean stacked) {
+		if (this.stacked == stacked) return;
+		this.stacked = stacked;
+		remove(bottom);
+		top.remove(add);
+		if (stacked) {
+			top.add(add, BorderLayout.EAST);
+			setBorder(Borders.hairline(false, false, true, false));
+		} else {
+			bottom.add(add, BorderLayout.CENTER);
+			add(bottom, BorderLayout.SOUTH);
+			setBorder(Borders.hairlineRight());
+		}
+		revalidate();
+		repaint();
+	}
+
+	@Override
+	public Dimension getPreferredSize() {
+		if (!stacked) return super.getPreferredSize();
+		int row = rows.getComponentCount() > 0 ? rows.getComponent(0).getPreferredSize().height : 36;
+		int shown = Math.max(1, Math.min(STACKED_ROWS, rows.getComponentCount()));
+		return new Dimension(0, top.getPreferredSize().height + shown * row + 8);
 	}
 
 	/** How to colour each agent's mini moon, by id, so it matches the Peers map. */

@@ -7,7 +7,7 @@ and the skill files under `src/main/resources/brightside/skills/`, and the
 mechanism is Covia's (`../covia/venue/docs/SKILLS.md`). The Skills screen
 shows the library as the assistant can discover it: each skillset it
 searches, the skills in it, and beneath each skill what it reveals. A
-conversation's Skills tab (under Context on Sessions) lists only the skills
+conversation's Skills tab (under Context, on Agents or the classic Chats tab) lists only the skills
 loaded there;
 what each reveals links into the library.
 

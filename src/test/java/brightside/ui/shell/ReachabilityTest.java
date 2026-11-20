@@ -42,7 +42,7 @@ class ReachabilityTest {
 		assertRuns("toggle-chats", "toggleChatsList");
 		assertKey("toggle-chats", KeyEvent.VK_BACK_SLASH);
 		assertRuns("go:agents", "go AGENTS");
-		assertPalette("Sessions", "go:agents", "toggle-chats");
+		assertPalette("Sessions", "toggle-chats");
 		assertPalette("Chats", "toggle-chats");
 		assertInMenu("toggle-chats", ShellCommands.VIEW);
 	}
@@ -56,8 +56,15 @@ class ReachabilityTest {
 
 	@Test
 	void sessionViewTabsAndAgentInfo() {
-		// The Chat, Overview, Context and Agent tabs live with the conversation on Agents until Phase 3.
-		assertPalette("Agent info", "go:agents");
+		// The Chat, Overview, Context and Agent tabs: Cmd I, Cmd Shift I for Context → Raw, and the palette.
+		assertRuns("inspect", "inspect");
+		assertKey("inspect", KeyEvent.VK_I);
+		assertRuns("inspect-raw", "inspectRaw");
+		assertInMenu("inspect-raw", ShellCommands.DEVELOPER);
+		assertPalette("Context", "inspect");
+		assertPalette("Agent info", "inspect");
+		assertPalette("Raw", "inspect-raw");
+		assertPalette("Agents", "go:agents");
 	}
 
 	@Test
@@ -251,5 +258,7 @@ class ReachabilityTest {
 		@Override public void copyLocalAddress() { calls.add("copyLocalAddress"); }
 		@Override public void copyMyIdentity() { calls.add("copyMyIdentity"); }
 		@Override public void showShortcuts() { calls.add("showShortcuts"); }
+		@Override public void inspect() { calls.add("inspect"); }
+		@Override public void inspectRaw() { calls.add("inspectRaw"); }
 	}
 }

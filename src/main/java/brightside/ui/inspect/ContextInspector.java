@@ -31,6 +31,7 @@ import brightside.ui.components.Labels;
 import brightside.ui.components.Readout;
 import brightside.ui.components.Scrolls;
 import brightside.ui.components.StatTile;
+import brightside.ui.components.SelectableText;
 import brightside.ui.components.Styles;
 import brightside.ui.components.Tone;
 import net.miginfocom.swing.MigLayout;
@@ -191,21 +192,37 @@ public final class ContextInspector {
 	 * and the budget as a meter; under it a tile for each piece worth opening
 	 * (messages, tools, loaded entries), each pressing through to its tab.
 	 */
-	private JComponent overview(AgentContext.Report r) {
-		JPanel p = new JPanel(new MigLayout("insets 20 24 20 24, fillx, wrap 3, gap 12 12",
-			"[grow,fill,sg tile][grow,fill,sg tile][grow,fill,sg tile]", ""));
+	JComponent overview(AgentContext.Report r) {
+		// Three tiles in a row where there is room; one column when narrow (the
+		// docked inspector), so every caption and value reads in full.
+		MigLayout layout = new MigLayout(WIDE_INSETS, WIDE_COLUMNS, "");
+		JPanel p = new JPanel(layout);
 		p.setOpaque(false);
+		p.addComponentListener(new java.awt.event.ComponentAdapter() {
+			@Override
+			public void componentResized(java.awt.event.ComponentEvent e) {
+				boolean narrow = p.getWidth() < com.formdev.flatlaf.util.UIScale.scale(NARROW_BELOW);
+				String insets = narrow ? NARROW_INSETS : WIDE_INSETS;
+				if (!insets.equals(layout.getLayoutConstraints())) {
+					layout.setLayoutConstraints(insets);
+					layout.setColumnConstraints(narrow ? NARROW_COLUMNS : WIDE_COLUMNS);
+					p.revalidate();
+				}
+			}
+		});
 
 		Card card = new Card();
 		card.setLayout(new MigLayout("insets 16 18 16 18, fillx, wrap 2, gapy 2", "[][grow,fill]", ""));
-		card.add(new Badge("sparkles", Tone.ACCENT, 30), "spany 2, aligny center, gapright 10");
-		JLabel model = Labels.lead(r.model().isBlank() ? "—" : r.model());
+		card.add(new Badge("sparkles", Tone.ACCENT, 30), "spany 2, aligny top, gapright 10");
+		// The model by name; when the report names none, say what the card is about.
+		SelectableText model = new SelectableText(r.model().isBlank() ? "This chat's context" : r.model()).bold();
+		Styles.style(model, "font: +2");
 		model.setToolTipText(TIP_MODEL);
-		card.add(model, "wmin 0");
-		JLabel tokens = Labels.small((r.sessionTokens() != null) ? "Session tokens: " + r.sessionTokens()
-			: "No tokens counted yet");
+		card.add(model, "growx, wmin 0, w 10::");
+		SelectableText tokens = new SelectableText((r.sessionTokens() != null) ? "Session tokens: " + r.sessionTokens()
+			: "No tokens counted yet").small().muted();
 		tokens.setToolTipText(TIP_TOKENS);
-		card.add(tokens, "wmin 0");
+		card.add(tokens, "growx, wmin 0, w 10::");
 
 		int pct = r.budgetPercent();
 		boolean over = pct >= 100;
@@ -236,12 +253,23 @@ public final class ContextInspector {
 		p.add(new StatTile("layers", Tone.ACCENT, "Loaded", Integer.toString(r.loads().size()),
 			truncated > 0 ? truncated + " truncated" : null).onPress(TIP_LOADED, open(loads)), "wmin 0");
 
-		JLabel about = Labels.html("Exactly what the assistant's model receives for this conversation, assembled as "
+		SelectableText about = SelectableText.description("Exactly what the assistant's model receives for this conversation, assembled as "
 			+ "for a live reply but not sent. The budget is the model's declared context size, a guide the "
-			+ "assembler warns against, not a cap.", 440, SwingConstants.LEFT);
-		Styles.classes(about, Styles.SMALL, Styles.MUTED);
-		p.add(about, "span 3, gaptop 8, wmin 0");
+			+ "assembler warns against, not a cap.").small();
+		p.add(about, "span 3, gaptop 8, growx, wmin 0, w 10::");
 		return p;
+	}
+
+	/** Below this width (unscaled) the Overview stacks its tiles in one column. */
+	static final int NARROW_BELOW = 520;
+	private static final String WIDE_INSETS = "insets 20 24 20 24, fillx, wrap 3, gap 12 12";
+	private static final String NARROW_INSETS = "insets 14 14 14 14, fillx, wrap 1, gap 10 10";
+	private static final String WIDE_COLUMNS = "[grow,fill,sg tile][grow,fill,sg tile][grow,fill,sg tile]";
+	private static final String NARROW_COLUMNS = "[grow,fill]";
+
+	/** The Overview for a report on its own, for layout tests. */
+	static JComponent overviewFor(AgentContext.Report r) {
+		return new ContextInspector(r, List.of(), List.of(), s -> { }).overview(r);
 	}
 
 	/** The messages by band — "head 2 · conversation 120 · tail 6" — when there is more than one. */

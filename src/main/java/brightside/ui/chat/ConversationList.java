@@ -109,6 +109,12 @@ public final class ConversationList extends JPanel {
 	private final JComboBox<Show> show = new JComboBox<>(Show.values());
 	private List<SessionHistory.Session> sessions = List.of();
 	private String selectedId;
+	/**
+	 * When each conversation was last seen open, by its last activity then:
+	 * a later activity marks the row as new until it is opened. First sight
+	 * counts as seen, so nothing is marked on start. Kept for this run.
+	 */
+	private final java.util.Map<String, Long> seenAt = new java.util.HashMap<>();
 
 	public ConversationList(Listener listener) {
 		super(new BorderLayout());
@@ -121,8 +127,8 @@ public final class ConversationList extends JPanel {
 		setBorder(BorderFactory.createCompoundBorder(
 			Borders.hairlineRight(), BorderFactory.createEmptyBorder(10, 10, 10, 10)));
 
-		JButton newChat = Buttons.tinted("Session", Lucide.icon("plus", 16, Theme::accentText));
-		newChat.setToolTipText("New session");
+		JButton newChat = Buttons.tinted("Chat", Lucide.icon("plus", 16, Theme::accentText));
+		newChat.setToolTipText("New chat");
 		newChat.setFocusable(false);
 		newChat.addActionListener(e -> listener.onNewConversation());
 		// Beside the button, quiet: there only while some conversation began as
@@ -189,7 +195,13 @@ public final class ConversationList extends JPanel {
 
 	private Component rowFor(SessionHistory.Session s) {
 		boolean selected = s.sessionId() != null && s.sessionId().equals(selectedId);
-		Row row = new Row(s);
+		boolean fresh = false;
+		if (s.sessionId() != null) {
+			Long seen = seenAt.get(s.sessionId());
+			if (seen == null || selected) seenAt.put(s.sessionId(), s.lastTs());
+			else fresh = s.lastTs() > seen;
+		}
+		Row row = new Row(s, fresh);
 		row.setSelected(selected);
 		row.onPress(() -> {
 			if (!s.sessionId().equals(selectedId)) listener.onSelectSession(s.sessionId());
@@ -273,13 +285,44 @@ public final class ConversationList extends JPanel {
 	@SuppressWarnings("serial")
 	private static final class Row extends PressButton {
 
-		Row(SessionHistory.Session s) {
+		/** {@code fresh}: new activity since it was last open; a dot and the word "New" say so. */
+		final boolean fresh;
+
+		Row(SessionHistory.Session s, boolean fresh) {
 			super("");
+			this.fresh = fresh;
 			setLayout(new BorderLayout(0, 1));
 			setMargin(new Insets(brightside.ui.components.Density.pad(7), 9, brightside.ui.components.Density.pad(7), 9));
 			setAlignmentX(LEFT_ALIGNMENT);
-			add(Labels.text(s.title()), BorderLayout.CENTER);
-			add(Labels.small(relativeTime(s.lastTs())), BorderLayout.SOUTH);
+			JLabel title = Labels.text(s.title());
+			if (fresh) {
+				Styles.classes(title, Styles.STRONG);
+				title.setIcon(new javax.swing.Icon() {
+					@Override
+					public void paintIcon(Component c, java.awt.Graphics g, int x, int y) {
+						java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+						g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+						g2.setColor(Theme.accentText());
+						int d = getIconWidth();
+						g2.fillOval(x, y + (getIconHeight() - d) / 2, d, d);
+						g2.dispose();
+					}
+
+					@Override
+					public int getIconWidth() {
+						return com.formdev.flatlaf.util.UIScale.scale(7);
+					}
+
+					@Override
+					public int getIconHeight() {
+						return getIconWidth();
+					}
+				});
+				title.setIconTextGap(com.formdev.flatlaf.util.UIScale.scale(6));
+			}
+			add(title, BorderLayout.CENTER);
+			add(Labels.small(relativeTime(s.lastTs()) + (fresh ? "  ·  New" : "")), BorderLayout.SOUTH);
+			getAccessibleContext().setAccessibleName(s.title() + (fresh ? ", new activity" : ""));
 		}
 
 		@Override

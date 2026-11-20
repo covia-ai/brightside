@@ -48,7 +48,7 @@ public final class IconTile extends JLabel {
 	/** The concepts with a fixed icon and family, the same everywhere in the app. */
 	public enum Concept {
 		HOME("house", Family.PRIMARY),
-		AGENT("bot", Family.PRIMARY),
+		AGENT("user-round", Family.PRIMARY),
 		AGENTS("users-round", Family.PRIMARY),
 		FILES("folder-open", Family.PRIMARY),
 		CHATS("message-square-text", Family.CERULEAN),

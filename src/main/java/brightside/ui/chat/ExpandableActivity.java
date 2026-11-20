@@ -1,13 +1,11 @@
 package brightside.ui.chat;
 
-import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Insets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
@@ -21,7 +19,6 @@ import brightside.SessionHistory;
 import brightside.ui.components.Clipboard;
 import brightside.ui.components.Disclosure;
 import brightside.ui.components.Labels;
-import brightside.ui.components.Lucide;
 import brightside.ui.components.Panels;
 import brightside.ui.components.SelectableText;
 import brightside.ui.components.Styles;
@@ -34,8 +31,7 @@ import brightside.ui.components.Theme;
  * Collapsed by default so the final reply is what the eye lands on, with the
  * detail one (or two) clicks away. Both levels are {@link Disclosure}s;
  * narration and results are {@link SelectableText} so they can be selected
- * and copied; the ✓/✕ marks are {@link Lucide} icons, not glyphs, so they
- * render in any UI font.
+ * and copied; each step's status is a badge with its icon and word.
  *
  * <p>The same chip shows the turn in flight: {@link #update} grows it step by
  * step from the live turn, a running tool step marked … until its result
@@ -46,7 +42,6 @@ final class ExpandableActivity extends JPanel {
 
 	private static final int WRAP = 440;
 	private static final int CHEVRON = 12;
-	private static final int MARK = 12;
 	private static final int DETAIL_LIMIT = 1000;
 
 	private final Runnable onToggle;
@@ -141,19 +136,25 @@ final class ExpandableActivity extends JPanel {
 		return s.tool() && s.detail() == null;
 	}
 
-	/** The header of a tool step: a ✓/✕ mark (… while it runs) and the tool's name. */
+	/**
+	 * The header of a tool step, one line of the turn's timeline: the tool's
+	 * name in mono, then its status as a badge (icon, word and colour, never
+	 * colour alone): Running until its result arrives, then Done or Failed.
+	 */
 	private static JPanel stepHeader(SessionHistory.Step s) {
 		JPanel row = Panels.row();
-		Supplier<Color> tone = s.error() ? Theme::error : Theme::success;
-		JLabel status = Labels.icon(running(s)
-			? Lucide.icon("ellipsis", MARK, Theme::muted)
-			: Lucide.icon(s.error() ? "x" : "check", MARK, tone));
-		status.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 5));
-		JLabel name = Styles.classes(Labels.text(s.title()), Styles.SMALL);
-		if (s.error()) Styles.add(name, Styles.ERROR);
-		row.add(status);
+		JLabel name = Styles.classes(Labels.text(s.title()), Styles.SMALL, Styles.MONOSPACED);
+		name.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 8));
 		row.add(name);
+		row.add(statusBadge(s));
 		return row;
+	}
+
+	/** A step's status as a badge. */
+	static brightside.ui.components.StatusBadge statusBadge(SessionHistory.Step s) {
+		if (running(s)) return brightside.ui.components.StatusBadge.running();
+		return s.error() ? new brightside.ui.components.StatusBadge("Failed", "circle-alert", brightside.ui.components.Tone.ERROR)
+			: new brightside.ui.components.StatusBadge("Done", "circle-check", brightside.ui.components.Tone.SUCCESS);
 	}
 
 	/** The body of a tool step: its input arguments and its result, each under a caption. */

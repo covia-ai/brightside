@@ -125,6 +125,8 @@ public final class ChatPanel extends JPanel {
 	private final TextArea input = new TextArea(1, 20).placeholder(composerHint(EmptyChatState.DEFAULT_NAME));
 	private final JScrollPane inputScroll;
 	private final JButton send = Buttons.primary("Send");
+	private final JButton modelChip = new JButton();
+	private Runnable onModelChip;
 	private final JButton more = Buttons.icon(Lucide.icon("ellipsis", 18, Theme::muted), "Conversation options");
 	/** Replies read aloud, one at a time; shared with voice typing, whose microphone must not hear it. */
 	private final Speaker speaker = new Speaker();
@@ -242,7 +244,23 @@ public final class ChatPanel extends JPanel {
 
 		JPanel bottom = new JPanel(new BorderLayout(8, 0));
 		bottom.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
-		bottom.add(voice.statusLine(), BorderLayout.NORTH);
+		// The start row: the model this chat runs on, in plain words; it opens the model choice.
+		JPanel north = new JPanel(new BorderLayout());
+		north.setOpaque(false);
+		north.add(voice.statusLine(), BorderLayout.NORTH);
+		JPanel startRow = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 0, 0));
+		startRow.setOpaque(false);
+		modelChip.putClientProperty("JButton.buttonType", "toolBarButton");
+		brightside.ui.components.Styles.classes(modelChip, brightside.ui.components.Styles.SMALL);
+		modelChip.setIcon(brightside.ui.components.Lucide.icon("cpu", 14, brightside.ui.components.Theme::muted));
+		modelChip.setToolTipText("The model this chat runs on: click to choose another (Settings → Model)");
+		modelChip.setVisible(false);
+		modelChip.addActionListener(e -> {
+			if (onModelChip != null) onModelChip.run();
+		});
+		startRow.add(modelChip);
+		north.add(startRow, BorderLayout.SOUTH);
+		bottom.add(north, BorderLayout.NORTH);
 		bottom.add(inputScroll, BorderLayout.CENTER);
 		// The microphone, Send and the menu sit on the composer's baseline as it grows.
 		Box actions = Box.createHorizontalBox();
@@ -410,6 +428,25 @@ public final class ChatPanel extends JPanel {
 	/** Where the owner's "read replies aloud" preference lives (default off); read as each reply lands. */
 	public void readRepliesAloudWhen(java.util.function.BooleanSupplier on) {
 		readAloud.repliesOnWhen(on);
+	}
+
+	/**
+	 * The model chip in the start row: the model in plain words, with where
+	 * it runs or is paid for ({@code marker}, or null); null {@code label}
+	 * hides it. {@code onClick} opens the model choice.
+	 */
+	public void setModel(String label, String marker, Runnable onClick) {
+		onModelChip = onClick;
+		modelChip.setVisible(label != null);
+		if (label == null) return;
+		String text = (marker != null) ? label + "  ·  " + marker : label;
+		modelChip.setText(text);
+		modelChip.getAccessibleContext().setAccessibleName("Model: " + text);
+	}
+
+	/** The model chip's text, for tests and the harness. */
+	public String modelText() {
+		return modelChip.isVisible() ? modelChip.getText() : null;
 	}
 
 	/** Where the owner's choice of how long a pause sends a spoken message lives, in seconds (0: never); read as each pause is heard. */
@@ -618,7 +655,7 @@ public final class ChatPanel extends JPanel {
 		});
 		menu.add(context);
 
-		JMenuItem sessions = new JMenuItem("Show in Sessions");
+		JMenuItem sessions = new JMenuItem("Show in Chats");
 		sessions.setEnabled(hasSession);
 		sessions.addActionListener(e -> {
 			if (host != null) host.showInSessions(sid);
@@ -776,7 +813,7 @@ public final class ChatPanel extends JPanel {
 	private void enqueue(ChatSession s, long version, ACell message) {
 		CompletableFuture<String> accepted = acceptedSession;
 		if (accepted == null) {
-			appendError("The active conversation has not been accepted by the venue");
+			appendError("This message wasn't delivered: the conversation hasn't started on this computer yet. Nothing was sent; send it again in a moment.");
 			return;
 		}
 

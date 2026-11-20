@@ -118,6 +118,29 @@ public final class Providers {
 		return "v/models/" + providerId + "/" + modelId;
 	}
 
+	/**
+	 * A model operation in plain words, for the composer's model chip: the
+	 * listed model's label, else its id; the offline test model by name; any
+	 * other operation as it is.
+	 */
+	public static String label(String modelOp) {
+		if (modelOp == null) return "No model";
+		if ("v/test/ops/llm".equals(modelOp)) return "Offline test model";
+		Provider p = byId(providerOf(modelOp));
+		String id = modelOf(modelOp);
+		if (p == null || id == null) return modelOp;
+		Model m = p.model(id);
+		return (m != null) ? m.label() : id;
+	}
+
+	/** Where the model runs or is paid for, in words: "Your key", "On this computer", or null for none. */
+	public static String marker(String modelOp) {
+		if (modelOp == null || "v/test/ops/llm".equals(modelOp)) return null;
+		Provider p = byId(providerOf(modelOp));
+		if (p == null) return null;
+		return p.needsApiKey() ? "Your key" : "On this computer";
+	}
+
 	/** The provider id inside a {@code v/models/<provider>/<id>} path, or null. */
 	public static String providerOf(String modelOp) {
 		if (modelOp == null || !modelOp.startsWith("v/models/")) return null;

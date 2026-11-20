@@ -114,6 +114,11 @@ public final class MainWindow extends JFrame {
 	// The Workbench shell (ui.shell = rail, the default; classic keeps the bottom bar):
 	// the sidebar, the status strip, the menu bar and the command palette.
 	private static final String MAIN_FEED = "feed";
+	private static final String MAIN_AGENTS = "agents";
+	private brightside.ui.agents.AgentsScreen agentsScreen;
+	/** The agents as last reported, for the Agents roster. */
+	private List<brightside.model.AgentRef> lastAgents = List.of();
+	private String lastDefaultAgent;
 	/** The window opens at about this size the first time; a remembered size always wins. */
 	static final int DEFAULT_WIDTH = 1200, DEFAULT_HEIGHT = 800;
 	private Rail rail;
@@ -279,6 +284,11 @@ public final class MainWindow extends JFrame {
 			public void agentsChanged() {
 				app.refreshAgents();
 			}
+			@Override
+			public void openRecord() {
+				go(Destination.JOBS);
+			}
+
 
 			@Override
 			public void showSkill(String path) {
@@ -461,6 +471,7 @@ public final class MainWindow extends JFrame {
 			@Override
 			public void applyModel(String providerId, String modelId) {
 				app.applyModel(providerId, modelId);
+				updateModelChip();
 			}
 
 			@Override
@@ -714,6 +725,8 @@ public final class MainWindow extends JFrame {
 
 		navBar = new NavBar(this::selectTab);
 		mainDeck.add(new FeedScreen(), MAIN_FEED);
+		agentsScreen = new brightside.ui.agents.AgentsScreen(new AgentsHost());
+		mainDeck.add(agentsScreen, MAIN_AGENTS);
 		chatCard = new JPanel(new BorderLayout());
 		installShell();
 
@@ -784,6 +797,7 @@ public final class MainWindow extends JFrame {
 		updateWho();
 		chatPanel.restore(history);
 		chatPanel.setSession(session);
+		updateModelChip();
 		selectTab(NavBar.Tab.HOME);
 		show(CARD_CHAT);
 		app.refreshServedModels(); // answers through showServedModels, off the event thread
@@ -792,6 +806,7 @@ public final class MainWindow extends JFrame {
 	/** Switched to another agent: rebind the chat to its conversation (no name-change note). */
 	public void showAgentChat(ChatSession session, List<SessionHistory.Item> history, String agentName) {
 		chatPanel.setAgentName(agentName);
+		updateModelChip();
 		chatPanel.restore(history);
 		chatPanel.setSession(session);
 		chatPanel.appendSystem(history.isEmpty() ? "New conversation with " + agentName + "."
@@ -853,6 +868,9 @@ public final class MainWindow extends JFrame {
 	/** Replace the agents pane's list, highlighting the current agent; {@code defaultId} is the standard agent. */
 	public void setAgents(List<brightside.model.AgentRef> agents, String selectedId, String defaultId) {
 		agentList.setAgents(agents, selectedId, defaultId);
+		lastAgents = List.copyOf(agents);
+		lastDefaultAgent = defaultId;
+		if (agentsScreen != null && destination == Destination.AGENTS) refreshAgentsScreen();
 		// The welcome greets by the current agent's name, and follows a rename.
 		String name = null;
 		for (brightside.model.AgentRef a : agents) {
@@ -1174,6 +1192,13 @@ public final class MainWindow extends JFrame {
 	// The Workbench shell
 	// ------------------------------------------------------------------
 
+	/** The composer's model chip follows the model the chat runs on. */
+	public void updateModelChip() {
+		String op = app.currentModelOp();
+		chatPanel.setModel(brightside.model.Providers.label(op), brightside.model.Providers.marker(op),
+			() -> showSettings(SettingsScreen.Tab.MODEL));
+	}
+
 	/** The New agent dialog: from the Agents list's + Agent, File → New agent, and the palette. */
 	private void newAgent() {
 		NewAgentPanel.Options options = NewAgentPanel.showDialog(this, app.currentModelOp(), servedModels);
@@ -1199,6 +1224,15 @@ public final class MainWindow extends JFrame {
 	/** {@code true}: the sidebar and status strip; {@code false}: the classic bottom bar. Live, remembered by the caller. */
 	private void applyShell(boolean railShell) {
 		this.railShell = railShell;
+		// The agents and Chats list: one column in the sidebar shell (the picker atop the
+		// conversations), two side by side in the classic layout, as before.
+		sessionsPane.removeAll();
+		agentList.setStacked(railShell);
+		sessionsPane.add(agentList, railShell ? BorderLayout.NORTH : BorderLayout.WEST);
+		sessionsPane.add(conversations, BorderLayout.CENTER);
+		sidebarWidth = railShell ? ShellLayout.LIST : SIDEBAR_WIDTH;
+		if (sessionsPane.isVisible()) split.setDividerLocation(sidebarWidth);
+		sessionsPane.revalidate();
 		chatCard.removeAll();
 		if (railShell) {
 			JPanel content = new JPanel(new BorderLayout());
@@ -1230,11 +1264,19 @@ public final class MainWindow extends JFrame {
 		if (rail == null || split == null) return;
 		int width = getContentPane().getWidth();
 		if (width <= 0) width = getWidth();
-		boolean agents = activeTab == NavBar.Tab.SESSIONS;
+		// The Chats list lives beside the chat on Home and on Agents in the sidebar shell.
+		boolean agents = activeTab == NavBar.Tab.SESSIONS || (railShell && activeTab == NavBar.Tab.HOME);
 		// The layout's widths are window points, as the window's own size is.
-		ShellLayout.Plan plan = ShellLayout.plan(width, sidebarWidth, agents && chatsListOpen, false, railCollapsedByChoice);
-		if (!railShell) return; // the classic layout behaves exactly as before
+		// The inspector (the chat's Overview, Context and Agent) docks beside the chat from 1440.
+		boolean inspecting = activeTab == NavBar.Tab.SESSIONS;
+		ShellLayout.Plan plan = ShellLayout.plan(width, sidebarWidth, agents && chatsListOpen, inspecting,
+			railCollapsedByChoice);
+		if (!railShell) {
+			views.setInspectorDocked(false); // the classic layout behaves exactly as before
+			return;
+		}
 		rail.setCollapsed(plan.railCollapsed());
+		views.setInspectorDocked(inspecting && plan.side() == ShellLayout.Mode.DOCKED);
 		if (agents) {
 			boolean show = chatsListOpen && (plan.list() == ShellLayout.Mode.DOCKED || listForced);
 			if (show != sessionsPane.isVisible()) setSidebar(show);
@@ -1248,7 +1290,7 @@ public final class MainWindow extends JFrame {
 		if (rail == null) return;
 		switch (tab) {
 			case HOME -> markDestination(Destination.HOME);
-			case SESSIONS -> markDestination(Destination.AGENTS);
+			case SESSIONS -> markDestination(Destination.HOME); // the chat with its inspect tabs
 			case FILES -> markDestination(Destination.FILES);
 			case SKILLS -> markDestination(Destination.SKILLS);
 			case PEERS -> markDestination(Destination.PEERS);
@@ -1281,7 +1323,12 @@ public final class MainWindow extends JFrame {
 		destination = d;
 		switch (d) {
 			case HOME -> selectTab(NavBar.Tab.HOME);
-			case AGENTS -> selectTab(NavBar.Tab.SESSIONS);
+			case AGENTS -> {
+				selectTab(NavBar.Tab.HOME);
+				app.refreshAgents(); // agents can change out of band: re-read on entry
+				refreshAgentsScreen();
+				mainCards.show(mainDeck, MAIN_AGENTS);
+			}
 			case FEED -> {
 				selectTab(NavBar.Tab.HOME);
 				mainCards.show(mainDeck, MAIN_FEED);
@@ -1295,6 +1342,80 @@ public final class MainWindow extends JFrame {
 			case VAULT -> showSettings(SettingsScreen.Tab.SECRETS);
 		}
 		if (d != Destination.FEED) markDestination(d);
+	}
+
+	/**
+	 * The Agents roster: your own agents (the venue's own, with their roles,
+	 * when acting as the operator), then outside agents that reach the venue
+	 * with a named token.
+	 */
+	private void refreshAgentsScreen() {
+		List<brightside.ui.agents.AgentsScreen.Row> rows = new java.util.ArrayList<>();
+		boolean operator = app.actingAsOperator();
+		for (brightside.model.AgentRef a : lastAgents) {
+			String role = operator ? godRole(a.id()) : null;
+			rows.add(new brightside.ui.agents.AgentsScreen.Row(a.id(), a.name(),
+				role != null ? brightside.ui.agents.AgentsScreen.Kind.VENUE : brightside.ui.agents.AgentsScreen.Kind.YOURS,
+				"This computer", "Ready", role != null ? "Looks after this computer" : "Acts for you", role,
+				app.actingPrincipal() != null ? app.actingPrincipal() + "/g/" + a.id() : null));
+		}
+		try {
+			for (AccessPanel.Row t : app.listTokens()) {
+				rows.add(new brightside.ui.agents.AgentsScreen.Row(t.name(), t.name(),
+					brightside.ui.agents.AgentsScreen.Kind.OUTSIDE_MCP, "A local client", "Token active",
+					t.unrestricted() ? "Unrestricted" : t.scope(), null));
+			}
+		} catch (RuntimeException e) {
+			// No token store yet (still starting): the roster shows the agents alone.
+		}
+		agentsScreen.setRows(rows, lastDefaultAgent);
+	}
+
+	private static String godRole(String id) {
+		return switch (id) {
+			case "Odin" -> "the administrator";
+			case "Thor" -> "the guardian";
+			case "Njord" -> "the treasurer";
+			case "Eir" -> "the healer";
+			default -> null;
+		};
+	}
+
+	/** What the Agents roster asks of the window. */
+	private final class AgentsHost implements brightside.ui.agents.AgentsScreen.Host {
+		@Override
+		public void open(brightside.ui.agents.AgentsScreen.Row agent) {
+			if (!agent.id().equals(currentAgentId)) app.switchAgent(agent.id());
+			MainWindow.this.go(Destination.HOME);
+		}
+
+		@Override public void info(brightside.ui.agents.AgentsScreen.Row agent) { showAgentView(agent.id()); }
+		@Override public void delete(brightside.ui.agents.AgentsScreen.Row agent) { app.deleteAgent(agent.id()); }
+		@Override public void createHere() { newAgent(); }
+
+		@Override
+		public void connectOutside() {
+			destination = Destination.VAULT;
+			showSettings(SettingsScreen.Tab.ACCESS);
+		}
+
+		@Override public void manageAccess(brightside.ui.agents.AgentsScreen.Row agent) { connectOutside(); }
+
+		@Override
+		public void copy(String text) {
+			brightside.ui.components.Clipboard.copy(text, getRootPane());
+		}
+	}
+
+	/** The open chat with its inspect tabs (Chat, Overview, Context, Agent) on view. */
+	private void inspectChat(boolean raw) {
+		selectTab(NavBar.Tab.SESSIONS);
+		if (raw) {
+			views.select(SessionViews.View.CONTEXT);
+			views.select(SessionViews.Part.RAW);
+		} else {
+			views.select(SessionViews.View.OVERVIEW);
+		}
 	}
 
 	/** The destination the sidebar shows as active, or null while Settings is open. */
@@ -1467,7 +1588,8 @@ public final class MainWindow extends JFrame {
 
 		@Override
 		public void toggleChatsList() {
-			if (activeTab != NavBar.Tab.SESSIONS) {
+			boolean listHere = activeTab == NavBar.Tab.SESSIONS || (railShell && activeTab == NavBar.Tab.HOME);
+			if (!listHere) {
 				MainWindow.this.go(Destination.AGENTS);
 				chatsListOpen = true;
 				listForced = true;
@@ -1513,6 +1635,8 @@ public final class MainWindow extends JFrame {
 		}
 
 		@Override public void showShortcuts() { MainWindow.this.showShortcuts(); }
+		@Override public void inspect() { inspectChat(false); }
+		@Override public void inspectRaw() { inspectChat(true); }
 
 		@Override
 		public void fillIdentityMenu(JPopupMenu menu) {

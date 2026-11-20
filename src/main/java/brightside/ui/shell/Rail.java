@@ -246,6 +246,8 @@ public final class Rail extends JPanel {
 		private final KeyStroke key;
 		private final Icon on, off;
 		private final Icon marker;
+		/** Focus arrived from the keyboard (Tab and friends): only then does the ring show. */
+		private boolean keyboardFocus;
 
 		Item(Destination d, KeyStroke key) {
 			this.d = d;
@@ -262,6 +264,24 @@ public final class Rail extends JPanel {
 			setMargin(new Insets(4, 14, 4, 10));
 			setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 			setAlignmentX(LEFT_ALIGNMENT);
+			addFocusListener(new java.awt.event.FocusAdapter() {
+				@Override
+				public void focusGained(java.awt.event.FocusEvent e) {
+					java.awt.event.FocusEvent.Cause cause = e.getCause();
+					keyboardFocus = LastInput.wasKey() && (cause == java.awt.event.FocusEvent.Cause.TRAVERSAL
+						|| cause == java.awt.event.FocusEvent.Cause.TRAVERSAL_FORWARD
+						|| cause == java.awt.event.FocusEvent.Cause.TRAVERSAL_BACKWARD
+						|| cause == java.awt.event.FocusEvent.Cause.TRAVERSAL_UP
+						|| cause == java.awt.event.FocusEvent.Cause.TRAVERSAL_DOWN);
+					repaint();
+				}
+
+				@Override
+				public void focusLost(java.awt.event.FocusEvent e) {
+					keyboardFocus = false;
+					repaint();
+				}
+			});
 			addActionListener(e -> {
 				setActive(d); // a press always lands on the destination
 				host.go(d);
@@ -321,11 +341,11 @@ public final class Rail extends JPanel {
 					g2.fill(FlatUIUtils.createComponentRectangle(inset, 0, w, h, UIScale.scale(16f)));
 					g2.setColor(Theme.sidebarBar());
 					g2.fillRect(inset, UIScale.scale(6), UIScale.scale(3), h - UIScale.scale(12));
-				} else if (getModel().isRollover() || hasFocus()) {
+				} else if (getModel().isRollover() || (hasFocus() && keyboardFocus)) {
 					g2.setColor(Theme.warmSurface());
 					g2.fill(FlatUIUtils.createComponentRectangle(inset, 0, w, h, UIScale.scale(16f)));
 				}
-				if (hasFocus()) {
+				if (hasFocus() && keyboardFocus) {
 					g2.setColor(UIManagerColor.focus());
 					FlatUIUtils.paintOutline(g2, inset, 0, w, h, UIScale.scale(1.5f), UIScale.scale(16f));
 				}
@@ -361,6 +381,29 @@ public final class Rail extends JPanel {
 			g2.setColor(Theme.countPillText());
 			g2.drawString(text, x + (w - fm.stringWidth(text)) / 2f, y + (h + fm.getAscent() - fm.getDescent()) / 2f);
 			return x - UIScale.scale(6);
+		}
+	}
+
+	/**
+	 * Whether the person's last input was a key press rather than the mouse: a
+	 * window's first focus also arrives "by traversal", and must not show the ring.
+	 */
+	static final class LastInput {
+		private static volatile boolean key;
+
+		static {
+			try {
+				java.awt.Toolkit.getDefaultToolkit().addAWTEventListener(e -> {
+					if (e.getID() == java.awt.event.KeyEvent.KEY_PRESSED) key = true;
+					else if (e.getID() == java.awt.event.MouseEvent.MOUSE_PRESSED) key = false;
+				}, java.awt.AWTEvent.KEY_EVENT_MASK | java.awt.AWTEvent.MOUSE_EVENT_MASK);
+			} catch (RuntimeException e) {
+				// Headless or restricted: the ring then never shows, which errs on the quiet side.
+			}
+		}
+
+		static boolean wasKey() {
+			return key;
 		}
 	}
 

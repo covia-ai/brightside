@@ -111,6 +111,10 @@ public final class ScreenShots {
 			shoot(window, out, mode, "home-chat", size);
 			screens.sessions();
 			shoot(window, out, mode, "sessions-chat", size);
+			for (String view : List.of("AGENT", "RECORD")) {
+				screens.inspect(view);
+				shoot(window, out, mode, "inspect-" + view.toLowerCase(), size);
+			}
 		}
 		// The Inbox with seeded requests: one, twelve and over a hundred waiting.
 		for (int n : new int[] { 1, 12, 120 }) {
@@ -268,6 +272,18 @@ public final class ScreenShots {
 			Method m = MainWindow.class.getDeclaredMethod("showSettings", pageType);
 			m.setAccessible(true);
 			onEdt(() -> m.invoke(window, page));
+		}
+
+		/** The chat with its inspect views, one brought forward. */
+		void inspect(String view) throws Exception {
+			sessions();
+			Object views = field(window, "views");
+			Class<?> viewType = Class.forName("brightside.ui.inspect.SessionViews$View");
+			@SuppressWarnings({ "unchecked", "rawtypes" })
+			Object v = Enum.valueOf((Class) viewType, view);
+			Method select = views.getClass().getMethod("select", viewType);
+			onEdt(() -> select.invoke(views, v));
+			Thread.sleep(800);
 		}
 
 		void sendMessage(String text) throws Exception {

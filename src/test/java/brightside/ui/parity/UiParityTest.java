@@ -87,6 +87,8 @@ class UiParityTest {
 		if (t.length() < 2) return false;
 		if (!t.matches(".*\\p{L}.*")) return false;
 		if (t.startsWith("<html") || t.contains("{") || t.startsWith("#")) return false;
+		// Layout constraints ("span 3, gaptop 8, wmin 0"): lower-case keyword lists, not words anyone reads.
+		if (t.matches("[a-z0-9 ,:%.\\[\\]-]+") && t.matches(".*\\b(insets|span|spany|gap|gapx|gapy|gaptop|gapright|gapleft|gapbottom|wmin|hmin|grow|growx|growy|fill|fillx|wrap|align|aligny|alignx|push|sg|dock|hidemode|w|h)\\b.*")) return false;
 		// Keys, paths, ids and icon names: no spaces and not a capitalised word.
 		if (!t.contains(" ") && t.matches(".*\\.\\p{L}.*")) return false;
 		if (!t.contains(" ")) return Character.isUpperCase(t.charAt(0)) && t.matches("[\\p{L}][\\p{L}’'!?.,…:-]*");

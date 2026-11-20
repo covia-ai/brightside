@@ -63,10 +63,14 @@ public final class AgentInspector {
 		JPanel h = new JPanel(new MigLayout("insets 18 24 14 24, fillx, gapy 2", "[]12[grow,fill]", ""));
 		h.setOpaque(false);
 		h.setBorder(Borders.hairline(false, false, true, false));
-		h.add(new Badge("bot", Tone.ACCENT, 38), "spany 2, aligny center");
+		// The agent's identity mark, a pattern from its Agent ID: agents never get a face.
+		String identity = (a.did() != null && !a.did().isBlank()) ? a.did() : a.id();
+		h.add(Labels.icon(brightside.ui.components.IdentityMark.icon(identity, 38)), "spany 3, aligny top");
 		JPanel title = new JPanel(new MigLayout("insets 0, gap 10", "", ""));
 		title.setOpaque(false);
-		title.add(Labels.section(a.name()), "wmin 0");
+		// The name everyday screens use: the standard agent without a configured name is the app itself.
+		String shown = (a.standard() && (a.name() == null || a.name().equals(a.id()))) ? APP_NAME : a.name();
+		title.add(Labels.section(shown), "wmin 0");
 		StatusLabel state = state(a);
 		state.setToolTipText(a.error());
 		title.add(state);
@@ -76,7 +80,18 @@ public final class AgentInspector {
 			: "Created from the agents pane; it keeps the model and instructions it was given.");
 		title.add(kind);
 		h.add(title, "wmin 0, wrap");
-		h.add(Labels.small(activity(a)), "wmin 0");
+		// The short fingerprint of its Agent ID (mono; the copy button gives the full ID) and where it lives.
+		JPanel who = new JPanel(new MigLayout("insets 0, gap 8", "", ""));
+		who.setOpaque(false);
+		if (a.did() != null && !a.did().isBlank()) {
+			who.add(Styles.classes(Labels.small(brightside.ui.components.IdentityMark.fingerprint(a.did())),
+				Styles.SMALL, Styles.MONOSPACED, Styles.MUTED));
+			who.add(brightside.ui.components.Buttons.copy("Agent ID", a::did));
+		}
+		h.add(who, "wmin 0, wrap");
+		// These wrap, so the header reads in full in the docked inspector too.
+		h.add(brightside.ui.components.SelectableText.description("Lives on this computer · " + activity(a)).small(),
+			"growx, wmin 0, w 10::");
 		return h;
 	}
 
@@ -98,7 +113,7 @@ public final class AgentInspector {
 			d.pair("Last error", a.error(), Styles.ERROR).tip("What stopped the agent, as the venue reports it.");
 		}
 		d.pair("Id", a.id()).tip("The name the venue knows the agent by. Its record lives under it in the owner's namespace.");
-		d.pair("Agent DID", a.did()).tip("The agent's own identifier, distinct from its owner's: what it acts and signs as.");
+		d.pair("Agent DID", a.did()).tip("The agent's own identifier, distinct from its owner's: what it acts as.");
 		d.pair("Owner", a.ownerName() + "  ·  " + a.ownerDID()).tip("The user the agent belongs to and acts for.");
 		d.pair("Model", orDash(a.model())).tip("The model operation its replies run through.");
 		d.pair("Operation", orDash(a.operation())).tip("The agent operation " + APP_NAME + " invokes to chat with it.");

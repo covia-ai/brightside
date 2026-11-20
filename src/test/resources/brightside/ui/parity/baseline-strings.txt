@@ -1033,10 +1033,6 @@ Your system (or double-click the map)
 Yours
 Zoom in (or scroll)
 Zoom out (or scroll)
-[grow 25,fill]12[grow 75,fill]8[]2[]6[]4[]
-[grow 30,fill]12[grow 70,fill]8[]2[]6[]
-[grow,fill,sg s][grow,fill,sg s][grow,fill,sg s]
-[grow,fill,sg tile][grow,fill,sg tile][grow,fill,sg tile]
 \" a new key? 
 \" needs a token signed with your own key, which 
 \" now? 
@@ -1046,12 +1042,6 @@ Zoom out (or scroll)
 \nRunning locally at 
 \nYou are: 
 a String, a Readout.Link or a Readout.Tip, not 
-aligny center
-aligny center, wrap
-aligny top
-aligny top, gaptop 1
-aligny top, gaptop 3
-aligny top, gaptop 4
 alt LEFT
 alt UP
 and all it sees before loading.
@@ -1094,73 +1084,12 @@ font: bold -1
 font: bold -2
 for a live reply but not sent. The budget is the model's declared context size — a guide the 
 foreground: $Brightside.warning
-gapbottom 10
-gapbottom 16
-gapbottom 6
-gapbottom 8
-gaptop 1
-gaptop 10
-gaptop 12
-gaptop 14
-gaptop 16, wmin 0
-gaptop 18
-gaptop 2
-gaptop 6, wmin 0
-gapx 12
-gapx 2
-gapx push
-grow, wmax 520
-growx 0
-growx, gapbottom 2
 growx, h 96!
-growx, wmax 400
-growx, wmin 0
-growx, wmin 0, hmin 100, gapbottom 8
-growx, wmin 180
 h 72!, gaptop 6
 history rather than rendered into the cached prefix.
 in the cached prefix, not re-measured
 in, out, and read from or written to the provider's cache.
 inferences until the prefix is next rebuilt.
-insets 0
-insets 0, fillx
-insets 0, fillx, gap 10
-insets 0, fillx, gap 4
-insets 0, fillx, gap 8
-insets 0, fillx, wrap 1, gapy 8
-insets 0, fillx, wrap 2
-insets 0, fillx, wrap 5, gapy 2
-insets 0, fillx, wrap 6, gapy 4
-insets 0, gap 0, aligny center
-insets 0, gap 10
-insets 0, gap 12
-insets 0, gap 6
-insets 0, gap 8
-insets 0, wrap 1, gapy 0
-insets 0, wrap 1, gapy 6, fillx
-insets 10 14 10 14, fillx, gapx 12, gapy 2
-insets 10 20 10 14, fillx, gapx 10, aligny center, hidemode 3
-insets 10 28 12 28, fillx
-insets 12 14 12 10, fillx, hidemode 3, gapy 0
-insets 12 14 12 14, wrap 2, gapy 1
-insets 12 16 12 16, fillx, wrap 2, gapy 10, hidemode 3
-insets 12 52 2 0, fillx, wrap 2, gapy 6
-insets 16 18 16 18, fillx, wrap 2, gapy 2
-insets 18 18 18 22, fillx, wrap 1, gapy 6
-insets 18 24 14 24, fillx, gapy 2
-insets 18 28 6 28, gap 6
-insets 2 4 12 4, fillx, gapy 2
-insets 20 24 20 24, fillx, wrap 3, gap 12 12
-insets 20 28 24 28, fillx, wrap 2, gapy 8
-insets 24 28 14 28, fillx, wrap 2
-insets 24 28 20 28, fill, wrap 1
-insets 28 24 28 24, fillx, wrap 1, gapy 6, aligny center
-insets 4 0 0 0, wrap 2, gapy 8
-insets 6 18 2 8, fillx, aligny center
-insets 6 28 10 28, gap 6, fillx
-insets 8 28 12 28, gap 6, fillx
-insets 8, fill, wrap 1
-insets 8, fillx, wrap 2
 its label in the context, and the most of it that is placed there.
 just now
 know it. Moltbook keeps names unique.
@@ -1187,33 +1116,7 @@ shift F10
 show as you. Like a remembered passphrase, anyone who can read your files can use it.
 show the key of
 showRevealButton: true
-skip, growx, wmin 0, gapbottom 8
 so the agent always has it without loading anything.
-span 2
-span 2, gapbottom 2, gaptop 
-span 2, gaptop 4
-span 2, growx
-span 2, growx, gaptop 14
-span 2, growx, gaptop 4
-span 2, growx, wmin 0
-span 2, growx, wmin 0, 
-span 2, growx, wmin 0, gaptop 8
-span 2, growx, wmin 0, wmax 460, gapbottom 4
-span 2, growx, wmin 0, wmax 720, gaptop 
-span 3, gaptop 8, wmin 0
-span 3, growx, wmin 0
-span 5
-span 6
-span 6, gaptop 0, gapbottom 8, wmin 0
-span, gapbottom 8
-span, growx, wmin 0, gaptop 12
-span, wmin 0
-spany 2
-spany 2, aligny center
-spany 2, aligny center, gapright 10
-spany 2, aligny center, wrap
-spany 2, aligny top, gaptop 2
-spany 3, aligny center
 still doing will finish on its own, and if it answers, the reply\n
 summary, which keeps it quick and focused. Every message is kept: open\n
 the Covia DID
@@ -1232,12 +1135,6 @@ under a minute
 venue controls it; changing your name does not change it.
 what it reveals  ·  in the library
 who has it can act as you and decrypt a copied vault. Reveal it only for recovery or advanced tools, and 
-wmin 0
-wmin 0, aligny top
-wmin 0, gaptop 4
-wmin 0, hmin 200
-wmin 0, wrap
-wrap, wmin 0
 your agent
 your data folder, for tools on this computer such as Claude Code to read when they connect. Their turns 
 your identity.
