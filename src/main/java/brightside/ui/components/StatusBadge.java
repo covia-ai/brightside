@@ -49,6 +49,11 @@ public final class StatusBadge extends JLabel {
 		return new StatusBadge("Waiting on you", "hourglass", Tone.WAITING);
 	}
 
+	/** A job or tool call that ran out of time and will not go on by itself. */
+	public static StatusBadge timedOut() {
+		return new StatusBadge("Timed out", "clock", Tone.TIMED_OUT);
+	}
+
 	/** Refused, naming the capability that was missing; the capability is required. */
 	public static StatusBadge refused(String capability) {
 		if (capability == null || capability.isBlank()) {

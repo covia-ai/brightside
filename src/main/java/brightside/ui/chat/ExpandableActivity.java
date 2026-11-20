@@ -153,8 +153,27 @@ final class ExpandableActivity extends JPanel {
 	/** A step's status as a badge. */
 	static brightside.ui.components.StatusBadge statusBadge(SessionHistory.Step s) {
 		if (running(s)) return brightside.ui.components.StatusBadge.running();
+		if (s.error()) {
+			// Covia answers a call that outran its time in words: given up, or still running as a job.
+			if (stillRunning(s.detail())) return brightside.ui.components.StatusBadge.running();
+			if (timedOut(s.detail())) return brightside.ui.components.StatusBadge.timedOut();
+		}
 		return s.error() ? new brightside.ui.components.StatusBadge("Failed", "circle-alert", brightside.ui.components.Tone.ERROR)
 			: new brightside.ui.components.StatusBadge("Done", "circle-check", brightside.ui.components.Tone.SUCCESS);
+	}
+
+	/** Covia's result for a tool call that outran its time and was given up. */
+	static boolean timedOut(String result) {
+		return result != null && result.startsWith("Error: tool call timed out after ");
+	}
+
+	/**
+	 * Covia's result for a tool call still running at its time limit: its job
+	 * carries on, and the outcome arrives later in the conversation.
+	 */
+	static boolean stillRunning(String result) {
+		return result != null && result.startsWith("Error: ")
+			&& result.matches("(?s)Error: .+ did not complete within \\d+ms and is still running as job .*");
 	}
 
 	/** The body of a tool step: its input arguments and its result, each under a caption. */

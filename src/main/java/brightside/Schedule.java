@@ -78,10 +78,14 @@ public final class Schedule {
 			return "PENDING".equals(lastStatus) || "STARTED".equals(lastStatus);
 		}
 
-		/** Whether the last run failed, could not start, timed out or was refused. */
+		/** Whether the last run failed, could not start, or was refused. A run that timed out is its own case. */
 		public boolean failed() {
-			return couldNotStart() || "FAILED".equals(lastStatus) || "TIMEOUT".equals(lastStatus)
-				|| "REJECTED".equals(lastStatus);
+			return couldNotStart() || "FAILED".equals(lastStatus) || "REJECTED".equals(lastStatus);
+		}
+
+		/** Whether the last run ran out of time. */
+		public boolean timedOut() {
+			return "TIMEOUT".equals(lastStatus);
 		}
 
 		/** The event's name on screen: what it is for when it says, else its operation's. */

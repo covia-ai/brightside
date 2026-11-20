@@ -665,7 +665,7 @@ public final class SchedulePanel extends SettingsPage {
 		return switch (s) {
 			case "COMPLETE" -> outcome("circle-check", Tone.SUCCESS, "Completed", null);
 			case "FAILED" -> outcome("circle-alert", Tone.ERROR, "Failed", e.lastError());
-			case "TIMEOUT" -> outcome("circle-alert", Tone.ERROR, "Timed out", e.lastError());
+			case "TIMEOUT" -> outcome("clock", Tone.TIMED_OUT, "Timed out", e.lastError());
 			case "REJECTED" -> outcome("circle-x", Tone.ERROR, "Refused", e.lastError());
 			case "CANCELLED" -> outcome("circle-x", Tone.MUTED, "Cancelled", null);
 			case "INPUT_REQUIRED", "AUTH_REQUIRED" -> outcome("circle-pause", Tone.WARNING, "Waiting on you",

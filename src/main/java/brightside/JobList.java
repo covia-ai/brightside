@@ -61,7 +61,12 @@ public final class JobList {
 		ACTIVE("Active", "PENDING", "STARTED", "PAUSED"),
 		/** Asked the owner something. */
 		WAITING("Waiting on you", "INPUT_REQUIRED", "AUTH_REQUIRED"),
-		FAILED("Failed", "FAILED", "TIMEOUT", "REJECTED"),
+		FAILED("Failed", "FAILED", "REJECTED"),
+		/**
+		 * Ran out of time. Not finished as Covia counts it ({@code Job.isFinished}):
+		 * nothing resumes or retries it, but it can still be cancelled.
+		 */
+		TIMED_OUT("Timed out", "TIMEOUT"),
 		COMPLETED("Completed", "COMPLETE"),
 		CANCELLED("Cancelled", "CANCELLED");
 
@@ -201,18 +206,29 @@ public final class JobList {
 			return "PAUSED".equals(status);
 		}
 
+		/** Cancellable while not finished as Covia counts it, a run that timed out included. */
 		public boolean canCancel() {
 			return !finished();
 		}
 
+		/** Whether it ran out of time. Covia neither resumes nor retries it; it can still be cancelled. */
+		public boolean timedOut() {
+			return "TIMEOUT".equals(status);
+		}
+
+		/** Whether it has stopped moving: finished, or timed out. */
+		public boolean ended() {
+			return finished() || timedOut();
+		}
+
 		/** Whether it can be sent a message: it is still going or waiting for an answer. */
 		public boolean canMessage() {
-			return !finished();
+			return !ended();
 		}
 
 		/** How long it ran, or has run so far at {@code now}. */
 		public long elapsed(long now) {
-			long end = finished() && updated > 0 ? updated : now;
+			long end = ended() && updated > 0 ? updated : now;
 			return Math.max(0, end - created);
 		}
 	}

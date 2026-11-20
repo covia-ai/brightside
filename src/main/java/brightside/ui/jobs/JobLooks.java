@@ -36,6 +36,7 @@ final class JobLooks {
 			case ACTIVE -> "PAUSED".equals(job.status()) ? "circle-pause" : "loader-circle";
 			case WAITING -> "circle-pause";
 			case FAILED -> "circle-alert";
+			case TIMED_OUT -> "clock";
 			case COMPLETED -> "circle-check";
 			case CANCELLED -> "circle-x";
 		};
@@ -48,6 +49,7 @@ final class JobLooks {
 			case ACTIVE -> "PAUSED".equals(job.status()) ? Tone.MUTED : Tone.ACCENT;
 			case WAITING -> Tone.WARNING;
 			case FAILED -> Tone.ERROR;
+			case TIMED_OUT -> Tone.TIMED_OUT;
 			case COMPLETED -> Tone.SUCCESS;
 			case CANCELLED -> Tone.MUTED;
 		};
@@ -69,7 +71,7 @@ final class JobLooks {
 		line.append(startedBy(job));
 		if (job.created() > 0) line.append(" · ").append(Times.relative(job.created(), now));
 		if (job.created() > 0 && !"PENDING".equals(job.status())) {
-			line.append(" · ").append(job.finished() ? "took " : "for ").append(Times.elapsed(job.elapsed(now)));
+			line.append(" · ").append(job.ended() ? "took " : "for ").append(Times.elapsed(job.elapsed(now)));
 		}
 		return line.toString();
 	}

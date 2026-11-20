@@ -73,6 +73,7 @@ class RecordScreenTest {
 	void statusesInPlainWords() {
 		assertEquals("Completed", RecordScreen.statusWord("COMPLETE"));
 		assertEquals("Waiting on you", RecordScreen.statusWord("INPUT_REQUIRED"));
+		assertEquals("Timed out", RecordScreen.statusWord("TIMEOUT"));
 	}
 
 	@Test

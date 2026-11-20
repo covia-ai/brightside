@@ -126,7 +126,12 @@ final class JobDetail extends JPanel implements AutoCloseable {
 			? "  (" + job.operation() + ")" : ""), false);
 		if (job.purpose() != null && !job.purpose().equals(job.title())) field("For", job.purpose(), false);
 		field("Started", job.created() > 0 ? Times.exact(job.created()) : null, false);
-		if (job.finished() && job.updated() > 0) field("Finished", Times.exact(job.updated()), false);
+		if (job.timedOut()) {
+			field("Timed out", job.updated() > 0 ? Times.exact(job.updated()) : null, false);
+			// What the runtime does next, and nothing it does not: no resume, no retry.
+			field("What next", "It ran out of time and won't go on by itself; it can't be resumed or retried. "
+				+ "Cancel it to close it.", false);
+		} else if (job.finished() && job.updated() > 0) field("Finished", Times.exact(job.updated()), false);
 		else if (job.updated() > 0) field("Last update", Times.exact(job.updated()), false);
 		field("Started by", JobLooks.startedBy(job) + (job.caller() != null ? "  (" + job.caller() + ")" : ""), false);
 		if (job.agent() != null) field("Agent", job.agent(), false);
@@ -156,7 +161,7 @@ final class JobDetail extends JPanel implements AutoCloseable {
 	/** Keeps "running for" current while the job is going. */
 	void tick(long now) {
 		if (job == null) return;
-		running.setText(job.finished() || job.created() <= 0 ? (job.created() > 0 ? "Took " + Times.elapsed(job.elapsed(now)) : " ")
+		running.setText(job.ended() || job.created() <= 0 ? (job.created() > 0 ? "Took " + Times.elapsed(job.elapsed(now)) : " ")
 			: "For " + Times.elapsed(job.elapsed(now)));
 	}
 

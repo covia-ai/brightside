@@ -134,6 +134,13 @@ public final class ScreenShots {
 			screens.inbox();
 			shoot(window, out, mode, "inbox-self", size);
 		}
+		// A job that ran out of time: a status of its own, beside the job list.
+		String timedOut = screens.seedTimedOutJob();
+		for (Dimension size : SIZES) {
+			screens.resize(size);
+			screens.openJob(timedOut);
+			shoot(window, out, mode, "jobs-timedout", size);
+		}
 		System.out.println("Screenshots written to " + out.toAbsolutePath());
 		System.exit(0);
 	}
@@ -324,6 +331,47 @@ public final class ScreenShots {
 		}
 
 		/** One sample request from the identity the app acts as (sample only; it never reaches the venue). */
+		/**
+		 * A job that ran out of time, as Covia would record one: a job that never
+		 * finishes by itself, marked TIMEOUT. Returns its id.
+		 */
+		String seedTimedOutJob() throws Exception {
+			brightside.EmbeddedVenue v = app().venue();
+			String me = app().actingPrincipal();
+			covia.grid.Job j = v.clientAs(me).invoke("v/test/ops/never", convex.core.data.Maps.empty())
+				.get(30, java.util.concurrent.TimeUnit.SECONDS);
+			covia.grid.Job live = v.engine().jobs().getJob(j.getID());
+			live.setStatus(covia.grid.Status.TIMEOUT);
+			Thread.sleep(500);
+			return j.getID().toHexString();
+		}
+
+		/** The sidebar's Jobs, with job {@code id} open beside the list. */
+		void openJob(String id) throws Exception {
+			Class<?> destType = Class.forName("brightside.ui.shell.Destination");
+			@SuppressWarnings({ "unchecked", "rawtypes" })
+			Object dest = Enum.valueOf((Class) destType, "JOBS");
+			Method go = MainWindow.class.getMethod("go", destType);
+			onEdt(() -> go.invoke(window, dest));
+			brightside.ui.jobs.JobsScreen jobs = find(window, brightside.ui.jobs.JobsScreen.class);
+			onEdt(() -> {
+				jobs.open(id);
+				return null;
+			});
+			Thread.sleep(800);
+		}
+
+		static <T> T find(java.awt.Container c, Class<T> type) {
+			for (java.awt.Component k : c.getComponents()) {
+				if (type.isInstance(k)) return type.cast(k);
+				if (k instanceof java.awt.Container kc) {
+					T f = find(kc, type);
+					if (f != null) return f;
+				}
+			}
+			return null;
+		}
+
 		void seedSelfRequest() throws Exception {
 			String me = app().actingPrincipal();
 			long now = System.currentTimeMillis();

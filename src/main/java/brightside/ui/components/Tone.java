@@ -32,7 +32,12 @@ public enum Tone {
 	 * A capability was missing: the mechanism, never danger, so calm and never
 	 * red, with an outline; its label always names the capability.
 	 */
-	REFUSED(null, () -> status("refused", "icon"), "Brightside.status.refused.background", "refused");
+	REFUSED(null, () -> status("refused", "icon"), "Brightside.status.refused.background", "refused"),
+	/**
+	 * Ran out of time and will not go on by itself: a status of its own, not a
+	 * failure, so calm and never red. Slate on a soft grey.
+	 */
+	TIMED_OUT(null, () -> status("timedout", "icon"), "Brightside.status.timedout.background", "timedout");
 
 	private final String style;
 	private final Supplier<Color> colour;

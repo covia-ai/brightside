@@ -292,6 +292,7 @@ public final class RecordScreen extends JPanel {
 		return switch (status == null ? "" : status) {
 			case "COMPLETE" -> "Completed";
 			case "FAILED" -> "Failed";
+			case "TIMEOUT" -> "Timed out";
 			case "CANCELLED" -> "Cancelled";
 			case "STARTED", "PENDING" -> "Running";
 			case "PAUSED" -> "Paused";
