@@ -150,6 +150,25 @@ public final class SettingsScreen extends JPanel {
 	}
 
 	private Tab selected = Tab.values()[0];
+	/** Pages that live on a screen of their own (the sidebar layout): their entry here opens it instead. */
+	private final Map<Tab, Runnable> elsewhere = new EnumMap<>(Tab.class);
+
+	/** Whether {@code tab}'s page lives on a screen of its own just now. */
+	public boolean isElsewhere(Tab tab) {
+		return elsewhere.containsKey(tab);
+	}
+
+	/** {@code tab}'s page lives elsewhere: its entry opens it there. Null brings it back here. */
+	public void livesElsewhere(Tab tab, Runnable open) {
+		if (open == null) elsewhere.remove(tab);
+		else elsewhere.put(tab, open);
+	}
+
+	/** Puts a page's panel back in this screen, after it was shown on a screen of its own. */
+	public void restore(Tab tab, java.awt.Component panel) {
+		content.add(panel, tab.name());
+		content.revalidate();
+	}
 
 	/** The section on view. */
 	public Tab selected() {
@@ -158,6 +177,11 @@ public final class SettingsScreen extends JPanel {
 
 	/** Select a section (also shows its content). */
 	public void select(Tab t) {
+		Runnable open = elsewhere.get(t);
+		if (open != null) {
+			open.run();
+			return;
+		}
 		selected = t;
 		for (Map.Entry<Tab, PressButton> e : nav.entrySet()) {
 			boolean on = e.getKey() == t;

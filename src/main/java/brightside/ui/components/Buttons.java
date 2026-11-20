@@ -23,7 +23,7 @@ public final class Buttons {
 
 	/** The one call to action on a screen — white on the accent's dark shade: Save, Continue, Send. */
 	public static JButton primary(String text) {
-		return hand(Styles.classes(new JButton(text), Styles.PRIMARY));
+		return hand(Styles.classes(new Labelled(text), Styles.PRIMARY));
 	}
 
 	/**
@@ -33,19 +33,19 @@ public final class Buttons {
 	 * matches the text.
 	 */
 	public static JButton tinted(String text, Icon icon) {
-		JButton b = hand(Styles.classes(new JButton(text), Styles.TINTED));
+		JButton b = hand(Styles.classes(new Labelled(text), Styles.TINTED));
 		b.setIcon(icon);
 		return b;
 	}
 
 	/** A quiet action beside the primary one: Back, Cancel, Copy. */
 	public static JButton secondary(String text) {
-		return hand(Styles.classes(new JButton(text), Styles.SECONDARY));
+		return hand(Styles.classes(new Labelled(text), Styles.SECONDARY));
 	}
 
 	/** An ordinary rounded button for an everyday action. */
 	public static JButton plain(String text) {
-		JButton b = new JButton(text);
+		JButton b = new Labelled(text);
 		b.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_ROUND_RECT);
 		return hand(b);
 	}
@@ -59,7 +59,7 @@ public final class Buttons {
 
 	/** A small ordinary button that sits beside a value: Copy, Remove. */
 	public static JButton small(String text) {
-		return hand(Styles.classes(new JButton(text), Styles.SMALL));
+		return hand(Styles.classes(new Labelled(text), Styles.SMALL));
 	}
 
 	/** An icon-only button with no chrome until hovered; the tooltip names it. */
@@ -104,5 +104,24 @@ public final class Buttons {
 	private static <B extends AbstractButton> B hand(B button) {
 		button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		return button;
+	}
+
+	/**
+	 * A button with a label that asks for two pixels more than it needs:
+	 * layouts can round a width down by a pixel at fractional UI scales, and a
+	 * label one pixel short is cut to "Cre…".
+	 */
+	@SuppressWarnings("serial")
+	static final class Labelled extends JButton {
+		Labelled(String text) {
+			super(text);
+		}
+
+		@Override
+		public java.awt.Dimension getPreferredSize() {
+			java.awt.Dimension d = super.getPreferredSize();
+			if (isPreferredSizeSet() || getText() == null || getText().isEmpty()) return d;
+			return new java.awt.Dimension(d.width + 2, d.height);
+		}
 	}
 }

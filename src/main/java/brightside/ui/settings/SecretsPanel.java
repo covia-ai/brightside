@@ -77,10 +77,11 @@ public final class SecretsPanel extends SettingsPage {
 		// The action belongs beside the fields it acts on: adding the primary
 		// button here re-parents it out of the bottom action bar, which then
 		// carries only the status note.
+		// The field gives way inside the row's width cap, so the button keeps its whole label.
 		JPanel saveRow = new JPanel(new MigLayout("insets 0, fillx", "[grow,fill]8[]", ""));
 		saveRow.setOpaque(false);
-		saveRow.add(valueField, "growx");
-		saveRow.add(primary);
+		saveRow.add(valueField, "growx, wmin 0");
+		saveRow.add(primary, "wmin pref");
 		addField("Value", "Stored encrypted; saving under an existing name replaces its value", saveRow);
 		primary.setToolTipText("Encrypt and store the secret under this name");
 		onPrimary(this::onSave);

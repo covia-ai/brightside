@@ -138,16 +138,34 @@ public final class ScreenShots {
 		System.exit(0);
 	}
 
+	/** Debug: how a button with this text is sized and measured (set -Dshots.probe=text). */
+	static void probe(java.awt.Component c) {
+		String want = System.getProperty("shots.probe");
+		if (want == null) return;
+		if (c instanceof javax.swing.AbstractButton b && want.equals(b.getText()) && b.isShowing()) {
+			java.awt.FontMetrics fm = b.getFontMetrics(b.getFont());
+			System.out.println("PROBE " + want + " w=" + b.getWidth() + " pref=" + b.getPreferredSize().width + " text="
+				+ fm.stringWidth(want) + " insets=" + b.getInsets() + " font=" + b.getFont() + " frc=" + fm.getFontRenderContext());
+		}
+		if (c instanceof java.awt.Container k) for (java.awt.Component ch : k.getComponents()) probe(ch);
+	}
+
 	/** Paints the window's root pane, as laid out at {@code size}, into a PNG. */
 	static void shoot(JFrame window, Path out, String mode, String name, Dimension size) throws Exception {
 		if (!name.contains(filter)) return;
 		Thread.sleep(400);
+		SwingUtilities.invokeAndWait(() -> probe(window));
 		AtomicReference<BufferedImage> img = new AtomicReference<>();
 		SwingUtilities.invokeAndWait(() -> {
 			JComponent root = window.getRootPane();
 			root.validate();
-			BufferedImage b = new BufferedImage(root.getWidth(), root.getHeight(), BufferedImage.TYPE_INT_RGB);
+			// Paint at the screen's own scale (2 on a Retina display): text is laid out with
+			// that scale's metrics, and painting it at another scale cuts bold text short.
+			double scale = window.getGraphicsConfiguration().getDefaultTransform().getScaleX();
+			BufferedImage b = new BufferedImage((int) Math.ceil(root.getWidth() * scale),
+				(int) Math.ceil(root.getHeight() * scale), BufferedImage.TYPE_INT_RGB);
 			Graphics2D g = b.createGraphics();
+			g.scale(scale, scale);
 			root.printAll(g);
 			g.dispose();
 			img.set(b);
