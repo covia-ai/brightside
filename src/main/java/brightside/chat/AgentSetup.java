@@ -40,7 +40,8 @@ public final class AgentSetup {
 	/** The configuration keys that are Tau's standard parts, kept current on an existing agent. */
 	public static final Set<AString> STANDARD = Set.of(
 		Fields.OPERATION, Strings.intern("defaultTools"), Strings.intern("tools"), Strings.intern("toolCallTimeoutMs"),
-		Strings.intern("context"), Fields.LOADS, Strings.intern("skills"), Strings.intern("skillsets"));
+		Strings.intern("context"), Fields.LOADS, Strings.intern("skills"), Strings.intern("skillsets"),
+		Strings.intern("acceptTasks"));
 
 	private static final AString K_INPUT = Strings.intern("input");
 	private static final AString K_MODEL_OPERATION = Strings.intern("modelOperation");
@@ -82,6 +83,8 @@ public final class AgentSetup {
 			"tools", Vectors.of(Strings.create(ChatSession.INSPECT_OP), Strings.create(ChatSession.MEMORY_OP),
 				Strings.create(ChatSession.SKILL_FEEDBACK_OP), Strings.create(ChatSession.COMPACT_TOOL)),
 			"toolCallTimeoutMs", ChatSession.TOOL_CALL_TIMEOUT_MS,
+			// Takes tasks (agent:request) as well as chat: schedules, other agents and the gods hand it work.
+			"acceptTasks", true,
 			// Pin memory into every turn's context, through the read-only recall op;
 			// the memory tool above is for edits. What the owner is like, shared by
 			// all their assistants (w/memory), then this one's own (n/memory).

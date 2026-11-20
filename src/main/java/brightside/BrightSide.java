@@ -1687,7 +1687,7 @@ public final class BrightSide {
 		try {
 			requirePassphrase(passphrase);
 			return requireTokens().key(name);
-		} catch (covia.exception.NotSupportedException e) {
+		} catch (covia.exception.UnsupportedException e) {
 			// Made or last given a key while the venue kept none (adapters.token.keepRawTokens).
 			throw new IOException("This token was made before " + APP_NAME + " kept keys: give it a new key to see one.", e);
 		} finally {

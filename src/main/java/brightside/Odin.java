@@ -50,6 +50,7 @@ public final class Odin {
 	static final AVector<ACell> POWERS = Vectors.of(
 		God.cap("users", "admin/user/create"),
 		God.cap("users", "admin/user/read"),
+		God.cap("adapters", "admin/adapter/read"),
 		God.cap("adapters", "admin/adapter/manage"),
 		God.cap("p2p", "p2p/read"),
 		God.cap("p2p", "p2p/manage"),

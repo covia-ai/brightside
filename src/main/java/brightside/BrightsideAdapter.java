@@ -338,9 +338,10 @@ public class BrightsideAdapter extends AAdapter {
 	 * Peers map is arranged without a Brightside operation.
 	 */
 	@Override
-	public AForkableCursor<ACell> latticeView(RequestContext ctx) {
-		return adapterState(ctx.getUserDID()).cursor().withDefault(Maps.empty())
-			.path(K_USERS).withDefault(Maps.empty()).path(ctx.getUserDID());
+	public AForkableCursor<ACell> latticeView(AString owner, RequestContext ctx) {
+		// The router has checked the request's authority over owner's view; select by owner alone.
+		return adapterState(owner).cursor().withDefault(Maps.empty())
+			.path(K_USERS).withDefault(Maps.empty()).path(owner);
 	}
 
 	@Override
@@ -406,7 +407,7 @@ public class BrightsideAdapter extends AAdapter {
 			return op.equals(god.ask()) ? handleAsk(god, ctx, input) : handleRun(god, ctx, input);
 		}
 		return CompletableFuture.failedFuture(
-			new covia.exception.NotSupportedException("Unknown brightside operation: " + op));
+			new covia.exception.UnsupportedException("Unknown brightside operation: " + op));
 	}
 
 	/**
@@ -423,7 +424,7 @@ public class BrightsideAdapter extends AAdapter {
 			// caller is the agent sub-principal (<owner>:g:<agent>); the owner is
 			// the user whose namespace that agent works in.
 			AString owner = (ctx != null) ? ctx.getUserDID() : null;
-			AString caller = (ctx != null) ? ctx.getCallerDID() : null;
+			AString caller = (ctx != null) ? ctx.getAuthorityDID() : null;
 
 			// No heading: the entry is already labelled by the pin that loads it.
 			StringBuilder text = new StringBuilder();
@@ -608,7 +609,7 @@ public class BrightsideAdapter extends AAdapter {
 				K_CREATED, engine.currentTimestamp(),
 				K_CATEGORY, category,
 				K_SUMMARY, summary,
-				K_REPORTER, (ctx != null) ? ctx.getCallerDID() : null);
+				K_REPORTER, (ctx != null) ? ctx.getAuthorityDID() : null);
 			if (details != null) record = record.assoc(K_DETAILS, details);
 			if (failedAction != null) record = record.assoc(K_FAILED_ACTION, failedAction);
 			if (error != null) record = record.assoc(K_ERROR, error);
@@ -857,7 +858,7 @@ public class BrightsideAdapter extends AAdapter {
 	private CompletableFuture<ACell> handleRun(God god, RequestContext ctx, ACell input) {
 		try {
 			AString venueDID = engine.getDIDString();
-			AString caller = (ctx != null) ? ctx.getCallerDID() : null;
+			AString caller = (ctx != null) ? ctx.getAuthorityDID() : null;
 			if (caller == null || !caller.toString().equals(god.did(venueDID.toString()))) {
 				throw new covia.exception.AuthException(god.run() + " may only be invoked by " + god.id());
 			}

@@ -82,7 +82,7 @@ class SuspensionTest {
 		String agent = "stopped-mid-turn";
 		// Its turn never finishes by itself, so the stop always cuts it short.
 		run("v/ops/agent/create", Maps.of(Fields.AGENT_ID, agent, Fields.CONFIG,
-			Maps.of(Fields.OPERATION, "v/test/ops/never")));
+			Maps.of(Fields.OPERATION, "v/test/ops/never", "acceptTasks", true)));
 		CountDownLatch turnStarted = new CountDownLatch(1);
 		Job task;
 		try (AutoCloseable events = venue.subscribeAgent(userDID, agent, e -> {

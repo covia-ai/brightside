@@ -134,7 +134,7 @@ class InboxBindingTest {
 
 	private static void open(User user, String id, long created) {
 		assertTrue(user.inbox().open(HitlRequest.record(id(id), user.getDID(), user.getDID(),
-			null, null, Strings.create(id), null, Vectors.empty(), created, null)));
+			null, null, null, Strings.create(id), null, Vectors.empty(), created, null)));
 	}
 
 	/** The binding takes the inbox as it stands, as the watcher hands it each change. */

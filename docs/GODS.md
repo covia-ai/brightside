@@ -92,7 +92,7 @@ holds its own powers, named as Covia names them:
 
 | God | Powers |
 |---|---|
-| Odin | `admin/user/create` and `admin/user/read` on `users`; `admin/adapter/manage` on `adapters`; `p2p/read` and `p2p/manage`; `secret/write` and `crud/delete` on the venue's `s/`; `admin/venue/restart` on `process` (restart, relaunch, shutdown); `admin/venue/compact` on `store` |
+| Odin | `admin/user/create` and `admin/user/read` on `users`; `admin/adapter/read` and `admin/adapter/manage` on `adapters`; `p2p/read` and `p2p/manage`; `secret/write` and `crud/delete` on the venue's `s/`; `admin/venue/restart` on `process` (restart, relaunch, shutdown); `admin/venue/compact` on `store` |
 | Thor | `admin/user/read` on `users` |
 | Eir | `admin/user/read` on `users` |
 | Njord | none: his treasury is granted per call |

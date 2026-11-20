@@ -165,7 +165,7 @@ class V0Install {
 			if (!SessionHistory.isSessionActive(venue.agentRecord(userDID, NOTES_AGENT), sid)) {
 				try {
 					invoke(client, "v/ops/agent/compact-session",
-						Maps.of("agentId", NOTES_AGENT, "sessionId", sid, "summary", summary));
+						Maps.of("agentId", NOTES_AGENT, "sessionId", sid, "summary", summary, "keep", 0));
 					return;
 				} catch (Exception e) {
 					if (!String.valueOf(e.getMessage()).contains("active")) throw e;

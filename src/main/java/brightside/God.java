@@ -226,6 +226,8 @@ public record God(String id, String ask, String run, String overseer, String kee
 			"skills", Vectors.of(skills.stream().map(Strings::create).toArray(ACell[]::new)),
 			// Multi-party by nature: record who sent each turn.
 			"recordCaller", true,
+			// Takes tasks: the gods hand each other work, and every report to Odin is one.
+			"acceptTasks", true,
 			K_CAPS, caps());
 	}
 

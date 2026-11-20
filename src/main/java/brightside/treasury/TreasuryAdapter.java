@@ -318,7 +318,7 @@ public class TreasuryAdapter extends AAdapter implements CallGrants {
 		if (known == null) throw new InvalidInputException("No budget " + budgetId);
 		Rail rail = rail(existingAccount(before, known.get(K_ACCOUNT).toString()).get(K_RAIL).toString());
 		AString recipient = rail.recipient(RT.getIn(input, K_RECIPIENT));
-		AString by = ctx.getCallerDID();
+		AString by = ctx.getAuthorityDID();
 
 		AtomicLong line = new AtomicLong();
 		ACell drawn = update(s -> {

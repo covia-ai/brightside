@@ -65,7 +65,7 @@ class GodCapsTest {
 		denied(Odin.GOD, "v/ops/user/delete", Maps.of(Fields.DID, made));
 		assertFalse(venue.engine().getVenueState().users().isDeleted(made), "Covia keeps the account from his caps");
 		assertFalse(venue.engine().hasVenueAuthority(GodContexts.of(venue, Odin.AGENT_ID), "users",
-			Abilities.ADMIN_USER_AUTH_MANAGE), "nor may he add a way to sign in as someone");
+			Abilities.ADMIN_USER_AUTH_ADD), "nor may he add a way to sign in as someone");
 		assertTrue(venue.engine().hasVenueAuthority(GodContexts.of(venue, Odin.AGENT_ID), "users",
 			Abilities.ADMIN_USER_CREATE), "as Covia judges his caps");
 
