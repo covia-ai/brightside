@@ -67,6 +67,13 @@ public final class RequestForm extends JPanel {
 	final JTextArea comment = textArea(2);
 	final JButton answerButton = Buttons.primary("Answer");
 	final JButton rejectButton = Buttons.plain("Reject…");
+	/** For a request that is one approval: Decline answers it with no, beside Approve. */
+	final JButton declineButton = Buttons.secondary("Decline");
+	/** Why Approve is unavailable, when the request came from the identity answering it. */
+	final JLabel selfNote = Labels.small(" ");
+	private ApprovalInput single;
+	private boolean selfRequest;
+	private boolean primaryActive = true;
 
 	public RequestForm(Inbox.Request request, Listener listener) {
 		this.request = request;
@@ -103,11 +110,18 @@ public final class RequestForm extends JPanel {
 			add(Labels.small("Comment (optional)"));
 			add(comment);
 			add(gap(8));
+			// One approval: verb buttons, Approve and Decline, which choose and send in one go.
+			if (request.asks().size() == 1 && inputs.values().iterator().next() instanceof ApprovalInput a) {
+				single = a;
+				answerButton.setText("Approve");
+				declineButton.addActionListener(e -> {
+					single.no.setSelected(true);
+					send();
+				});
+			}
 			answerButton.addActionListener(e -> {
-				Inbox.Answer answer = collect();
-				if (answer == null) return;
-				setBusy(true);
-				listener.onAnswer(request, answer);
+				if (single != null) single.yes.setSelected(true);
+				send();
 			});
 			rejectButton.addActionListener(e -> {
 				String reason = Dialogs.prompt(this, "Reject request", "Reason (optional):", "");
@@ -118,8 +132,15 @@ public final class RequestForm extends JPanel {
 			JPanel buttons = Panels.row();
 			buttons.add(answerButton);
 			buttons.add(Box.createHorizontalStrut(8));
+			if (single != null) {
+				buttons.add(declineButton);
+				buttons.add(Box.createHorizontalStrut(8));
+			}
 			buttons.add(rejectButton);
 			add(buttons);
+			Styles.classes(selfNote, Styles.SMALL, Styles.MUTED);
+			selfNote.setVisible(false);
+			add(selfNote);
 			add(gap(4));
 			add(status);
 			for (AskInput in : inputs.values()) in.setEnabled(true);
@@ -131,14 +152,76 @@ public final class RequestForm extends JPanel {
 		refreshGrants();
 	}
 
+	private void send() {
+		Inbox.Answer answer = collect();
+		if (answer == null) return;
+		setBusy(true);
+		listener.onAnswer(request, answer);
+	}
+
+	/**
+	 * The request came from the identity answering it (an agent acting as
+	 * you, or you switched to the agent that asked): the venue will not let
+	 * it approve its own request, so Approve is unavailable and the card says
+	 * why, so it never looks like a fault.
+	 */
+	public void setSelfRequest(boolean self) {
+		selfRequest = self;
+		selfNote.setText(self ? "This request came from the identity you are acting as. Switch to the owner to answer it." : " ");
+		selfNote.setVisible(self);
+		answerButton.setEnabled(!self);
+		if (single != null) answerButton.setToolTipText(self ? selfNote.getText() : null);
+	}
+
+	public boolean selfRequest() {
+		return selfRequest;
+	}
+
+	/**
+	 * Only one card in the Inbox carries the filled primary at a time: the one
+	 * being worked on. The others show the same action as a secondary.
+	 */
+	public void setPrimaryActive(boolean active) {
+		primaryActive = active;
+		Styles.classes(answerButton, active ? Styles.PRIMARY : Styles.SECONDARY);
+	}
+
+	public boolean primaryActive() {
+		return primaryActive;
+	}
+
+	/** Runs {@code r} when the person starts working in this form: a click or focus anywhere in it. */
+	public void onEngaged(Runnable r) {
+		java.awt.event.FocusListener focus = new java.awt.event.FocusAdapter() {
+			@Override
+			public void focusGained(java.awt.event.FocusEvent e) {
+				r.run();
+			}
+		};
+		java.awt.event.MouseListener mouse = new java.awt.event.MouseAdapter() {
+			@Override
+			public void mousePressed(java.awt.event.MouseEvent e) {
+				r.run();
+			}
+		};
+		attach(this, focus, mouse);
+	}
+
+	private static void attach(java.awt.Component c, java.awt.event.FocusListener f, java.awt.event.MouseListener m) {
+		c.addFocusListener(f);
+		c.addMouseListener(m);
+		if (c instanceof java.awt.Container k) for (java.awt.Component child : k.getComponents()) attach(child, f, m);
+	}
+
 	public Inbox.Request request() {
 		return request;
 	}
 
 	/** Buttons off while the response is in flight; back on if it failed. */
 	void setBusy(boolean busy) {
-		answerButton.setEnabled(!busy);
+		answerButton.setEnabled(!busy && !selfRequest);
 		rejectButton.setEnabled(!busy);
+		declineButton.setEnabled(!busy);
 		Styles.classes(status, Styles.SMALL, busy ? Styles.MUTED : Styles.ERROR);
 		status.setText(busy ? "Sending…" : " ");
 	}

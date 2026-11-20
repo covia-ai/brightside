@@ -1433,6 +1433,7 @@ public final class MainWindow extends JFrame {
 
 	/** The acting identity or the venue changed: the strip, the sidebar's identity menu, and the venue chip follow. */
 	private void identityChanged() {
+		if (inboxScreen != null) inboxScreen.setActing(app.actingPrincipal());
 		if (rail == null) return;
 		String name = (identity != null) ? (app.actingAsOperator() ? app.operatorName() : identity.name()) : null;
 		rail.setIdentity(name);
