@@ -232,6 +232,9 @@ public final class BrightSide {
 			return;
 		}
 		Path path = launch.config();
+		// macOS: the menu bar at the top of the screen, named for the app. Before any AWT class loads.
+		System.setProperty("apple.laf.useScreenMenuBar", "true");
+		System.setProperty("apple.awt.application.name", APP_NAME);
 		configureLogging(path.getParent());
 		// Threads' uncaught exceptions — the event thread's included — go to the
 		// log file, not only to a console nobody is watching.
@@ -2889,6 +2892,16 @@ public final class BrightSide {
 	/** The accent chosen in Settings → Theme as {@code #RRGGBB}, or null for the default. */
 	public String accent() {
 		return LAF.accent();
+	}
+
+	/** A remembered window and layout choice ({@code ui.*} in prefs.properties), or {@code fallback}. */
+	public String uiPref(String key, String fallback) {
+		return prefs.getString("ui." + key, fallback);
+	}
+
+	/** Remembers a window or layout choice on this computer; null forgets it. */
+	public void setUiPref(String key, String value) {
+		prefs.setString("ui." + key, value);
 	}
 
 	/** Switches to light or dark — each mode keeps its own chosen theme — and remembers it. */

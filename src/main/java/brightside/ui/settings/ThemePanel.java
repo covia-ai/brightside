@@ -72,6 +72,14 @@ public final class ThemePanel extends JPanel {
 
 		/** Open the folder the owner's own {@code .theme.json} files go in. */
 		void openThemesFolder();
+
+		/** The sidebar ({@code true}) or the classic bottom bar. */
+		default void setShell(boolean rail) {
+		}
+
+		/** Compact rows in tables and lists ({@code true}) or comfortable ones. */
+		default void setDensity(boolean compact) {
+		}
 	}
 
 	/** A named accent on offer. */
@@ -97,6 +105,10 @@ public final class ThemePanel extends JPanel {
 	private final Map<String, Swatch> swatches = new LinkedHashMap<>();
 	private final JButton custom = Buttons.secondary("Custom…");
 	private final JLabel accentNote = Labels.small(" ");
+	private final JRadioButton sidebarLayout = new JRadioButton("Sidebar");
+	private final JRadioButton bottomLayout = new JRadioButton("Bottom bar");
+	private final JRadioButton comfortable = new JRadioButton("Comfortable");
+	private final JRadioButton compact = new JRadioButton("Compact");
 	private String mode = LAF.DARK;
 	private String currentAccent = LAF.BRIGHTSIDE_ACCENT;
 	private boolean syncing;
@@ -105,7 +117,7 @@ public final class ThemePanel extends JPanel {
 		super(new BorderLayout());
 		this.host = host;
 		JPanel form = new JPanel(new MigLayout("insets 24 28 20 28, fill, wrap 1", "[grow,fill]",
-			"[]12[grow,fill]14[]6[]4[]14[]"));
+			"[]12[grow,fill]14[]6[]4[]14[]14[]"));
 
 		// The switch. Each mode keeps its own theme from the list below.
 		ButtonGroup modes = new ButtonGroup();
@@ -159,7 +171,51 @@ public final class ThemePanel extends JPanel {
 		own.add(open, "gaptop 12");
 		form.add(own, "growx, wmin 0");
 
+		// How the window is laid out: the sidebar, or the bottom bar as before;
+		// and how tightly tables and lists are set.
+		JPanel layout = new JPanel(new MigLayout("insets 12 0 0 0, fillx, wrap 2", "[]16[grow]", "[]8[]"));
+		layout.setOpaque(false);
+		layout.setBorder(Borders.hairlineTop());
+		ButtonGroup shells = new ButtonGroup();
+		ButtonGroup densities = new ButtonGroup();
+		for (JRadioButton b : new JRadioButton[] { sidebarLayout, bottomLayout, comfortable, compact }) b.setOpaque(false);
+		shells.add(sidebarLayout);
+		shells.add(bottomLayout);
+		densities.add(comfortable);
+		densities.add(compact);
+		sidebarLayout.setToolTipText("Screens in a sidebar on the left, with a status strip across the top");
+		bottomLayout.setToolTipText("Screens in a bar along the bottom, as before");
+		compact.setToolTipText("Tighter rows in tables and lists; text stays the same size");
+		sidebarLayout.addActionListener(e -> { if (!syncing) host.setShell(true); });
+		bottomLayout.addActionListener(e -> { if (!syncing) host.setShell(false); });
+		comfortable.addActionListener(e -> { if (!syncing) host.setDensity(false); });
+		compact.addActionListener(e -> { if (!syncing) host.setDensity(true); });
+		layout.add(Labels.text("Layout"));
+		JPanel shellRow = Panels.row();
+		shellRow.add(sidebarLayout);
+		shellRow.add(Box.createHorizontalStrut(18));
+		shellRow.add(bottomLayout);
+		layout.add(shellRow);
+		layout.add(Labels.text("Density"));
+		JPanel densityRow = Panels.row();
+		densityRow.add(comfortable);
+		densityRow.add(Box.createHorizontalStrut(18));
+		densityRow.add(compact);
+		layout.add(densityRow);
+		form.add(layout, "growx, wmin 0");
+
 		add(form, BorderLayout.CENTER);
+	}
+
+	/** Reflect the layout and density in use; fires no host call. */
+	public void refreshLayout(boolean rail, boolean compactRows) {
+		syncing = true;
+		try {
+			(rail ? sidebarLayout : bottomLayout).setSelected(true);
+			(compactRows ? compact : comfortable).setSelected(true);
+		} finally {
+			syncing = false;
+		}
 	}
 
 	/** Reflect the app's current mode, theme and accent; fires no host call. */

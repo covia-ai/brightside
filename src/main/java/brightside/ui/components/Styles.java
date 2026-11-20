@@ -30,6 +30,8 @@ public final class Styles {
 	public static final String SECTION = "section";
 	public static final String TITLE = "title";
 	public static final String OVERLINE = "overline";
+	public static final String CAPTION = "caption";
+	public static final String DISPLAY = "display";
 
 	// Buttons.
 	public static final String PRIMARY = "primary";

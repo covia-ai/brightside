@@ -59,7 +59,7 @@ public final class IconTile extends JLabel {
 		FEED("rss", Family.CERULEAN),
 		SKILLS("book-open-check", Family.VIOLET),
 		MODEL("cpu", Family.VIOLET),
-		JOBS("scroll-text", Family.NAVY),
+		JOBS("list-checks", Family.NAVY),
 		RECORD("scroll-text", Family.NAVY),
 		SCHEDULE("calendar-clock", Family.NAVY),
 		SECRETS("key-round", Family.AMBER),

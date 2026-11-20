@@ -10,6 +10,8 @@ import java.awt.CardLayout;
 import java.awt.Dimension;
 import java.awt.Frame;
 import java.awt.Toolkit;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
@@ -17,6 +19,10 @@ import java.awt.event.WindowEvent;
 import javax.swing.AbstractAction;
 import javax.swing.ImageIcon;
 import javax.swing.JComponent;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.JPopupMenu;
 import javax.swing.JFrame;
 import javax.swing.JSplitPane;
 import javax.swing.JPanel;
@@ -48,6 +54,14 @@ import brightside.ui.settings.SecretsPanel;
 import brightside.ui.settings.SettingsScreen;
 import brightside.ui.settings.ThemePanel;
 import brightside.ui.settings.VaultPanel;
+import brightside.ui.shell.CommandPalette;
+import brightside.ui.shell.Commands;
+import brightside.ui.shell.Destination;
+import brightside.ui.shell.Rail;
+import brightside.ui.shell.ShellCommands;
+import brightside.ui.shell.ShellLayout;
+import brightside.ui.shell.StatusSlot;
+import brightside.ui.shell.StatusStrip;
 
 /**
  * The BrightSide window. Two full-window screens on a {@link CardLayout}: the
@@ -97,6 +111,22 @@ public final class MainWindow extends JFrame {
 	private NavBar.Tab activeTab = NavBar.Tab.HOME;
 	private brightside.ui.peers.PeersScreen peersScreen;
 
+	// The Workbench shell (ui.shell = rail, the default; classic keeps the bottom bar):
+	// the sidebar, the status strip, the menu bar and the command palette.
+	private static final String MAIN_FEED = "feed";
+	/** The window opens at about this size the first time; a remembered size always wins. */
+	static final int DEFAULT_WIDTH = 1200, DEFAULT_HEIGHT = 800;
+	private Rail rail;
+	private StatusStrip strip;
+	private CommandPalette palette;
+	private Commands commands;
+	private JPanel chatCard;
+	private boolean railShell;
+	private boolean railCollapsedByChoice;
+	/** On Agents, whether the person wants the agents and Chats list; it docks where there is room. */
+	private boolean chatsListOpen = true;
+	private Destination destination = Destination.HOME;
+
 	private EmbeddedVenue venue; // set once ready
 	private Identity identity;
 	/** What the venue last reported each provider serving, for the new-agent dialog. */
@@ -108,7 +138,6 @@ public final class MainWindow extends JFrame {
 		this.app = app;
 		setIconImages(Icons.appIcons());
 		setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
-		installShortcuts();
 
 		onboarding = new brightside.ui.onboarding.OnboardingWizard(app::onOnboardingComplete);
 
@@ -199,11 +228,7 @@ public final class MainWindow extends JFrame {
 
 			@Override
 			public void onNewAgent() {
-				NewAgentPanel.Options options = NewAgentPanel.showDialog(MainWindow.this, app.currentModelOp(),
-					servedModels);
-				if (options != null) {
-					app.createAgent(options.name(), options.modelOp(), options.systemPrompt(), options.template().skill());
-				}
+				newAgent();
 			}
 
 			@Override
@@ -417,6 +442,18 @@ public final class MainWindow extends JFrame {
 			@Override
 			public void openThemesFolder() {
 				app.openThemesFolder();
+			}
+
+			@Override
+			public void setShell(boolean rail) {
+				app.setUiPref("shell", rail ? "rail" : "classic");
+				applyShell(rail);
+			}
+
+			@Override
+			public void setDensity(boolean compact) {
+				app.setUiPref("density", compact ? "compact" : "comfortable");
+				applyDensity(compact);
 			}
 		});
 
@@ -676,10 +713,9 @@ public final class MainWindow extends JFrame {
 		mainDeck.add(peersScreen, MAIN_PEERS);
 
 		navBar = new NavBar(this::selectTab);
-
-		JPanel chatCard = new JPanel(new BorderLayout());
-		chatCard.add(mainDeck, BorderLayout.CENTER);
-		chatCard.add(navBar, BorderLayout.SOUTH);
+		mainDeck.add(new FeedScreen(), MAIN_FEED);
+		chatCard = new JPanel(new BorderLayout());
+		installShell();
 
 		deck.add(onboarding, CARD_ONBOARD);
 		deck.add(welcomePanel, CARD_WELCOME);
@@ -689,6 +725,7 @@ public final class MainWindow extends JFrame {
 		addWindowListener(new WindowAdapter() {
 			@Override
 			public void windowClosing(WindowEvent e) {
+				saveGeometry();
 				app.onWindowClosing();
 			}
 
@@ -698,9 +735,14 @@ public final class MainWindow extends JFrame {
 			}
 		});
 
-		setSize(1040, 760);
 		setMinimumSize(new Dimension(720, 520));
-		setLocationRelativeTo(null);
+		restoreGeometry();
+		addComponentListener(new ComponentAdapter() {
+			@Override
+			public void componentResized(ComponentEvent e) {
+				relayout();
+			}
+		});
 		// The first screen is chosen by BrightSide.start() (onboarding / name /
 		// chat), via the show* methods below; a returning owner unlocks in the
 		// UnlockDialog before this window is shown at all.
@@ -725,25 +767,6 @@ public final class MainWindow extends JFrame {
 	// Keyboard shortcuts (visible actions live in Settings → General)
 	// ------------------------------------------------------------------
 
-	private void installShortcuts() {
-		int shortcut = Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx();
-		bindShortcut("new-chat", KeyStroke.getKeyStroke(KeyEvent.VK_N, shortcut), this::showNewChat);
-		bindShortcut("refresh", KeyStroke.getKeyStroke(KeyEvent.VK_R, shortcut), app::refreshNow);
-		if (app.hasTray()) {
-			bindShortcut("hide-to-tray", KeyStroke.getKeyStroke(KeyEvent.VK_H, shortcut), app::hideToTray);
-		}
-		bindShortcut("quit", KeyStroke.getKeyStroke(KeyEvent.VK_Q, shortcut), app::exit);
-	}
-
-	private void bindShortcut(String name, KeyStroke key, Runnable action) {
-		getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(key, name);
-		getRootPane().getActionMap().put(name, new AbstractAction() {
-			@Override
-			public void actionPerformed(java.awt.event.ActionEvent e) {
-				action.run();
-			}
-		});
-	}
 
 	private void showNewChat() {
 		selectTab(NavBar.Tab.HOME);
@@ -790,6 +813,7 @@ public final class MainWindow extends JFrame {
 	public void userLoggedOut() {
 		views.close();
 		identity = null;
+		identityChanged();
 		chatPanel.clearSession();
 		conversations.setSessions(List.of(), null);
 		agentList.setAgents(List.of(), null, null);
@@ -912,6 +936,8 @@ public final class MainWindow extends JFrame {
 			}
 		}
 		navBar.setActive(tab);
+		syncRail(tab);
+		relayout();
 	}
 
 	/** Show or hide (collapse) the sessions bar within the chat view. */
@@ -944,6 +970,7 @@ public final class MainWindow extends JFrame {
 		settingsScreen.general().refreshVoice(app.readRepliesAloud(), app.sendAfterPauseSeconds());
 		settingsScreen.general().refreshStore(app.storeReport());
 		settingsScreen.theme().refresh(app.mode(), app.theme(), app.accent());
+		settingsScreen.theme().refreshLayout(railShell, brightside.ui.components.Density.compact());
 		settingsScreen.model().preselect(app.currentModelOp());
 		app.refreshServedModels(); // answers through showServedModels, off the event thread
 		settingsScreen.profile().refresh(name, userDid, venueDid, app.publicKeyHex(), app.canRevealPrivateSeed(),
@@ -1032,7 +1059,9 @@ public final class MainWindow extends JFrame {
 	/** Replace the Inbox's requests (open first) and badge the tab with the number waiting. */
 	public void setInbox(List<brightside.Inbox.Request> requests) {
 		inboxScreen.setRequests(requests);
-		navBar.setBadge(NavBar.Tab.INBOX, brightside.Inbox.pending(requests));
+		int waiting = brightside.Inbox.pending(requests);
+		navBar.setBadge(NavBar.Tab.INBOX, waiting);
+		setWaiting(waiting);
 	}
 
 	/** {@code owner}'s jobs for Settings → Jobs, which watches them while on screen; null for none. */
@@ -1047,6 +1076,7 @@ public final class MainWindow extends JFrame {
 	public void clearInbox() {
 		inboxScreen.clear();
 		navBar.setBadge(NavBar.Tab.INBOX, 0);
+		setWaiting(0);
 	}
 
 	/** A line under the open request: the result of the last answer or rejection. */
@@ -1100,6 +1130,7 @@ public final class MainWindow extends JFrame {
 	}
 
 	private void updateWho() {
+		identityChanged();
 		if (identity == null) return;
 		setTitle(BrightSide.APP_NAME);
 	}
@@ -1127,6 +1158,7 @@ public final class MainWindow extends JFrame {
 		sb.append(BrightSide.APP_NAME).append('\n');
 		sb.append("Your personal assistant, running privately on your own computer.\n\n");
 		sb.append("Powered by the Covia Grid, an open platform for AI agents and data.\n");
+		sb.append("\nType: Inter and Inconsolata, each under the SIL Open Font License 1.1.\n");
 		if (identity != null) sb.append("\nYou are: ").append(identity.name());
 		if (venue != null) {
 			// The technical identity, kept for the curious — this is the "settings" surface.
@@ -1137,4 +1169,377 @@ public final class MainWindow extends JFrame {
 		Dialogs.info(this, "About " + BrightSide.APP_NAME, new SelectableText(sb.toString()), new ImageIcon(Icons.icon(64)));
 	}
 
+
+	// ------------------------------------------------------------------
+	// The Workbench shell
+	// ------------------------------------------------------------------
+
+	/** The New agent dialog: from the Agents list's + Agent, File → New agent, and the palette. */
+	private void newAgent() {
+		NewAgentPanel.Options options = NewAgentPanel.showDialog(this, app.currentModelOp(), servedModels);
+		if (options != null) {
+			app.createAgent(options.name(), options.modelOp(), options.systemPrompt(), options.template().skill());
+		}
+	}
+
+	/** Builds the sidebar, status strip, palette and menu bar, then lays the chat card out for the chosen shell. */
+	private void installShell() {
+		Shell host = new Shell();
+		commands = ShellCommands.build(host);
+		rail = new Rail(host);
+		strip = new StatusStrip(host);
+		palette = new CommandPalette(commands);
+		for (Commands.Command c : commands.all()) if (c.id().equals("palette")) strip.setSearchKey(keyText(c.key()));
+		setJMenuBar(menuBar());
+		railCollapsedByChoice = "true".equals(app.uiPref("rail.collapsed", "false"));
+		applyShell(!"classic".equals(app.uiPref("shell", "rail")));
+		applyDensity("compact".equals(app.uiPref("density", "comfortable")));
+	}
+
+	/** {@code true}: the sidebar and status strip; {@code false}: the classic bottom bar. Live, remembered by the caller. */
+	private void applyShell(boolean railShell) {
+		this.railShell = railShell;
+		chatCard.removeAll();
+		if (railShell) {
+			JPanel content = new JPanel(new BorderLayout());
+			content.add(strip, BorderLayout.NORTH);
+			content.add(mainDeck, BorderLayout.CENTER);
+			chatCard.add(rail, BorderLayout.WEST);
+			chatCard.add(content, BorderLayout.CENTER);
+		} else {
+			chatCard.add(mainDeck, BorderLayout.CENTER);
+			chatCard.add(navBar, BorderLayout.SOUTH);
+		}
+		chatCard.revalidate();
+		chatCard.repaint();
+		relayout();
+	}
+
+	/** Whether the sidebar shell is in use (for tests and the harness). */
+	public boolean railShell() {
+		return railShell;
+	}
+
+	/**
+	 * Applies {@link ShellLayout} at the window's current width: the rail
+	 * collapses before content is squeezed, and on Agents the agents and Chats
+	 * list docks only where the main column keeps its floor; elsewhere it is
+	 * shown on request (the Chats list toggle), never removed.
+	 */
+	private void relayout() {
+		if (rail == null || split == null) return;
+		int width = getContentPane().getWidth();
+		if (width <= 0) width = getWidth();
+		boolean agents = activeTab == NavBar.Tab.SESSIONS;
+		// The layout's widths are window points, as the window's own size is.
+		ShellLayout.Plan plan = ShellLayout.plan(width, sidebarWidth, agents && chatsListOpen, false, railCollapsedByChoice);
+		if (!railShell) return; // the classic layout behaves exactly as before
+		rail.setCollapsed(plan.railCollapsed());
+		if (agents) {
+			boolean show = chatsListOpen && (plan.list() == ShellLayout.Mode.DOCKED || listForced);
+			if (show != sessionsPane.isVisible()) setSidebar(show);
+		}
+	}
+
+	/** The person asked for the list at a width where it would not dock by itself. */
+	private boolean listForced;
+
+	private void syncRail(NavBar.Tab tab) {
+		if (rail == null) return;
+		switch (tab) {
+			case HOME -> markDestination(Destination.HOME);
+			case SESSIONS -> markDestination(Destination.AGENTS);
+			case FILES -> markDestination(Destination.FILES);
+			case SKILLS -> markDestination(Destination.SKILLS);
+			case PEERS -> markDestination(Destination.PEERS);
+			case INBOX -> markDestination(Destination.INBOX);
+			case SETTINGS -> {
+				// Jobs and the Vault's pages live in Settings until their own screens land.
+				SettingsScreen.Tab page = settingsScreen.selected();
+				if (page == SettingsScreen.Tab.JOBS && (destination == Destination.JOBS || destination == Destination.RECORD)) {
+					markDestination(destination);
+				} else if ((page == SettingsScreen.Tab.SECRETS || page == SettingsScreen.Tab.VAULT
+						|| page == SettingsScreen.Tab.ACCESS) && destination == Destination.VAULT) {
+					markDestination(Destination.VAULT);
+				} else {
+					rail.setSettingsActive();
+					rail.slot().setQuietScreenOpen(false);
+				}
+			}
+		}
+	}
+
+	private void markDestination(Destination d) {
+		destination = d;
+		rail.setActive(d);
+		// The Record, the Vault and the Constellation are quiet screens: the slot keeps to the glyph.
+		rail.slot().setQuietScreenOpen(d == Destination.RECORD || d == Destination.VAULT || d == Destination.PEERS);
+	}
+
+	/** Goes to a sidebar destination; Jobs, Record and the Vault open their Settings pages until their screens land. */
+	public void go(Destination d) {
+		destination = d;
+		switch (d) {
+			case HOME -> selectTab(NavBar.Tab.HOME);
+			case AGENTS -> selectTab(NavBar.Tab.SESSIONS);
+			case FEED -> {
+				selectTab(NavBar.Tab.HOME);
+				mainCards.show(mainDeck, MAIN_FEED);
+				markDestination(Destination.FEED);
+			}
+			case JOBS, RECORD -> showSettings(SettingsScreen.Tab.JOBS);
+			case INBOX -> selectTab(NavBar.Tab.INBOX);
+			case PEERS -> selectTab(NavBar.Tab.PEERS);
+			case SKILLS -> selectTab(NavBar.Tab.SKILLS);
+			case FILES -> selectTab(NavBar.Tab.FILES);
+			case VAULT -> showSettings(SettingsScreen.Tab.SECRETS);
+		}
+		if (d != Destination.FEED) markDestination(d);
+	}
+
+	/** The destination the sidebar shows as active, or null while Settings is open. */
+	public Destination destination() {
+		return rail.active();
+	}
+
+	private void setWaiting(int waiting) {
+		if (rail == null) return;
+		rail.setInboxCount(waiting);
+		strip.setWaiting(waiting);
+		rail.slot().setState(waiting > 0 ? StatusSlot.State.WAITING : StatusSlot.State.RESTING,
+			waiting > 0 ? waiting + (waiting == 1 ? " decision" : " decisions") : null);
+	}
+
+	/** The acting identity or the venue changed: the strip, the sidebar's identity menu, and the venue chip follow. */
+	private void identityChanged() {
+		if (rail == null) return;
+		String name = (identity != null) ? (app.actingAsOperator() ? app.operatorName() : identity.name()) : null;
+		rail.setIdentity(name);
+		strip.setActing(name, app.actingAsOperator());
+		strip.setVenue(venue != null ? StatusStrip.Venue.RUNNING : StatusStrip.Venue.STARTING,
+			venue != null ? venue.url() : null);
+	}
+
+	private void applyDensity(boolean compact) {
+		brightside.ui.components.Density.set(compact);
+		SwingUtilitiesRepaint.all(this);
+	}
+
+	private String myIdentity() {
+		if (identity == null || venue == null || venue.did() == null) return null;
+		return app.actingAsOperator() ? venue.did() : identity.userDID(venue.did());
+	}
+
+	private static String keyText(KeyStroke k) {
+		return brightside.ui.shell.Keys.text(k);
+	}
+
+	/** The menu bar, from the same registry as the palette: every shortcut shows here. */
+	private JMenuBar menuBar() {
+		JMenuBar bar = new JMenuBar();
+		for (String name : ShellCommands.MENUS) {
+			JMenu menu = new JMenu(name);
+			String group = null;
+			for (Commands.Command c : commands.menu(name)) {
+				JMenuItem item = new JMenuItem(c.name());
+				if (c.key() != null) item.setAccelerator(c.key());
+				item.setToolTipText(c.where());
+				item.addActionListener(e -> c.action().run());
+				// A rule between the destinations and the rest of View.
+				String g = c.id().startsWith("go:") ? "go" : "rest";
+				if (group != null && !group.equals(g)) menu.addSeparator();
+				group = g;
+				menu.add(item);
+			}
+			bar.add(menu);
+		}
+		return bar;
+	}
+
+	private void saveGeometry() {
+		boolean max = (getExtendedState() & Frame.MAXIMIZED_BOTH) == Frame.MAXIMIZED_BOTH;
+		app.setUiPref("window.maximised", Boolean.toString(max));
+		if (!max) {
+			app.setUiPref("window.bounds", getX() + "," + getY() + "," + getWidth() + "," + getHeight());
+		}
+	}
+
+	/** A remembered size and place, if it still fits a screen; else about 1200 × 800, centred. */
+	private void restoreGeometry() {
+		String b = app.uiPref("window.bounds", null);
+		java.awt.Rectangle r = null;
+		if (b != null) {
+			try {
+				String[] p = b.split(",");
+				r = new java.awt.Rectangle(Integer.parseInt(p[0].trim()), Integer.parseInt(p[1].trim()),
+					Integer.parseInt(p[2].trim()), Integer.parseInt(p[3].trim()));
+			} catch (RuntimeException e) {
+				r = null;
+			}
+		}
+		if (r != null && onAScreen(r)) {
+			setBounds(r);
+		} else {
+			java.awt.Rectangle screen = getGraphicsConfiguration() != null ? getGraphicsConfiguration().getBounds()
+				: new java.awt.Rectangle(0, 0, DEFAULT_WIDTH, DEFAULT_HEIGHT);
+			setSize(Math.min(DEFAULT_WIDTH, screen.width), Math.min(DEFAULT_HEIGHT, screen.height));
+			setLocationRelativeTo(null);
+		}
+		if ("true".equals(app.uiPref("window.maximised", "false"))) setExtendedState(Frame.MAXIMIZED_BOTH);
+	}
+
+	private static boolean onAScreen(java.awt.Rectangle r) {
+		if (r.width < 720 || r.height < 520) return false;
+		for (java.awt.GraphicsDevice d : java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()) {
+			if (d.getDefaultConfiguration().getBounds().intersects(r)) return true;
+		}
+		return false;
+	}
+
+	/** Lists every command that has a shortcut, with where it lives. */
+	private void showShortcuts() {
+		StringBuilder sb = new StringBuilder();
+		for (Commands.Command c : commands.all()) {
+			if (c.key() != null) sb.append(keyText(c.key())).append("   ").append(c.name()).append('\n');
+		}
+		sb.append("\nIn the chat: Enter sends; Shift+Enter or Ctrl+Enter adds a line; Esc stops.\n");
+		sb.append("Files keeps its own keys: Enter, F2, Delete, Shift+F10, Alt+Left.");
+		Dialogs.info(this, "Keyboard shortcuts", new SelectableText(sb.toString()), null);
+	}
+
+	/** Repaints a window's tree after a density change. */
+	private static final class SwingUtilitiesRepaint {
+		static void all(java.awt.Window w) {
+			javax.swing.SwingUtilities.updateComponentTreeUI(w);
+		}
+	}
+
+	/** The Feed until it lands: says it is coming, and fakes nothing. */
+	@SuppressWarnings("serial")
+	private static final class FeedScreen extends JPanel {
+		FeedScreen() {
+			super(new BorderLayout());
+			add(new brightside.ui.components.ScreenHeader("Feed"), BorderLayout.NORTH);
+			brightside.ui.components.EmptyState empty = new brightside.ui.components.EmptyState("rss",
+				brightside.ui.components.Tone.ACCENT, "Coming soon: activity from agents you follow",
+				"Nothing to show here yet.");
+			add(empty, BorderLayout.CENTER);
+		}
+	}
+
+	/** The shell's hosts: what the sidebar, the strip, the menu bar and the palette ask of the window. */
+	private final class Shell implements ShellCommands.Actions, Rail.Host, StatusStrip.Host {
+		@Override public void go(Destination d) { MainWindow.this.go(d); }
+		@Override public void openSettings() { selectTab(NavBar.Tab.SETTINGS); }
+
+		@Override
+		public void settings(ShellCommands.Page page) {
+			SettingsScreen.Tab t = SettingsScreen.Tab.valueOf(page.name());
+			// Pages that moved keep their new home active in the sidebar.
+			destination = switch (t) {
+				case JOBS -> Destination.JOBS;
+				case SECRETS, VAULT, ACCESS -> Destination.VAULT;
+				default -> destination;
+			};
+			showSettings(t);
+		}
+
+		@Override public void newChat() { showNewChat(); }
+		@Override public void newAgent() { MainWindow.this.newAgent(); }
+		@Override public void refresh() { app.refreshNow(); }
+		@Override public boolean hasTray() { return app.hasTray(); }
+		@Override public void hideToTray() { app.hideToTray(); }
+		@Override public void lock() { app.logout(); }
+		@Override public void quit() { app.exit(); }
+		@Override public void about() { showAbout(); }
+
+		@Override
+		public void openPalette() {
+			if (CARD_CHAT.equals(currentCard)) palette.open(getRootPane());
+		}
+
+		@Override
+		public void toggleRail() {
+			railCollapsedByChoice = !railCollapsedByChoice;
+			app.setUiPref("rail.collapsed", Boolean.toString(railCollapsedByChoice));
+			relayout();
+		}
+
+		@Override
+		public void toggleChatsList() {
+			if (activeTab != NavBar.Tab.SESSIONS) {
+				MainWindow.this.go(Destination.AGENTS);
+				chatsListOpen = true;
+				listForced = true;
+			} else if (sessionsPane.isVisible()) {
+				chatsListOpen = false;
+				listForced = false;
+				setSidebar(false);
+			} else {
+				chatsListOpen = true;
+				listForced = true;
+				setSidebar(true);
+			}
+			relayout();
+		}
+
+		@Override
+		public void setDensity(boolean compact) {
+			app.setUiPref("density", compact ? "compact" : "comfortable");
+			applyDensity(compact);
+		}
+
+		@Override public void setMode(boolean dark) { app.setMode(dark ? LAF.DARK : LAF.LIGHT); }
+
+		@Override
+		public void setShell(boolean rail) {
+			app.setUiPref("shell", rail ? "rail" : "classic");
+			applyShell(rail);
+		}
+
+		@Override public void openDashboard() { app.openDashboard(); }
+		@Override public void openSettingsFile() { app.openConfigFile(); }
+		@Override public void openLogsFolder() { app.openLogsFolder(); }
+
+		@Override
+		public void copyLocalAddress() {
+			if (venue != null) brightside.ui.components.Clipboard.copy(venue.url(), getRootPane());
+		}
+
+		@Override
+		public void copyMyIdentity() {
+			String did = myIdentity();
+			if (did != null) brightside.ui.components.Clipboard.copy(did, getRootPane());
+		}
+
+		@Override public void showShortcuts() { MainWindow.this.showShortcuts(); }
+
+		@Override
+		public void fillIdentityMenu(JPopupMenu menu) {
+			JMenuItem who = new JMenuItem(identity != null ? "Signed in as " + identity.name() : "Not signed in");
+			who.setEnabled(false);
+			menu.add(who);
+			menu.addSeparator();
+			JMenuItem sw = new JMenuItem(app.actingAsOperator() ? "Switch to yourself" : "Switch to the operator");
+			sw.addActionListener(e -> settings(ShellCommands.Page.PROFILE));
+			sw.setToolTipText("Settings → Identity → Acting as");
+			menu.add(sw);
+			JMenuItem copy = new JMenuItem("Copy my identity");
+			copy.setEnabled(myIdentity() != null);
+			copy.addActionListener(e -> copyMyIdentity());
+			menu.add(copy);
+			JMenuItem lock = new JMenuItem("Lock");
+			lock.addActionListener(e -> lock());
+			menu.add(lock);
+		}
+
+		@Override
+		public void showIdentityMenu(java.awt.Component from) {
+			JPopupMenu menu = new JPopupMenu();
+			fillIdentityMenu(menu);
+			menu.show(from, 0, from.getHeight());
+		}
+
+		@Override public void openInbox() { MainWindow.this.go(Destination.INBOX); }
+	}
 }

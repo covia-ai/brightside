@@ -149,8 +149,16 @@ public final class SettingsScreen extends JPanel {
 		select(Tab.values()[0]);
 	}
 
+	private Tab selected = Tab.values()[0];
+
+	/** The section on view. */
+	public Tab selected() {
+		return selected;
+	}
+
 	/** Select a section (also shows its content). */
 	public void select(Tab t) {
+		selected = t;
 		for (Map.Entry<Tab, PressButton> e : nav.entrySet()) {
 			boolean on = e.getKey() == t;
 			e.getValue().setSelected(on);

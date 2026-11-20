@@ -39,7 +39,7 @@ import brightside.ui.components.Theme;
  * FlatLaf provides — its own six, the IntelliJ theme
  * pack, and any {@code .theme.json} in the same format the owner drops into
  * the data home's {@code themes} folder — each restyled by Brightside's own UI
- * defaults and set in the bundled Lato at a comfortable size. {@link #init}
+ * defaults and set in the bundled Inter at a comfortable size. {@link #init}
  * once before any Swing component exists; {@link #apply} to switch the running
  * app (Settings → Theme).
  *
@@ -89,20 +89,21 @@ public final class LAF {
 	/** The package FlatLaf searches for Brightside's {@code *.properties} UI defaults. */
 	private static final String DEFAULTS_PACKAGE = "brightside.ui";
 
-	/** Comfortable, slightly-larger base UI size (FlatLaf's own default is ~13). */
-	private static final int BASE_FONT_SIZE = 15;
+	/** Body text, 14 pt: the type scale's body size (caption 12, small 13, lead 16, section 18, title 24, display 32). */
+	private static final int BASE_FONT_SIZE = 14;
 
-	/** The UI font: Lato, bundled so it's identical on every platform. */
-	private static final String FONT_FAMILY = "Lato";
+	/** The UI font: Inter (SIL Open Font License), bundled so it's identical on every platform. */
+	private static final String FONT_FAMILY = "Inter";
 	/**
-	 * The bundled faces: Lato for the UI, and Inconsolata for code — named
+	 * The bundled faces: Inter for the UI, and Inconsolata for code — named
 	 * first in {@code monospaced.font} in the UI defaults, with the platform's
 	 * own monospaced faces behind it should the resource ever fail to register.
 	 */
 	private static final String[] FONT_RESOURCES = {
-		"/fonts/lato/Lato-Regular.ttf",
-		"/fonts/lato/Lato-Bold.ttf",
-		"/fonts/lato/Lato-Light.ttf",
+		"/fonts/inter/Inter-Regular.ttf",
+		"/fonts/inter/Inter-Medium.ttf",
+		"/fonts/inter/Inter-SemiBold.ttf",
+		"/fonts/inter/Inter-Bold.ttf",
 		"/fonts/inconsolata/Inconsolata-Regular.ttf",
 		"/fonts/inconsolata/Inconsolata-Bold.ttf",
 	};
@@ -125,10 +126,12 @@ public final class LAF {
 	 * @param ownThemes the folder of the owner's own {@code .theme.json} files, or null
 	 */
 	public static void init(String themeId, String mode, String accentHex, Path ownThemes) {
-		// Bundled Lato — register the faces, then make it the preferred family
+		// Bundled Inter: register the faces, then make it the preferred family
 		// before the theme installs so components pick it up.
 		registerFonts();
 		FlatLaf.setPreferredFontFamily(FONT_FAMILY);
+		// FlatLaf's semibold class (and the .lead and .section headings) use Inter's own SemiBold cut.
+		FlatLaf.setPreferredSemiboldFontFamily("Inter SemiBold");
 
 		// Brightside's defaults load after the theme's, so they win. Registered
 		// once: the source list is additive.
@@ -268,7 +271,7 @@ public final class LAF {
 		UIManager.put("Brightside.tinted.pressedBackground", ColorFunctions.fade(accent, 0.38f));
 	}
 
-	/** Bigger, comfortable default size in Lato: FlatLaf derives every other font from it and scales the UI to match. */
+	/** The body size in Inter: FlatLaf derives every other font from it and scales the UI to match. */
 	private static void installFont() {
 		UIManager.put("defaultFont", new Font(FONT_FAMILY, Font.PLAIN, BASE_FONT_SIZE));
 	}

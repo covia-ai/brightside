@@ -276,7 +276,7 @@ public final class ConversationList extends JPanel {
 		Row(SessionHistory.Session s) {
 			super("");
 			setLayout(new BorderLayout(0, 1));
-			setMargin(new Insets(7, 9, 7, 9));
+			setMargin(new Insets(brightside.ui.components.Density.pad(7), 9, brightside.ui.components.Density.pad(7), 9));
 			setAlignmentX(LEFT_ALIGNMENT);
 			add(Labels.text(s.title()), BorderLayout.CENTER);
 			add(Labels.small(relativeTime(s.lastTs())), BorderLayout.SOUTH);

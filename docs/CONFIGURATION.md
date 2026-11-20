@@ -105,6 +105,16 @@ are remembered in `prefs.properties` (`ui.mode`, `ui.theme.dark`,
 over this key; delete those lines to return to the file's setting and Tau's
 purple. A remembered choice of FlatLaf's plain Dark or Light is kept.
 
+The window's layout is remembered in `prefs.properties` too, all optional:
+`ui.shell` (`rail`, the default: the sidebar, a status strip and the menu
+bar; or `classic`: the bottom bar as before, *Settings → Theme → Layout* or
+*View → Layout*), `ui.rail.collapsed` (the sidebar as icons only, *View →
+Sidebar*), `ui.density` (`comfortable` or `compact` rows in tables and lists,
+*Settings → Theme → Density* or *View → Density*), and `ui.window.bounds` and
+`ui.window.maximised` (the window's last size and place; without them it
+opens at about 1200 × 800). Every screen is in the command palette (⌘K, Ctrl+K
+on Windows and Linux) and the menu bar, with its shortcut.
+
 ### `repairStore`
 
 `true` (default): a store that was not closed cleanly — a crash, a power cut,

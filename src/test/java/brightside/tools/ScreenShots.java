@@ -221,6 +221,17 @@ public final class ScreenShots {
 				if (n.equals("SETTINGS")) continue; // each page below
 				out.put(n.toLowerCase(), () -> quietly(() -> { tab(n); return null; }));
 			}
+			// The sidebar's destinations that have no bottom-bar tab of their own.
+			for (String d : List.of("AGENTS", "FEED", "JOBS", "RECORD", "VAULT")) {
+				out.put("rail-" + d.toLowerCase(), () -> quietly(() -> {
+					Class<?> destType = Class.forName("brightside.ui.shell.Destination");
+					@SuppressWarnings({ "unchecked", "rawtypes" })
+					Object dest = Enum.valueOf((Class) destType, d);
+					Method go = MainWindow.class.getMethod("go", destType);
+					onEdt(() -> go.invoke(window, dest));
+					return null;
+				}));
+			}
 			Class<?> pageType = Class.forName("brightside.ui.settings.SettingsScreen$Tab");
 			for (Object p : pageType.getEnumConstants()) {
 				String n = ((Enum<?>) p).name();

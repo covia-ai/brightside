@@ -50,6 +50,8 @@ final class JobRenderer extends JPanel implements ListCellRenderer<JobList.Job> 
 	@Override
 	public Component getListCellRendererComponent(JList<? extends JobList.Job> list, JobList.Job job, int index,
 			boolean selected, boolean focused) {
+		int pad = brightside.ui.components.Density.pad(10);
+		((MigLayout) getLayout()).setLayoutConstraints("insets " + pad + " 14 " + pad + " 14, fillx, gapx 12, gapy 2");
 		if (job == null) {
 			title.setText(" ");
 			meta.setText(" ");

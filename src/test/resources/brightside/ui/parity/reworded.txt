@@ -53,3 +53,4 @@ Your conversations, memory, skills, assistants and personal drives. The store on
 At launch, it hands over to this one; nothing is lost	At launch, it hands over to this one; queued work survives the restart
 claim it on Moltbook's claim page, then ask your assistant to check in, read or post; the key never 	claim it on Moltbook's claim page, then ask your assistant to check in, read, or post; the key never 
 reason, its tokens and its job.	reason, its tokens, and its job.
+Lato	Inter
