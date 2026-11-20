@@ -181,6 +181,25 @@ public final class ScreenShots {
 		Files.createDirectories(file.getParent());
 		ImageIO.write(img.get(), "png", file.toFile());
 		System.out.println("  " + file);
+		if (blank(img.get())) System.out.println("  BLANK: " + name + " at " + size.width + "x" + size.height
+			+ " has nothing below its header");
+	}
+
+	/**
+	 * Whether a shot's content (right of the sidebar, below the header) is one
+	 * flat colour: a screen that shows only its header, as a page left hidden
+	 * when it moved would.
+	 */
+	static boolean blank(BufferedImage im) {
+		int w = im.getWidth(), h = im.getHeight();
+		java.util.Set<Integer> colours = new java.util.HashSet<>();
+		for (int x = (int) (w * 0.17); x < w; x += 6) {
+			for (int y = (int) (h * 0.13); y < h - h * 0.03; y += 6) {
+				int c = im.getRGB(x, y);
+				colours.add(((c >> 20) & 0xF) << 8 | ((c >> 12) & 0xF) << 4 | ((c >> 4) & 0xF));
+			}
+		}
+		return colours.size() < 6;
 	}
 
 	@SuppressWarnings("unchecked")

@@ -31,4 +31,40 @@ class AdoptTest {
 		assertSame(holder, page.getParent());
 		assertTrue(page.isVisible(), "and shown in its new place");
 	}
+
+	@Test
+	void theVaultsPagesShowWhenChosen() {
+		// The Vault takes Settings' Secrets, Access and Passphrase pages out of its deck, where
+		// two of the three were hidden cards; its tabs show whichever is chosen.
+		JPanel deck = new JPanel(new CardLayout());
+		JPanel secrets = new JPanel(), access = new JPanel(), passphrase = new JPanel();
+		deck.add(new JPanel(), "first");
+		deck.add(secrets, "secrets");
+		deck.add(access, "access");
+		deck.add(passphrase, "passphrase");
+		brightside.ui.vault.VaultScreen vault = new brightside.ui.vault.VaultScreen();
+		vault.adopt(secrets, access, passphrase);
+		for (brightside.ui.vault.VaultScreen.Page p : brightside.ui.vault.VaultScreen.Page.values()) {
+			vault.select(p);
+			JPanel shown = switch (p) {
+				case SECRETS -> secrets;
+				case ACCESS -> access;
+				case PASSPHRASE -> passphrase;
+			};
+			assertTrue(shown.isVisible(), p + " shows when chosen");
+		}
+	}
+
+	@Test
+	void aPageGoingBackToItsDeckShowsWhenItsCardIs() {
+		// The classic layout puts the pages back in Settings: the deck hides and shows them as cards.
+		JPanel holder = new JPanel(new BorderLayout());
+		JPanel page = new JPanel();
+		Panels.adopt(holder, page, BorderLayout.CENTER);
+		JPanel deck = new JPanel(new CardLayout());
+		deck.add(new JPanel(), "first");
+		deck.add(page, "page");
+		((CardLayout) deck.getLayout()).show(deck, "page");
+		assertTrue(page.isVisible(), "its card on view shows it");
+	}
 }
