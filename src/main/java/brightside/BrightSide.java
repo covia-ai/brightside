@@ -2474,8 +2474,8 @@ public final class BrightSide {
 		if (aid.equals(config.chat().agentId())) {
 			return new AppConfig.Chat(aid, base.operation(), base.llmOperation(), base.systemPrompt());
 		}
-		String persona = "You are " + displayNameFor(aid) + ", a private personal AI assistant running on the user's "
-			+ "own computer. Be genuinely helpful, warm, and concise.";
+		String persona = "You are " + displayNameFor(aid) + ", your own agent, running on this computer under an "
+			+ "identity you own. Be genuinely helpful, warm, and concise.";
 		return new AppConfig.Chat(aid, base.operation(), base.llmOperation(), persona);
 	}
 

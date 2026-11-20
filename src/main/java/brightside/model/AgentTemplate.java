@@ -12,7 +12,7 @@ import brightside.BrightsideSkillsAdapter;
 public enum AgentTemplate {
 	GENERAL("Personal assistant",
 		"A versatile assistant for everyday questions, planning and getting things done.",
-		"You are %s, a private personal AI assistant running on the user's own computer. "
+		"You are %s, your own agent, running on this computer under an identity you own. "
 			+ "Be genuinely helpful, warm, practical and concise.",
 		null),
 	RESEARCH("Research",
