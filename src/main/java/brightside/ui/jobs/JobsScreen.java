@@ -93,6 +93,10 @@ public final class JobsScreen extends JPanel {
 	private final CardLayout cards = new CardLayout();
 	private final JPanel deck = new JPanel(cards);
 	private final JPanel crumbs = new JPanel(new MigLayout("insets 18 28 6 28, gap 6", "", ""));
+	/** The breadcrumb and the note beside it: hidden while it would hold neither. */
+	private final JPanel top = new JPanel(new BorderLayout());
+	/** Whether the list shows its own "Jobs" title: in Settings, yes; on a screen with its own header, no. */
+	private boolean ownHeading = true;
 	private final JLabel note = Labels.small(" ");
 
 	private final JComboBox<Object> status = new JComboBox<>();
@@ -137,7 +141,6 @@ public final class JobsScreen extends JPanel {
 
 		// The breadcrumb, with the note from the last action beside it.
 		crumbs.setOpaque(false);
-		JPanel top = new JPanel(new BorderLayout());
 		top.setOpaque(false);
 		top.add(crumbs, BorderLayout.CENTER);
 		note.setBorder(javax.swing.BorderFactory.createEmptyBorder(18, 0, 6, 28));
@@ -193,6 +196,20 @@ public final class JobsScreen extends JPanel {
 		model.setView(null);
 		showList();
 		setNote(" ", false);
+	}
+
+	/**
+	 * Shows or hides the list's own "Jobs" title: hidden where the screen
+	 * around it already says Jobs (the sidebar's Jobs screen), shown in Settings.
+	 */
+	public void setOwnHeading(boolean shown) {
+		ownHeading = shown;
+		if (trail.isEmpty()) buildCrumbs(null);
+	}
+
+	/** Whether the list shows its own title, for tests. */
+	boolean ownHeading() {
+		return ownHeading && crumbs.isVisible();
 	}
 
 	/** Opens job {@code id}'s detail, as from a link elsewhere; the breadcrumb leads back to the list. */
@@ -394,11 +411,16 @@ public final class JobsScreen extends JPanel {
 	private void syncButtons() {
 		JobList.Job job = selected();
 		openButton.setEnabled(job != null);
+		openButton.setToolTipText(job == null ? "Select a job first" : "Open its details");
 		pauseButton.setVisible(job == null || !job.canResume());
 		pauseButton.setEnabled(job != null && job.canPause());
+		pauseButton.setToolTipText(why(job, Control.PAUSE));
 		resumeButton.setVisible(job != null && job.canResume());
+		resumeButton.setToolTipText(why(job, Control.RESUME));
 		messageButton.setEnabled(job != null && job.canMessage());
+		messageButton.setToolTipText(why(job, Control.MESSAGE));
 		cancelButton.setEnabled(job != null && job.canCancel());
+		cancelButton.setToolTipText(why(job, Control.CANCEL));
 	}
 
 	/** A job's right-click menu: everything the bar and the detail do, and the values worth copying. */
@@ -428,8 +450,21 @@ public final class JobsScreen extends JPanel {
 
 	private static JButton action(String text, String icon, Runnable run) {
 		JButton b = Buttons.plain(text, Lucide.icon(icon, 14, Theme::muted));
+		// The icon fades with the label when the button is unavailable.
+		b.setDisabledIcon(Lucide.icon(icon, 14, () -> Theme.fade(Theme.muted(), 0.4f)));
 		b.addActionListener(e -> run.run());
 		return b;
+	}
+
+	/** Why a bar button is unavailable, for its tooltip; null while it is available. */
+	static String why(JobList.Job job, Control control) {
+		if (job == null) return "Select a job first";
+		return switch (control) {
+			case PAUSE -> job.canPause() ? null : "Only a running or queued job can be paused";
+			case RESUME -> job.canResume() ? null : "Only a paused job can be resumed";
+			case MESSAGE -> job.canMessage() ? null : "Only a job that is still going can be sent a message";
+			case CANCEL -> job.canCancel() ? null : "It has already finished";
+		};
 	}
 
 	private void openSelected() {
@@ -476,6 +511,13 @@ public final class JobsScreen extends JPanel {
 	private void setNote(String text, boolean error) {
 		note.setText(text);
 		Styles.classes(note, Styles.SMALL, error ? Styles.ERROR : Styles.MUTED);
+		syncTop();
+	}
+
+	/** Keeps the top row only while it holds a title, a breadcrumb or a note, so no empty band is left. */
+	private void syncTop() {
+		top.setVisible(crumbs.isVisible() || (note.getText() != null && !note.getText().isBlank()));
+		top.revalidate();
 	}
 
 	// ------------------------------------------------------------------
@@ -543,7 +585,7 @@ public final class JobsScreen extends JPanel {
 		crumbs.removeAll();
 		here = null;
 		if (trail.isEmpty()) {
-			crumbs.add(Labels.title("Jobs"));
+			if (ownHeading) crumbs.add(Labels.title("Jobs"));
 		} else {
 			crumbs.add(Buttons.link("Jobs", this::showList));
 			for (int i = 0; i < trail.size() - 1; i++) {
@@ -559,6 +601,8 @@ public final class JobsScreen extends JPanel {
 			here = Labels.lead(current != null ? current.title() : "Job");
 			crumbs.add(here, "wmin 0");
 		}
+		crumbs.setVisible(crumbs.getComponentCount() > 0);
+		syncTop();
 		crumbs.revalidate();
 		crumbs.repaint();
 	}
