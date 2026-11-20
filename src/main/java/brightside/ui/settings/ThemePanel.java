@@ -99,6 +99,7 @@ public final class ThemePanel extends JPanel {
 	private final Host host;
 	private final JRadioButton dark = new JRadioButton("Dark");
 	private final JRadioButton light = new JRadioButton("Light");
+	private final JRadioButton system = new JRadioButton("Match the system");
 	private final DefaultListModel<LAF.Choice> themes = new DefaultListModel<>();
 	private final JList<LAF.Choice> list = new JList<>(themes);
 	/** Swatches by their colour, upper-case {@code #RRGGBB}. */
@@ -121,16 +122,20 @@ public final class ThemePanel extends JPanel {
 
 		// The switch. Each mode keeps its own theme from the list below.
 		ButtonGroup modes = new ButtonGroup();
-		for (JRadioButton b : new JRadioButton[] { dark, light }) {
+		for (JRadioButton b : new JRadioButton[] { dark, light, system }) {
 			b.setOpaque(false);
 			modes.add(b);
 		}
 		dark.addActionListener(e -> chooseMode(LAF.DARK));
 		light.addActionListener(e -> chooseMode(LAF.LIGHT));
+		system.setToolTipText("Dark or Light, as your computer is set; checked when Tau starts and when you choose it");
+		system.addActionListener(e -> { if (!syncing) host.setMode(LAF.SYSTEM); });
 		JPanel switcher = Panels.row();
 		switcher.add(dark);
 		switcher.add(Box.createHorizontalStrut(18));
 		switcher.add(light);
+		switcher.add(Box.createHorizontalStrut(18));
+		switcher.add(system);
 		form.add(switcher);
 
 		list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -205,6 +210,17 @@ public final class ThemePanel extends JPanel {
 		form.add(layout, "growx, wmin 0");
 
 		add(form, BorderLayout.CENTER);
+	}
+
+	/** Shows that the mode follows the system (its radio chosen), or not; fires no host call. */
+	public void refreshSystem(boolean matching) {
+		if (!matching) return;
+		syncing = true;
+		try {
+			system.setSelected(true);
+		} finally {
+			syncing = false;
+		}
 	}
 
 	/** Reflect the layout and density in use; fires no host call. */

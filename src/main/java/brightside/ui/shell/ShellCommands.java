@@ -18,7 +18,8 @@ public final class ShellCommands {
 
 	/** Settings pages, by the names the Settings screen uses. */
 	public enum Page {
-		PROFILE("Identity"), GENERAL("General"), THEME("Theme"), MODEL("Model"), INTEGRATIONS("Integrations"),
+		PROFILE("Identity"), MODEL("Models"), PEERS("Peers"), TREASURY("Treasury"), GENERAL("General"), THEME("Theme"),
+		INTEGRATIONS("Integrations"),
 		SCHEDULE("Schedule"), JOBS("Jobs"), SECRETS("Secrets"), VAULT("Vault"), ACCESS("Access");
 
 		public final String label;
@@ -61,6 +62,9 @@ public final class ShellCommands {
 		void setDensity(boolean compact);
 
 		void setMode(boolean dark);
+
+		/** Dark or Light, as the operating system is set. */
+		void matchSystem();
 
 		void setShell(boolean rail);
 
@@ -137,6 +141,7 @@ public final class ShellCommands {
 		c.add("density-compact", "Density: Compact", "Settings → Theme", VIEW, null, () -> a.setDensity(true));
 		c.add("theme-dark", "Theme: Dark", "Settings → Theme", VIEW, null, () -> a.setMode(true));
 		c.add("theme-light", "Theme: Light", "Settings → Theme", VIEW, null, () -> a.setMode(false));
+		c.add("theme-system", "Theme: Match the system", "Settings → Theme", VIEW, null, a::matchSystem, "System theme");
 		c.add("shell-rail", "Layout: Sidebar", "Settings → Theme", VIEW, null, () -> a.setShell(true));
 		c.add("shell-classic", "Layout: Bottom bar", "Settings → Theme", VIEW, null, () -> a.setShell(false),
 			"Classic layout");

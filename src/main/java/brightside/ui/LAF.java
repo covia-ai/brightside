@@ -75,6 +75,13 @@ public final class LAF {
 	/** The two modes: every theme is one or the other, and the owner switches between them. */
 	public static final String DARK = "dark";
 	public static final String LIGHT = "light";
+	/** "Match the system": dark or light as the operating system is set. */
+	public static final String SYSTEM = "system";
+
+	/** The mode to show for a chosen one: {@link #SYSTEM} resolves to the operating system's. */
+	public static String effective(String mode) {
+		return SYSTEM.equalsIgnoreCase(mode) ? (SystemAppearance.dark() ? DARK : LIGHT) : mode;
+	}
 
 	/** Tau's own themes: the default of each mode, what {@code config.json}'s {@code "dark"} and {@code "light"} mean. */
 	public static final String TAU_DARK = "tau-dark";

@@ -122,6 +122,7 @@ public final class MainWindow extends JFrame {
 	private final JPanel jobsHolder = new JPanel(new BorderLayout());
 	private brightside.ui.vault.VaultScreen vaultScreen;
 	private brightside.ui.record.RecordScreen recordScreen;
+	private brightside.ui.settings.TreasuryPanel treasuryPanel;
 	/** The Inbox panel, docked beside Home and Jobs from 1440 while requests wait. */
 	private brightside.ui.inbox.InboxPanel inboxPanel;
 	private JPanel railContent;
@@ -665,8 +666,24 @@ public final class MainWindow extends JFrame {
 				app.setKeepToolToken(keep);
 			}
 		});
+		treasuryPanel = new brightside.ui.settings.TreasuryPanel();
+		treasuryPanel.setPlan(brightside.ui.settings.TreasuryPanel.Plan.stub());
 		settingsScreen = new SettingsScreen(generalPanel, themePanel, modelPanel, profilePanel, integrationsPanel,
 			schedulePanel, jobsScreen, secretsPanel, vaultPanel, accessPanel);
+		settingsScreen.install(SettingsScreen.Tab.PEERS, new brightside.ui.settings.PeersSettingsPanel(
+			new brightside.ui.settings.PeersSettingsPanel.Host() {
+				@Override
+				public void openPeersMap() {
+					go(Destination.PEERS);
+				}
+
+				@Override
+				public void copyMyIdentity() {
+					String did = myIdentity();
+					if (did != null) brightside.ui.components.Clipboard.copy(did, getRootPane());
+				}
+			}));
+		settingsScreen.install(SettingsScreen.Tab.TREASURY, treasuryPanel);
 
 		mainDeck = new JPanel(mainCards);
 		mainDeck.add(split, MAIN_CHAT);
@@ -1024,6 +1041,7 @@ public final class MainWindow extends JFrame {
 		settingsScreen.general().refreshStore(app.storeReport());
 		settingsScreen.theme().refresh(app.mode(), app.theme(), app.accent());
 		settingsScreen.theme().refreshLayout(railShell, brightside.ui.components.Density.compact());
+		settingsScreen.theme().refreshSystem(LAF.SYSTEM.equalsIgnoreCase(app.modeChoice()));
 		settingsScreen.model().preselect(app.currentModelOp());
 		app.refreshServedModels(); // answers through showServedModels, off the event thread
 		settingsScreen.profile().refresh(name, userDid, venueDid, app.publicKeyHex(), app.canRevealPrivateSeed(),
@@ -1727,6 +1745,7 @@ public final class MainWindow extends JFrame {
 		}
 
 		@Override public void setMode(boolean dark) { app.setMode(dark ? LAF.DARK : LAF.LIGHT); }
+		@Override public void matchSystem() { app.setMode(LAF.SYSTEM); }
 
 		@Override
 		public void setShell(boolean rail) {

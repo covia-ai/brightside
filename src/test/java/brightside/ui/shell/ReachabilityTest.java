@@ -110,6 +110,7 @@ class ReachabilityTest {
 	void themeModelIntegrationsSchedule() {
 		assertRuns("theme-dark", "setMode true");
 		assertRuns("theme-light", "setMode false");
+		assertRuns("theme-system", "matchSystem");
 		assertPalette("Model", "settings:model");
 		assertPalette("Discord", "integrations-discord");
 		assertPalette("Moltbook", "integrations-moltbook");
@@ -251,6 +252,7 @@ class ReachabilityTest {
 		@Override public void toggleChatsList() { calls.add("toggleChatsList"); }
 		@Override public void setDensity(boolean compact) { calls.add("setDensity " + compact); }
 		@Override public void setMode(boolean dark) { calls.add("setMode " + dark); }
+		@Override public void matchSystem() { calls.add("matchSystem"); }
 		@Override public void setShell(boolean rail) { calls.add("setShell " + rail); }
 		@Override public void openDashboard() { calls.add("openDashboard"); }
 		@Override public void openSettingsFile() { calls.add("openSettingsFile"); }

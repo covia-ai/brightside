@@ -91,6 +91,11 @@ abstract class SettingsPage extends JPanel {
 	protected final HintLabel addField(String label, String hint, JComponent field) {
 		HintLabel l = hintLabel(label, hint);
 		row(l, "", field, "growx, wmax 400");
+		// The hint shows under the field as well as on the ⓘ, so nobody has to hover to read it.
+		if (hint != null && !hint.isBlank()) {
+			target.add(new javax.swing.JLabel(), "");
+			target.add(brightside.ui.components.SelectableText.description(hint).small(), "growx, wmin 0, w 10::, wmax 400, gaptop 0");
+		}
 		return l;
 	}
 

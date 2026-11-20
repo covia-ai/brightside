@@ -100,7 +100,8 @@ any `.theme.json` in the same format you drop into `themes/` beside this file
 (*Open themes folder* on that page; restart to pick new files up), so each
 mode keeps its own theme and the switch flips between them; on Tau's and
 FlatLaf's own themes there is an accent colour too. Choices apply at once and
-are remembered in `prefs.properties` (`ui.mode`, `ui.theme.dark`,
+are remembered in `prefs.properties` (`ui.mode`, which may also be `system`
+to follow the operating system's dark or light setting, `ui.theme.dark`,
 `ui.theme.light`, and `ui.accent` as `#RRGGBB`), which then take precedence
 over this key; delete those lines to return to the file's setting and Tau's
 purple. A remembered choice of FlatLaf's plain Dark or Light is kept.

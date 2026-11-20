@@ -255,7 +255,7 @@ public final class BrightSide {
 		}
 		// The look chosen in Settings → Theme (remembered in prefs) wins over config.json's light/dark.
 		Prefs prefs = Prefs.load(config.home());
-		String mode = prefs.getString(PREF_MODE, config.theme());
+		String mode = LAF.effective(prefs.getString(PREF_MODE, config.theme()));
 		LAF.init(prefs.getString(themeKey(mode), null), mode, prefs.getString(PREF_ACCENT, null), themesDir(config));
 		new BrightSide(config, path, prefs).start(launch);
 	}
@@ -2884,6 +2884,11 @@ public final class BrightSide {
 		return LAF.mode();
 	}
 
+	/** The mode chosen: dark, light, or {@link LAF#SYSTEM} to match the operating system. */
+	public String modeChoice() {
+		return prefs.getString(PREF_MODE, config.theme());
+	}
+
 	/** The id of the theme in use (the chosen one for the mode, else the mode's default). */
 	public String theme() {
 		return LAF.current().id();
@@ -2907,7 +2912,8 @@ public final class BrightSide {
 	/** Switches to light or dark — each mode keeps its own chosen theme — and remembers it. */
 	public void setMode(String mode) {
 		prefs.setString(PREF_MODE, mode);
-		applyLook(prefs.getString(themeKey(mode), LAF.defaultTheme(mode)), accent());
+		String shown = LAF.effective(mode);
+		applyLook(prefs.getString(themeKey(shown), LAF.defaultTheme(shown)), accent());
 	}
 
 	/** Remembers the theme as its mode's choice, switches to that mode, and switches every window to it. */
@@ -2916,7 +2922,8 @@ public final class BrightSide {
 		if (chosen == null) return;
 		String mode = chosen.dark() ? LAF.DARK : LAF.LIGHT;
 		prefs.setString(themeKey(mode), id);
-		prefs.setString(PREF_MODE, mode);
+		// Matching the system stays on: the theme becomes that mode's choice.
+		if (!LAF.SYSTEM.equalsIgnoreCase(prefs.getString(PREF_MODE, null))) prefs.setString(PREF_MODE, mode);
 		applyLook(id, accent());
 	}
 

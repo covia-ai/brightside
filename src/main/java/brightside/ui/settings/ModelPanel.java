@@ -56,7 +56,14 @@ public final class ModelPanel extends SettingsPage {
 		primary.setToolTipText("Apply the selected model and store any new key");
 		onPrimary(this::onSave);
 
-		group(null);
+		// Models come two ways: included with a paid plan, and through your own keys.
+		if (TreasuryPanel.Plan.stub() == TreasuryPanel.Plan.PAID) {
+			group("Included with your plan");
+			addSpan(brightside.ui.components.SelectableText.description("Frontier models included through Covia "
+				+ "appear here once the plan service is connected; choose one and it is marked Included.").small(),
+				"wmin 0, w 10::");
+		}
+		group("Your keys");
 		addField("Provider", modelSelector.providerField());
 		addField("Model", modelSelector.modelField());
 		addField("API key", keyField);
