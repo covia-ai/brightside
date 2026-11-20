@@ -2,7 +2,6 @@ package brightside.ui;
 
 import static brightside.BrightSide.APP_NAME;
 
-import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -46,9 +45,9 @@ public final class NavBar extends JPanel {
 	public enum Tab {
 		HOME("Home", "house", "Your conversation"),
 		SESSIONS("Sessions", "messages-square", "Browse assistants and saved conversations"),
-		FILES("Files", "folder", "Browse folders and personal drives"),
-		SKILLS("Skills", "book-open", "What your assistant can help with"),
-		PEERS("Peers", "orbit", "The people, devices and services your " + APP_NAME + " knows"),
+		FILES("Files", "folder-open", "Browse folders and personal drives"),
+		SKILLS("Skills", "book-open-check", "What your assistant can help with"),
+		PEERS("Peers", "orbit", "The people, devices, and services your " + APP_NAME + " knows"),
 		INBOX("Inbox", "inbox", "Requests waiting for your decision"),
 		SETTINGS("Settings", "settings", "Personalise and manage " + APP_NAME);
 
@@ -182,15 +181,15 @@ public final class NavBar extends JPanel {
 		}
 	}
 
-	/** A small filled disc with the count, top-right of the icon. */
+	/** The count pill, top-right of the icon: navy with amber text on Light, amber with navy text on Dark. */
 	private static void drawBadge(Graphics2D g2, String text, int cx, int cy) {
 		g2.setFont(g2.getFont().deriveFont(Font.BOLD, UIScale.scale(9f)));
 		FontMetrics fm = g2.getFontMetrics();
 		int h = UIScale.scale(14);
 		int w = Math.max(h, fm.stringWidth(text) + UIScale.scale(6));
-		g2.setColor(Theme.accentDark());
+		g2.setColor(Theme.countPill());
 		g2.fillRoundRect(cx - w / 2, cy, w, h, h, h);
-		g2.setColor(Color.WHITE);
+		g2.setColor(Theme.countPillText());
 		g2.drawString(text, cx - fm.stringWidth(text) / 2f, cy + (h + fm.getAscent() - fm.getDescent()) / 2f);
 	}
 

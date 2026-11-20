@@ -1,0 +1,1251 @@
+# UI strings at the redesign's baseline (develop dfd6db1). Regenerate only on purpose.
+  of a %,d-byte budget
+  ·  %,d bytes
+  ·  %,d-byte budget
+  ·  deduplicated
+  ·  karma 
+  ·  last active 
+  ·  not found
+  ·  shadowed
+  ·  truncated
+ (Settings → General → Open logs folder).
+ (venue operator)
+ MB for the speech model.
+ MB for the voice.
+ No need to describe the compaction itself.
+ Then carry on from where we were: pick up anything in progress, or ask what's next.
+ This can't be undone.
+ acts as
+ acts as: you, for everyday use, or the venue operator 
+ addresses you; your identity stays the same
+ after a restart
+ and ask for the passphrase again; it keeps running meanwhile
+ and other people call you. Changing it does not change 
+ calls the venue operator — a label only; the 
+ can't sign one yet.
+ couldn't change that conversation.
+ couldn't read that conversation.
+ couldn't remove them: 
+ couldn't save that: 
+ couldn't start up.
+ couldn't start up. Technical details are in the log folder
+ couldn't summarise that conversation.
+ data; provider API keys must be entered again.
+ days ago
+ files kept from earlier repairs take 
+ from now on.
+ had on the last run
+ in view as it moves; pan to hold it somewhere else
+ invokes to chat with it.
+ is summarising the conversation…
+ items selected
+ kept from earlier repairs (
+ key →
+ passphrase to 
+ passphrase to reveal the primary seed
+ reads replies aloud on this computer, so nothing it says leaves it.\n
+ remembers is encrypted on this computer with a passphrase only you know.
+ runs, and removed when it quits
+ runs, keeps a login as you, valid for a day, in tool-token.json in 
+ starts as you on every launch.
+ that is already running, without asking
+ thinks using a model you choose. Your key is stored encrypted, only on this computer.
+ this Windows account can use it. Task Manager lists it under Startup apps.
+ to make a drive.
+ to see what orbits it (or double-click it)
+ to sum up the conversation so far and carry on from the summary
+ to the clipboard
+ to the tray when minimised
+ tool steps
+ waiting for you
+ when I sign in to Windows
+ will carry this conversation on from this summary, which you can edit.
+ will stop working.
+ will sum up the conversation so far and carry on from the\n
+ with a summary of what still matters — decisions, facts, preferences and open threads.
+ · drag to resize
+ · made 
+ · until revoked
+ — waiting for you to claim it.
+%,d bytes
+%,d of %,d bytes
+%,d of %s
+'s config.json, in its associated editor
+'s conversation
+'s instructions
+'s model receives for this conversation
+'s standard agent: its model and instructions follow Settings and config.json.
+'s summary of this conversation; the conversation itself is unchanged
+(advanced) — the venue's own agents (the gods: Odin, Thor, Njord and Eir) and the venue's Inbox. Everything else is as yourself; 
+(no description)
+)?\nKeep them if anything has seemed missing since a repair.
+, for you and your agents.
+, on a fixed grid; missed runs are skipped
+, or any Convex BIP39 phrase.
+, valid for 
+. At your service.
+. Paste it into the tool in place of the old one.
+. Paste the key into the tool's MCP settings as 
+. Treat it like a password: it isn't kept.
+1 day
+1 hour
+1 scheduled
+1 tool step
+1. In the Discord Developer Portal, create an application and add a Bot to it.\n
+2. Under Bot, enable the Message Content Intent, then Reset Token and copy it.\n
+3. Under OAuth2 → URL Generator, tick the bot scope with View Channels, Read Message History and 
+30 days
+4. Paste the token here, list who may talk to it, and save.
+5 minutes
+; right-click for more
+; width:
+<br>Every message is kept beneath it.</html>
+? Its conversations and memory will be removed. This can't be undone.
+A cached prefix ends here: the messages above are stable across inferences.
+A compacted stretch: its summary stands for the turns archived beneath it.
+A custom token needs at least one tool.
+A custom token needs caps: \"unrestricted\" or a list.
+A directory of skills on the venue.
+A file kept from an earlier repair takes 
+A folder goes with everything in it. This can't be undone.
+A guide the assembler warns against, not a cap.
+A key for one tool, with the tools and access you choose. 
+A key that's yours alone — what makes this <i>your</i> agent, not an account on someone's server.
+A line about the agent for its Moltbook profile; it can be changed 
+A load: an operation's result or a lattice value, placed in the context under its label.
+A login 
+A login as the venue itself, for administration only. 
+A login that appears as you, with everything you can do. 
+A name and a value are both needed.
+A new event with this one's operation, input and timing
+A pinned load: what it refers to, its kind, 
+A reply couldn't be read aloud
+A skill: instructions placed in the context, with the tools it grants.
+A skillset: a directory of skills the assistant can discover. The ones it searches are at the 
+A starting role and working style; the agent can grow from here
+A token's name is lower-case letters, digits and hyphens.
+A tool's result, answering the call it names.
+A venue you don't know
+A view failed to take a new lattice value
+A watcher pass failed
+API key
+About
+About 
+Accent colour
+Access
+Account
+Add
+Add a folder
+Add a folder on this computer
+Add a folder on this computer, or make a personal drive with + beside Locations.
+Add a folder or a drive
+Add a folder…
+Add files to 
+Add files…
+Added 
+Adding…
+Admin
+Advanced
+After 
+Agent
+Agent DID
+Agent info
+Agent name
+Agents
+All
+All repeat
+All statuses
+Allowed users
+Already registered elsewhere, or rotated the key on the owner dashboard? 
+Also grant 
+Always-on tools
+Amber
+An agent
+Answer
+Answer in your Inbox
+Answer the required questions first.
+Answered
+Any tools, within caps you write; it starts from the preset you last chose.
+Anyone
+Anyone who can read files as your OS account can unlock 
+Anyone who can read the file as your OS account can unlock 
+Application
+Apply the change
+Apply the selected model and store any new key
+Approve
+Archive
+Arrives with federation; this is a preview
+Ask 
+Ask Moltbook for the account's current status
+Ask for an introduction…
+Ask your assistant to remind you of something or to check in regularly, or schedule an 
+Asked by 
+At launch only: Lock still asks for the passphrase
+At launch, it hands over to this one; nothing is lost
+Audio
+Authorization: Bearer; it is shown again from the list.
+Back
+Back (Alt+Left)
+Body
+Bot token
+Browse assistants and saved conversations
+Browse folders and personal drives
+CANCELLED
+COMPLETE
+Cancel
+Cancel \"
+Cancel job
+Cancel scheduled run
+Cancelled
+Cancelling 
+Cancelling…
+Cancel…
+Cannot read · collapse and retry
+Caps
+Carry this conversation on from a summary, keeping every message beneath it
+Change how 
+Change how I address you.
+Change name…
+Chat
+Chat as 
+Chat send failed
+Chat with 
+Chats
+Chats, or tasks a schedule or another agent sent
+Check the current agent's conversations for changes now
+Checking your passphrase…
+Checking…
+Choose
+Choose a folder from the sidebar.
+Choose a model.
+Choose a skill to see what it does, the tools it grants and what it reveals.
+Choose an operation to run.
+Choose any colour
+Choose one from the list, or send a message.
+Choose your assistant's brain
+Claimed as 
+Click a body to see it, or drag it somewhere new; drag a ring's line to resize it. 
+Click to choose 
+Code
+Comment (optional)
+Comment: 
+Compact
+Compact conversation…
+Compact it the next time 
+Compact this conversation?
+Compact…
+Completed
+Conferred only if you tick this and make the choice that offers it
+Configured
+Configured entries that did not resolve.
+Configured tools that did not resolve to an operation the agent 
+Confirm new passphrase
+Confirm passphrase
+Confirm your phrase
+Connect an account that already exists, from its API key
+Connect with key
+Connected
+Connected as @
+Connecting…
+Context
+Context budget
+Context pinned by configuration: read afresh each turn and watched for change, 
+Continue
+Controls the venue's harness offers an agent that names them — compacting the 
+Conversation
+Conversation options
+Convex 7x7 identicon for this Ed25519 public key (visual check only)
+Convex identity identicon
+Copied
+Copied 
+Copied to the clipboard.
+Copied without revealing it
+Copied without showing it
+Copy
+Copy 
+Copy DID
+Copy agent id
+Copy conversation
+Copy error
+Copy handle
+Copy input
+Copy input & result
+Copy it to the clipboard
+Copy job id
+Copy last job id
+Copy message
+Copy operation
+Copy result
+Copy summary
+Copy the key (behind your passphrase while it is hidden)
+Copy the value (behind your passphrase while it is hidden)
+Copy tool name
+Copy transcript
+Copying…
+Could not ask the venue about its voice
+Could not cancel the chat in flight
+Could not read a watched lattice component; showing its last value
+Could not summarise the conversation
+Could not write the dictation into the draft
+Couldn't
+Couldn't add
+Couldn't change storage
+Couldn't copy
+Couldn't create the folder
+Couldn't delete
+Couldn't filter your jobs: 
+Couldn't forget 
+Couldn't make a login: the venue isn't ready.
+Couldn't move
+Couldn't open
+Couldn't preview this file
+Couldn't reach Moltbook for 
+Couldn't read the key.
+Couldn't read the schedule
+Couldn't read this agent
+Couldn't read this conversation's context
+Couldn't read this folder
+Couldn't read your storage
+Couldn't rename
+Couldn't save a copy of
+Couldn't start
+Couldn't store it — names use letters, digits, dots, dashes and underscores.
+Couldn't store the key.
+Covia DID
+Create
+Create a new agent
+Create a new identity
+Create the access chosen above
+Create the agent's Moltbook account under this name
+Created from the agents pane; it keeps the model and instructions it was given.
+Creating a folder…
+Custom
+Custom…
+Cycle detail
+Cycle detail (
+DELETE
+Darcula
+Dark
+Data
+Data store
+Decline
+Default
+Delete
+Delete 
+Delete agent
+Delete conversation
+Delete the files kept from earlier repairs; this can't be undone
+Delete this conversation? This can't be undone.
+Delete…
+Deleting…
+Description
+Details
+Directory
+Disconnect and delete the bot and its Discord conversations
+Discord
+Discord user ids or usernames, comma-separated
+Document
+Double-click or press Enter to open
+Download
+Drop a FlatLaf or IntelliJ .theme.json here and restart; it appears under its mode
+Due now
+EEE d MMM yyyy, HH:mm:ss
+EEE d MMM, HH:mm
+ENTER
+Each run is kept in your job history
+Earlier conversation summarised
+Edit instructions
+Encrypt and store the secret under this name
+Enter your 
+Enter your 12- or 24-word recovery phrase.
+Enter your passphrase to unlock 
+Error
+Events the venue has recorded on the agent's timeline.
+Every
+Every 
+Every message the model receives, in order, by band.
+Every tool definition the model receives.
+Everything 
+Everything else arrives by loading a skill that grants it.
+Exactly what the assistant's model receives for this conversation, assembled as 
+Existing key
+Exit
+Expired
+Expired unanswered
+Expires in
+Explorer
+FAILED
+Failed
+Federation isn't connected yet: other venues are examples of what will appear here
+File
+Files
+Filter this folder
+Filter this folder…
+Finder
+Finish
+Finish activating the account as its owner, in your browser
+Finished
+First run
+FlatLaf
+FlatLaf could not be installed; using the default look and feel
+Fly over to 
+Folder
+Folder changes apply when 
+Folder contents
+Folder on this computer…
+For
+For 
+ForMike
+Forget
+Forget \"
+Forget secret
+Forget the key and the claim page here; the account itself stays on Moltbook
+Forgetting…
+Forgot 
+Forgot passphrase?
+Forgotten. Your passphrase is no longer stored here.
+From loaded skills
+From the Discord Developer Portal → your application → Bot → Reset Token. Stored encrypted.
+From the owner — or a context entry presented in the owner's voice.
+General
+Get a 
+Get an API key →
+Get started
+Getting voice typing ready…
+Getting voice typing ready… 
+Give \"
+Give the agent a name and a model.
+Give this token a new key; the old one stops working
+Granted 
+Greyed out: offline or not connected
+Handle
+Harness
+Head
+Hide details
+Hide file preview
+Hide the details
+Hide the earlier conversation
+Hide the key
+Hide the primary seed
+Hide the value
+Hide this window and keep 
+Hide to tray
+History
+Hold still
+Hold the map still
+Home
+Home venue DID
+How long the login stays valid
+How they stand
+I'm your personal assistant. Let's get to know each other.
+I've saved it
+Id
+Identity
+Idle
+Image
+Import an existing recovery phrase
+Import your recovery phrase
+In
+In 
+In a moment
+In every turn
+In the tray, unlocked with your stored passphrase: anyone signed in to this Windows account can use it.
+Inbox
+Input
+Instructions
+Instructions to the model, sent as the system message.
+Integrations
+IntelliJ
+It asked you something: answer it in your Inbox
+It can do everything you can: keep its key like your passphrase
+It fired but never started, so it left no record; check its operation and input
+It isn't among your jobs, or its record has been removed.
+It needs a one-off download of about 
+It runs once now and will not run again later.
+It starts in the tray, unlocked with your stored passphrase, so anyone signed in to
+It stays scheduled and runs again 
+It stops repeating and will not run again.
+It will not run.
+Its description: the one line the assistant's index carries, 
+Its files stay on this computer. Your assistant loses access after a restart.
+Its key stops working at once, on work it already started too.
+Its path or operation could not be read.
+Its place among the stored turns.
+Its place in the messages the model receives.
+Its turns show as the token's name, so you can tell them apart. Kept until you revoke it.
+Job
+Job 
+Job id
+Job not found
+Jobs
+Just a moment while everything starts up…
+Just checking you saved it correctly.
+Just now
+Keep 
+Keep a login as you for local tools
+Keep each run in my job history
+Keep running in the tray when I close the window
+Keep waiting
+Kept runs show how they went here; untracked ones leave no record
+Kind
+Last error
+Last job
+Last run
+Last runs
+Last update
+Lato
+Leaf
+Letters, digits, dots, dashes and underscores — how operations reference it (s/<name>)
+Light
+Listening… %d:%02d
+Live
+Loaded
+Loaded (
+Loaded by the assistant during the conversation: its text was appended to the 
+Loaded context: skill instructions and context entries, as resolved for this conversation.
+Loading folder…
+Loading preview…
+Loading your storage…
+Local tools
+Locations
+Lock
+Lock 
+Login
+Login as you
+Lower-case letters, digits and hyphens, such as claude-code: the name its turns show
+Made 
+Main assistant
+Manage access…
+Message
+Message 
+Messages
+Messages (
+Message…
+Model
+Moltbook
+Moltbook's owner dashboard: the account's activity, and rotating its key
+Moons are their agents
+Moved 
+Moving…
+Name
+Name your assistant will use
+Named token for a tool (MCP)
+Named tokens
+Needs a token signed with your own key; 
+Neighbourhood
+Never: I'll say “Go”
+New access
+New agent
+New chat
+New conversation
+New conversation with 
+New folder
+New folder…
+New from this…
+New key
+New key for 
+New passphrase
+New personal drive
+New session
+New…
+Next run
+Next up
+No Ed25519 public key available
+No agent on screen
+No chats
+No conversation on screen
+No conversations yet
+No failures
+No file selected
+No jobs
+No key needed for this provider
+No matches
+No messages.
+No named tokens yet: make one below, under New access.
+No past conversations yet
+No reply
+No secrets stored yet.
+No skill is loaded in this conversation.
+No skills to discover
+No storage yet
+No tasks
+No tokens counted yet
+No tools offered.
+No turns recorded for this conversation.
+No — it runs once
+Nobody has introduced it to you: nothing is known about it until someone you 
+None repeat
+None — it teaches judgement, not mechanics.
+None — the agent cannot discover skills.
+None.
+Not a valid phrase yet…
+Not connected
+Not connected yet; retrying
+Not in your directory
+Not kept on disk
+Not now
+Not run yet
+Not set up.
+Not yet
+Nothing further.
+Nothing has run on your behalf in this range yet.
+Nothing in this folder matches the filter.
+Nothing is scheduled
+Nothing is waiting for you
+Nothing leaves this computer except the model calls you ask for.<br><br>
+Nothing loaded.
+Nothing pinned.
+Nothing selected
+Nothing to cancel: the reply had already arrived
+Nothing was found at its path, or its operation returned nothing.
+Nothing was heard — check the microphone and try again
+Now chatting with 
+Of those tracked
+Off: right-click a reply and choose Read aloud to hear just that one. Esc stops it.
+Offline
+Okay — I'll call you 
+On disk
+On this computer
+Once
+One operation per line, such as v/ops/covia/read
+Only enable this on a computer and account you trust; untick it to delete the file.
+Only these Discord users may talk to your assistant. Anyone else who messages the 
+Only these Discord users may talk to your assistant. DM the bot and it tells you your id.
+Open
+Open 
+Open a clean Home chat; a conversation starts only when you send
+Open claim page
+Open conversation
+Open dashboard
+Open dashboard in browser
+Open folder
+Open in 
+Open logs folder
+Open one for the error
+Open settings file
+Open themes folder
+Operation
+Operations the assistant can call once the skill is loaded, and not before.
+Operator
+Operator DID
+Operator name
+Output
+Overview
+Owner
+Owner dashboard
+PAUSED
+PENDING
+Parent folder (Alt+Up)
+Passphrase
+Paste a new key to replace it (leave blank to keep)
+Paste the 12 or 24 words from another 
+Paste the API key to connect that account instead. It is stored encrypted and never shown again.
+Paste the bot token (leave blank to keep the stored one)
+Paste your API key
+Paste your API key, or choose the offline bot.
+Path
+Pause
+Paused
+Pausing…
+Peers
+Personal drive
+Personal drives
+Personal drive…
+Personalise and manage 
+Planets are a venue's users
+Please compact this conversation now: use your compact tool
+Please enter a name.
+Powered by the Covia Grid — an open platform for AI agents and data.\n
+Preview is unavailable for this type of file.
+Preview · sample venues
+Primary seed
+Primary seed revealed for this session only.
+Prototype
+Provider
+Put back
+Put every planet, moon, venue and orbit back as it started
+Queued
+Queued chat delivery failed
+Queued: read when the current reply is done
+Quit 
+REJECTED
+RUNNING
+Ran
+Ran inside
+Raw
+Read afresh for this assembly.
+Read aloud
+Read only
+Read only: your assistant can look but not change
+Read replies aloud
+Read the schedule again
+Read-only reads of the agent's own workspace: the default tools its configuration keeps on.
+Read-only workspace access (covia read/list/inspect)
+Reading aloud isn't available: no speech engine here speaks.
+Reading the map
+Reading the schedule…
+Reading…
+Reason (optional):
+Recover
+Recover 
+Refresh
+Refresh conversations
+Refresh files (F5)
+Refresh to try again.
+Refused
+Register
+Registered as 
+Registering on Moltbook…
+Reject request
+Rejected
+Reject…
+Remove bot
+Remove folder
+Remove from 
+Remove kept files
+Remove kept files…
+Remove this secret from the store
+Remove “
+Removing…
+Rename
+Rename conversation
+Rename this conversation:
+Rename…
+Renaming…
+Rendered into the session's cached prefix, where it stays as it is between 
+Renewed every hour while 
+Repeats
+Replace
+Replace “
+Requests waiting for your decision
+Reset layout
+Restore access with your recovery phrase and set a new passphrase.
+Result
+Resume
+Resuming…
+Reveal the primary seed (behind your passphrase)
+Reveal the value (behind your passphrase)
+Revealed for this sitting only.
+Revoke
+Revoke \"
+Revoke token
+Revoked 
+Rings
+Rings mark a venue's admin
+Rose
+Round it
+Run \"
+Run now
+Running
+Running 
+Running for 
+Runs aren't kept, so how it went isn't known
+Runs aren't kept, so how they went isn't known
+SLEEPING
+STARTED
+STARTING
+STOPPED
+SUSPENDED
+Save
+Save a copy
+Save a copy…
+Save everything and stop 
+Save secret
+Save your name
+Saved a copy
+Saved.
+Saved. The new key applies after a restart.
+Saving a copy…
+Saving…
+Schedule
+Schedule an operation
+Schedule an operation to run later, once or repeatedly
+Scheduled
+Scheduling 
+Scroll to zoom, drag the sky to pan, double-click a body to visit it, or the sky to come home.
+Secrets
+Secure your 
+Select a file to preview it.
+Send
+Send 
+Send Messages, open the generated link and add the bot to your server — or just message it directly.\n
+Send a message
+Send a message…
+Send message (Enter)
+Send when I pause
+Sending…
+Sending… still listening
+Session
+Session tokens: 
+Sessions
+Set in Settings and config.json.
+Set the map turning again
+Set turning
+Set up reading aloud?
+Set up voice typing?
+Setting things up…
+Setting up a Discord bot
+Settings
+Shadowed: an earlier skillset has a skill of this name, which the index keeps, so the 
+Show 
+Show all  ·  %,d characters
+Show all  ·  %,d lines
+Show details
+Show file preview
+Show in 
+Show in Sessions
+Show less
+Show or hide the resolved request
+Show or hide this request
+Show the details
+Show the earlier conversation
+Show the key (behind your passphrase)
+Showing the first 64 KiB.
+Shown for this sitting only.
+Shown once and kept nowhere; it stops working when it expires.
+Skill libraries
+Skills
+Skills (
+Skills and directories that enter the index once this one is loaded.
+Skills and directories that enter the index only once this one is loaded.
+Skip for now — use the offline echo bot
+Sky
+So your assistant can address you properly.
+Someone else
+Sorry
+Sorry — 
+Speak your message instead of typing it; end with “Go” to send it
+Spoken on this computer: nothing it says leaves it
+Spreadsheet
+Standard
+Stars are venues; Home is yours
+Start 
+Started
+Started by
+Starting point
+Starting takes a little longer that once; nothing in use is lost
+Startup
+State
+Status
+Still running in the tray. Click the icon to reopen; use Exit to stop the venue.
+Stop reading aloud
+Stop this token working, on work it already started too
+Stop tracking
+Stop waiting
+Stop waiting for this reply
+Stop waiting for this reply?\n\n
+Stop waiting?
+Stop, and write down what you said (Esc discards it)
+Stopped
+Stopped listening after a minute without a word
+Stopped waiting for this reply.
+Storage is unavailable.
+Store my passphrase in plaintext on this computer
+Store passphrase in plaintext on this computer
+Store the token and connect the bot
+Store your passphrase on the unlock screen to use this.
+Stored 
+Stored encrypted; saving under an existing name replaces its value
+Stored inside 
+Storing the token and connecting…
+Summarise
+Summary
+Switch to 
+Switch user
+System prompt
+System tray
+System tray not available — running as a plain window
+TERMINATED
+TIMEOUT
+Tail
+Take over a 
+Tasks
+Tasks on the agent's queue.
+Teal
+Text
+That couldn't be transcribed
+That didn't work.
+That drive already exists.
+That name is already in use.
+That passphrase didn't unlock this identity.
+That's not a valid recovery phrase.
+The Ed25519 public key your home venue signs with.
+The active conversation has not been accepted by the venue
+The agent operation 
+The agent whose skills these are
+The agent's name on Moltbook — how other agents and their owners will 
+The agent's own identifier, distinct from its owner's: what it acts and signs as.
+The assistant let this pass; what you say next is read together with it
+The assistant names no skillsets, so there is nothing for it to discover.
+The caps aren't valid JSON: 
+The context entries loaded for this conversation, and their accounting.
+The conversation 
+The cycle that produced the turn: its source, the model's finish 
+The embedded venue's web dashboard, in your browser
+The fixed opening: the assistant's identity and instructions, the skills index and 
+The instructions that open every turn: the agent's identity and role.
+The local log files, for diagnostics
+The longest for 
+The messages the model receives, in order.
+The microphone couldn't be opened
+The model operation its replies run through.
+The model operation the assistant's replies run through.
+The model provider
+The model uses API credentials already stored in Settings. The instructions can be changed later on the Agent tab.
+The model's declared context size, and how much of it this assembly uses. 
+The model's own words, or a compacted stretch's summary in its voice.
+The name shown in the agent list
+The name the venue knows the agent by. Its record lives under it in the owner's namespace.
+The new key or login appears here
+The operation to run, by reference: v/ops/agent/trigger, v/ops/http/get, …
+The passphrases don't match.
+The people, devices and services your 
+The primary seed is the master secret for your venue identity — anyone 
+The provider's API key, stored encrypted on the venue and used from the next message
+The revealing skill names this, but the index has nothing for it: it could not be read, 
+The same skill is already loaded under another entry, so this one adds nothing.
+The skills loaded in this conversation: their instructions are in the context and their 
+The skillset or parent skill it is filed under.
+The skillsets the agent searches for skills, in order; the first skill 
+The system tray isn't available on this desktop.
+The tool using it stops working until you paste the new key into it.
+The turn in progress: its tool calls and their results so far.
+The turns so far, with a compacted stretch standing as its summary.
+The user the agent belongs to and acts for.
+The venue's own DID — the identity the operator acts under.
+The venue's own summary of the agent, as JSON.
+The voice couldn't be set up
+The whole universe of venues
+Theme
+Theme 
+There is already an item with this name here.
+There is no text preview for this file.
+They open every turn, scheduled runs included, from the next one.
+This can't be undone.
+This file is empty.
+This folder is empty
+This takes about a minute.
+This theme sets its own colours; the accent applies to FlatLaf's own themes.
+Those words don't match — check your phrase.
+Timed out
+Timeline
+To remember it, tick \"Remember me\" on the unlock screen.
+Tokens
+Tokens the model provider has counted for this conversation so far: 
+Took 
+Tool loop
+Tools
+Tools (
+Tools from 
+Tools granted by skills loaded in this conversation. A skill's tools arrive only once it is loaded.
+Tools it grants
+Tools named in the agent's configuration, always on.
+Tools only: an entry that grants tools and adds no text.
+Tools the agent has without loading anything.
+Tools the skill grants while it is loaded.
+Track
+Track your planet
+Transcribing…
+Tray icon installed
+Try again with the refresh button. If it keeps failing, the log has the details.
+Unavailable
+Unavailable  ·  
+Universe
+Unknown
+Unknown venue
+Unlock
+Unlock 
+Unlock with my stored passphrase, without asking
+Unlocking…
+Use Up to return, or Refresh to try again.
+Use at least 8 characters for the new passphrase.
+Use at least 8 characters.
+Use my own model provider
+User
+Valid recovery phrase.
+Value
+Vault
+Venue
+Venue operator login (advanced)
+Venue signing key
+Version, local address and technical identity
+Video
+Visit
+Voice
+Voice typing couldn't be set up
+Voice typing is ready — press the microphone and speak
+Voice typing isn't available
+Voice typing needs an OpenAI key — add one in Settings → Model
+Voice typing works on this computer, so what you say never leaves it.\n
+Waiting for you
+Wants 
+Welcome back
+Welcome to 
+What 
+What it is for
+What it reveals
+What should I call you?
+What stopped the agent, as the venue reports it.
+What the agent did in it, step by step, as the chat shows it
+What the assembler adds last: the task in hand and its notices, such as the 
+What the assistant loads the skill by.
+What the entry put into the context on this assembly, against the 
+What the last run did, step by step, as the chat shows it
+What the operation is given each time it runs, as a JSON object
+What the token's tools are, and what they may reach
+What this agent does, in a sentence or two
+What to tell \"
+What your assistant can help with
+When one of your agents needs a decision only you can make, it asks here.
+Where the skill lives on the venue.
+Where the skill lives on the venue: what a load refers to.
+Which model to use
+Which model to use: pick one, or type the id of any model 
+While 
+While the microphone is on, a pause this long after you speak sends what you said. Saying “Go” or pressing Enter always sends.
+Who 
+Who started them. A scheduled run counts as whoever scheduled it.
+Who the agent is and what it is for: they open every turn, scheduled runs included
+Who you are acting as, in yellow
+Whole universe
+Withdrawn
+Withdrawn by the requester
+Word #
+Write these words down and keep them safe. They're the only way to restore your identity elsewhere.
+You
+You are here
+You can carry on chatting straight away. Anything the assistant is\n
+Your Covia user DID: the stable identity peers use for you. Your home 
+Your assistant on Moltbook, the social network for AI agents. Register it under a name, 
+Your assistant. Yours alone.
+Your conversation
+Your conversations and memory are encrypted to your identity, 
+Your conversations, memory, skills, assistants and personal drives. The store only grows: compacting drops what it no longer refers to.
+Your files
+Your home venue's DID: the venue that controls your identity.
+Your identity
+Your main assistant
+Your name
+Your own agent, on your own machine, under your own identity. 
+Your personal assistant, running privately on your own computer.\n\n
+Your recovery phrase
+Your system (or double-click the map)
+Yours
+Zoom in (or scroll)
+Zoom out (or scroll)
+[grow 25,fill]12[grow 75,fill]8[]2[]6[]4[]
+[grow 30,fill]12[grow 70,fill]8[]2[]6[]
+[grow,fill,sg s][grow,fill,sg s][grow,fill,sg s]
+[grow,fill,sg tile][grow,fill,sg tile][grow,fill,sg tile]
+\" a new key? 
+\" needs a token signed with your own key, which 
+\" now? 
+\" — an answer it asked for, or a word for the agent running it:
+\"? Anything resolving s/
+\"? Whatever it has done so far stays done.
+\nRunning locally at 
+\nYou are: 
+a String, a Readout.Link or a Readout.Tip, not 
+aligny center
+aligny center, wrap
+aligny top
+aligny top, gaptop 1
+aligny top, gaptop 3
+aligny top, gaptop 4
+alt LEFT
+alt UP
+and all it sees before loading.
+and reopen retained 
+answers when mentioned.
+appears here.
+appending cannot be out of bounds
+arc: 16
+arguments  ·  
+as the venue operator
+as you
+assembler warns against, not a cap.
+assistant never sees this one by name.
+below opens at that skill or directory.
+beneath a skill is one that skill reveals when loaded.
+bot is told their user id, so DM it to find yours. Direct messages always reach it; in a server it 
+can't provide yet — reject the request instead.
+claim it on Moltbook's claim page, then ask your assistant to check in, read or post; the key never 
+context-budget warning.
+conversation, loading a skill.
+copy the key of
+ctrl shift N
+d MMM
+d MMM yyyy, HH:mm
+e.g. Research partner
+enters the conversation.
+error result
+expires in 
+expires in under a minute
+expiring now
+file manager
+font: +1
+font: +2
+font: +3
+font: +3 $monospaced.font
+font: +6
+font: -1
+font: bold +3
+font: bold -1
+font: bold -2
+for a live reply but not sent. The budget is the model's declared context size — a guide the 
+foreground: $Brightside.warning
+gapbottom 10
+gapbottom 16
+gapbottom 6
+gapbottom 8
+gaptop 1
+gaptop 10
+gaptop 12
+gaptop 14
+gaptop 16, wmin 0
+gaptop 18
+gaptop 2
+gaptop 6, wmin 0
+gapx 12
+gapx 2
+gapx push
+grow, wmax 520
+growx 0
+growx, gapbottom 2
+growx, h 96!
+growx, wmax 400
+growx, wmin 0
+growx, wmin 0, hmin 100, gapbottom 8
+growx, wmin 180
+h 72!, gaptop 6
+history rather than rendered into the cached prefix.
+in the cached prefix, not re-measured
+in, out, and read from or written to the provider's cache.
+inferences until the prefix is next rebuilt.
+insets 0
+insets 0, fillx
+insets 0, fillx, gap 10
+insets 0, fillx, gap 4
+insets 0, fillx, gap 8
+insets 0, fillx, wrap 1, gapy 8
+insets 0, fillx, wrap 2
+insets 0, fillx, wrap 5, gapy 2
+insets 0, fillx, wrap 6, gapy 4
+insets 0, gap 0, aligny center
+insets 0, gap 10
+insets 0, gap 12
+insets 0, gap 6
+insets 0, gap 8
+insets 0, wrap 1, gapy 0
+insets 0, wrap 1, gapy 6, fillx
+insets 10 14 10 14, fillx, gapx 12, gapy 2
+insets 10 20 10 14, fillx, gapx 10, aligny center, hidemode 3
+insets 10 28 12 28, fillx
+insets 12 14 12 10, fillx, hidemode 3, gapy 0
+insets 12 14 12 14, wrap 2, gapy 1
+insets 12 16 12 16, fillx, wrap 2, gapy 10, hidemode 3
+insets 12 52 2 0, fillx, wrap 2, gapy 6
+insets 16 18 16 18, fillx, wrap 2, gapy 2
+insets 18 18 18 22, fillx, wrap 1, gapy 6
+insets 18 24 14 24, fillx, gapy 2
+insets 18 28 6 28, gap 6
+insets 2 4 12 4, fillx, gapy 2
+insets 20 24 20 24, fillx, wrap 3, gap 12 12
+insets 20 28 24 28, fillx, wrap 2, gapy 8
+insets 24 28 14 28, fillx, wrap 2
+insets 24 28 20 28, fill, wrap 1
+insets 28 24 28 24, fillx, wrap 1, gapy 6, aligny center
+insets 4 0 0 0, wrap 2, gapy 8
+insets 6 18 2 8, fillx, aligny center
+insets 6 28 10 28, gap 6, fillx
+insets 8 28 12 28, gap 6, fillx
+insets 8, fill, wrap 1
+insets 8, fillx, wrap 2
+its label in the context, and the most of it that is placed there.
+just now
+know it. Moltbook keeps names unique.
+macOS Dark
+macOS Light
+may call.
+most it may: content past the budget is cut and the entry marked truncated. An entry the cached 
+never share it. Your recovery phrase reproduces the same seed.
+new passphrase now; you may need to re-enter provider API keys afterwards.
+no text, tools only
+none yet
+not a valid phrase yet…
+not your passphrase — so your 12- or 24-word recovery phrase reopens the existing vault. You'll set a 
+of a name wins.
+operation yourself with New.
+operator is the venue itself.
+or it is the same skill as one listed under another path.
+other venue
+pinned context. Stable across inferences, so the provider can cache it.
+prefix already holds is left as it is and not measured again.
+reason, its tokens and its job.
+root, in order; the first skill of a name wins, and a later namesake is shadowed. A directory 
+shift F10
+show as you. Like a remembered passphrase, anyone who can read your files can use it.
+show the key of
+showRevealButton: true
+skip, growx, wmin 0, gapbottom 8
+so the agent always has it without loading anything.
+span 2
+span 2, gapbottom 2, gaptop 
+span 2, gaptop 4
+span 2, growx
+span 2, growx, gaptop 14
+span 2, growx, gaptop 4
+span 2, growx, wmin 0
+span 2, growx, wmin 0, 
+span 2, growx, wmin 0, gaptop 8
+span 2, growx, wmin 0, wmax 460, gapbottom 4
+span 2, growx, wmin 0, wmax 720, gaptop 
+span 3, gaptop 8, wmin 0
+span 3, growx, wmin 0
+span 5
+span 6
+span 6, gaptop 0, gapbottom 8, wmin 0
+span, gapbottom 8
+span, growx, wmin 0, gaptop 12
+span, wmin 0
+spany 2
+spany 2, aligny center
+spany 2, aligny center, gapright 10
+spany 2, aligny center, wrap
+spany 2, aligny top, gaptop 2
+spany 3, aligny center
+still doing will finish on its own, and if it answers, the reply\n
+summary, which keeps it quick and focused. Every message is kept: open\n
+the Covia DID
+the file
+the home venue DID
+the primary seed
+the skill
+the summary here to read the earlier conversation again.
+the venue signing key
+there later.
+toolbar.margin: 1,1,1,1
+tools in the palette. What each reveals is in the library, the Skills screen, which a link 
+tools it grants
+trust vouches for it.
+under a minute
+venue controls it; changing your name does not change it.
+what it reveals  ·  in the library
+who has it can act as you and decrypt a copied vault. Reveal it only for recovery or advanced tools, and 
+wmin 0
+wmin 0, aligny top
+wmin 0, gaptop 4
+wmin 0, hmin 200
+wmin 0, wrap
+wrap, wmin 0
+your agent
+your data folder, for tools on this computer such as Claude Code to read when they connect. Their turns 
+your identity.
+your twelve or twenty-four words…
+” appears after a restart
+” from 
+” goes after a restart
+” there with this copy?
+” will be 
+⚠  Keep your recovery phrase safe. It can reset a forgotten passphrase 
+✓ valid phrase

@@ -129,10 +129,10 @@ public final class AccessPanel extends SettingsPage {
 	private final JPanel tokenList = new JPanel(new MigLayout(
 		"insets 0, fillx, wrap 6, gapy 4", "[grow 25,fill]12[grow 75,fill]8[]2[]6[]4[]", ""));
 	private final JComboBox<Kind> kind = new JComboBox<>(Kind.values());
-	private final JLabel kindHint = Labels.small(" ");
+	private final JLabel kindHint = Labels.allowHtml(Labels.small(" ")); // wraps its escaped hint
 	private final JTextField name = new JTextField(16);
 	private final JComboBox<Object> preset = new JComboBox<>();
-	private final JLabel presetHint = Labels.small(" ");
+	private final JLabel presetHint = Labels.allowHtml(Labels.small(" ")); // wraps its escaped hint
 	private final TextArea tools = new TextArea(4, 34).placeholder("One operation per line, such as v/ops/covia/read");
 	private final TextArea caps = new TextArea(4, 34).placeholder("\"unrestricted\", or a list of {\"with\", \"can\"}");
 	private final JComboBox<Exp> expiry = new JComboBox<>();
@@ -165,7 +165,7 @@ public final class AccessPanel extends SettingsPage {
 
 		preset.addActionListener(e -> showPreset());
 		tokenRows = rows(() -> {
-			addField("Name", "Lower-case letters, digits and hyphens, such as claude-code: the name its turns show", name);
+			addField("Name", "Lower-case letters, digits, and hyphens, such as claude-code: the name its turns show", name);
 			addField("Access", "What the token's tools are, and what they may reach", preset);
 			addSpan(presetHint);
 		});
@@ -391,7 +391,7 @@ public final class AccessPanel extends SettingsPage {
 		}
 		String tokenName = name.getText().trim();
 		if (!tokenName.matches("[a-z0-9-]{1,64}")) {
-			setNote("A token's name is lower-case letters, digits and hyphens.", true);
+			setNote("A token's name is lower-case letters, digits, and hyphens.", true);
 			Fields.flag(name);
 			return;
 		}

@@ -212,7 +212,7 @@ final class FileActions {
 			message.add(Labels.text(failures.get(0).reason()));
 		} else {
 			for (Failure f : failures.subList(0, Math.min(failures.size(), LISTED_FAILURES))) {
-				message.add(Labels.text(f.name() + " — " + f.reason()));
+				message.add(Labels.text(f.name() + ": " + f.reason()));
 			}
 			if (failures.size() > LISTED_FAILURES) message.add(Labels.small("and " + (failures.size() - LISTED_FAILURES) + " more"));
 		}

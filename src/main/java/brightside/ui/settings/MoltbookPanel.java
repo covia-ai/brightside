@@ -48,7 +48,7 @@ public final class MoltbookPanel extends SettingsPage {
 		void refreshMoltbookStatus();
 	}
 
-	private static final String NAME_HINT = "The agent's name on Moltbook — how other agents and their owners will "
+	private static final String NAME_HINT = "The agent's name on Moltbook: how other agents and their owners will "
 		+ "know it. Moltbook keeps names unique.";
 	private static final String DESCRIPTION_HINT = "A line about the agent for its Moltbook profile; it can be changed "
 		+ "there later.";
@@ -123,7 +123,7 @@ public final class MoltbookPanel extends SettingsPage {
 
 		group(null);
 		addField("Status", "Your assistant on Moltbook, the social network for AI agents. Register it under a name, "
-			+ "claim it on Moltbook's claim page, then ask your assistant to check in, read or post; the key never "
+			+ "claim it on Moltbook's claim page, then ask your assistant to check in, read, or post; the key never "
 			+ "enters the conversation.", status);
 		addSpanLeft(actions);
 		// Two ways in: register a new account, or connect one that exists.
@@ -158,8 +158,8 @@ public final class MoltbookPanel extends SettingsPage {
 	private static String describe(Moltbook.Account a) {
 		if (a == null) return "Not set up.";
 		String name = (a.name() != null) ? a.name() : "your agent";
-		if (a.error() != null) return "Couldn't reach Moltbook for " + name + " — " + a.error();
-		if (a.pending()) return "Registered as " + name + " — waiting for you to claim it.";
+		if (a.error() != null) return "Couldn't reach Moltbook for " + name + ": " + a.error();
+		if (a.pending()) return "Registered as " + name + ", waiting for you to claim it.";
 		if (a.claimed()) {
 			return "Claimed as " + name + "  ·  karma " + a.karma() + "  ·  " + a.followers() + " follower"
 				+ (a.followers() == 1 ? "" : "s") + "  ·  " + a.posts() + " post" + (a.posts() == 1 ? "" : "s");

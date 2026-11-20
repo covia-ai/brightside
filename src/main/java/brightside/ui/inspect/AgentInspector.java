@@ -126,7 +126,7 @@ public final class AgentInspector {
 		if (!a.defaultTools() && a.tools().isEmpty()) d.note("None.");
 		d.section("Skill libraries").tip("The skillsets the agent searches for skills, in order; the first skill "
 			+ "of a name wins.");
-		list(d, a.skillsets(), "None — the agent cannot discover skills.");
+		list(d, a.skillsets(), "None: the agent cannot discover skills.");
 		if (!a.unavailable().isEmpty()) {
 			d.section("Unavailable", Styles.ERROR).tip("Configured entries that did not resolve.");
 			list(d, a.unavailable(), "");

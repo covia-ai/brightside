@@ -108,7 +108,7 @@ public final class ChatPanel extends JPanel {
 	 * twice, in the harness's vocabulary.
 	 */
 	static final String COMPACT_REQUEST = "Please compact this conversation now: use your compact tool"
-		+ " with a summary of what still matters — decisions, facts, preferences and open threads."
+		+ " with a summary of what still matters: decisions, facts, preferences, and open threads."
 		+ " Then carry on from where we were: pick up anything in progress, or ask what's next."
 		+ " No need to describe the compaction itself.";
 

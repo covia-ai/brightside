@@ -102,6 +102,15 @@ public final class Labels {
 		return "<html><div style='" + css + "'>" + html + "</div></html>";
 	}
 
+	/**
+	 * Lets a label render HTML again, for text the caller has already escaped
+	 * with {@link #escape} and wraps in {@code <html>} itself, so it wraps.
+	 */
+	public static <C extends JComponent> C allowHtml(C component) {
+		component.putClientProperty(HTML_DISABLE, null);
+		return component;
+	}
+
 	/** Turns off HTML interpretation so the component shows its text literally. */
 	public static <C extends JComponent> C plain(C component) {
 		component.putClientProperty(HTML_DISABLE, Boolean.TRUE);

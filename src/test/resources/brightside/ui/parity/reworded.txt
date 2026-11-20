@@ -1,0 +1,55 @@
+# Strings changed on purpose: old<TAB>new. The new wording must be in the UI's sources.
+Unlock	Open 
+Enter your passphrase to unlock 	Enter your passphrase to open 
+Anyone who can read files as your OS account can unlock 	Anyone who can read files as your OS account can open 
+Unlocking…	Opening 
+Unlock with my stored passphrase, without asking	 with my stored passphrase, without asking
+Waiting for you	Waiting on you
+Who you are acting as, in yellow	Who you are acting as
+Okay — I'll call you 	Okay, I'll call you 
+Sorry — 	Sorry, 
+Powered by the Covia Grid — an open platform for AI agents and data.\n	Powered by the Covia Grid, an open platform for AI agents and data.\n
+Letters, digits, dots, dashes and underscores — how operations reference it (s/<name>)	Letters, digits, dots, dashes, and underscores: how operations reference it (s/<name>)
+Couldn't store it — names use letters, digits, dots, dashes and underscores.	Couldn't store it: names use letters, digits, dots, dashes, and underscores.
+The agent's name on Moltbook — how other agents and their owners will 	The agent's name on Moltbook: how other agents and their owners will 
+ — waiting for you to claim it.	, waiting for you to claim it.
+(advanced) — the venue's own agents (the gods: Odin, Thor, Njord and Eir) and the venue's Inbox. Everything else is as yourself; 	(advanced): the venue's own agents (the gods: Odin, Thor, Njord, and Eir) and the venue's Inbox. Everything else is as yourself; 
+ calls the venue operator — a label only; the 	 calls the venue operator: a label only; the 
+The venue's own DID — the identity the operator acts under.	The venue's own DID: the identity the operator acts under.
+The primary seed is the master secret for your venue identity — anyone 	The primary seed is the master secret for your venue identity: anyone 
+Send Messages, open the generated link and add the bot to your server — or just message it directly.\n	Send Messages, open the generated link, and add the bot to your server, or message it directly.\n
+No — it runs once	No, it runs once
+for a live reply but not sent. The budget is the model's declared context size — a guide the 	for a live reply but not sent. The budget is the model's declared context size, a guide the 
+From the owner — or a context entry presented in the owner's voice.	From the owner, or a context entry presented in the owner's voice.
+Controls the venue's harness offers an agent that names them — compacting the 	Controls the venue's harness offers an agent that names them: compacting the 
+None — the agent cannot discover skills.	None: the agent cannot discover skills.
+can't provide yet — reject the request instead.	can't provide yet; reject the request instead.
+ with a summary of what still matters — decisions, facts, preferences and open threads.	 with a summary of what still matters: decisions, facts, preferences, and open threads.
+Voice typing needs an OpenAI key — add one in Settings → Model	Voice typing needs an OpenAI key; add one in Settings → Model
+Voice typing is ready — press the microphone and speak	Voice typing is ready: press the microphone and speak
+Nothing was heard — check the microphone and try again	Nothing was heard; check the microphone and try again
+None — it teaches judgement, not mechanics.	None: it teaches judgement and has no tools of its own.
+\" — an answer it asked for, or a word for the agent running it:	\": an answer it asked for, or a word for the agent running it:
+Skip for now — use the offline echo bot	Skip for now and use the offline echo bot
+A key that's yours alone — what makes this <i>your</i> agent, not an account on someone's server.	A key that's yours alone: what makes this <i>your</i> agent, on your own computer.
+Those words don't match — check your phrase.	Those words don't match; check your phrase.
+not your passphrase — so your 12- or 24-word recovery phrase reopens the existing vault. You'll set a 	not your passphrase, so your 12- or 24-word recovery phrase reopens the existing vault. You'll set a 
+Unlock 	Open 
+That passphrase didn't unlock this identity.	That passphrase isn't the one for this identity.
+Store your passphrase on the unlock screen to use this.	Store your passphrase on the Welcome back screen to use this.
+It starts in the tray, unlocked with your stored passphrase, so anyone signed in to	It starts in the tray, opened with your stored passphrase, so anyone signed in to
+In the tray, unlocked with your stored passphrase: anyone signed in to this Windows account can use it.	In the tray, opened with your stored passphrase: anyone signed in to this Windows account can use it.
+To remember it, tick \"Remember me\" on the unlock screen.	To remember it, tick \"Remember me\" on the Welcome back screen.
+Anyone who can read the file as your OS account can unlock 	Anyone who can read the file as your OS account can open 
+System tray not available — running as a plain window	System tray not available; running as a plain window
+A new event with this one's operation, input and timing	A new event with this one's operation, input, and timing
+Lower-case letters, digits and hyphens, such as claude-code: the name its turns show	Lower-case letters, digits, and hyphens, such as claude-code: the name its turns show
+A token's name is lower-case letters, digits and hyphens.	A token's name is lower-case letters, digits, and hyphens.
+Put every planet, moon, venue and orbit back as it started	Put every planet, moon, venue, and orbit back as it started
+Schedule an operation to run later, once or repeatedly	Schedule an operation to run later, once, or repeatedly
+The people, devices and services your 	The people, devices, and services your 
+Version, local address and technical identity	Version, local address, and technical identity
+Your conversations, memory, skills, assistants and personal drives. The store only grows: compacting drops what it no longer refers to.	Your conversations, memory, skills, assistants, and personal drives. The store only grows: compacting drops what it no longer refers to.
+At launch, it hands over to this one; nothing is lost	At launch, it hands over to this one; queued work survives the restart
+claim it on Moltbook's claim page, then ask your assistant to check in, read or post; the key never 	claim it on Moltbook's claim page, then ask your assistant to check in, read, or post; the key never 
+reason, its tokens and its job.	reason, its tokens, and its job.

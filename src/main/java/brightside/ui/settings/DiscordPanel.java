@@ -76,7 +76,7 @@ public final class DiscordPanel extends SettingsPage {
 			"1. In the Discord Developer Portal, create an application and add a Bot to it.\n"
 			+ "2. Under Bot, enable the Message Content Intent, then Reset Token and copy it.\n"
 			+ "3. Under OAuth2 → URL Generator, tick the bot scope with View Channels, Read Message History and "
-			+ "Send Messages, open the generated link and add the bot to your server — or just message it directly.\n"
+			+ "Send Messages, open the generated link, and add the bot to your server, or message it directly.\n"
 			+ "4. Paste the token here, list who may talk to it, and save.");
 
 		group(null);
@@ -121,7 +121,7 @@ public final class DiscordPanel extends SettingsPage {
 			String who = (bot.username() != null) ? "Connected as @" + bot.username() : "Connected";
 			return who + "  ·  " + bot.received() + " received, " + bot.sent() + " sent";
 		}
-		String why = (bot.error() != null) ? " — " + bot.error() : "";
+		String why = (bot.error() != null) ? ": " + bot.error() : "";
 		return switch (bot.state()) {
 			case "PENDING" -> "Not connected yet; retrying" + why;
 			case "STARTING" -> "Connecting…";

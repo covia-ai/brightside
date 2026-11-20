@@ -18,7 +18,7 @@ final class JobLooks {
 			case "PENDING" -> "Queued";
 			case "STARTED" -> "Running";
 			case "PAUSED" -> "Paused";
-			case "INPUT_REQUIRED", "AUTH_REQUIRED" -> "Waiting for you";
+			case "INPUT_REQUIRED", "AUTH_REQUIRED" -> "Waiting on you";
 			case "COMPLETE" -> "Completed";
 			case "FAILED" -> "Failed";
 			case "TIMEOUT" -> "Timed out";

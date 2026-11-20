@@ -91,17 +91,19 @@ Brightside when you sign in, once a passphrase is remembered
 
 ### `theme`
 
-`"dark"` (default) or `"light"`: the mode to start in — FlatLaf's Dark or
-Light theme with Brightside's purple accent. *Settings → Theme* has the
-Light/Dark switch, and under it the themes of that mode that FlatLaf provides
-— its own, the IntelliJ theme pack (Dracula, Nord, One Dark, Solarized, …) and
+`"dark"` (default) or `"light"`: the mode to start in, in Tau's own theme for
+that mode: Tau Dark (the navy field) or Tau Light (the gold-ground system),
+both with Tau's Royal Purple accent. *Settings → Theme* has the Light/Dark
+switch, and under it the themes of that mode on offer: Tau's own first, then
+FlatLaf's, the IntelliJ theme pack (Dracula, Nord, One Dark, Solarized, …) and
 any `.theme.json` in the same format you drop into `themes/` beside this file
-(*Open themes folder* on that page; restart to pick new files up) — so each
-mode keeps its own theme and the switch flips between them; on FlatLaf's own
-themes there is an accent colour too. Choices apply at once and are remembered
-in `prefs.properties` (`ui.mode`, `ui.theme.dark`, `ui.theme.light`, and
-`ui.accent` as `#RRGGBB`), which then take precedence over this key; delete
-those lines to return to the file's setting and Brightside's purple.
+(*Open themes folder* on that page; restart to pick new files up), so each
+mode keeps its own theme and the switch flips between them; on Tau's and
+FlatLaf's own themes there is an accent colour too. Choices apply at once and
+are remembered in `prefs.properties` (`ui.mode`, `ui.theme.dark`,
+`ui.theme.light`, and `ui.accent` as `#RRGGBB`), which then take precedence
+over this key; delete those lines to return to the file's setting and Tau's
+purple. A remembered choice of FlatLaf's plain Dark or Light is kept.
 
 ### `repairStore`
 

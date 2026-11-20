@@ -156,6 +156,93 @@ public final class Theme {
 		return FlatLaf.isLafDark();
 	}
 
+	/**
+	 * The primary button's fill: the accent, darkened only until white reads on
+	 * it at {@value #AA_CONTRAST}:1, so Tau's Royal Purple fills as it is
+	 * (6.4:1) and any accent an owner chooses still passes.
+	 */
+	public static Color primaryFill() {
+		return darkenFor(accent(), Color.WHITE, AA_CONTRAST);
+	}
+
+	// ---- Tau roles: set by Tau Dark and Tau Light, derived on other themes (FlatLaf.properties) ----
+
+	/** Cerulean: outlines, link underlines, focus, the active tab, connections. */
+	public static Color blue() {
+		return FlatUIUtils.getUIColor("Brightside.blue", 0x4A90E2);
+	}
+
+	/** The sidebar's ground: gold 100 on Light, sunken navy on Dark. */
+	public static Color sidebar() {
+		return FlatUIUtils.getUIColor("Brightside.sidebar.background", panel());
+	}
+
+	/** Behind the sidebar's active item. */
+	public static Color sidebarSelected() {
+		return FlatUIUtils.getUIColor("Brightside.sidebar.selectedBackground", surface());
+	}
+
+	/** The 3 px bar beside the sidebar's active item. */
+	public static Color sidebarBar() {
+		return FlatUIUtils.getUIColor("Brightside.sidebar.selectedBar", accent());
+	}
+
+	/** Chrome: status strip, title bar, toolbars, the Inbox panel. Gold 200 on Light. */
+	public static Color chrome() {
+		return FlatUIUtils.getUIColor("Brightside.chrome.background", panel());
+	}
+
+	/** The warm surface: hovered and selected rows, empty-state cards, chip grounds. Gold 50 on Light. */
+	public static Color warmSurface() {
+		return FlatUIUtils.getUIColor("Brightside.warmSurface", surface());
+	}
+
+	/** Cards, lists, tables and badges: white on Light, raised navy on Dark. */
+	public static Color card() {
+		return FlatUIUtils.getUIColor("Brightside.card.background", surface());
+	}
+
+	/** The card radius as a FlatLaf arc (twice the radius). */
+	public static int cardArc() {
+		int arc = UIManager.getInt("Brightside.card.arc");
+		return (arc > 0) ? arc : 24;
+	}
+
+	/** Link text: Royal Purple on Light, #B79BF0 on Dark. Never on amber. */
+	public static Color link() {
+		return FlatUIUtils.getUIColor("Brightside.link", accentText());
+	}
+
+	/** Under link text: a second cue beside the colour, never the only one. */
+	public static Color linkUnderline() {
+		return FlatUIUtils.getUIColor("Brightside.link.underline", blue());
+	}
+
+	/** What is yours: amber on Dark (the acting-as ring, the local node, the count pill). */
+	public static Color yours() {
+		return FlatUIUtils.getUIColor("Brightside.yours", 0xF2AE30);
+	}
+
+	/** The local node in the Constellation: Royal Purple on Light, amber on Dark. */
+	public static Color localNode() {
+		return FlatUIUtils.getUIColor("Brightside.localNode", accent());
+	}
+
+	/** An edge between nodes: a follow, a connection. */
+	public static Color connection() {
+		return FlatUIUtils.getUIColor("Brightside.connection", blue());
+	}
+
+	/** The count pill's fill: navy on Light, amber on Dark. */
+	public static Color countPill() {
+		return FlatUIUtils.getUIColor("Brightside.countPill.background", accent());
+	}
+
+	/** The count pill's text: amber on Light, navy on Dark. */
+	public static Color countPillText() {
+		return FlatUIUtils.getUIColor("Brightside.countPill.foreground", 0xFFFFFF);
+	}
+
 	/** {@code base} moved {@code amount} (0–1) of the way towards {@code towards}. */
 	public static Color blend(Color base, Color towards, float amount) {
 		return ColorFunctions.mix(towards, base, amount);

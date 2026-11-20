@@ -68,7 +68,7 @@ public final class RecoveryDialog extends JDialog {
 		JLabel title = Labels.title("Recover " + APP_NAME);
 		SelectableText sub = SelectableText.description("Restore access with your recovery phrase and set a new passphrase.");
 		SelectableText warn = SelectableText.description("Your conversations and memory are encrypted to your identity, "
-			+ "not your passphrase — so your 12- or 24-word recovery phrase reopens the existing vault. You'll set a "
+			+ "not your passphrase, so your 12- or 24-word recovery phrase reopens the existing vault. You'll set a "
 			+ "new passphrase now; you may need to re-enter provider API keys afterwards.");
 		warn.setMaximumSize(new Dimension(500, Integer.MAX_VALUE));
 

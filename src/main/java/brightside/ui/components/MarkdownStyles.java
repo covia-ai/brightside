@@ -28,7 +28,7 @@ public final class MarkdownStyles {
 			? mono.deriveFont(Font.PLAIN, body.getSize2D() - 1f)
 			: new Font(Font.MONOSPACED, Font.PLAIN, Math.round(body.getSize2D() - 1f));
 		return new MarkdownStyle(body, mono,
-			Theme.foreground(), Theme.muted(), Theme.accent(), Theme.codeBackground(),
+			Theme.foreground(), Theme.muted(), Theme.link(), Theme.codeBackground(),
 			UIScale.scale(8), UIScale.scale(22), UIScale.scale(16),
 			new float[] {1.45f, 1.25f, 1.12f, 1.04f, 1f, 1f});
 	}

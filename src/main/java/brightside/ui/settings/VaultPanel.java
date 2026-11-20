@@ -37,7 +37,7 @@ public final class VaultPanel extends SettingsPage {
 		baseline = isRemembered;
 		remember.setSelected(isRemembered);
 		remember.setEnabled(isRemembered); // can only be turned OFF here
-		hint.setText("To remember it, tick \"Remember me\" on the unlock screen.");
+		hint.setText("To remember it, tick \"Remember me\" on the Welcome back screen.");
 		hint.setVisible(!isRemembered);
 		clearNote();
 		primary.setEnabled(false);
@@ -45,7 +45,7 @@ public final class VaultPanel extends SettingsPage {
 
 	private void build() {
 		remember.setOpaque(false);
-		remember.setToolTipText("Anyone who can read the file as your OS account can unlock " + APP_NAME);
+		remember.setToolTipText("Anyone who can read the file as your OS account can open " + APP_NAME);
 		remember.addActionListener(e -> primary.setEnabled(remember.isSelected() != baseline));
 
 		primary.setEnabled(false);

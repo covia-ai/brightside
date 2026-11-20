@@ -47,7 +47,7 @@ public final class TrayManager {
 		if ("1".equals(System.getenv("BRIGHTSIDE_NO_TRAY"))) return null;
 		try {
 			if (GraphicsEnvironment.isHeadless() || !SystemTray.isSupported()) {
-				log.info("System tray not available — running as a plain window");
+				log.info("System tray not available; running as a plain window");
 				return null;
 			}
 			PopupMenu menu = new PopupMenu();

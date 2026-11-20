@@ -154,7 +154,7 @@ public final class RequestForm extends JPanel {
 				if (in.ask.required()) {
 					fail(in instanceof TokenInput
 						? "\"" + in.ask.prompt() + "\" needs a token signed with your own key, which " + APP_NAME + " "
-							+ "can't provide yet — reject the request instead."
+							+ "can't provide yet; reject the request instead."
 						: "Answer the required questions first.");
 					return null;
 				}

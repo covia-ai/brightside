@@ -333,7 +333,7 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 				if (feed != bound) return;
 				if (summary == null || summary.isBlank() || "null".equals(summary)) {
 					if (e != null) log.warn("Could not summarise the conversation", e);
-					Dialogs.warn(this, "Summary", "Sorry — " + APP_NAME + " couldn't summarise that conversation.");
+					Dialogs.warn(this, "Summary", "Sorry, " + APP_NAME + " couldn't summarise that conversation.");
 					return;
 				}
 				show.accept(summary);
@@ -361,7 +361,7 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 			} catch (Exception e) {
 				log.warn("Could not run {}", operation, e);
 				SwingUtilities.invokeLater(() -> {
-					if (feed == bound) chat.appendSystem("Sorry — " + APP_NAME + " couldn't change that conversation.");
+					if (feed == bound) chat.appendSystem("Sorry, " + APP_NAME + " couldn't change that conversation.");
 				});
 			}
 		});
@@ -375,7 +375,7 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 			SwingUtilities.invokeLater(() -> {
 				if (feed != bound) return;
 				if (snapshot != null && id.equals(snapshot.sessionId())) Clipboard.copy(SessionHistory.plainText(snapshot.items()));
-				else chat.appendSystem("Sorry — " + APP_NAME + " couldn't read that conversation.");
+				else chat.appendSystem("Sorry, " + APP_NAME + " couldn't read that conversation.");
 			});
 		});
 	}

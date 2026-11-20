@@ -15,7 +15,7 @@ import com.formdev.flatlaf.ui.FlatEmptyBorder;
 import com.formdev.flatlaf.util.UIScale;
 
 import brightside.ui.components.Borders;
-import brightside.ui.components.Lucide;
+import brightside.ui.components.IconTile;
 import brightside.ui.components.Panels;
 import brightside.ui.components.PressButton;
 import brightside.ui.components.Scrolls;
@@ -36,23 +36,32 @@ public final class SettingsScreen extends JPanel {
 
 	public enum Tab {
 		// You and the app.
-		PROFILE("Identity", "user-round", false), GENERAL("General", "sliders-horizontal", false),
-		THEME("Theme", "palette", false),
+		PROFILE("Identity", IconTile.Concept.IDENTITY, false),
+		GENERAL("General", "sliders-horizontal", IconTile.Family.NEUTRAL, false),
+		THEME("Theme", "palette", IconTile.Family.NEUTRAL, false),
 		// What the assistant runs on and reaches.
-		MODEL("Model", "sparkles", true), INTEGRATIONS("Integrations", "plug", false),
-		SCHEDULE("Schedule", "calendar-clock", false), JOBS("Jobs", "list-checks", false),
+		MODEL("Model", IconTile.Concept.MODEL, true), INTEGRATIONS("Integrations", IconTile.Concept.INTEGRATIONS, false),
+		SCHEDULE("Schedule", IconTile.Concept.SCHEDULE, false), JOBS("Jobs", IconTile.Concept.JOBS, false),
 		// Keys and access.
-		SECRETS("Secrets", "key-round", true), VAULT("Vault", "lock", false), ACCESS("Access", "ticket", false);
+		SECRETS("Secrets", IconTile.Concept.SECRETS, true), VAULT("Vault", IconTile.Concept.VAULT, false),
+		ACCESS("Access", IconTile.Concept.ACCESS, false);
 
 		final String label;
-		/** The {@link Lucide} icon beside the label. */
+		/** The {@link Lucide} icon in the section's tile. */
 		final String icon;
+		/** The colour family the tile is tinted from. */
+		final IconTile.Family family;
 		/** Whether a gap sets this section apart from the one above, starting a group. */
 		final boolean startsGroup;
 
-		Tab(String label, String icon, boolean startsGroup) {
+		Tab(String label, IconTile.Concept concept, boolean startsGroup) {
+			this(label, concept.icon, concept.family, startsGroup);
+		}
+
+		Tab(String label, String icon, IconTile.Family family, boolean startsGroup) {
 			this.label = label;
 			this.icon = icon;
+			this.family = family;
 			this.startsGroup = startsGroup;
 		}
 
@@ -111,10 +120,10 @@ public final class SettingsScreen extends JPanel {
 		column.setBorder(new FlatEmptyBorder(8, 6, 8, 6));
 		for (Tab t : Tab.values()) {
 			PressButton b = new PressButton(t.label);
-			b.setIcon(Lucide.icon(t.icon, 16, () -> b.isSelected() ? Theme.accent() : Theme.muted()));
+			b.setIcon(new IconTile(t.icon, t.family, 24).asIcon());
 			b.setIconTextGap(10);
 			b.setHorizontalAlignment(SwingConstants.LEFT);
-			b.setMargin(new Insets(8, 12, 8, 16));
+			b.setMargin(new Insets(4, 8, 4, 16)); // the tile carries its own padding
 			Styles.style(b, "font: +1");
 			b.setAlignmentX(LEFT_ALIGNMENT);
 			// As wide as the column; the column hugs the top, so each is as tall as it prefers.
@@ -125,7 +134,14 @@ public final class SettingsScreen extends JPanel {
 			column.add(b);
 			column.add(Box.createVerticalStrut(UIScale.scale(2)));
 		}
-		JPanel navHolder = Scrolls.hugTop(column);
+		// Scrolls when the window is too short for every section, so none is ever out of reach.
+		// The view keeps its own width (the widest section), so no label is cut short.
+		javax.swing.JScrollPane navHolder = new javax.swing.JScrollPane(Scrolls.hugTop(column),
+			javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
+			javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+		navHolder.setOpaque(false);
+		navHolder.getViewport().setOpaque(false);
+		navHolder.getVerticalScrollBar().setUnitIncrement(UIScale.scale(16));
 		navHolder.setBorder(Borders.hairlineRight());
 
 		add(navHolder, BorderLayout.WEST);

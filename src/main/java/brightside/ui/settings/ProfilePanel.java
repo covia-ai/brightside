@@ -61,18 +61,18 @@ public final class ProfilePanel extends SettingsPage {
 	private static final String NONE = "—";
 
 	private static final String SWITCH_HINT = "Who " + APP_NAME + " acts as: you, for everyday use, or the venue operator "
-		+ "(advanced) — the venue's own agents (the gods: Odin, Thor, Njord and Eir) and the venue's Inbox. Everything else is as yourself; "
+		+ "(advanced): the venue's own agents (the gods: Odin, Thor, Njord, and Eir) and the venue's Inbox. Everything else is as yourself; "
 		+ APP_NAME + " starts as you on every launch.";
 	private static final String NAME_HINT = "What " + APP_NAME + " and other people call you. Changing it does not change "
 		+ "your identity.";
-	private static final String OPERATOR_NAME_HINT = "What " + APP_NAME + " calls the venue operator — a label only; the "
+	private static final String OPERATOR_NAME_HINT = "What " + APP_NAME + " calls the venue operator: a label only; the "
 		+ "operator is the venue itself.";
 	private static final String USER_DID_HINT = "Your Covia user DID: the stable identity peers use for you. Your home "
 		+ "venue controls it; changing your name does not change it.";
-	private static final String OPERATOR_DID_HINT = "The venue's own DID — the identity the operator acts under.";
+	private static final String OPERATOR_DID_HINT = "The venue's own DID: the identity the operator acts under.";
 	private static final String VENUE_DID_HINT = "Your home venue's DID: the venue that controls your identity.";
 	private static final String KEY_HINT = "The Ed25519 public key your home venue signs with.";
-	private static final String SEED_HINT = "The primary seed is the master secret for your venue identity — anyone "
+	private static final String SEED_HINT = "The primary seed is the master secret for your venue identity: anyone "
 		+ "who has it can act as you and decrypt a copied vault. Reveal it only for recovery or advanced tools, and "
 		+ "never share it. Your recovery phrase reproduces the same seed.";
 
@@ -276,7 +276,7 @@ public final class ProfilePanel extends SettingsPage {
 					setNote("Primary seed revealed for this session only.", false);
 				} catch (Exception e) {
 					hidePrimarySeed();
-					setNote("That passphrase didn't unlock this identity.", true);
+					setNote("That passphrase isn't the one for this identity.", true);
 				}
 				repaint();
 			}

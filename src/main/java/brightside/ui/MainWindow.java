@@ -643,7 +643,7 @@ public final class MainWindow extends JFrame {
 			@Override public void removeFolder(String name) throws Exception { app.fileRoots().remove(name); }
 			@Override public void createDrive(String name) throws Exception {
 				brightside.PersonalDrives drives = app.personalDrives();
-				if (drives == null) throw new IllegalStateException("Unlock " + APP_NAME + " to make a drive.");
+				if (drives == null) throw new IllegalStateException("Open " + APP_NAME + " to make a drive.");
 				drives.create(name);
 			}
 			@Override public String folderNameProblem(String name) { return brightside.FileRoots.nameProblem(name); }
@@ -782,7 +782,7 @@ public final class MainWindow extends JFrame {
 		updateWho();
 		chatPanel.restore(history);
 		chatPanel.setSession(session);
-		chatPanel.appendSystem("Okay — I'll call you " + identity.name() + " from now on.");
+		chatPanel.appendSystem("Okay, I'll call you " + identity.name() + " from now on.");
 		show(CARD_CHAT);
 	}
 
@@ -1094,7 +1094,7 @@ public final class MainWindow extends JFrame {
 			return;
 		}
 		if (CARD_WELCOME.equals(currentCard)) {
-			welcomePanel.setError("Sorry — " + APP_NAME + " couldn't start up.");
+			welcomePanel.setError("Sorry, " + APP_NAME + " couldn't start up.");
 		}
 		chatPanel.appendError(message);
 	}
@@ -1126,7 +1126,7 @@ public final class MainWindow extends JFrame {
 		StringBuilder sb = new StringBuilder();
 		sb.append(BrightSide.APP_NAME).append('\n');
 		sb.append("Your personal assistant, running privately on your own computer.\n\n");
-		sb.append("Powered by the Covia Grid — an open platform for AI agents and data.\n");
+		sb.append("Powered by the Covia Grid, an open platform for AI agents and data.\n");
 		if (identity != null) sb.append("\nYou are: ").append(identity.name());
 		if (venue != null) {
 			// The technical identity, kept for the curious — this is the "settings" surface.

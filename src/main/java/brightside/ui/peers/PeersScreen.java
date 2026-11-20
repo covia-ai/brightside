@@ -64,7 +64,7 @@ public final class PeersScreen extends JPanel {
 	private final JButton pause = Buttons.icon(null, null);
 	private final JLabel view = Labels.small(" ");
 	private final JButton reset = Buttons.icon(Lucide.icon("rotate-ccw", 16, Theme::muted),
-		"Put every planet, moon, venue and orbit back as it started");
+		"Put every planet, moon, venue, and orbit back as it started");
 	private final JButton follow = Buttons.icon(null, null);
 	private final Actions actions;
 	private final Timer saveLater;
@@ -230,7 +230,7 @@ public final class PeersScreen extends JPanel {
 	// The header's changing icons, made once: syncView runs on every step of a glide.
 	private static final Icon PLAY = Lucide.icon("play", 16, Theme::muted);
 	private static final Icon HOLD = Lucide.icon("circle-pause", 16, Theme::muted);
-	private static final Icon TRACKING = Lucide.icon("orbit", 16, Theme::accent);
+	private static final Icon TRACKING = Lucide.icon("orbit", 16, Theme::accentText);
 	private static final Icon TRACK = Lucide.icon("orbit", 16, Theme::muted);
 
 	private void syncPause() {
@@ -295,7 +295,7 @@ public final class PeersScreen extends JPanel {
 		c.add(legendRow(new SunIcon(), "Stars are venues; Home is yours", null));
 		c.add(legendRow(new PlanetIcon(new Color(0x5EC8F2), 18, false), "Planets are a venue's users", null));
 		c.add(legendRow(lamp(new Color(0xA9AFBC)), "Moons are their agents", null));
-		c.add(legendRow(new PlanetIcon(SolarMap.YOU, 18, false), "Who you are acting as, in yellow", null));
+		c.add(legendRow(new PlanetIcon(Theme.localNode(), 18, false), "Who you are acting as", null));
 		c.add(legendRow(lamp(Theme.accent()), "Your main assistant", null));
 		c.add(legendRow(new PlanetIcon(new Color(0xE8C66A), 18, true), "Rings mark a venue's admin", null));
 		c.add(legendRow(new PlanetIcon(SolarMap.greyed(new Color(0x5EC8F2)), 18, false), "Greyed out: offline or not connected", null));
@@ -570,7 +570,7 @@ public final class PeersScreen extends JPanel {
 			int s = getIconWidth();
 			for (int i = 1; i <= of; i++) {
 				float r = s * (0.14f + 0.36f * i / of);
-				g2.setColor(i == ring ? Theme.accent() : Theme.fade(Theme.muted(), 0.35f));
+				g2.setColor(i == ring ? Theme.accentText() : Theme.fade(Theme.muted(), 0.35f));
 				g2.setStroke(new java.awt.BasicStroke(i == ring ? 1.6f : 1f));
 				g2.draw(new java.awt.geom.Ellipse2D.Float(x + s / 2f - r, y + s / 2f - r * 0.6f, 2 * r, 2 * r * 0.6f));
 			}
@@ -594,7 +594,7 @@ public final class PeersScreen extends JPanel {
 			Graphics2D g2 = (Graphics2D) g.create();
 			g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 			int s = getIconWidth();
-			Color a = Theme.accent();
+			Color a = Theme.localNode(); // Home, your own venue, is the local node
 			g2.setPaint(new java.awt.RadialGradientPaint(x + s / 2f, y + s / 2f, s / 2f, new float[] { 0f, 0.45f, 1f },
 				new Color[] { Color.WHITE, a, Theme.fade(a, 0f) }));
 			g2.fillOval(x, y, s, s);

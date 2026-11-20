@@ -81,8 +81,8 @@ public final class GeneralPanel extends SettingsPage {
 	private final JCheckBox minimiseToTray = new JCheckBox("Send " + APP_NAME + " to the tray when minimised");
 	private final JLabel trayNote = Labels.small(" ");
 	private final JCheckBox takeOver = new JCheckBox("Take over a " + APP_NAME + " that is already running, without asking");
-	private final JCheckBox unlock = new JCheckBox("Unlock with my stored passphrase, without asking");
-	private final JLabel unlockNote = Labels.small("Store your passphrase on the unlock screen to use this.");
+	private final JCheckBox unlock = new JCheckBox("Open " + APP_NAME + " with my stored passphrase, without asking");
+	private final JLabel unlockNote = Labels.small("Store your passphrase on the Welcome back screen to use this.");
 	private final JCheckBox atSignIn = new JCheckBox("Start " + APP_NAME + " when I sign in to Windows");
 	private final JLabel atSignInNote = Labels.small(" ");
 	/** The pauses offered, in seconds, before "never". */
@@ -119,7 +119,7 @@ public final class GeneralPanel extends SettingsPage {
 
 		takeOver.setOpaque(false);
 		unlock.setOpaque(false);
-		takeOver.setToolTipText("At launch, it hands over to this one; nothing is lost");
+		takeOver.setToolTipText("At launch, it hands over to this one; queued work survives the restart");
 		unlock.setToolTipText("At launch only: Lock still asks for the passphrase");
 		takeOver.addActionListener(e -> {
 			if (!syncing) host.setTakeOverWithoutAsking(takeOver.isSelected());
@@ -133,7 +133,7 @@ public final class GeneralPanel extends SettingsPage {
 		unlockNote.setVisible(false); // until refreshStartup says nothing is stored
 		addSpan(unlockNote);
 		atSignIn.setOpaque(false);
-		atSignIn.setToolTipText("It starts in the tray, unlocked with your stored passphrase, so anyone signed in to"
+		atSignIn.setToolTipText("It starts in the tray, opened with your stored passphrase, so anyone signed in to"
 			+ " this Windows account can use it. Task Manager lists it under Startup apps.");
 		atSignIn.addActionListener(e -> {
 			if (!syncing) host.setStartAtSignIn(atSignIn.isSelected());
@@ -181,7 +181,7 @@ public final class GeneralPanel extends SettingsPage {
 		});
 		group("Data store");
 		addValueRow("On disk",
-			"Your conversations, memory, skills, assistants and personal drives. The store only grows: compacting drops what it no longer refers to.",
+			"Your conversations, memory, skills, assistants, and personal drives. The store only grows: compacting drops what it no longer refers to.",
 			storeSize);
 		addSpan(compact);
 		addSpan(keptNote);
@@ -197,7 +197,7 @@ public final class GeneralPanel extends SettingsPage {
 			host::openDashboard);
 		action(advanced, "Open settings file", APP_NAME + "'s config.json, in its associated editor", host::openConfigFile);
 		action(advanced, "Open logs folder", "The local log files, for diagnostics", host::openLogsFolder);
-		action(advanced, "About", "Version, local address and technical identity", host::showAbout);
+		action(advanced, "About", "Version, local address, and technical identity", host::showAbout);
 
 		group("Application");
 		JPanel app = buttons();
@@ -249,10 +249,10 @@ public final class GeneralPanel extends SettingsPage {
 		atSignIn.setSelected(on);
 		syncing = false;
 		String why = (unavailable != null) ? unavailable
-			: passphraseStored ? null : "Store your passphrase on the unlock screen to use this.";
+			: passphraseStored ? null : "Store your passphrase on the Welcome back screen to use this.";
 		atSignIn.setEnabled(why == null || on);
 		atSignInNote.setText(why != null ? why
-			: "In the tray, unlocked with your stored passphrase: anyone signed in to this Windows account can use it.");
+			: "In the tray, opened with your stored passphrase: anyone signed in to this Windows account can use it.");
 		atSignInNote.setVisible(offered);
 	}
 

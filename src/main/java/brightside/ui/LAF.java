@@ -35,7 +35,8 @@ import com.formdev.flatlaf.util.ColorFunctions;
 import brightside.ui.components.Theme;
 
 /**
- * Look and feel: the themes FlatLaf provides — its own six, the IntelliJ theme
+ * Look and feel: Tau's own Dark (the default) and Light, then the themes
+ * FlatLaf provides — its own six, the IntelliJ theme
  * pack, and any {@code .theme.json} in the same format the owner drops into
  * the data home's {@code themes} folder — each restyled by Brightside's own UI
  * defaults and set in the bundled Lato at a comfortable size. {@link #init}
@@ -66,6 +67,7 @@ public final class LAF {
 		}
 	}
 
+	public static final String GROUP_TAU = "Tau";
 	public static final String GROUP_FLATLAF = "FlatLaf";
 	public static final String GROUP_INTELLIJ = "IntelliJ";
 	public static final String GROUP_OWN = "Yours";
@@ -74,12 +76,15 @@ public final class LAF {
 	public static final String DARK = "dark";
 	public static final String LIGHT = "light";
 
-	/** The default theme of each mode — what {@code config.json}'s {@code "dark"} and {@code "light"} mean. */
+	/** Tau's own themes: the default of each mode, what {@code config.json}'s {@code "dark"} and {@code "light"} mean. */
+	public static final String TAU_DARK = "tau-dark";
+	public static final String TAU_LIGHT = "tau-light";
+	/** FlatLaf's plain themes, still on offer: a remembered choice of either is kept. */
 	public static final String FLAT_DARK = "flat-dark";
 	public static final String FLAT_LIGHT = "flat-light";
 
-	/** Brightside's own accent, a vivid modern purple: the core themes' default until another is chosen. */
-	public static final String BRIGHTSIDE_ACCENT = "#7C6CF5";
+	/** Tau's accent, Royal Purple: the core themes' default until another is chosen. */
+	public static final String BRIGHTSIDE_ACCENT = "#6B46C1";
 
 	/** The package FlatLaf searches for Brightside's {@code *.properties} UI defaults. */
 	private static final String DEFAULTS_PACKAGE = "brightside.ui";
@@ -147,7 +152,7 @@ public final class LAF {
 	 */
 	public static void apply(String themeId, String accentHex) {
 		Choice c = choice(themeId);
-		if (c == null) c = (current != null) ? current : choice(FLAT_DARK);
+		if (c == null) c = (current != null) ? current : choice(TAU_DARK);
 		FlatAnimatedLafChange.showSnapshot();
 		setup(c, accentHex);
 		installFont();
@@ -178,7 +183,7 @@ public final class LAF {
 
 	/** The id of a mode's default theme. */
 	public static String defaultTheme(String mode) {
-		return isLight(mode) ? FLAT_LIGHT : FLAT_DARK;
+		return isLight(mode) ? TAU_LIGHT : TAU_DARK;
 	}
 
 	/** The theme with {@code id}, or null. */
@@ -223,7 +228,7 @@ public final class LAF {
 			laf = c.laf().get();
 		} catch (RuntimeException e) {
 			log.warn("Could not load theme {}: {}", c.name(), e.toString());
-			c = choice(FLAT_DARK);
+			c = choice(TAU_DARK);
 			laf = c.laf().get();
 		}
 		if (!FlatLaf.setup(laf)) log.warn("FlatLaf could not be installed; using the default look and feel");
@@ -242,12 +247,20 @@ public final class LAF {
 		Color dark = Theme.accentDark();
 		// The accent as text on its own tint over the panel: moved in lightness until it reads there.
 		Color text = Theme.readableOn(accent, Theme.blend(Theme.panel(), accent, 0.22f), Theme.AA_CONTRAST);
+		// On Tau's own themes with Tau's own purple, the accent as text is the
+		// theme's link colour exactly (#B79BF0 on navy, Royal Purple on white).
+		if (current != null && GROUP_TAU.equals(current.group()) && accent.equals(Color.decode(BRIGHTSIDE_ACCENT))) {
+			Color link = UIManager.getColor("Brightside.link");
+			if (link != null) text = link;
+		}
 		UIManager.put("Brightside.accent.dark", dark);
 		UIManager.put("Brightside.accent.text", text);
-		// The primary button: white on the dark shade, hover a step lighter, pressed a step darker.
-		UIManager.put("Brightside.primary.background", dark);
-		UIManager.put("Brightside.primary.hoverBackground", ColorFunctions.lighten(dark, 0.06f));
-		UIManager.put("Brightside.primary.pressedBackground", ColorFunctions.darken(dark, 0.06f));
+		// The primary button: white on the accent, darkened only until white reads on it at AA;
+		// hover a step lighter, pressed a step darker.
+		Color fill = Theme.primaryFill();
+		UIManager.put("Brightside.primary.background", fill);
+		UIManager.put("Brightside.primary.hoverBackground", ColorFunctions.lighten(fill, 0.05f));
+		UIManager.put("Brightside.primary.pressedBackground", ColorFunctions.darken(fill, 0.06f));
 		// The tinted button: the accent as text on its faint tint, the tint deepening under the pointer.
 		UIManager.put("Brightside.tinted.foreground", text);
 		UIManager.put("Brightside.tinted.background", ColorFunctions.fade(accent, 0.22f));
@@ -266,6 +279,8 @@ public final class LAF {
 
 	private static List<Choice> catalogue(Path ownThemes) {
 		List<Choice> out = new ArrayList<>();
+		out.add(new Choice(TAU_DARK, TauDarkLaf.NAME, GROUP_TAU, true, true, TauDarkLaf::new));
+		out.add(new Choice(TAU_LIGHT, TauLightLaf.NAME, GROUP_TAU, false, true, TauLightLaf::new));
 		out.add(core(FLAT_DARK, "Dark", true, FlatDarkLaf::new));
 		out.add(core(FLAT_LIGHT, "Light", false, FlatLightLaf::new));
 		out.add(core("flat-mac-dark", "macOS Dark", true, FlatMacDarkLaf::new));

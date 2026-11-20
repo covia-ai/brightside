@@ -454,7 +454,7 @@ public final class JobsScreen extends JPanel {
 			}
 			case MESSAGE -> {
 				message = Dialogs.prompt(this, "Send a message",
-					"What to tell \"" + job.title() + "\" — an answer it asked for, or a word for the agent running it:", "");
+					"What to tell \"" + job.title() + "\": an answer it asked for, or a word for the agent running it:", "");
 				if (message == null || message.isBlank()) return;
 			}
 			default -> {

@@ -451,7 +451,7 @@ public class Readout extends JTextPane {
 			case Styles.ERROR -> Theme.error();
 			case Styles.WARNING -> Theme.warning();
 			case Styles.SUCCESS -> Theme.success();
-			case Styles.ACCENT -> Theme.accent();
+			case Styles.ACCENT -> Theme.accentText();
 			case Styles.MUTED -> Theme.muted();
 			default -> fallback;
 		};
@@ -469,7 +469,7 @@ public class Readout extends JTextPane {
 		private final Font mono = face("monospaced.font", Font.MONOSPACED, small.getSize2D()).deriveFont(small.getSize2D());
 		private final Color foreground = Theme.foreground();
 		private final Color muted = Theme.muted();
-		private final Color accent = Theme.accent();
+		private final Color accent = Theme.accentText(); // readable as text: Royal Purple itself is not, on navy
 		private final Color codeGround = Theme.codeBackground();
 		private final int gap = UIScale.scale(GAP);
 		private final int indent = UIScale.scale(INDENT);

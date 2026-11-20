@@ -95,7 +95,7 @@ public final class OnboardingWizard extends JPanel {
 	private final JPasswordField keyField = new JPasswordField(30);
 	private final PressButton keyLink = Buttons.link("Get an API key →", Providers.defaultProvider().consoleUrl());
 	private final JRadioButton useKey = new JRadioButton("Use my own model provider", true);
-	private final JRadioButton useOffline = new JRadioButton("Skip for now — use the offline echo bot");
+	private final JRadioButton useOffline = new JRadioButton("Skip for now and use the offline echo bot");
 
 	private Step step = Step.WELCOME;
 
@@ -346,7 +346,7 @@ public final class OnboardingWizard extends JPanel {
 				"Everything " + APP_NAME + " remembers is encrypted on this computer with a passphrase only you know.",
 				"Continue", true);
 			case IDENTITY -> set("Your identity",
-				"A key that's yours alone — what makes this <i>your</i> agent, not an account on someone's server.",
+				"A key that's yours alone: what makes this <i>your</i> agent, on your own computer.",
 				"Continue", true);
 			case RECOVERY -> {
 				set("Your recovery phrase",
@@ -427,7 +427,7 @@ public final class OnboardingWizard extends JPanel {
 				String[] w = mnemonic.split(" ");
 				if (!confirmFieldA.getText().trim().equalsIgnoreCase(w[confirmA - 1])
 					|| !confirmFieldB.getText().trim().equalsIgnoreCase(w[confirmB - 1])) {
-					return "Those words don't match — check your phrase.";
+					return "Those words don't match; check your phrase.";
 				}
 			}
 			case IMPORT -> {

@@ -60,7 +60,7 @@ public final class JobList {
 		/** Queued, running or paused. */
 		ACTIVE("Active", "PENDING", "STARTED", "PAUSED"),
 		/** Asked the owner something. */
-		WAITING("Waiting for you", "INPUT_REQUIRED", "AUTH_REQUIRED"),
+		WAITING("Waiting on you", "INPUT_REQUIRED", "AUTH_REQUIRED"),
 		FAILED("Failed", "FAILED", "TIMEOUT", "REJECTED"),
 		COMPLETED("Completed", "COMPLETE"),
 		CANCELLED("Cancelled", "CANCELLED");

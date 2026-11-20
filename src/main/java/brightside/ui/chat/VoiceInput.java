@@ -233,7 +233,7 @@ final class VoiceInput {
 				fail("Voice typing isn't available", failure);
 			} else if (engine.needsKey()) {
 				idle();
-				note("Voice typing needs an OpenAI key — add one in Settings → Model", "key-round", Tone.WARNING);
+				note("Voice typing needs an OpenAI key; add one in Settings → Model", "key-round", Tone.WARNING);
 			} else if (engine.downloading()) {
 				prepare(v);
 			} else if (engine.needsDownload()) {
@@ -269,7 +269,7 @@ final class VoiceInput {
 				return;
 			}
 			idle();
-			note("Voice typing is ready — press the microphone and speak", "circle-check", Tone.SUCCESS);
+			note("Voice typing is ready: press the microphone and speak", "circle-check", Tone.SUCCESS);
 		}));
 	}
 
@@ -462,7 +462,7 @@ final class VoiceInput {
 			Dictation said = Dictation.of(text);
 			release(said.text());
 			if (said.text().isEmpty() && !said.send() && !go) {
-				note("Nothing was heard — check the microphone and try again", "circle-alert", Tone.WARNING);
+				note("Nothing was heard; check the microphone and try again", "circle-alert", Tone.WARNING);
 				return;
 			}
 			showLine(null);

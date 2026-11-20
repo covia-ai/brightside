@@ -71,7 +71,7 @@ public final class ContextInspector {
 	private static final String TIP_TOOLS = "Every tool definition the model receives.";
 	private static final String TIP_LOADED = "The context entries loaded for this conversation, and their accounting.";
 	private static final String TIP_META_CYCLE = "The cycle that produced the turn: its source, the model's finish "
-		+ "reason, its tokens and its job.";
+		+ "reason, its tokens, and its job.";
 	private static final String TIP_GRANTS = "Tools the skill grants while it is loaded.";
 	private static final String TIP_REVEALS = "Skills and directories that enter the index once this one is loaded.";
 	private static final String TIP_PATH = "Where the skill lives on the venue.";
@@ -237,7 +237,7 @@ public final class ContextInspector {
 			truncated > 0 ? truncated + " truncated" : null).onPress(TIP_LOADED, open(loads)), "wmin 0");
 
 		JLabel about = Labels.html("Exactly what the assistant's model receives for this conversation, assembled as "
-			+ "for a live reply but not sent. The budget is the model's declared context size — a guide the "
+			+ "for a live reply but not sent. The budget is the model's declared context size, a guide the "
 			+ "assembler warns against, not a cap.", 440, SwingConstants.LEFT);
 		Styles.classes(about, Styles.SMALL, Styles.MUTED);
 		p.add(about, "span 3, gaptop 8, wmin 0");
@@ -346,7 +346,7 @@ public final class ContextInspector {
 		if (role == null) return null;
 		return switch (role) {
 			case "system" -> "Instructions to the model, sent as the system message.";
-			case "user" -> "From the owner — or a context entry presented in the owner's voice.";
+			case "user" -> "From the owner, or a context entry presented in the owner's voice.";
 			case "assistant" -> "The model's own words, or a compacted stretch's summary in its voice.";
 			case "tool" -> "A tool's result, answering the call it names.";
 			case "compacted" -> "A compacted stretch: its summary stands for the turns archived beneath it.";
@@ -438,7 +438,7 @@ public final class ContextInspector {
 	/** Where a tool definition comes from. */
 	private static String sourceTip(String source) {
 		return switch (source) {
-			case "harness" -> "Controls the venue's harness offers an agent that names them — compacting the "
+			case "harness" -> "Controls the venue's harness offers an agent that names them: compacting the "
 				+ "conversation, loading a skill.";
 			case "default" -> "Read-only reads of the agent's own workspace: the default tools its configuration keeps on.";
 			case "config" -> "Tools named in the agent's configuration, always on.";

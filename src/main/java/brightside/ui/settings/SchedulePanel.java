@@ -125,7 +125,7 @@ public final class SchedulePanel extends SettingsPage {
 		addSpan(summary, "gapbottom 16");
 		addSpan(list);
 		primary.setIcon(Lucide.icon("plus", 14, () -> primary.getForeground()));
-		primary.setToolTipText("Schedule an operation to run later, once or repeatedly");
+		primary.setToolTipText("Schedule an operation to run later, once, or repeatedly");
 		onPrimary(() -> newEvent(Draft.EMPTY, null, Fault.NONE));
 
 		// Countdowns move on their own while the page is showing, and an event
@@ -408,7 +408,7 @@ public final class SchedulePanel extends SettingsPage {
 					.setToolTipText("The conversation " + event.lastAgent() + " had on the last run");
 			}
 			item(m, "New from this…", "plus", () -> newEvent(Draft.like(event), null, Fault.NONE))
-				.setToolTipText("A new event with this one's operation, input and timing");
+				.setToolTipText("A new event with this one's operation, input, and timing");
 			m.addSeparator();
 			if (event.operation() != null) item(m, "Copy operation", "copy", () -> Clipboard.copy(event.operation(), card));
 			item(m, "Copy handle", null, () -> Clipboard.copy(event.handle(), card));
@@ -615,7 +615,7 @@ public final class SchedulePanel extends SettingsPage {
 		d.setBorder(brightside.ui.components.Borders.hairlineTop());
 		detail(d, "Operation", e.operation(), true);
 		detail(d, "Repeats", e.recurring() ? every(e.everyMillis()) + ", on a fixed grid; missed runs are skipped"
-			: "No — it runs once", false);
+			: "No, it runs once", false);
 		detail(d, "Next run", Times.exact(e.nextAt()), false);
 		detail(d, "Last run", e.lastFiredAt() > 0 ? Times.exact(e.lastFiredAt()) : "Not yet", false);
 		detail(d, "History", e.tracked() ? "Each run is kept in your job history"
@@ -668,7 +668,7 @@ public final class SchedulePanel extends SettingsPage {
 			case "TIMEOUT" -> outcome("circle-alert", Tone.ERROR, "Timed out", e.lastError());
 			case "REJECTED" -> outcome("circle-x", Tone.ERROR, "Refused", e.lastError());
 			case "CANCELLED" -> outcome("circle-x", Tone.MUTED, "Cancelled", null);
-			case "INPUT_REQUIRED", "AUTH_REQUIRED" -> outcome("circle-pause", Tone.WARNING, "Waiting for you",
+			case "INPUT_REQUIRED", "AUTH_REQUIRED" -> outcome("circle-pause", Tone.WARNING, "Waiting on you",
 				"It asked you something: answer it in your Inbox");
 			case "PAUSED" -> outcome("circle-pause", Tone.MUTED, "Paused", null);
 			case "PENDING", "STARTED" -> outcome("loader-circle", Tone.ACCENT, "Running", null);

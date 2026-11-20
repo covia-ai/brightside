@@ -84,8 +84,6 @@ final class SolarMap extends JComponent {
 	static final Color CONNECTED = new Color(0x4ADE80);
 	static final Color IDLE = new Color(0xFBBF24);
 	static final Color OFFLINE = new Color(0x6B7280);
-	/** Whoever you are acting as. */
-	static final Color YOU = new Color(0xFACC15);
 
 	/**
 	 * How bodies at a depth look: the smallest they are drawn, in pixels;
@@ -403,13 +401,14 @@ final class SolarMap extends JComponent {
 	}
 
 	/**
-	 * Whoever you are acting as is yellow; your venue and your main assistant
-	 * wear the brand colour; anything else is coloured by its DID.
+	 * The local node, whoever you are acting as and your own venue, wears the
+	 * theme's local-node colour (Royal Purple on Light, amber on Dark); your
+	 * main assistant wears the brand colour; anything else is coloured by its DID.
 	 */
 	Color colourOf(Node n) {
-		if (n.did().equals(acting)) return YOU;
+		if (n.did().equals(acting)) return Theme.localNode();
 		if (Node.MAIN.equals(n.relation())) return Theme.accent();
-		if (n.is(Node.VENUE) && Node.SELF.equals(n.relation())) return Theme.accent();
+		if (n.is(Node.VENUE) && Node.SELF.equals(n.relation())) return Theme.localNode();
 		return hue(n.did());
 	}
 
@@ -1056,7 +1055,7 @@ final class SolarMap extends JComponent {
 			if (marker > 0) {
 				double mr = UIScale.scale(14f) * (1 + 0.12 * Math.sin(t * 2.2));
 				g.setStroke(new BasicStroke(UIScale.scale(1.4f)));
-				g.setColor(fade(Theme.accent(), 0.75f * marker));
+				g.setColor(fade(Theme.localNode(), 0.75f * marker));
 				g.draw(new Ellipse2D.Double(x - mr, y - mr, 2 * mr, 2 * mr));
 			}
 		}
@@ -1197,9 +1196,11 @@ final class SolarMap extends JComponent {
 		Rectangle2D box = new Rectangle2D.Double(pl.x() - w / 2, y - fm.getAscent(), w, h);
 		if (!focus) for (Rectangle2D other : labelled) if (other.intersects(box)) return;
 		labelled.add(box);
-		// The name of whoever you are acting as in yellow; everyone else's in white.
+		// The name of whoever you are acting as in amber, the colour of what is
+		// yours, which reads on the map's night sky in either theme; everyone
+		// else's in white.
 		boolean you = n.did().equals(acting);
-		centred(g, name, pl.x(), y, fade(you ? YOU : Color.WHITE, Math.min(1f, 0.85f * alpha + (focus ? 0.13f : 0))));
+		centred(g, name, pl.x(), y, fade(you ? Theme.yours() : Color.WHITE, Math.min(1f, 0.85f * alpha + (focus ? 0.13f : 0))));
 		if (sub != null) {
 			g.setFont(getFont().deriveFont(UIScale.scale(10f)));
 			centred(g, sub, pl.x(), y + UIScale.scale(13), new Color(1f, 1f, 1f, 0.55f));

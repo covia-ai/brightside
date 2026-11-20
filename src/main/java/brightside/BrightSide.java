@@ -387,7 +387,7 @@ public final class BrightSide {
 			}, this::onUnlockClosing);
 		}
 		unlockDialog.showUnlock(prefill);
-		if (takeoverApproved) unlockDialog.showNote("Another " + APP_NAME + " is running; it will hand over once you unlock.");
+		if (takeoverApproved) unlockDialog.showNote("Another " + APP_NAME + " is running; it will hand over once you open it.");
 	}
 
 	/** The passphrase was accepted (or the identity recovered): drop the unlock dialog and bring up the window. */
@@ -850,7 +850,7 @@ public final class BrightSide {
 				SwingUtilities.invokeLater(() -> unlockFailed("That passphrase didn't work."));
 			} catch (Exception e) {
 				log.error("Unlock failed", e);
-				SwingUtilities.invokeLater(() -> unlockFailed("Couldn't unlock — see the logs."));
+				SwingUtilities.invokeLater(() -> unlockFailed("Couldn't open: see the logs."));
 			} finally {
 				java.util.Arrays.fill(passphrase, '\0');
 			}

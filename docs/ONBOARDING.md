@@ -55,8 +55,10 @@ the wizard and unlock both run before it. The code is `OnboardingWizard`,
 
 ## Unlock
 
-A small window of its own, shown before the main window exists: passphrase,
-*Unlock*, and *Forgot it? Restore from your recovery phrase*. A wrong
+A small window of its own, shown before the main window exists: *Welcome
+back*, passphrase, *Open Tau*, and *Forgot passphrase?* (restore from your
+recovery phrase). The on-screen copy says "open" rather than "unlock"; the
+mechanism, and this document's name for it, is unchanged. A wrong
 passphrase fails the authenticated decryption and is reported there, not in
 the log. While the venue starts, the dialog shows progress and the main window
 appears only once it is ready. *Lock* (Settings → General) hides the window and

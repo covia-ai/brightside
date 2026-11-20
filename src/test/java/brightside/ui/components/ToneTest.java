@@ -39,6 +39,7 @@ class ToneTest {
 
 	private static void assertTints(float alpha) {
 		for (Tone tone : Tone.values()) {
+			if (tone.isStatus()) continue; // solid grounds of their own, see StatusBadgeTest
 			String key = "Brightside." + tone.name().toLowerCase() + ".tint";
 			assertNotNull(UIManager.getColor(key), key);
 			assertEquals(Math.round(alpha * 255), tone.tint().getAlpha(), 1, tone.name());

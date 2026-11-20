@@ -62,7 +62,7 @@ final class OnboardingUI {
 				for (int i = 0; i < count; i++) {
 					boolean on = i == current;
 					int r = UIScale.scale(on ? 5 : 4);
-					g2.setColor(on ? Theme.accent() : Theme.blend(Theme.surface(), Theme.foreground(), 0.35f));
+					g2.setColor(on ? Theme.accentText() : Theme.blend(Theme.surface(), Theme.foreground(), 0.35f));
 					g2.fillOval(x + i * gap - r / 2, y - r / 2, r, r);
 				}
 			} finally {
