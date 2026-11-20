@@ -77,7 +77,10 @@ final class OnboardingUI {
 		p.setLayout(new BorderLayout(8, 0));
 		p.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
 		p.add(Labels.small(Integer.toString(index)), BorderLayout.WEST);
-		p.add(Labels.heading(word), BorderLayout.CENTER);
+		// The words in mono, so each letter reads unambiguously when written down.
+		JLabel w = Labels.heading(word);
+		Styles.style(w, "font: +2 $monospaced.font");
+		p.add(w, BorderLayout.CENTER);
 		return p;
 	}
 

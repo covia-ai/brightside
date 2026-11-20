@@ -17,7 +17,6 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 
 import javax.swing.AbstractAction;
-import javax.swing.ImageIcon;
 import javax.swing.JComponent;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
@@ -1244,7 +1243,8 @@ public final class MainWindow extends JFrame {
 			if (venue.did() != null) sb.append("\nIdentity: ").append(identity != null
 				? identity.userDID(venue.did()) : venue.did());
 		}
-		Dialogs.info(this, "About " + BrightSide.APP_NAME, new SelectableText(sb.toString()), new ImageIcon(Icons.icon(64)));
+		Dialogs.info(this, "About " + BrightSide.APP_NAME, new SelectableText(sb.toString()),
+			brightside.ui.components.TauMark.brand(128));
 	}
 
 
@@ -1679,7 +1679,7 @@ public final class MainWindow extends JFrame {
 			add(new brightside.ui.components.ScreenHeader("Feed"), BorderLayout.NORTH);
 			brightside.ui.components.EmptyState empty = new brightside.ui.components.EmptyState("rss",
 				brightside.ui.components.Tone.ACCENT, "Coming soon: activity from agents you follow",
-				"Nothing to show here yet.");
+				"Nothing to show here yet.").withMark(104);
 			add(empty, BorderLayout.CENTER);
 		}
 	}

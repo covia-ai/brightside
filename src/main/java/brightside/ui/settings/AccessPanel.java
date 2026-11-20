@@ -97,7 +97,7 @@ public final class AccessPanel extends SettingsPage {
 			+ "Its turns show as the token's name, so you can tell them apart. Kept until you revoke it."),
 		LOGIN("Login as you", "A login that appears as you, with everything you can do. "
 			+ "Shown once and kept nowhere; it stops working when it expires."),
-		OPERATOR("Operator login (advanced)", "A login as the operator, the identity that runs this Home/Venue, for administration only. "
+		OPERATOR("Venue operator login (advanced)", "A login as the operator, the identity that runs this Home/venue, for administration only. "
 			+ "Shown once and kept nowhere; it stops working when it expires.");
 
 		final String label;
@@ -382,10 +382,10 @@ public final class AccessPanel extends SettingsPage {
 			String jwt = host.mintLogin(sel.seconds(), k == Kind.OPERATOR);
 			if (jwt == null) {
 				clearIssued();
-				setNote("Couldn't make a login: " + brightside.BrightSide.APP_NAME + " is still starting. Nothing was made; try again in a moment.", true);
+				setNote("Couldn't make a login: the venue isn't ready. Nothing was made; try again in a moment.", true);
 				return;
 			}
-			showIssued(jwt, "A login " + (k == Kind.OPERATOR ? "as the operator" : "as you")
+			showIssued(jwt, "A login " + (k == Kind.OPERATOR ? "as the venue operator" : "as you")
 				+ ", valid for " + sel.label() + ". Treat it like a password: it isn't kept.");
 			return;
 		}

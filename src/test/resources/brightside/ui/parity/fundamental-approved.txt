@@ -15,25 +15,11 @@ Stars are venues; Home is yours
 Planets are a venue's users
 Rings mark a venue's admin
 Venue
-# Approved: This computer.
-The active conversation has not been accepted by the venue
-stored encrypted on the venue and used from the next message
-The provider's API key, stored encrypted on the venue and used from the next message
-"(advanced): the venue's own agents (the gods: Odin, Thor, Njord, and Eir) and the venue's Inbox.
-(advanced): the venue's own agents (the gods: Odin, Thor, Njord, and Eir) and the venue's Inbox. Everything else is as yourself; 
-Couldn't make a login: the venue isn't ready.
 # Approved: the owner's own wording replaces these.
 Still running in the tray. Click the icon to reopen; use Exit to stop the venue.
 The embedded venue's web dashboard, in your browser
-# Operator without its "venue" qualifier, beside the approved wording for who the operator is.
- calls the venue operator: a label only; the 
- (venue operator)
-Venue operator login (advanced)
-as the venue operator
 # Held as they are on the owner's instruction, pending the owner's answer.
 Session
 New session
 Show in Sessions
 Sessions
-Where the skill lives on the venue: what a load refers to.
-A directory of skills on the venue.

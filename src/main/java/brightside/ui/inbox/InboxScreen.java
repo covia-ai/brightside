@@ -41,7 +41,7 @@ public final class InboxScreen extends JPanel {
 	private final Chip waiting = new Chip(" ");
 	private final JLabel notice = Labels.small(" ");
 	private final EmptyState empty = new EmptyState("inbox", Tone.MUTED, "Nothing is waiting for you",
-		"When one of your agents needs a decision only you can make, it asks here.").bare();
+		"When one of your agents needs a decision only you can make, it asks here.").withMark(104).bare();
 	/** Cards by owner and request id, in display order. */
 	private final Map<String, RequestCard> cards = new LinkedHashMap<>();
 	private List<Inbox.Request> requests = List.of();

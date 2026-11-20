@@ -813,7 +813,7 @@ public final class ChatPanel extends JPanel {
 	private void enqueue(ChatSession s, long version, ACell message) {
 		CompletableFuture<String> accepted = acceptedSession;
 		if (accepted == null) {
-			appendError("This message wasn't delivered: the conversation hasn't started on this computer yet. Nothing was sent; send it again in a moment.");
+			appendError("The active conversation has not been accepted by the venue. Nothing was sent; send it again in a moment.");
 			return;
 		}
 

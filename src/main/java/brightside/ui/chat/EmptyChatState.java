@@ -11,12 +11,10 @@ import java.awt.Insets;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
-import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
 
-import brightside.ui.Icons;
 import brightside.ui.components.Card;
 import brightside.ui.components.Labels;
 import brightside.ui.components.Theme;
@@ -45,7 +43,8 @@ final class EmptyChatState extends JPanel {
 		card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
 		card.setBorder(BorderFactory.createEmptyBorder(32, 48, 34, 48));
 
-		JLabel mark = Labels.icon(new ImageIcon(Icons.icon(72)));
+		// The τ mark.
+		JLabel mark = Labels.icon(brightside.ui.components.TauMark.plain(104));
 		mark.setAlignmentX(Component.CENTER_ALIGNMENT);
 
 		greeting.setHorizontalAlignment(SwingConstants.CENTER);

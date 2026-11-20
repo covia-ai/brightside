@@ -12,7 +12,6 @@ import java.awt.event.KeyEvent;
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
-import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComponent;
@@ -24,7 +23,6 @@ import javax.swing.SwingConstants;
 
 import com.formdev.flatlaf.FlatClientProperties;
 
-import brightside.ui.Icons;
 import brightside.ui.components.Buttons;
 import brightside.ui.components.Labels;
 import brightside.ui.components.Lucide;
@@ -64,7 +62,7 @@ public final class UnlockPanel extends JPanel {
 		JPanel col = Panels.column();
 		col.setBorder(BorderFactory.createEmptyBorder(24, 32, 24, 32));
 
-		JLabel mark = Labels.icon(new ImageIcon(Icons.icon(64)));
+		JLabel mark = Labels.icon(brightside.ui.components.TauMark.plain(64));
 		mark.setAlignmentX(CENTER_ALIGNMENT);
 		JLabel title = Labels.title("Welcome back");
 		title.setAlignmentX(CENTER_ALIGNMENT);

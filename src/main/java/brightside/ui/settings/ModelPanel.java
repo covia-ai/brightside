@@ -46,7 +46,7 @@ public final class ModelPanel extends SettingsPage {
 	}
 
 	private void build() {
-		keyField.setToolTipText("The provider's API key, stored encrypted on this computer and used from the next message");
+		keyField.setToolTipText("The provider's API key, stored encrypted on the venue and used from the next message");
 		Styles.classes(keyField, Styles.MONOSPACED);
 		modelSelector.addSelectionListener(this::onModelSelection);
 		keyField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Paste a new key to replace it (leave blank to keep)");

@@ -17,12 +17,15 @@ import net.miginfocom.swing.MigLayout;
 @SuppressWarnings("serial")
 public final class EmptyState extends Card {
 
+	private final Badge badge;
+
 	/** {@code body}: HTML, or null for a title alone. */
 	public EmptyState(String icon, Tone tone, String title, String body) {
 		super(14);
 		// Centred both ways, so a bare state stretched over an empty pane sits in its middle.
 		setLayout(new MigLayout("insets 28 24 28 24, fillx, wrap 1, gapy 6, aligny center", "[center]", ""));
-		add(new Badge(icon, tone, 38), "gapbottom 6");
+		badge = new Badge(icon, tone, 38);
+		add(badge, "gapbottom 6");
 		add(Labels.lead(title));
 		if (body != null) {
 			// Narrow enough for the narrowest pane it fills (Files' preview): HTML wrapped at a width never shrinks.
@@ -30,6 +33,16 @@ public final class EmptyState extends Card {
 			Styles.classes(b, Styles.MUTED);
 			add(b);
 		}
+	}
+
+	/**
+	 * The τ mark in place of the icon: for the empty states that greet you (an
+	 * empty chat, an empty Inbox, the Feed, no skills), never for errors.
+	 */
+	public EmptyState withMark(int size) {
+		remove(badge);
+		add(new javax.swing.JLabel(TauMark.plain(size)), "gapbottom 6", 0);
+		return this;
 	}
 
 	/** Without the card behind it: for a pane that is otherwise empty. */

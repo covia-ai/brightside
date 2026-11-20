@@ -7,6 +7,7 @@ import java.awt.CardLayout;
 import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
+import java.awt.Insets;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.util.Random;
@@ -14,7 +15,6 @@ import java.util.Random;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.ButtonGroup;
-import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
@@ -29,11 +29,13 @@ import com.formdev.flatlaf.FlatClientProperties;
 
 import brightside.Identity;
 import brightside.model.Providers;
-import brightside.ui.Icons;
 import brightside.ui.components.Buttons;
 import brightside.ui.components.Clipboard;
 import brightside.ui.components.Documents;
+import brightside.ui.components.IdentityMark;
 import brightside.ui.components.Labels;
+import brightside.ui.components.TauMark;
+import brightside.ui.components.Theme;
 import brightside.ui.components.Links;
 import brightside.ui.components.ModelSelector;
 import brightside.ui.components.Panels;
@@ -73,7 +75,27 @@ public final class OnboardingWizard extends JPanel {
 
 	private final JLabel titleLabel = Labels.title("");
 	private final JLabel subtitleLabel = Styles.classes(Labels.html("", COPY_WIDTH, SwingConstants.CENTER), Styles.MUTED);
-	private final JPanel cards = new JPanel(new CardLayout());
+	/** The steps, as tall as the one showing, so a short step sits on a short card. */
+	private final JPanel cards = new JPanel(new CardLayout()) {
+		@Override
+		public Dimension getPreferredSize() {
+			for (Component c : getComponents()) {
+				if (c.isVisible()) {
+					Dimension d = c.getPreferredSize();
+					Insets in = getInsets();
+					return new Dimension(Math.max(d.width, widest()) + in.left + in.right, d.height + in.top + in.bottom);
+				}
+			}
+			return super.getPreferredSize();
+		}
+
+		/** The widest step, so the card keeps one width as the steps change. */
+		private int widest() {
+			int w = 0;
+			for (Component c : getComponents()) w = Math.max(w, c.getPreferredSize().width);
+			return w;
+		}
+	};
 	private final JButton back = Buttons.secondary("Back");
 	private final JButton next = Buttons.primary("Continue");
 	private final JLabel error = Labels.small(" ");
@@ -98,10 +120,16 @@ public final class OnboardingWizard extends JPanel {
 	private final JRadioButton useOffline = new JRadioButton("Skip for now and use the offline echo bot");
 
 	private Step step = Step.WELCOME;
+	/** The header's τ: large on Welcome and as Finish sets things up. */
+	private final JLabel mark = Labels.icon(TauMark.plain(48));
+	/** The identity being made, shown on the name card the moment it exists. */
+	private final JLabel identityMark = new JLabel();
+	private final JLabel identityPrint = Labels.small(" ");
 
 	public OnboardingWizard(Listener listener) {
 		super(new BorderLayout());
 		this.listener = listener;
+		setOpaque(true);
 
 		add(header(), BorderLayout.NORTH);
 		add(centre(), BorderLayout.CENTER);
@@ -119,6 +147,14 @@ public final class OnboardingWizard extends JPanel {
 
 		back.addActionListener(e -> goBack());
 		next.addActionListener(e -> goNext());
+		// Enter presses the primary button from anywhere in the wizard; the phrase box keeps Enter for itself.
+		getInputMap(WHEN_ANCESTOR_OF_FOCUSED_COMPONENT).put(javax.swing.KeyStroke.getKeyStroke("ENTER"), "primary");
+		getActionMap().put("primary", new javax.swing.AbstractAction() {
+			@Override
+			public void actionPerformed(java.awt.event.ActionEvent e) {
+				if (next.isEnabled() && next.isShowing()) next.doClick();
+			}
+		});
 		show(Step.WELCOME);
 	}
 
@@ -129,7 +165,6 @@ public final class OnboardingWizard extends JPanel {
 	private Component header() {
 		JPanel p = column();
 		p.setBorder(BorderFactory.createEmptyBorder(28, 0, 4, 0));
-		JLabel mark = Labels.icon(new ImageIcon(Icons.icon(56)));
 		mark.setAlignmentX(CENTER_ALIGNMENT);
 		JLabel word = Labels.small(APP_NAME);
 		word.setAlignmentX(CENTER_ALIGNMENT);
@@ -143,7 +178,7 @@ public final class OnboardingWizard extends JPanel {
 		JPanel wrap = new JPanel(new GridBagLayout());
 		wrap.setOpaque(false);
 		JPanel col = column();
-		col.setBorder(BorderFactory.createEmptyBorder(8, 32, 8, 32));
+		col.setBorder(BorderFactory.createEmptyBorder(26, 36, 26, 36));
 		titleLabel.setAlignmentX(CENTER_ALIGNMENT);
 		subtitleLabel.setAlignmentX(CENTER_ALIGNMENT);
 		cards.setAlignmentX(CENTER_ALIGNMENT);
@@ -152,7 +187,11 @@ public final class OnboardingWizard extends JPanel {
 		col.add(subtitleLabel);
 		col.add(Box.createVerticalStrut(22));
 		col.add(cards);
-		wrap.add(col);
+		// The steps sit on a card: white over the gold ground on Light, raised navy on Dark.
+		brightside.ui.components.Card card = new brightside.ui.components.Card(20).fill(Theme::card).outline(Theme::line);
+		card.setLayout(new BorderLayout());
+		card.add(col, BorderLayout.CENTER);
+		wrap.add(card);
 		return wrap;
 	}
 
@@ -200,10 +239,19 @@ public final class OnboardingWizard extends JPanel {
 		c.add(Box.createVerticalStrut(16));
 		c.add(strength);
 		c.add(Box.createVerticalStrut(16));
-		JLabel warn = copy("⚠  Keep your recovery phrase safe. It can reset a forgotten passphrase "
-			+ "and reopen retained " + APP_NAME + " data; provider API keys must be entered again.");
-		Styles.classes(warn, Styles.SMALL, Styles.MUTED);
-		c.add(warn);
+		// Wraps to the card's width, so no word is cut off at any window size.
+		brightside.ui.components.SelectableText warn = new brightside.ui.components.SelectableText(
+			"⚠  Keep your recovery phrase safe. It can reset a forgotten passphrase "
+			+ "and reopen retained " + APP_NAME + " data; provider API keys must be entered again.").small();
+		// A card with a navy outline, never red: it asks for care, nothing has gone wrong.
+		brightside.ui.components.Card note = new brightside.ui.components.Card(12).fill(Theme::card)
+			.outline(Theme::foreground);
+		note.setLayout(new BorderLayout());
+		note.setBorder(BorderFactory.createEmptyBorder(10, 14, 10, 14));
+		note.add(warn, BorderLayout.CENTER);
+		note.setAlignmentX(CENTER_ALIGNMENT);
+		note.setMaximumSize(new Dimension(COPY_WIDTH + 28, Integer.MAX_VALUE));
+		c.add(note);
 		return c;
 	}
 
@@ -291,6 +339,15 @@ public final class OnboardingWizard extends JPanel {
 		nameField.setAlignmentX(CENTER_ALIGNMENT);
 		nameField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Your name");
 		c.add(nameField);
+		// The identity just made: its mark and short fingerprint, in mono.
+		identityMark.setAlignmentX(CENTER_ALIGNMENT);
+		identityPrint.setAlignmentX(CENTER_ALIGNMENT);
+		Styles.style(identityPrint, "font: $monospaced.font");
+		Styles.classes(identityPrint, Styles.SMALL, Styles.MUTED);
+		c.add(Box.createVerticalStrut(18));
+		c.add(identityMark);
+		c.add(Box.createVerticalStrut(6));
+		c.add(identityPrint);
 		return c;
 	}
 
@@ -340,6 +397,7 @@ public final class OnboardingWizard extends JPanel {
 		step = s;
 		setError(" ", false);
 		((CardLayout) cards.getLayout()).show(cards, s.name());
+		cards.revalidate();
 		switch (s) {
 			case WELCOME -> set("Welcome to " + APP_NAME, "Your assistant. Yours alone.", "Get started", true);
 			case PASSPHRASE -> set("Secure your " + APP_NAME,
@@ -370,6 +428,8 @@ public final class OnboardingWizard extends JPanel {
 		}
 		dots.set(5, phase(s));
 		back.setVisible(s != Step.WELCOME);
+		greet(s == Step.WELCOME);
+		if (s == Step.NAME) showIdentity();
 	}
 
 	private static int phase(Step s) {
@@ -459,6 +519,7 @@ public final class OnboardingWizard extends JPanel {
 		String model = offline || selectedModel == null ? null : selectedModel.id();
 		String apiKey = (offline || keyField.getPassword().length == 0) ? null : new String(keyField.getPassword());
 		next.setEnabled(false);
+		greet(true);
 		setError("Setting things up…", false);
 		listener.onComplete(new Setup(passphrase, seedHex, name, provider, model, apiKey));
 	}
@@ -469,12 +530,46 @@ public final class OnboardingWizard extends JPanel {
 	 */
 	public void showFailure(String message) {
 		next.setEnabled(true);
+		greet(false);
 		setError(message, true);
 	}
 
 	// ------------------------------------------------------------------
 	// Step helpers
 	// ------------------------------------------------------------------
+
+	/** The τ large, greeting (Welcome, Finish), or small on every other card. */
+	private void greet(boolean large) {
+		mark.setIcon(large ? TauMark.brand(GREETING) : TauMark.plain(48));
+	}
+
+	/** The τ's size where it greets: within the 160 to 240 the brand sets. */
+	static final int GREETING = 176;
+
+	/** Whether the header shows the large τ greeting, for tests. */
+	boolean greeting() {
+		return mark.getIcon() instanceof TauMark t && t.isBrand();
+	}
+
+	/** The new identity's mark and fingerprint, from the phrase chosen or imported. */
+	private void showIdentity() {
+		String phrase = createNew ? mnemonic : importArea.getText();
+		String did = null;
+		try {
+			if (phrase != null && Mnemonic.isValid(phrase.trim())) did = brightside.Takeover.venueDIDFor(Mnemonic.toSeedHex(phrase));
+		} catch (RuntimeException e) {
+			did = null;
+		}
+		identityMark.setIcon(did == null ? null : IdentityMark.icon(did, 40));
+		identityPrint.setText(did == null ? " " : IdentityMark.fingerprint(did));
+		identityMark.setVisible(did != null);
+		identityPrint.setVisible(did != null);
+	}
+
+	/** The fingerprint the name card shows, for tests. */
+	String identityShown() {
+		return identityPrint.isVisible() ? identityPrint.getText() : null;
+	}
 
 	private void fillRecovery() {
 		if (mnemonic == null) mnemonic = Mnemonic.generate(Mnemonic.DEFAULT_WORDS);
@@ -560,6 +655,12 @@ public final class OnboardingWizard extends JPanel {
 		JLabel l = Labels.html(html, COPY_WIDTH, SwingConstants.CENTER);
 		l.setAlignmentX(CENTER_ALIGNMENT);
 		return l;
+	}
+
+	/** The ground behind the card: the sidebar's gold on Light, the panel's navy on Dark. */
+	@Override
+	public java.awt.Color getBackground() {
+		return Theme.isDark() ? Theme.panel() : Theme.sidebar();
 	}
 
 	private static JPanel column() {
