@@ -1520,7 +1520,7 @@ public final class MainWindow extends JFrame {
 	 */
 	private void placeMovedPages(boolean railShell) {
 		if (railShell) {
-			jobsHolder.add(settingsScreen.jobs(), BorderLayout.CENTER);
+			brightside.ui.components.Panels.adopt(jobsHolder, settingsScreen.jobs(), BorderLayout.CENTER);
 			vaultScreen.adopt(settingsScreen.secrets(), settingsScreen.access(), settingsScreen.vault());
 			settingsScreen.livesElsewhere(SettingsScreen.Tab.JOBS, () -> go(Destination.JOBS));
 			settingsScreen.livesElsewhere(SettingsScreen.Tab.SECRETS, () -> openVault(brightside.ui.vault.VaultScreen.Page.SECRETS));

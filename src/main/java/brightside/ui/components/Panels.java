@@ -48,4 +48,14 @@ public final class Panels {
 		s.setMaximumSize(new Dimension(Integer.MAX_VALUE, s.getPreferredSize().height));
 		return s;
 	}
+
+	/**
+	 * Moves {@code page} into {@code holder}, shown. A page taken from a card
+	 * deck may have been hidden there as a card not on view, and keeps that
+	 * when it moves; in its new place it is the content, so it is shown.
+	 */
+	public static void adopt(java.awt.Container holder, java.awt.Component page, Object constraints) {
+		holder.add(page, constraints);
+		page.setVisible(true);
+	}
 }
